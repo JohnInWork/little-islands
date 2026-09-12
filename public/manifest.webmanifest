@@ -1,0 +1,13 @@
+{
+  "id": "./",
+  "name": "Маленькие острова",
+  "short_name": "Острова",
+  "description": "Маленькие острова. Большое приключение одним касанием.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#bdddda",
+  "theme_color": "#bdddda",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
