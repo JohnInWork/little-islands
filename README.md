@@ -2,54 +2,72 @@
 
 # Little Islands
 
-A small, touch-first 3D adventure. A knight, a handful of hexagons, three guardians and a portal to the next island. Tap where you want to go; the knight walks, fights, mines and opens chests on his own. Almost no words on screen — just icons, motion and a little more loot.
+A mobile-first 2D roguelike RPG inspired by the systemic depth of NetHack and
+Pathos. Tap an explored tile to choose a route; the hero moves, fights and picks
+up loot automatically. The controls stay simple while procedural floors,
+equipment and events create the decisions.
 
-**▶ [Play in the browser](https://johninwork.github.io/little-islands/)** — made for a phone, works on desktop too. No account or download.
+**▶ [Play in the browser](https://johninwork.github.io/little-islands/)** — no
+account or download required.
 
-![A knight exploring a floating hex island](screenshots/island.png)
-
-## How it plays
-
-- **One tap is an instruction.** Choose a skeleton, crystal, chest or empty hex. The knight finds a route and handles the action, with animated attacks, mining and chest lids.
-- **Three guardians, one exit.** Defeat the two skeletons and their larger guardian to open the portal. Each island rearranges encounters and decoration; three visual biomes rotate as you advance.
-- **Two buttons in a fight.** The sword triggers a sweeping attack with a cooldown. The potion restores half your health. A camp offers a one-use full heal.
-- **A little stronger every island.** Spend coins between islands on damage, health or potion capacity. Equipment changes as the weapon upgrade grows. Defeat keeps your coins and upgrades.
-- **Pick up where you left off.** Progress saves in this browser. The game can run offline after a complete first load and can be added to the home screen on supported browsers.
+![Procedural dungeon, fog of war and minimal HUD](screenshots/dungeon-desktop.png)
 
 <p align="center">
-  <img src="screenshots/mobile.png" width="34%" alt="Portrait mobile layout with two thumb-sized action buttons">
+  <img src="screenshots/dungeon-mobile.png" width="38%" alt="Large pixel-art paper doll and equipment inventory on a phone">
 </p>
 
-On desktop, click to move or interact. **Space** — sweeping attack, **H** — potion, **Escape** — pause.
+## Playable foundation
 
-## Running it
+- Seeded room-and-corridor floors with loops, a reachable exit and fog of war.
+- Tap/click pathfinding, WASD support, enemy pursuit and automatic melee combat.
+- Experience, levels, health, growing difficulty and persistent progression.
+- 24 active monsters, 36 loot definitions, four events and four dungeon themes.
+- Twelve inventory spaces, consumables, bulk salvage and eight equipment slots.
+- Armour, headgear, weapons, shields and boots appear on the paper-doll hero.
+- Versioned local save with a backup; a damaged save cannot block a fresh run.
+- Icon-first responsive interface designed around a 390 × 844 phone screen.
 
-Node.js 22 or newer:
+This is a playable vertical slice and a foundation for a much larger RPG, not a
+claim of full NetHack content parity yet. The next planned systems are unknown
+potions and scrolls, curses, resistances, status effects, icon-based choices,
+unique rooms and minibosses.
+
+## Controls
+
+- **Phone / mouse:** tap any revealed walkable tile.
+- **Keyboard:** WASD or arrow keys.
+- **Combat and pickup:** automatic when the hero reaches danger or loot.
+- **Backpack:** the single lower-right button; Escape closes it on desktop.
+
+## Development
+
+Requires Node.js 22 or newer:
 
 ```bash
 npm ci
+npm run check
 npm run dev
 ```
 
-For the production build:
+The game uses Vite, Canvas 2D and plain JavaScript modules. Rules, content and
+rendering are separated so new monsters and items can be added as data rather
+than copied into the game loop:
 
-```bash
-npm run build
-npm run preview
-```
+- `tools/dcss-rpg-content.js` — monster, item and event catalogs.
+- `tools/dcss-rpg-core.js` — deterministic generation, pathfinding and save rules.
+- `tools/dcss.js` — Canvas rendering, input, combat and presentation.
+- `docs/2D-RPG-FOUNDATION.md` — invariants and safe extension recipes.
 
-Open `http://localhost:4173`. To test on a phone on the same Wi-Fi, use the network address printed by the preview server. GitHub Actions builds and publishes `main` to GitHub Pages.
+GitHub Actions runs the deterministic test suite and publishes `main` to Pages.
 
-## Stack
+## Art and attribution
 
-Three.js, Vite and plain JavaScript. Instanced hex terrain, skeletal character animation, soft shadows, procedural sound and a small icon-based DOM interface. No game server or external API.
+The local library contains 3,383 unmodified PNG tiles from the official
+[Dungeon Crawl Stone Soup tile repository](https://github.com/crawl/tiles),
+released under CC0 / public-domain dedication. Only the active catalog is loaded
+by the browser. Source details are preserved in
+[`public/assets/dcss-preview/LICENSE.md`](public/assets/dcss-preview/LICENSE.md)
+and [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md).
 
-- `src/main.js` — game loop, pathfinding, combat, effects and save state.
-- `src/world.js` — islands, biomes, props and world reactions.
-- `src/actors.js` — animated characters and visible equipment.
-- `src/ui.js` / `src/style.css` — responsive HUD and overlays.
-- `public/sw.js` — scoped offline cache.
-
-## Assets
-
-The models are ready-made **[KayKit](https://kaylousberg.com/game-assets)** assets; the mining pickaxe comes from **[Kenney](https://kenney.nl/assets/survival-kit)**. Their original CC0 license files are included. The interface uses SVG icons and CSS. See [third-party credits](THIRD_PARTY_ASSETS.md) for the complete list, including assets retained from the earlier prototype.
+The previous 3D prototype remains in git history and is no longer the active
+game or development direction.

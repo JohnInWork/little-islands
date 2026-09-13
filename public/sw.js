@@ -1,9 +1,9 @@
 const APP_ROOT = new URL('./', self.location.href);
 const CACHE_PREFIX = `little-islands-static:${APP_ROOT.pathname}:`;
-const CACHE = `${CACHE_PREFIX}v2`;
+const CACHE = `${CACHE_PREFIX}2d-rpg-v1`;
 const inScope = url => url.origin === APP_ROOT.origin && url.pathname.startsWith(APP_ROOT.pathname);
 self.addEventListener('install', event => {
-  const shell = ['./', 'icon.svg', 'manifest.webmanifest'].map(path => new URL(path, APP_ROOT).href);
+  const shell = ['./', 'icon.svg', 'manifest.webmanifest', 'manifest.en.webmanifest'].map(path => new URL(path, APP_ROOT).href);
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(shell)));
   self.skipWaiting();
 });

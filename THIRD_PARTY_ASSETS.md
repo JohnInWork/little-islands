@@ -1,55 +1,28 @@
-# Сторонние игровые ассеты
+# Third-party assets / Сторонние ассеты
 
-## KayKit Medieval Hexagon Pack
+## Active 2D game: Dungeon Crawl Stone Soup tiles
 
-- Автор: Kay Lousberg
-- Источник: https://kaylousberg.itch.io/kaykit-medieval-hexagon
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: трёхмерные гексы, здания, природа и ресурсы карты.
+- Source: [crawl/tiles](https://github.com/crawl/tiles)
+- Upstream snapshot: `releases/Nov-2015`
+- Local library: 3,383 unmodified PNG files from `mon`, `item`, `player` and
+  `dngn`
+- License: CC0 1.0 / public-domain dedication, as documented upstream
+- Local notice: `public/assets/dcss-preview/LICENSE.md`
 
-## KayKit Character Pack — Adventurers
+The browser requests only images referenced by the active monster, item,
+equipment and environment catalogs. The complete local library exists so future
+content can reuse a coherent visual language without another download.
 
-- Автор: Kay Lousberg
-- Источник: https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: модель рыцаря и встроенные анимации ходьбы, боя и получения урона.
+Локальная библиотека содержит полный согласованный набор для монстров,
+предметов, paper-doll героя и подземелий. Игра не загружает все 3383 изображения
+при старте — только файлы активного каталога.
 
-## KayKit Dungeon Remastered
+## Archived 3D prototype
 
-- Автор: Kay Lousberg
-- Источник: https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: пол, стены, колонны, факелы, сундуки и обломки в подземелье.
+The repository history also contains CC0 assets from KayKit and Kenney used by
+the previous 3D prototype. Their original license files remain beside the asset
+files. They are not loaded by the active 2D game.
 
-## KayKit Character Pack — Skeletons
-
-- Автор: Kay Lousberg
-- Источник: https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: анимированный противник-скелет в автоматических боях.
-
-## Kenney UI Pack — Adventure
-
-- Автор: Kenney
-- Источник: https://kenney.nl/assets/ui-pack-adventure
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: рамки, панели и кнопки интерфейса.
-
-## Kenney Board Game Icons
-
-- Автор: Kenney
-- Источник: https://kenney.nl/assets/board-game-icons
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0)
-- Использование: иконки ресурсов, владений, экспедиций и состояний.
-
-Оригинальные тексты лицензий также сохранены рядом с соответствующими файлами в `public/ui` и папках KayKit.
-
-## Kenney Survival Kit 2.0 — кирка
-
-- Автор: Kenney.
-- Официальный источник: https://kenney.nl/assets/survival-kit
-- Архив: https://kenney.nl/media/pages/assets/survival-kit/4065a8185b-1712149243/kenney_survival-kit.zip
-- Лицензия: Creative Commons Zero v1.0 Universal (CC0), подтверждена страницей автора и `public/tools/License.txt` из оригинального архива.
-- Файлы: `public/tools/tool-pickaxe-upgraded.glb`, `public/tools/Textures/colormap.png`.
-- Использование: готовая модель кирки в руке героя во время добычи. Модель и текстура не изменены; масштаб, положение захвата и видимость настраиваются в игре.
-- Загружено: 2026-09-12.
+История репозитория также содержит CC0-ассеты KayKit и Kenney из прежнего
+3D-прототипа. Оригинальные лицензии сохранены рядом с файлами; новая 2D-игра их
+не загружает.

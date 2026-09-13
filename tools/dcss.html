@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#07090a" />
+    <title>Little Islands · 2D RPG</title>
+    <link rel="icon" href="../icon.svg" />
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <link rel="stylesheet" href="./dcss.css" />
+  </head>
+  <body data-state="loading" data-screen="game">
+    <main>
+      <canvas
+        id="scene"
+        aria-label="Подземелье. Коснись открытого пола, чтобы переместить героя."
+      ></canvas>
+
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+
+      <header class="hud pixel-frame" aria-label="Состояние героя">
+        <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
+        <div class="vitals" aria-hidden="true">
+          <div class="health"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="ward"><i></i></div>
+          <div class="ailments"><i>✦</i><i>◇</i></div>
+        </div>
+      </header>
+
+      <div class="depth pixel-frame" role="img" aria-label="Глубина 3">
+        <span>III</span>
+        <i aria-hidden="true"></i>
+      </div>
+
+      <div id="gesture" class="gesture" aria-hidden="true">
+        <span></span>
+        <i></i>
+      </div>
+
+      <div id="loot-toast" class="loot-toast pixel-frame" aria-live="polite">
+        <img alt="" />
+        <span class="loot-rune">▲</span>
+        <b>+12</b>
+      </div>
+
+      <button id="bag" class="bag-button pixel-frame" type="button" aria-label="Открыть рюкзак">
+        <span class="bag-glyph" aria-hidden="true"></span>
+        <b>12</b>
+      </button>
+
+      <section
+        id="inventory"
+        class="inventory"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Снаряжение и рюкзак"
+        aria-hidden="true"
+        inert
+      >
+        <div class="inventory-shell pixel-frame">
+          <header class="inventory-header">
+            <button id="close-inventory" type="button" aria-label="Закрыть рюкзак">×</button>
+            <div class="inventory-seal" aria-hidden="true"><i></i><span>ᚱ</span><i></i></div>
+            <div class="currency" aria-label="Осколки: 86"><span>◆</span><b>86</b></div>
+          </header>
+
+          <div class="inventory-body">
+            <section class="doll-panel" aria-label="Надетое снаряжение">
+              <div class="doll-aura" aria-hidden="true"></div>
+              <canvas
+                id="paperdoll"
+                width="192"
+                height="224"
+                aria-label="Герой в экипировке"
+              ></canvas>
+
+              <button
+                class="equipment-slot slot-head"
+                data-equip="head"
+                type="button"
+                aria-label="Шлем"
+              >
+                <img alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-body"
+                data-equip="body"
+                type="button"
+                aria-label="Броня"
+              >
+                <img alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-weapon"
+                data-equip="hand1"
+                type="button"
+                aria-label="Оружие"
+              >
+                <img alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-offhand"
+                data-equip="hand2"
+                type="button"
+                aria-label="Вторая рука"
+              >
+                <img alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-boots"
+                data-equip="boots"
+                type="button"
+                aria-label="Обувь"
+              >
+                <img src="../assets/dcss-preview/item/armour/boots2_jackboots.png" alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-ring-one"
+                data-equip="ring1"
+                type="button"
+                aria-label="Первое кольцо"
+              >
+                <img src="../assets/dcss-preview/item/ring/i-fire.png" alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-ring-two"
+                data-equip="ring2"
+                type="button"
+                aria-label="Второе кольцо"
+              >
+                <img src="../assets/dcss-preview/item/ring/i-ice.png" alt="" />
+                <i></i>
+              </button>
+              <button
+                class="equipment-slot slot-amulet"
+                data-equip="amulet"
+                type="button"
+                aria-label="Амулет"
+              >
+                <img src="../assets/dcss-preview/item/amulet/artefact/urand_vitality.png" alt="" />
+                <i></i>
+              </button>
+
+              <div class="stats" aria-label="Сила 36, защита 28, здоровье 84">
+                <span><i>⚔</i><b>36</b></span>
+                <span><i>◆</i><b>28</b></span>
+                <span><i>♥</i><b>84</b></span>
+              </div>
+            </section>
+
+            <section class="pack-panel" aria-label="Предметы в рюкзаке">
+              <div id="pack-grid" class="pack-grid"></div>
+              <div id="selection-card" class="selection-card pixel-frame" aria-live="polite">
+                <div class="selected-item">
+                  <img alt="" />
+                  <i></i>
+                </div>
+                <div class="comparison" aria-hidden="true">
+                  <span class="positive">⚔ +12</span>
+                  <span class="negative">◆ −3</span>
+                </div>
+                <button id="equip-item" type="button" aria-label="Надеть выбранный предмет">
+                  ▲
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <footer class="inventory-actions">
+            <button
+              id="salvage"
+              type="button"
+              aria-label="Выбрать предметы для массового разбора"
+              aria-pressed="false"
+            >
+              <span class="anvil" aria-hidden="true"></span>
+              <b id="salvage-count">0</b>
+            </button>
+            <button id="salvage-confirm" type="button" aria-label="Разобрать выбранные предметы">
+              <span>◆</span><b>0</b>
+            </button>
+          </footer>
+        </div>
+      </section>
+
+      <div id="status" class="status" role="status" aria-live="polite">
+        <i></i>
+        <span>CC0</span>
+      </div>
+
+      <a
+        class="source"
+        href="https://github.com/crawl/tiles"
+        target="_blank"
+        rel="noreferrer"
+        tabindex="-1"
+        aria-label="Источник графики: Dungeon Crawl CC0 Tiles"
+        >CC0</a
+      >
+    </main>
+    <script type="module" src="./dcss.js"></script>
+  </body>
+</html>

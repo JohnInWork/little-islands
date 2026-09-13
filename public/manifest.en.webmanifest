@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "lang": "en",
+  "name": "Little Islands",
+  "short_name": "Islands",
+  "description": "A mobile 2D RPG: explore procedural dungeons, collect loot and shape your build.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07090a",
+  "theme_color": "#07090a",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
