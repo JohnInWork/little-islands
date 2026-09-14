@@ -94,7 +94,8 @@ test('door interaction stays in the world and keeps its real hinged 3D mesh', as
   ]);
   assert.doesNotMatch(html, /id="door-action"/);
   assert.match(runtime, /function nearbyClosedDoor\(\)/);
-  assert.match(runtime, /beginDoorTransition\(door, !isOpen\)/);
+  assert.match(runtime, /openContextActions\(\{ kind: 'door', value: door \}\)/);
+  assert.match(runtime, /return beginDoorTransition\(target\.value, action\.id === 'open'\)/);
   assert.match(runtime, /function updateDoorOpening\(delta\)/);
   assert.match(runtime, /dungeonWorld3D\.setDoorOpenProgress/);
   assert.match(world, /const setDoorOpenProgress = \(x, y, progress\) =>/);

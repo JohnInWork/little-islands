@@ -20,6 +20,15 @@ import {
 const assetUrl = (path) =>
   new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
 
+function cacheByVariant(variant, depth = 2) {
+  for (let seed = 1; seed <= 2000; seed += 1) {
+    const dungeon = generateDungeon({ seed, depth });
+    const find = dungeon.finds.find(({ id }) => id === 'sealed-cache');
+    if (find?.cacheVariant === variant) return find;
+  }
+  throw new Error(`No ${variant} chest fixture`);
+}
+
 test('each floor deterministically places one of every first-wave find without overlaps', () => {
   for (let seed = 1; seed <= 800; seed += 1) {
     const depth = 1 + (seed % 3);
@@ -55,6 +64,10 @@ test('each floor deterministically places one of every first-wave find without o
       assert.match(find.instanceId, new RegExp(`^find-${depth}-\\d+$`));
       assert.ok(find.rewardShards > 0);
       assert.ok(find.riskDamage >= 0);
+      if (find.id === 'sealed-cache') {
+        assert.match(find.cacheVariant, /^(?:unlocked|locked|trapped|cursed|mimic)$/);
+        assert.ok(Number.isInteger(find.hazardDamage));
+      }
     }
 
     const blocked = first.grid.map((row) => [...row]);
@@ -79,8 +92,7 @@ test('find definitions expose bundled visuals and concise RU/EN actions', async 
 });
 
 test('find resolution is atomic, range-bound and cannot duplicate a reward', () => {
-  const dungeon = generateDungeon({ seed: 91, depth: 2 });
-  const find = dungeon.finds.find(({ id }) => id === 'sealed-cache');
+  const find = cacheByVariant('unlocked');
   const input = {
     find,
     resolvedFindIds: [],
@@ -105,6 +117,33 @@ test('find resolution is atomic, range-bound and cannot duplicate a reward', () 
     'distance',
   );
   assert.equal(resolveFindInteraction({ ...input, runStatus: 'dead' }).reason, 'inactive');
+});
+
+test('a locked chest can use a key intact or be smashed for exactly half its loot', () => {
+  const find = cacheByVariant('locked');
+  const input = {
+    find,
+    resolvedFindIds: [],
+    runStatus: 'playing',
+    hero: { x: find.x + 1, y: find.y, hp: 60, power: 3 },
+    shards: 4,
+  };
+  const opened = resolveFindInteraction({
+    ...input,
+    action: 'use-key',
+    actor: { resources: { keyCount: 1 }, capabilities: {} },
+  });
+  const smashed = resolveFindInteraction({ ...input, action: 'smash' });
+  assert.equal(opened.ok, true);
+  assert.equal(opened.rewardShards, find.rewardShards);
+  assert.equal(opened.destroyedShards, 0);
+  assert.deepEqual(opened.consumed, [{ id: 'iron-key', amount: 1 }]);
+  assert.equal(smashed.ok, true);
+  assert.equal(smashed.rewardShards, Math.ceil(find.rewardShards / 2));
+  assert.equal(smashed.destroyedShards, Math.floor(find.rewardShards / 2));
+  assert.equal(smashed.state.shards, 4 + Math.ceil(find.rewardShards / 2));
+  assert.equal(resolveFindInteraction({ ...input, action: 'defile' }).reason, 'action');
+  assert.deepEqual(input.resolvedFindIds, []);
 });
 
 test('the cursed grave advertises risk and refuses a lethal interaction', () => {
@@ -176,9 +215,10 @@ test('runtime keeps finds diegetic, tappable and free of persistent HUD highligh
   assert.match(runtime, /blockingFindCells\(\)/);
   assert.match(runtime, /\.\.\.findDefinitions/);
   assert.match(runtime, /if \(find && !find\.resolved && revealed\.has/);
-  assert.match(runtime, /if \(adjacent\) \{\s+interactNearbyFind\(\);/);
+  assert.match(runtime, /if \(adjacent\) \{\s+openContextActions\(\{ kind: 'find', value: find \}\);/);
   assert.doesNotMatch(runtime, /drawFindSignals/);
   assert.doesNotMatch(html, /id="find-action"/);
+  assert.match(html, /id="context-actions"/);
   assert.match(html, /id="find-announcement"/);
   assert.doesNotMatch(css, /\.find-action/);
 });

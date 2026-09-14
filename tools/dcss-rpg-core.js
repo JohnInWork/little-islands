@@ -8,7 +8,11 @@ import {
 } from './dcss-rpg-content.js';
 import { EQUIPMENT_SLOTS, allowedSlotsForItem, deriveHeroStats } from './dcss-rpg-rules.js';
 import { cloneSkillState, createSkillState, validateSkillState } from './dcss-rpg-skills.js';
-import { trapsFromDungeon, validateDetectedTrapIds } from './dcss-rpg-traps.js';
+import {
+  trapsFromDungeon,
+  validateDetectedTrapIds,
+  validateDisarmedTrapIds,
+} from './dcss-rpg-traps.js';
 import { createActorEffects, validateActorEffects } from './dcss-rpg-effects.js';
 import {
   PASSIVE_CREATURE_CATALOG,
@@ -28,10 +32,12 @@ import {
 } from './dcss-rpg-scaling.js';
 import { createDungeonFinds } from './dcss-rpg-finds.js';
 
-export const SAVE_VERSION = 12;
-export const SAVE_KEY = 'little-islands:dcss-rpg:v12';
+export const SAVE_VERSION = 14;
+export const SAVE_KEY = 'little-islands:dcss-rpg:v14';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'little-islands:dcss-rpg:v13',
+  'little-islands:dcss-rpg:v12',
   'little-islands:dcss-rpg:v11',
   'little-islands:dcss-rpg:v10',
   'little-islands:dcss-rpg:v9',
@@ -45,7 +51,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   LEGACY_SAVE_KEY,
 ]);
 export const GENERATOR_VERSION = 4;
-export const CONTENT_VERSION = 4;
+export const CONTENT_VERSION = 5;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
 
@@ -638,6 +644,7 @@ export function generateDungeon({
   const findRng = createRng(mixSeed(floorSeed, 0x46494e44));
   const finds = createDungeonFinds({
     level: {
+      seed: floorSeed,
       depth,
       grid,
       rooms,
@@ -678,6 +685,8 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     { id: 'jackboots', uid: 'starter-boots' },
     { id: 'healing-potion', uid: 'starter-potion', stack: 2 },
     { id: 'bread', uid: 'starter-bread', stack: 3 },
+    { id: 'iron-key', uid: 'starter-key', stack: 1 },
+    { id: 'lockpick-set', uid: 'starter-lockpicks', stack: 2 },
   ];
   return {
     version: SAVE_VERSION,
@@ -715,7 +724,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       ring2: null,
       amulet: null,
     },
-    inventory: ['starter-potion', 'starter-bread'],
+    inventory: ['starter-potion', 'starter-bread', 'starter-key', 'starter-lockpicks'],
     floor: {
       revealed: [],
       defeated: [],
@@ -723,6 +732,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       resolved: [],
       resolvedFindIds: [],
       detectedTrapIds: [],
+      disarmedTrapIds: [],
       opened: [],
       triggered: [],
       monsters: [],
@@ -757,12 +767,13 @@ function legacySkillState(hero) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if (snapshot.version === 9 || snapshot.version === 10 || snapshot.version === 11) {
-    // v12 adds a separate deterministic find stream. Existing room geometry,
-    // actor positions, event IDs, wounded actors and owned gear survive.
+  if ([9, 10, 11, 12, 13].includes(snapshot.version)) {
+    // v14 adds interaction tools and richer deterministic chest profiles. Old
+    // heroes keep their exact inventory; new runs receive the starter tools.
+    // Existing room geometry, actor positions, event IDs, finds and gear survive.
     const migrated = structuredClone(snapshot);
     migrated.version = SAVE_VERSION;
     migrated.generatorVersion = GENERATOR_VERSION;
@@ -770,7 +781,8 @@ export function migrateLegacyRun(snapshot) {
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
     const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
     if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
-    if (migrated.floor) migrated.floor.resolvedFindIds = [];
+    if (migrated.floor && snapshot.version < 12) migrated.floor.resolvedFindIds = [];
+    if (migrated.floor && snapshot.version < 13) migrated.floor.disarmedTrapIds = [];
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -791,6 +803,12 @@ export function migrateLegacyRun(snapshot) {
     if (!validateDetectedTrapIds(migrated.floor.detectedTrapIds, traps)) {
       throw new Error('Cannot migrate unknown detected trap');
     }
+    if (!validateDisarmedTrapIds(
+      migrated.floor.disarmedTrapIds,
+      traps,
+      migrated.floor.detectedTrapIds,
+      migrated.floor.resolved,
+    )) throw new Error('Cannot migrate unknown disarmed trap');
     return migrated;
   }
   if ([2, 3, 4, 5, 6, 7, 8].includes(snapshot.version)) {
@@ -838,6 +856,7 @@ export function migrateLegacyRun(snapshot) {
             resolved: [],
             resolvedFindIds: [],
             detectedTrapIds: [],
+            disarmedTrapIds: [],
             opened: [],
             triggered: [],
             monsters: [],
@@ -850,6 +869,7 @@ export function migrateLegacyRun(snapshot) {
             resolved: [...snapshot.floor.resolved],
             resolvedFindIds: [],
             detectedTrapIds: [],
+            disarmedTrapIds: [],
             opened: [],
             triggered: [],
             monsters: snapshot.floor.monsters.map((monster) => ({ ...monster })),
@@ -919,6 +939,7 @@ export function migrateLegacyRun(snapshot) {
       resolved: [],
       resolvedFindIds: [],
       detectedTrapIds: [],
+      disarmedTrapIds: [],
       opened: [],
       triggered: [],
       monsters: [],
@@ -1009,7 +1030,7 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'opened', 'triggered', 'monsters'].every(
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered', 'monsters'].every(
       (key) => Array.isArray(floor[key]),
     ) ||
     (floor.passives !== undefined && !Array.isArray(floor.passives))
@@ -1024,7 +1045,7 @@ export function validateRun(snapshot) {
     })
   )
     return false;
-  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'opened', 'triggered']) {
+  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered']) {
     if (new Set(floor[key]).size !== floor[key].length) return false;
   }
   if (
@@ -1045,6 +1066,11 @@ export function validateRun(snapshot) {
   if (floor.detectedTrapIds.length > MAP_WIDTH * MAP_HEIGHT || floor.detectedTrapIds.some(
     (id) => typeof id !== 'string' || !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id),
   )) return false;
+  if (
+    floor.disarmedTrapIds.length > floor.detectedTrapIds.length
+    || floor.disarmedTrapIds.some((id) =>
+      !floor.detectedTrapIds.includes(id) || !floor.resolved.includes(id))
+  ) return false;
   if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.monsters.length > 24) return false;
@@ -1116,9 +1142,16 @@ export function hydrateDungeon(snapshot) {
   const lootIds = new Set(dungeon.loot.map((item) => item.instanceId));
   const eventIds = new Set(dungeon.events.map((event) => event.instanceId));
   const findIds = new Set(dungeon.finds.map((find) => find.instanceId));
-  if (!validateDetectedTrapIds(snapshot.floor.detectedTrapIds, trapsFromDungeon(dungeon))) {
+  const traps = trapsFromDungeon(dungeon);
+  if (!validateDetectedTrapIds(snapshot.floor.detectedTrapIds, traps)) {
     throw new Error('Unknown detected trap');
   }
+  if (!validateDisarmedTrapIds(
+    snapshot.floor.disarmedTrapIds,
+    traps,
+    snapshot.floor.detectedTrapIds,
+    snapshot.floor.resolved,
+  )) throw new Error('Unknown disarmed trap');
   const passiveIds = new Set(dungeon.passiveCreatures.map((creature) => creature.instanceId));
   if ([...defeated].some((id) => !monsterIds.has(id))) throw new Error('Unknown defeated monster');
   if ([...collected].some((id) => !lootIds.has(id))) throw new Error('Unknown collected loot');
@@ -1205,6 +1238,7 @@ export function advanceRunFloor(snapshot) {
       resolved: [],
       resolvedFindIds: [],
       detectedTrapIds: [],
+      disarmedTrapIds: [],
       opened: [],
       triggered: [],
       monsters: [],

@@ -1,3 +1,9 @@
+import {
+  chestResultPresentation,
+  createChestProfile,
+  resolveChestInteraction,
+} from './dcss-rpg-chests.js';
+
 const freezeCopy = (value) => Object.freeze({ ...value });
 
 const defineFind = (definition) =>
@@ -20,14 +26,14 @@ export const FIND_CATALOG = Object.freeze([
     glyph: '+',
     copy: {
       ru: {
-        name: 'Запечатанный тайник',
-        action: 'Открыть запечатанный тайник',
-        result: 'В тайнике были осколки',
+        name: 'Древний сундук',
+        action: 'Разобраться с древним сундуком',
+        result: 'Содержимое сундука получено',
       },
       en: {
-        name: 'Sealed cache',
-        action: 'Open the sealed cache',
-        result: 'The cache held shards',
+        name: 'Ancient chest',
+        action: 'Deal with the ancient chest',
+        result: 'The chest contents were recovered',
       },
     },
   }),
@@ -196,6 +202,14 @@ export function createDungeonFinds({ level, rng, occupiedCells = [], avoidCells 
       x: cell.x,
       y: cell.y,
       ...outcome,
+      ...(definition.id === 'sealed-cache'
+        ? createChestProfile({
+            seed: level.seed ?? 0,
+            depth: level.depth,
+            roomIndex,
+            rewardShards: outcome.rewardShards,
+          })
+        : {}),
     });
   }
   return finds;
@@ -214,6 +228,14 @@ export function findPresentation(find, language = 'ru') {
     riskDamage: find.riskDamage,
     rewardShards: find.rewardShards,
     rewardPower: find.rewardPower,
+    ...(find.id === 'sealed-cache'
+      ? {
+          cacheVariant: find.cacheVariant,
+          lockTier: find.lockTier,
+          trapTier: find.trapTier,
+          hazardDamage: find.hazardDamage,
+        }
+      : {}),
   });
 }
 
@@ -225,6 +247,8 @@ export function resolveFindInteraction({
   runStatus,
   hero,
   shards,
+  action,
+  actor,
 }) {
   const definition = findById(find?.id);
   if (
@@ -241,14 +265,36 @@ export function resolveFindInteraction({
   if (resolvedFindIds.includes(find.instanceId)) return rejected('resolved');
   const distance = Math.abs(hero.x - find.x) + Math.abs(hero.y - find.y);
   if (distance > 1) return rejected('distance');
+  if (find.id === 'sealed-cache') {
+    return resolveChestInteraction({
+      find,
+      resolvedFindIds,
+      runStatus,
+      hero,
+      shards,
+      action: action ?? 'open',
+      actor,
+    });
+  }
+  const resolvedAction = action ?? (
+    find.id === 'crystal-vein' ? 'extract' : 'defile'
+  );
+  const allowedActions = {
+    'crystal-vein': ['extract'],
+    'forgotten-grave': ['defile'],
+  };
+  if (!allowedActions[find.id].includes(resolvedAction)) return rejected('action');
   if (find.riskDamage > 0 && hero.hp <= find.riskDamage) return rejected('unsafe');
 
   const damage = Math.max(0, Math.min(find.riskDamage, hero.hp - 1));
+  const rewardShards = find.rewardShards;
   return Object.freeze({
     ok: true,
     definition,
+    action: resolvedAction,
     damage,
-    rewardShards: find.rewardShards,
+    rewardShards,
+    destroyedShards: 0,
     rewardPower: find.rewardPower,
     state: Object.freeze({
       hero: Object.freeze({
@@ -256,8 +302,14 @@ export function resolveFindInteraction({
         hp: hero.hp - damage,
         power: hero.power + find.rewardPower,
       }),
-      shards: shards + find.rewardShards,
+      shards: shards + rewardShards,
       resolvedFindIds: Object.freeze([...resolvedFindIds, find.instanceId]),
     }),
   });
+}
+
+export function findResultPresentation(result, find, language = 'ru') {
+  if (find?.id === 'sealed-cache') return chestResultPresentation(result, language);
+  const presentation = findPresentation(find, language);
+  return presentation ? Object.freeze({ message: presentation.result, unsafe: presentation.unsafe ?? '' }) : null;
 }

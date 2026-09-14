@@ -65,6 +65,12 @@ import { INVENTORY_FILTERS, inventorySections } from './dcss-rpg-inventory-ui.js
 import { characterSheetModel } from './dcss-rpg-character-sheet.js';
 import { cloneSkillState, deriveSkillCapabilities, learnSkill } from './dcss-rpg-skills.js';
 import { activeDetectedTrapCells, discoverTraps, trapsFromDungeon } from './dcss-rpg-traps.js';
+import {
+  DISARMED_TRAP_PATH,
+  disarmTrap,
+  trapDisarmAvailability,
+  trapDisarmPresentation,
+} from './dcss-rpg-trap-disarming.js';
 import { createHazardInputState, hazardMoveIntent } from './dcss-rpg-hazard-input.js';
 import {
   blockingActorCells, canActorsMeleeContact, constrainActorMovement, meleeApproachPoint,
@@ -95,8 +101,11 @@ import {
   FIND_ASSET_PATHS,
   findById,
   findPresentation,
+  findResultPresentation,
   resolveFindInteraction,
 } from './dcss-rpg-finds.js';
+import { contextActionModel } from './dcss-rpg-context-actions.js';
+import { CHEST_RESOURCE_IDS } from './dcss-rpg-chests.js';
 import {
   ACTOR_EFFECTS,
   activeActorEffects,
@@ -205,6 +214,13 @@ const bossHealth = bossHud.querySelector('.boss-health');
 const sanctuaryAction = document.querySelector('#sanctuary-action');
 const doorAnnouncement = document.querySelector('#door-announcement');
 const findAnnouncement = document.querySelector('#find-announcement');
+const contextActions = document.querySelector('#context-actions');
+const contextActionBackdrop = document.querySelector('#context-action-backdrop');
+const closeContextActionsButton = document.querySelector('#close-context-actions');
+const contextActionIcon = document.querySelector('#context-action-icon');
+const contextActionTitle = document.querySelector('#context-action-title');
+const contextActionDescription = document.querySelector('#context-action-description');
+const contextActionList = document.querySelector('#context-action-list');
 const itemDetail = document.querySelector('#item-detail');
 const itemDetailCard = itemDetail.querySelector('.item-detail-card');
 const closeItemDetailButton = document.querySelector('#close-item-detail');
@@ -426,6 +442,7 @@ const requiredPaths = [
   ...allBiomeAssetPaths(),
   'dngn/doors/closed_door.png',
   'dngn/doors/open_door.png',
+  DISARMED_TRAP_PATH,
   ...allPlayerFoundationAssetPaths(),
   ...Object.values(gear).flatMap((items) =>
     items.flatMap(({ layer, icon }) => [layer, icon].filter(Boolean)),
@@ -555,6 +572,8 @@ let deathTimer = 0;
 let runStatus = run.status;
 let playerHasActed = run.started;
 let openingDoor = null;
+let contextTarget = null;
+let contextInspected = false;
 let lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
 const markedForSalvage = new Set();
 const fullInventoryWarnings = new Set();
@@ -781,6 +800,7 @@ function captureRun() {
     .map(({ id, uid, stack }) => ({ id, uid, ...(stack ? { stack } : {}) }));
   run.floor.revealed = [...revealed];
   run.floor.detectedTrapIds = [...detectedTrapIds].sort();
+  run.floor.disarmedTrapIds = [...run.floor.disarmedTrapIds].sort();
   run.floor.resolvedFindIds = findDefinitions
     .filter(({ resolved }) => resolved)
     .map(({ instanceId }) => instanceId)
@@ -873,6 +893,53 @@ function currentItemState() {
   };
 }
 
+function interactionResourceCount(itemId) {
+  return backpackItems.reduce(
+    (total, item) => total + (item?.id === itemId ? item.stack ?? 1 : 0),
+    0,
+  );
+}
+
+function currentInteractionActor() {
+  return {
+    resources: {
+      keyCount: interactionResourceCount(CHEST_RESOURCE_IDS.key),
+      lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
+    },
+    capabilities: deriveSkillCapabilities(hero.skills),
+  };
+}
+
+function consumeInteractionResources(consumed = []) {
+  if (!Array.isArray(consumed)) return false;
+  const required = new Map();
+  for (const entry of consumed) {
+    if (!entry || typeof entry.id !== 'string' || !Number.isInteger(entry.amount) || entry.amount < 0) {
+      return false;
+    }
+    required.set(entry.id, (required.get(entry.id) ?? 0) + entry.amount);
+  }
+  if ([...required].some(([id, amount]) => interactionResourceCount(id) < amount)) return false;
+  for (const [id, amount] of required) {
+    let remaining = amount;
+    for (let index = 0; index < backpackItems.length && remaining > 0; index += 1) {
+      const item = backpackItems[index];
+      if (item?.id !== id) continue;
+      const stack = item.stack ?? 1;
+      const used = Math.min(stack, remaining);
+      remaining -= used;
+      if (used < stack) {
+        item.stack = stack - used;
+      } else {
+        itemInstances.delete(item.uid);
+        backpackItems.splice(index, 1);
+        index -= 1;
+      }
+    }
+  }
+  return true;
+}
+
 function selectedUiItem() {
   if (selectedEquipmentSlot) {
     const equipped = equippedItem(selectedEquipmentSlot);
@@ -894,6 +961,16 @@ function selectedActionModel(selection = selectedUiItem()) {
       ariaLabel: disabled ? labels.inventoryFullShort : labels.unequip,
       glyph: disabled ? '■' : '▼',
       disabled,
+    };
+  }
+  if (selection.item.interactionResource) {
+    return {
+      label: itemDetailLanguage === 'ru' ? 'Для объектов' : 'For objects',
+      ariaLabel: itemDetailLanguage === 'ru'
+        ? 'Используется через действие объекта'
+        : 'Used through a world object action',
+      glyph: selection.item.interactionResource === 'key' ? '⌑' : '⌁',
+      disabled: true,
     };
   }
   if (selection.item.slot) {
@@ -1298,6 +1375,86 @@ function knownTrapCells() {
     detectedTrapIds: [...detectedTrapIds],
     resolvedEventIds: run.floor.resolved,
   });
+}
+
+function nearbyDetectedTrap() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const resolved = new Set(run.floor.resolved);
+  return trapDefinitions
+    .filter((trap) =>
+      detectedTrapIds.has(trap.instanceId)
+      && !resolved.has(trap.eventId)
+      && Math.abs(cell.x - trap.x) + Math.abs(cell.y - trap.y) === 1)
+    .sort((a, b) => a.instanceId.localeCompare(b.instanceId))[0] ?? null;
+}
+
+function trapDisarmState(trap = nearbyDetectedTrap()) {
+  if (!trap) return null;
+  return trapDisarmAvailability({
+    trap,
+    detectedTrapIds: [...detectedTrapIds],
+    resolvedEventIds: run.floor.resolved,
+    disarmedTrapIds: run.floor.disarmedTrapIds,
+    runStatus,
+    hero: {
+      x: Math.floor(hero.x / TILE),
+      y: Math.floor(hero.y / TILE),
+      hp: hero.hp,
+    },
+    capabilities: deriveSkillCapabilities(hero.skills),
+  });
+}
+
+function interactNearbyTrap(preferredTrap = null) {
+  const trap = preferredTrap ?? nearbyDetectedTrap();
+  if (!trap || !ready || uiScreen !== 'game' || hero.dead || openingDoor) return false;
+  const result = disarmTrap({
+    trap,
+    detectedTrapIds: [...detectedTrapIds],
+    resolvedEventIds: run.floor.resolved,
+    disarmedTrapIds: run.floor.disarmedTrapIds,
+    runStatus,
+    hero: {
+      x: Math.floor(hero.x / TILE),
+      y: Math.floor(hero.y / TILE),
+      hp: hero.hp,
+    },
+    capabilities: deriveSkillCapabilities(hero.skills),
+  });
+  const presentation = trapDisarmPresentation({
+    trap,
+    effectiveTier: result.effectiveTier,
+    language: itemDetailLanguage,
+  });
+  if (!result.ok) {
+    if (['skill-required', 'tier-required'].includes(result.reason)) {
+      trapAnnouncement.textContent = presentation.unavailable;
+      addCombatGlyph((trap.x + 0.5) * TILE, (trap.y + 0.5) * TILE, '!', '#dec982', -36);
+      showLootToast({ path: 'dngn/traps/blade.png', rarity: 1 }, ['I', 'II', 'III'][trap.tier - 1]);
+    }
+    return false;
+  }
+
+  hero.path = [];
+  hero.attack = 0;
+  hero.pendingAttack = null;
+  permittedHazardCell = null;
+  hazardInputState = createHazardInputState();
+  run.floor.resolved = [...result.state.resolvedEventIds];
+  run.floor.disarmedTrapIds = [...result.state.disarmedTrapIds];
+  eventDefinitions = eventDefinitions.filter(({ instanceId }) => instanceId !== trap.eventId);
+  playerHasActed = true;
+  const x = (trap.x + 0.5) * TILE;
+  const y = (trap.y + 0.5) * TILE;
+  burst(x, y, '#9db0a6', 12);
+  addImpactWave(x, y, '#7e9188', 42, 1);
+  addCombatGlyph(x, y, '✓', '#c9d4c7', -34);
+  showLootToast({ path: DISARMED_TRAP_PATH, rarity: 1 }, '✓');
+  trapAnnouncement.textContent = presentation.success;
+  updateHud();
+  persistRun();
+  return true;
 }
 
 function discoverNearbyTraps({ feedback = true } = {}) {
@@ -2241,6 +2398,17 @@ function drawEvents() {
       offsetY: -5 + pulse,
     });
   }
+  for (const trap of trapDefinitions) {
+    if (!run.floor.disarmedTrapIds.includes(trap.instanceId)) continue;
+    if (!revealed.has(`${trap.x},${trap.y}`)) continue;
+    drawSprite(
+      DISARMED_TRAP_PATH,
+      (trap.x + 0.5) * TILE,
+      (trap.y + 0.5) * TILE,
+      40,
+      { offsetY: 5, alpha: 0.72 },
+    );
+  }
   if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
     const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
     const finalFloor = dungeon.depth === FINAL_DEPTH;
@@ -3135,8 +3303,8 @@ function nearbyFind() {
     )[0] ?? null;
 }
 
-function interactNearbyFind() {
-  const find = nearbyFind();
+function interactNearbyFind(preferredFind = null, action = null) {
+  const find = preferredFind ?? nearbyFind();
   if (!find || !ready || uiScreen !== 'game' || hero.dead || openingDoor) return false;
   const result = resolveFindInteraction({
     find: {
@@ -3153,16 +3321,21 @@ function interactNearbyFind() {
       power: hero.power,
     },
     shards,
+    action,
+    actor: currentInteractionActor(),
   });
   const presentation = findPresentation(find, itemDetailLanguage);
+  const resultPresentation = findResultPresentation(result, find, itemDetailLanguage);
   if (!result.ok) {
     if (result.reason === 'unsafe') {
-      findAnnouncement.textContent = presentation.unsafe;
+      findAnnouncement.textContent = resultPresentation?.unsafe || presentation.unsafe;
       addCombatGlyph(find.x, find.y, '!', presentation.color, -38);
       showLootToast({ path: presentation.path, rarity: 0 }, '!');
     }
     return false;
   }
+
+  if (!consumeInteractionResources(result.consumed)) return false;
 
   hero.path = [];
   hero.pendingAttack = null;
@@ -3181,8 +3354,16 @@ function interactNearbyFind() {
     addBloodImpact({ ...hero, bloodColor: '#6a302b' }, find.x, find.y, false);
     beginHitStop(0.05);
   }
-  burst(find.x, find.y - 10, presentation.color, find.id === 'crystal-vein' ? 24 : 16);
+  const damagedLoot = ['smash', 'attack'].includes(result.action);
+  const chestDanger = find.id === 'sealed-cache' && result.damage > 0;
+  burst(
+    find.x,
+    find.y - 10,
+    damagedLoot ? '#b87b62' : chestDanger ? '#b45c58' : presentation.color,
+    damagedLoot || chestDanger ? 24 : find.id === 'crystal-vein' ? 24 : 16,
+  );
   addImpactWave(find.x, find.y, presentation.color, find.id === 'crystal-vein' ? 64 : 50, 1);
+  if (damagedLoot) addCombatGlyph(find.x, find.y, result.action === 'attack' ? '⚔' : '✕', '#cf7068', -44);
   if (result.rewardPower > 0) {
     addCombatGlyph(hero.x, hero.y, `+${result.rewardPower}`, presentation.color, -62);
   }
@@ -3190,12 +3371,34 @@ function interactNearbyFind() {
     { path: presentation.path, rarity: find.id === 'forgotten-grave' ? 2 : 1 },
     result.rewardPower > 0
       ? `+${result.rewardPower} · ${result.rewardShards}◆`
-      : result.rewardShards,
+      : damagedLoot
+        ? `${result.rewardShards}◆ −${result.destroyedShards}`
+        : result.rewardShards,
   );
-  findAnnouncement.textContent = presentation.result;
+  if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
+  const rewardCopy = itemDetailLanguage === 'ru'
+    ? `${result.rewardShards}◆ получено${result.destroyedShards > 0 ? `, ${result.destroyedShards}◆ уничтожено` : ''}`
+    : `${result.rewardShards}◆ recovered${result.destroyedShards > 0 ? `, ${result.destroyedShards}◆ destroyed` : ''}`;
+  findAnnouncement.textContent = resultPresentation?.message
+    ? `${resultPresentation.message}. ${rewardCopy}`
+    : presentation.result;
   updateHud();
   persistRun();
   return true;
+}
+
+function alertNearbyMonsters(x, y, radiusInTiles) {
+  if (!Number.isFinite(radiusInTiles) || radiusInTiles <= 0) return 0;
+  let alertedCount = 0;
+  for (const monster of monsters) {
+    if (monster.dead > 0 || Math.hypot(monster.x - x, monster.y - y) > radiusInTiles * TILE) continue;
+    monster.alerted = Math.max(monster.alerted, monster.pursuit + radiusInTiles);
+    monster.route = [];
+    monster.repathCooldown = 0;
+    monster.alertFlash = Math.max(monster.alertFlash, 0.24);
+    alertedCount += 1;
+  }
+  return alertedCount;
 }
 
 function nearbyClosedDoor() {
@@ -3217,6 +3420,183 @@ function nearbyDoor() {
       Math.abs(cell.x - door.x) + Math.abs(cell.y - door.y) <= 1)
     .sort((a, b) => Math.hypot(hero.x / TILE - a.x - 0.5, hero.y / TILE - a.y - 0.5) -
       Math.hypot(hero.x / TILE - b.x - 0.5, hero.y / TILE - b.y - 0.5))[0] ?? null;
+}
+
+function contextModelTarget(entry = contextTarget) {
+  if (!entry) return null;
+  if (entry.kind === 'door') {
+    return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
+  }
+  if (entry.kind === 'find') {
+    return {
+      kind: 'find',
+      id: entry.value.id,
+      rewardShards: entry.value.rewardShards,
+      rewardPower: entry.value.rewardPower,
+      riskDamage: entry.value.riskDamage,
+      cacheVariant: entry.value.cacheVariant,
+      lockTier: entry.value.lockTier,
+      trapTier: entry.value.trapTier,
+      hazardDamage: entry.value.hazardDamage,
+    };
+  }
+  const availability = trapDisarmState(entry.value);
+  const presentation = trapDisarmPresentation({
+    trap: entry.value,
+    effectiveTier: availability?.effectiveTier ?? 0,
+    language: itemDetailLanguage,
+  });
+  return {
+    kind: 'trap',
+    tier: entry.value.tier,
+    canDisarm: availability?.ok === true,
+    unavailable: presentation?.unavailable ?? '',
+  };
+}
+
+function contextTargetIsAdjacent(entry) {
+  if (!entry?.value || runStatus !== 'playing') return false;
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const x = entry.kind === 'find' ? Math.floor(entry.value.x / TILE) : entry.value.x;
+  const y = entry.kind === 'find' ? Math.floor(entry.value.y / TILE) : entry.value.y;
+  const distance = Math.abs(heroCell.x - x) + Math.abs(heroCell.y - y);
+  if (entry.kind === 'trap') {
+    return distance === 1
+      && detectedTrapIds.has(entry.value.instanceId)
+      && !run.floor.resolved.includes(entry.value.eventId);
+  }
+  if (entry.kind === 'find') return distance <= 1 && !entry.value.resolved;
+  const open = run.floor.opened.includes(entry.value.instanceId);
+  return open ? distance <= 1 : distance === 1;
+}
+
+function renderContextActions() {
+  if (!contextTarget) return;
+  const model = contextActionModel({
+    target: contextModelTarget(),
+    actor: currentInteractionActor(),
+    language: itemDetailLanguage,
+    inspected: contextInspected,
+  });
+  contextActions.style.setProperty('--context-accent', model.accent);
+  contextActionList.style.setProperty('--action-count', String(model.actions.length));
+  contextActionIcon.src = assetUrl(model.icon);
+  contextActionTitle.textContent = model.name;
+  contextActionDescription.textContent = model.description;
+  closeContextActionsButton.setAttribute('aria-label', model.closeLabel);
+  contextActionBackdrop.setAttribute('aria-label', model.closeLabel);
+  contextActionList.replaceChildren(...model.actions.map((action) => {
+    const button = document.createElement('button');
+    const glyph = document.createElement('b');
+    const label = document.createElement('span');
+    button.type = 'button';
+    button.className = 'context-action-button';
+    button.dataset.action = action.id;
+    button.disabled = !action.enabled;
+    button.title = action.hint || action.label;
+    button.setAttribute('aria-label', action.hint ? `${action.label}. ${action.hint}` : action.label);
+    glyph.textContent = action.glyph;
+    glyph.setAttribute('aria-hidden', 'true');
+    label.textContent = action.label;
+    button.append(glyph, label);
+    if (action.hint) {
+      const hint = document.createElement('small');
+      hint.textContent = action.hint;
+      button.classList.add('has-hint');
+      button.append(hint);
+    }
+    button.addEventListener('click', () => performContextAction(action.id));
+    return button;
+  }));
+}
+
+function openContextActions(nextTarget) {
+  if (!ready || uiScreen !== 'game' || hero.dead || openingDoor || !contextTargetIsAdjacent(nextTarget)) {
+    return false;
+  }
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  contextTarget = nextTarget;
+  contextInspected = false;
+  uiScreen = 'context';
+  document.body.dataset.screen = uiScreen;
+  contextActions.inert = false;
+  contextActions.setAttribute('aria-hidden', 'false');
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  renderContextActions();
+  requestAnimationFrame(() => contextActionList.querySelector('button:not(:disabled)')?.focus());
+  return true;
+}
+
+function closeContextActions({ restoreFocus = false } = {}) {
+  if (uiScreen !== 'context') return false;
+  contextActions.inert = true;
+  contextActions.setAttribute('aria-hidden', 'true');
+  contextTarget = null;
+  contextInspected = false;
+  uiScreen = 'game';
+  document.body.dataset.screen = uiScreen;
+  moveControl.inert = false;
+  moveControl.removeAttribute('aria-hidden');
+  bagButton.disabled = false;
+  characterSheetButton.disabled = false;
+  if (restoreFocus) requestAnimationFrame(() => bagButton.focus());
+  return true;
+}
+
+function nearbyContextTarget() {
+  const find = nearbyFind();
+  if (find) return { kind: 'find', value: find };
+  const trap = nearbyDetectedTrap();
+  if (trap) return { kind: 'trap', value: trap };
+  const door = nearbyDoor();
+  return door ? { kind: 'door', value: door } : null;
+}
+
+function openNearbyContextActions() {
+  const target = nearbyContextTarget();
+  return target ? openContextActions(target) : false;
+}
+
+const CONTEXT_COMMAND_HANDLERS = Object.freeze({
+  inspect() {
+    contextInspected = true;
+    renderContextActions();
+    contextActionDescription.setAttribute('aria-live', 'polite');
+    return true;
+  },
+  'door-transition'({ target, action }) {
+    closeContextActions();
+    return beginDoorTransition(target.value, action.id === 'open');
+  },
+  'trap-disarm'({ target }) {
+    closeContextActions();
+    return interactNearbyTrap(target.value);
+  },
+  'find-interact'({ target, action }) {
+    closeContextActions();
+    return interactNearbyFind(target.value, action.id);
+  },
+});
+
+function performContextAction(actionId) {
+  if (uiScreen !== 'context' || !contextTarget || !contextTargetIsAdjacent(contextTarget)) {
+    closeContextActions();
+    return false;
+  }
+  const model = contextActionModel({
+    target: contextModelTarget(),
+    actor: currentInteractionActor(),
+    language: itemDetailLanguage,
+    inspected: contextInspected,
+  });
+  const action = model.actions.find(({ id }) => id === actionId);
+  const handler = action?.enabled ? CONTEXT_COMMAND_HANDLERS[action.command] : null;
+  return typeof handler === 'function' ? handler({ target: contextTarget, action, model }) : false;
 }
 
 function triggerDoorSurprise(door) {
@@ -3486,6 +3866,10 @@ function hideRunEndScreen() {
 }
 
 function useConsumable(item, index) {
+  if (item.interactionResource) {
+    showLootToast(item, item.stack ?? 1);
+    return;
+  }
   const maxHp = currentHeroStats().maxHp;
   let feedback = 1;
   if (item.id === 'healing-potion') {
@@ -3967,6 +4351,7 @@ function replaceFloor(nextDepth) {
     monsters: [],
     passives: [],
     detectedTrapIds: [],
+    disarmedTrapIds: [],
   };
   monsters = createMonsters(dungeon);
   passiveCreatures = createPassiveCreatureStates(dungeon, TILE);
@@ -4493,6 +4878,23 @@ function animate(time) {
   frameId = requestAnimationFrame(animate);
 }
 
+function routeHeroBesideCell(cellX, cellY) {
+  const routes = [
+    { x: cellX + 1, y: cellY },
+    { x: cellX - 1, y: cellY },
+    { x: cellX, y: cellY + 1 },
+    { x: cellX, y: cellY - 1 },
+  ]
+    .filter(({ x, y }) => isWalkable(x, y) && revealed.has(`${x},${y}`))
+    .map(({ x, y }) => findPath(x, y, {
+      blockedCells: passiveOccupiedCells(),
+      allowBlockedEnd: false,
+    }))
+    .filter((route) => route.length > 0)
+    .sort((a, b) => a.length - b.length);
+  return commitHeroPath(routes[0] ?? []);
+}
+
 function moveFromPointer(event) {
   if (
     event.button !== 0 ||
@@ -4517,29 +4919,31 @@ function moveFromPointer(event) {
     (candidate) =>
       Math.floor(candidate.x / TILE) === cellX && Math.floor(candidate.y / TILE) === cellY,
   );
+  const trap = trapDefinitions.find(
+    (candidate) =>
+      candidate.x === cellX
+      && candidate.y === cellY
+      && detectedTrapIds.has(candidate.instanceId)
+      && !run.floor.resolved.includes(candidate.eventId),
+  );
   if (find && !find.resolved && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
     const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
     if (adjacent) {
-      interactNearbyFind();
+      openContextActions({ kind: 'find', value: find });
       return;
     }
-    const routes = [
-      { x: cellX + 1, y: cellY },
-      { x: cellX - 1, y: cellY },
-      { x: cellX, y: cellY + 1 },
-      { x: cellX, y: cellY - 1 },
-    ]
-      .filter(({ x, y }) => isWalkable(x, y) && revealed.has(`${x},${y}`))
-      .map(({ x, y }) =>
-        findPath(x, y, {
-          blockedCells: passiveOccupiedCells(),
-          allowBlockedEnd: false,
-        }),
-      )
-      .filter((route) => route.length > 0)
-      .sort((a, b) => a.length - b.length);
-    commitHeroPath(routes[0] ?? []);
+    routeHeroBesideCell(cellX, cellY);
+    return;
+  }
+  if (trap && revealed.has(`${cellX},${cellY}`)) {
+    const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+    const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) === 1;
+    if (adjacent) {
+      openContextActions({ kind: 'trap', value: trap });
+      return;
+    }
+    routeHeroBesideCell(cellX, cellY);
     return;
   }
   if (door && revealed.has(`${door.x},${door.y}`)) {
@@ -4547,23 +4951,10 @@ function moveFromPointer(event) {
     const distance = Math.abs(heroCell.x - door.x) + Math.abs(heroCell.y - door.y);
     const isOpen = run.floor.opened.includes(door.instanceId);
     if ((!isOpen && distance === 1) || (isOpen && distance <= 1)) {
-      beginDoorTransition(door, !isOpen);
+      openContextActions({ kind: 'door', value: door });
       return;
     }
-    const routes = [
-      { x: door.x + 1, y: door.y },
-      { x: door.x - 1, y: door.y },
-      { x: door.x, y: door.y + 1 },
-      { x: door.x, y: door.y - 1 },
-    ]
-      .filter(({ x, y }) => isWalkable(x, y) && revealed.has(`${x},${y}`))
-      .map(({ x, y }) => findPath(x, y, {
-        blockedCells: passiveOccupiedCells(),
-        allowBlockedEnd: false,
-      }))
-      .filter((route) => route.length > 0)
-      .sort((a, b) => a.length - b.length);
-    commitHeroPath(routes[0] ?? []);
+    routeHeroBesideCell(door.x, door.y);
     return;
   }
   const moved = requestHeroMove(worldX, worldY);
@@ -4693,6 +5084,18 @@ window.addEventListener('keydown', (event) => {
     controls[nextIndex].focus();
     return;
   }
+  if (event.code === 'Tab' && uiScreen === 'context') {
+    event.preventDefault();
+    const controls = [
+      closeContextActionsButton,
+      ...contextActionList.querySelectorAll('button:not(:disabled)'),
+    ];
+    const currentIndex = controls.indexOf(document.activeElement);
+    const direction = event.shiftKey ? -1 : 1;
+    const nextIndex = (currentIndex + direction + controls.length) % controls.length;
+    controls[nextIndex].focus();
+    return;
+  }
   if (event.code === 'Escape' && uiScreen === 'inventory') {
     event.preventDefault();
     if (closeItemDetail()) return;
@@ -4704,20 +5107,20 @@ window.addEventListener('keydown', (event) => {
     closeCharacterSheet();
     return;
   }
+  if (event.code === 'Escape' && uiScreen === 'context') {
+    event.preventDefault();
+    closeContextActions();
+    return;
+  }
   if (event.code === 'Escape' && uiScreen === 'game') {
     event.preventDefault();
     openMainMenu();
     return;
   }
   if (uiScreen !== 'game' || runStatus !== 'playing') return;
-  if ((event.code === 'KeyE' || event.code === 'Space') && nearbyDoor()) {
+  if ((event.code === 'KeyE' || event.code === 'Space') && nearbyContextTarget()) {
     event.preventDefault();
-    if (!event.repeat) toggleNearbyDoor();
-    return;
-  }
-  if ((event.code === 'KeyE' || event.code === 'Space') && nearbyFind()) {
-    event.preventDefault();
-    if (!event.repeat) interactNearbyFind();
+    if (!event.repeat) openNearbyContextActions();
     return;
   }
   const directions = {
@@ -4793,6 +5196,8 @@ salvageConfirm.addEventListener('click', () => {
 });
 restartRunButton.addEventListener('click', restartRun);
 sanctuaryAction.addEventListener('click', healAtSanctuary);
+closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
+contextActionBackdrop.addEventListener('click', () => closeContextActions());
 window.addEventListener('pagehide', () => {
   persistRun();
   cancelAnimationFrame(frameId);

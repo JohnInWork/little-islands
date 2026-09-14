@@ -20,11 +20,15 @@ const options = (state = createSkillState(2), heroLevel = 2) => ({
 });
 const firstSkill = (model) => model.groups[0].skills[0];
 
-test('production menu exposes only the implemented Trap Sense, with no empty categories', () => {
+test('production menu exposes implemented trap skills, with no empty categories', () => {
   const model = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   assert.equal(model.visible, true);
   assert.equal(model.groups.length, 1);
-  assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), ['trap-sense']);
+  assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
+    'trap-sense',
+    'trap-disarming',
+    'lockpicking',
+  ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
   const dormant = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing', implementations: {} });

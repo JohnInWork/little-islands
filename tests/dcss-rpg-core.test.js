@@ -35,6 +35,7 @@ const EMPTY_FLOOR = Object.freeze({
   resolved: [],
   resolvedFindIds: [],
   detectedTrapIds: [],
+  disarmedTrapIds: [],
   opened: [],
   triggered: [],
   monsters: [],
@@ -203,7 +204,8 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v9')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v10')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v11')));
-  assert.ok(SAVE_KEY.endsWith(':v12'));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v12')));
+  assert.ok(SAVE_KEY.endsWith(':v14'));
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -346,7 +348,7 @@ test('all eleven equipment slots can coexist with a full twelve-item backpack', 
     run.items.push({ id, uid });
     run.equipment[slot] = uid;
   }
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < 8; index += 1) {
     const uid = `full-pack-${index}`;
     run.items.push({ id: 'mystery-potion', uid });
     run.inventory.push(uid);

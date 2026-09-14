@@ -14,9 +14,27 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ trapDetectionRadius: 4, trapDetectionTier: 3 }),
     ]),
   }),
+  'trap-disarming': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ trapDisarmTier: 1 }),
+      Object.freeze({ trapDisarmTier: 2 }),
+      Object.freeze({ trapDisarmTier: 3 }),
+    ]),
+  }),
+  lockpicking: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ lockpickTier: 1 }),
+      Object.freeze({ lockpickTier: 2 }),
+      Object.freeze({ lockpickTier: 3 }),
+    ]),
+  }),
 });
 // Add a system here only when its runtime consumer is connected and verified.
-export const SKILL_SYSTEMS = Object.freeze(['trap-detection']);
+export const SKILL_SYSTEMS = Object.freeze(['trap-detection', 'trap-disarming', 'lockpicking']);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
   attack: Object.freeze([-1000, 1000]),
@@ -33,6 +51,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   trapDetectionTier: Object.freeze([0, 3]),
   trapDisarmTier: Object.freeze([0, 3]),
   trapPlacementTier: Object.freeze([0, 3]),
+  lockpickTier: Object.freeze([0, 3]),
 });
 
 function isRecord(value) {

@@ -34,8 +34,8 @@ test('v9 migration grants earned skill points without resetting the current floo
   const legacy = v9Fixture();
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
-  assert.equal(next.version, 12);
-  assert.equal(SAVE_KEY, 'little-islands:dcss-rpg:v12');
+  assert.equal(next.version, 14);
+  assert.equal(SAVE_KEY, 'little-islands:dcss-rpg:v14');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   const previousShape = structuredClone(next);
   previousShape.version = 9;

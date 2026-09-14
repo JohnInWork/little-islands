@@ -181,6 +181,29 @@
       <p id="find-announcement" class="screen-reader-message" role="status" aria-live="polite"></p>
 
       <section
+        id="context-actions"
+        class="context-actions"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="context-action-title"
+        aria-hidden="true"
+        inert
+      >
+        <button id="context-action-backdrop" class="context-action-backdrop" type="button" tabindex="-1" aria-label="Закрыть"></button>
+        <article class="context-action-card pixel-frame">
+          <header class="context-action-header">
+            <img id="context-action-icon" alt="" />
+            <div>
+              <h2 id="context-action-title"></h2>
+              <p id="context-action-description"></p>
+            </div>
+            <button id="close-context-actions" type="button" aria-label="Закрыть">×</button>
+          </header>
+          <div id="context-action-list" class="context-action-list"></div>
+        </article>
+      </section>
+
+      <section
         id="character-sheet"
         class="character-sheet"
         role="dialog"

@@ -51,6 +51,8 @@ const RUSSIAN_NAMES = Object.freeze({
   'bone-wand': 'Костяной жезл',
   'dead-book': 'Книга мёртвых',
   bread: 'Хлебный паёк',
+  'iron-key': 'Железный ключ',
+  'lockpick-set': 'Набор отмычек',
   'coin-cache': 'Тайник с золотом',
 });
 
@@ -227,6 +229,8 @@ const SPECIAL_EFFECTS = Object.freeze({
     'blink-scroll': [{ icon: '✦', text: 'Мгновенно возвращает героя ко входу на этаж.' }],
     'bone-wand': [{ icon: '✦', text: 'Расходует заряд и навсегда даёт 1 силу.' }],
     bread: [{ icon: '♥', text: 'Восстанавливает до 12 здоровья.' }],
+    'iron-key': [{ icon: '⌑', text: 'Открывает любой обычный замок и расходуется.' }],
+    'lockpick-set': [{ icon: '⌁', text: 'Расходуется при взломе; требуется навык подходящего ранга.' }],
     'coin-cache': [{ icon: '◆', text: 'Сразу превращается в осколки при подборе.' }],
   },
   en: {
@@ -235,6 +239,8 @@ const SPECIAL_EFFECTS = Object.freeze({
     'blink-scroll': [{ icon: '✦', text: 'Instantly returns the hero to the floor entrance.' }],
     'bone-wand': [{ icon: '✦', text: 'Consumes a charge and permanently grants 1 power.' }],
     bread: [{ icon: '♥', text: 'Restores up to 12 health.' }],
+    'iron-key': [{ icon: '⌑', text: 'Opens any ordinary lock and is consumed.' }],
+    'lockpick-set': [{ icon: '⌁', text: 'Consumed while picking; requires sufficient skill.' }],
     'coin-cache': [{ icon: '◆', text: 'Immediately becomes shards when collected.' }],
   },
 });

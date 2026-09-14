@@ -45,8 +45,8 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.deepEqual(initial, { version: SKILL_STATE_VERSION, points: 0, ranks: {} });
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS));
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
-  assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), ['trap-sense']);
-  assert.deepEqual(SKILL_SYSTEMS, ['trap-detection']);
+  assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), ['trap-sense', 'trap-disarming', 'lockpicking']);
+  assert.deepEqual(SKILL_SYSTEMS, ['trap-detection', 'trap-disarming', 'lockpicking']);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
   assert.ok(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank.every(Object.isFrozen));
@@ -137,7 +137,7 @@ test('all three ranks work at their level thresholds and stop at the ceiling', (
 test('catalogue text alone cannot enable skills: real implementation and every system are mandatory', () => {
   const state = createSkillState(4);
   assert.equal(isSkillReady('trap-sense'), true);
-  assert.equal(isSkillReady('trap-disarming'), false);
+  assert.equal(isSkillReady('trap-disarming'), true);
   assert.equal(isSkillReady('trap-setting'), false);
   assert.equal(isSkillReady('missing', { implementations, systems }), false);
   assert.equal(isSkillReady('trap-sense', { implementations, systems: [] }), false);
@@ -173,6 +173,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
   assert.deepEqual(deriveSkillModifiers(state), neutral);
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
+    lockpickTier: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionTier, 3);

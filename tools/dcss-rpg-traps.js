@@ -32,6 +32,15 @@ export function validateDetectedTrapIds(ids, traps) {
   return ids.every((id) => known.has(id));
 }
 
+export function validateDisarmedTrapIds(ids, traps, detectedTrapIds, resolvedEventIds) {
+  if (!validateDetectedTrapIds(ids, traps)
+    || !validIds(detectedTrapIds)
+    || !validIds(resolvedEventIds)) return false;
+  const detected = new Set(detectedTrapIds);
+  const resolved = new Set(resolvedEventIds);
+  return ids.every((id) => detected.has(id) && resolved.has(id));
+}
+
 function requireStateArrays(traps, detectedTrapIds, resolvedEventIds) {
   if (!Array.isArray(traps) || !validIds(detectedTrapIds) || !validIds(resolvedEventIds)) {
     throw new TypeError('Trap queries require records and event ID arrays');

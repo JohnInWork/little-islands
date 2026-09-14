@@ -51,6 +51,7 @@ test('future skill availability requires explicit runtime system support', () =>
   }
   assert.deepEqual(skillById('trap-sense').requiresSystems, ['trap-detection']);
   assert.deepEqual(skillById('trap-disarming').requiresSystems, ['trap-disarming']);
+  assert.deepEqual(skillById('lockpicking').requiresSystems, ['lockpicking']);
   assert.deepEqual(skillById('trap-setting').requiresSystems, ['trap-placement']);
 });
 
