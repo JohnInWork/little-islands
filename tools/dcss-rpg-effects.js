@@ -1,0 +1,164 @@
+export const ACTOR_EFFECT_IDS = Object.freeze(['burning', 'wet', 'chilled', 'poison']);
+
+export const MAX_EFFECT_DURATION = 60;
+
+export const ACTOR_EFFECTS = Object.freeze({
+  burning: Object.freeze({
+    id: 'burning',
+    icon: 'dngn/altars/makhleb_flame5.png',
+    color: '#f07a38',
+    damagePerPulse: 2,
+    moveSpeed: 1,
+    labels: Object.freeze({ ru: 'Горение', en: 'Burning' }),
+  }),
+  wet: Object.freeze({
+    id: 'wet',
+    icon: 'dngn/blue_fountain2.png',
+    color: '#63b8ca',
+    damagePerPulse: 0,
+    moveSpeed: 0.96,
+    labels: Object.freeze({ ru: 'Мокрый', en: 'Wet' }),
+  }),
+  chilled: Object.freeze({
+    id: 'chilled',
+    icon: 'item/ring/i-ice.png',
+    color: '#9edfe4',
+    damagePerPulse: 0,
+    moveSpeed: 0.74,
+    labels: Object.freeze({ ru: 'Озноб', en: 'Chilled' }),
+  }),
+  poison: Object.freeze({
+    id: 'poison',
+    icon: 'item/ring/i-r-poison.png',
+    color: '#86b84f',
+    damagePerPulse: 1,
+    moveSpeed: 1,
+    labels: Object.freeze({ ru: 'Отравление', en: 'Poisoned' }),
+  }),
+});
+
+function boundedDuration(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(MAX_EFFECT_DURATION, Math.max(0, value));
+}
+
+export function createActorEffects(source = {}) {
+  return Object.fromEntries(ACTOR_EFFECT_IDS.map((id) => [id, boundedDuration(source?.[id])]));
+}
+
+export function validateActorEffects(effects) {
+  if (!effects || typeof effects !== 'object' || Array.isArray(effects)) return false;
+  if (Object.keys(effects).some((id) => !ACTOR_EFFECT_IDS.includes(id))) return false;
+  return ACTOR_EFFECT_IDS.every(
+    (id) => Number.isFinite(effects[id]) && effects[id] >= 0 && effects[id] <= MAX_EFFECT_DURATION,
+  );
+}
+
+export function activeActorEffects(effects, language = 'ru') {
+  const normalized = createActorEffects(effects);
+  const locale = language === 'en' ? 'en' : 'ru';
+  return ACTOR_EFFECT_IDS.filter((id) => normalized[id] > 0).map((id) => {
+    const definition = ACTOR_EFFECTS[id];
+    return Object.freeze({
+      ...definition,
+      duration: normalized[id],
+      label: definition.labels[locale],
+    });
+  });
+}
+
+export function actorEffectModifiers(effects) {
+  const normalized = createActorEffects(effects);
+  let moveSpeed = 1;
+  for (const id of ACTOR_EFFECT_IDS) {
+    if (normalized[id] > 0) moveSpeed *= ACTOR_EFFECTS[id].moveSpeed;
+  }
+  if (normalized.wet > 0 && normalized.chilled > 0) moveSpeed *= 0.84;
+  return Object.freeze({ moveSpeed: Math.max(0.5, moveSpeed) });
+}
+
+export function applyActorEffect(effects, id, duration) {
+  if (!ACTOR_EFFECT_IDS.includes(id)) throw new Error(`Unknown actor effect: ${id}`);
+  if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_EFFECT_DURATION) {
+    throw new TypeError('Actor effect duration is out of bounds');
+  }
+
+  const next = createActorEffects(effects);
+  const cleared = [];
+  let reaction = null;
+
+  if (id === 'wet' && next.burning > 0) {
+    next.burning = 0;
+    cleared.push('burning');
+    reaction = 'steam';
+  } else if (id === 'burning' && next.wet > 0) {
+    next.wet = 0;
+    cleared.push('wet');
+    reaction = 'steam';
+    return Object.freeze({
+      effects: next,
+      applied: null,
+      cleared: Object.freeze(cleared),
+      reaction,
+    });
+  }
+
+  const adjustedDuration = id === 'chilled' && next.wet > 0 ? duration * 1.5 : duration;
+  next[id] = Math.max(next[id], boundedDuration(adjustedDuration));
+  return Object.freeze({
+    effects: next,
+    applied: id,
+    cleared: Object.freeze(cleared),
+    reaction,
+  });
+}
+
+export function clearActorEffects(effects) {
+  const next = createActorEffects(effects);
+  const cleared = ACTOR_EFFECT_IDS.filter((id) => next[id] > 0);
+  return Object.freeze({ effects: createActorEffects(), cleared: Object.freeze(cleared) });
+}
+
+export function tickActorEffects(effects, delta) {
+  if (!Number.isFinite(delta) || delta < 0 || delta > 1) {
+    throw new TypeError('Actor effect tick requires a delta between zero and one second');
+  }
+  const before = createActorEffects(effects);
+  const next = createActorEffects(before);
+  const expired = [];
+  let damage = 0;
+  const pulses = {};
+
+  for (const id of ACTOR_EFFECT_IDS) {
+    if (before[id] <= 0) continue;
+    next[id] = Math.max(0, before[id] - delta);
+    const pulseCount = Math.max(0, Math.ceil(before[id]) - Math.ceil(next[id]));
+    if (pulseCount > 0) {
+      pulses[id] = pulseCount;
+      damage += pulseCount * ACTOR_EFFECTS[id].damagePerPulse;
+    }
+    if (next[id] === 0) expired.push(id);
+  }
+
+  return Object.freeze({
+    effects: next,
+    damage,
+    pulses: Object.freeze(pulses),
+    expired: Object.freeze(expired),
+    modifiers: actorEffectModifiers(next),
+  });
+}
+
+export function monsterInfliction(monster) {
+  const infliction = monster?.inflicts;
+  if (!infliction) return null;
+  if (
+    !ACTOR_EFFECT_IDS.includes(infliction.id) ||
+    !Number.isFinite(infliction.duration) ||
+    infliction.duration <= 0 ||
+    infliction.duration > MAX_EFFECT_DURATION
+  ) {
+    throw new Error(`Invalid monster effect for ${monster?.id ?? 'unknown monster'}`);
+  }
+  return Object.freeze({ id: infliction.id, duration: infliction.duration });
+}

@@ -6,9 +6,46 @@ import {
   lootById,
   monsterById,
 } from './dcss-rpg-content.js';
+import { EQUIPMENT_SLOTS, allowedSlotsForItem, deriveHeroStats } from './dcss-rpg-rules.js';
+import { cloneSkillState, createSkillState, validateSkillState } from './dcss-rpg-skills.js';
+import { trapsFromDungeon, validateDetectedTrapIds } from './dcss-rpg-traps.js';
+import { createActorEffects, validateActorEffects } from './dcss-rpg-effects.js';
+import {
+  PASSIVE_CREATURE_CATALOG,
+  passiveCreatureById,
+} from './dcss-rpg-passive.js';
+import { FINAL_BOSS_ID, FINAL_DEPTH } from './dcss-rpg-run.js';
+import {
+  DEFAULT_DIFFICULTY,
+  MAX_DIFFICULTY,
+  MIN_DIFFICULTY,
+  SCALING_VERSION,
+  floorScaling,
+  lootEligibleForFloor,
+  monsterEligibleForFloor,
+  monsterTier,
+  scalingVersionSupported,
+} from './dcss-rpg-scaling.js';
+import { createDungeonFinds } from './dcss-rpg-finds.js';
 
-export const SAVE_VERSION = 1;
-export const SAVE_KEY = 'little-islands:dcss-rpg:v1';
+export const SAVE_VERSION = 12;
+export const SAVE_KEY = 'little-islands:dcss-rpg:v12';
+export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
+export const LEGACY_SAVE_KEYS = Object.freeze([
+  'little-islands:dcss-rpg:v11',
+  'little-islands:dcss-rpg:v10',
+  'little-islands:dcss-rpg:v9',
+  'little-islands:dcss-rpg:v8',
+  'little-islands:dcss-rpg:v7',
+  'little-islands:dcss-rpg:v6',
+  'little-islands:dcss-rpg:v5',
+  'little-islands:dcss-rpg:v4',
+  'little-islands:dcss-rpg:v3',
+  'little-islands:dcss-rpg:v2',
+  LEGACY_SAVE_KEY,
+]);
+export const GENERATOR_VERSION = 4;
+export const CONTENT_VERSION = 4;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
 
@@ -103,12 +140,45 @@ function carveCorridor(grid, from, to, horizontalFirst) {
   for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x += 1) grid[to.y][x] = '.';
 }
 
-export function isWalkableCell(grid, x, y) {
-  return y >= 0 && y < grid.length && x >= 0 && x < grid[0].length && grid[y][x] === '.';
+export function isWalkableCell(grid, x, y, { allowDoors = false } = {}) {
+  if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return false;
+  return grid[y][x] === '.' || (allowDoors && grid[y][x] === 'D');
 }
 
-export function findGridPath(grid, start, end) {
-  if (!isWalkableCell(grid, start.x, start.y) || !isWalkableCell(grid, end.x, end.y)) return [];
+export function hasLineOfSight(grid, start, end) {
+  if (!grid.length || !grid[0]?.length) return false;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 4;
+  if (steps === 0) return true;
+  let previousX = start.x;
+  let previousY = start.y;
+  for (let step = 1; step <= steps; step += 1) {
+    const x = Math.floor(start.x + 0.5 + (dx * step) / steps);
+    const y = Math.floor(start.y + 0.5 + (dy * step) / steps);
+    if (x < 0 || y < 0 || y >= grid.length || x >= grid[0].length) return false;
+    if (x === previousX && y === previousY) continue;
+    if (
+      x !== previousX &&
+      y !== previousY &&
+      !isWalkableCell(grid, previousX, y) &&
+      !isWalkableCell(grid, x, previousY)
+    ) {
+      return false;
+    }
+    const isTarget = x === end.x && y === end.y;
+    if (!isTarget && !isWalkableCell(grid, x, y)) return false;
+    previousX = x;
+    previousY = y;
+  }
+  return true;
+}
+
+export function findGridPath(grid, start, end, { allowDoors = false } = {}) {
+  if (
+    !isWalkableCell(grid, start.x, start.y, { allowDoors }) ||
+    !isWalkableCell(grid, end.x, end.y, { allowDoors })
+  ) return [];
   const width = grid[0].length;
   const key = (x, y) => y * width + x;
   const startKey = key(start.x, start.y);
@@ -122,7 +192,7 @@ export function findGridPath(grid, start, end) {
       const x = cell.x + dx;
       const y = cell.y + dy;
       const cellKey = key(x, y);
-      if (!isWalkableCell(grid, x, y) || previous.has(cellKey)) continue;
+      if (!isWalkableCell(grid, x, y, { allowDoors }) || previous.has(cellKey)) continue;
       previous.set(cellKey, key(cell.x, cell.y));
       queue.push({ x, y });
     }
@@ -137,12 +207,155 @@ export function findGridPath(grid, start, end) {
   return path.reverse();
 }
 
+function roomDoorwayCells(grid, room, roomIndex) {
+  const right = room.x + room.width - 1;
+  const bottom = room.y + room.height - 1;
+  const candidates = new Map();
+  const add = (x, y, axis, outsideX, outsideY) => {
+    if (grid[outsideY]?.[outsideX] !== '.') return;
+    const corridorIsNarrow = axis === 'x'
+      ? grid[outsideY - 1]?.[outsideX] === '#' &&
+        grid[outsideY + 1]?.[outsideX] === '#' &&
+        grid[outsideY]?.[outsideX - 1] === '.' &&
+        grid[outsideY]?.[outsideX + 1] === '.'
+      : grid[outsideY]?.[outsideX - 1] === '#' &&
+        grid[outsideY]?.[outsideX + 1] === '#' &&
+        grid[outsideY - 1]?.[outsideX] === '.' &&
+        grid[outsideY + 1]?.[outsideX] === '.';
+    if (!corridorIsNarrow) return;
+    candidates.set(`${outsideX},${outsideY}`, {
+      x: outsideX,
+      y: outsideY,
+      axis,
+      roomIndex,
+    });
+  };
+  for (let y = room.y; y <= bottom; y += 1) {
+    for (let x = room.x; x <= right; x += 1) {
+      if (grid[y]?.[x] !== '.') continue;
+      if (x === room.x) add(x, y, 'x', x - 1, y);
+      if (x === right) add(x, y, 'x', x + 1, y);
+      if (y === room.y) add(x, y, 'y', x, y - 1);
+      if (y === bottom) add(x, y, 'y', x, y + 1);
+    }
+  }
+  return [...candidates.values()];
+}
+
+function roomContains(room, point) {
+  return Boolean(
+    point &&
+    point.x >= room.x &&
+    point.x < room.x + room.width &&
+    point.y >= room.y &&
+    point.y < room.y + room.height
+  );
+}
+
+function planDungeonDoors({ grid, rooms, spawn, exit, sanctuary, objective, depth, floorSeed }) {
+  const rng = createRng(mixSeed(floorSeed, 0xd00d));
+  const reserved = new Set(
+    [spawn, exit, sanctuary, objective?.boss, objective?.artifact]
+      .filter(Boolean)
+      .map(({ x, y }) => `${x},${y}`),
+  );
+  const candidatesByRoom = rooms.map((room, roomIndex) =>
+    roomDoorwayCells(grid, room, roomIndex).filter(({ x, y }) => {
+      const distance = Math.abs(x - spawn.x) + Math.abs(y - spawn.y);
+      return distance >= 4 && !reserved.has(`${x},${y}`);
+    }),
+  );
+  const eligibleSurpriseRooms = rooms
+    .map((room, roomIndex) => ({ room, roomIndex, doors: candidatesByRoom[roomIndex] }))
+    .filter(({ room, roomIndex, doors }) =>
+      roomIndex > 0 &&
+      doors.length > 0 &&
+      !roomContains(room, exit) &&
+      !roomContains(room, objective?.boss),
+    );
+  const surpriseChoices = eligibleSurpriseRooms.filter(({ doors }) => doors.length === 1);
+  const fallbackChoices = [...eligibleSurpriseRooms].sort(
+    (a, b) => a.doors.length - b.doors.length,
+  );
+  const surpriseRoom = rng.pick(surpriseChoices.length > 0 ? surpriseChoices : fallbackChoices);
+  const surpriseType = weightedPick(rng, [
+    { id: 'horde', weight: 4 },
+    { id: 'treasure', weight: 3 },
+    { id: 'mixed', weight: 2 },
+  ]).id;
+  const targetDoorCount = Math.min(7, 4 + Math.floor(depth / 2));
+  const selected = [...(surpriseRoom?.doors ?? [])];
+  const selectedKeys = new Set(selected.map(({ x, y }) => `${x},${y}`));
+  const allCandidates = shuffle(rng, candidatesByRoom.flat());
+  const canAdd = (candidate, spacing) =>
+    !selectedKeys.has(`${candidate.x},${candidate.y}`) &&
+    selected.every(
+      (door) => Math.abs(door.x - candidate.x) + Math.abs(door.y - candidate.y) >= spacing,
+    );
+  for (const spacing of [3, 1]) {
+    for (const candidate of allCandidates) {
+      if (selected.length >= targetDoorCount) break;
+      if (!canAdd(candidate, spacing)) continue;
+      selected.push(candidate);
+      selectedKeys.add(`${candidate.x},${candidate.y}`);
+    }
+  }
+  if (selected.length === 0) throw new Error('Dungeon generator could not place doors');
+
+  const surpriseId = `surprise-${depth}-0`;
+  const surpriseDoor = surpriseRoom ? rng.pick(surpriseRoom.doors) : null;
+  const surpriseDoorKey = surpriseDoor ? `${surpriseDoor.x},${surpriseDoor.y}` : null;
+  const doors = selected.map((door, index) => ({
+    instanceId: `door-${depth}-${index}`,
+    ...door,
+    surpriseId: `${door.x},${door.y}` === surpriseDoorKey ? surpriseId : null,
+  }));
+  for (const door of doors) grid[door.y][door.x] = 'D';
+  return {
+    doors,
+    surprise: surpriseRoom
+      ? {
+          id: surpriseId,
+          type: surpriseType,
+          roomIndex: surpriseRoom.roomIndex,
+          monsterIds: [],
+          lootIds: [],
+        }
+      : null,
+  };
+}
+
+function pickRoomSpawnCells(rng, grid, room, count, occupied) {
+  const interior = [];
+  const edge = [];
+  for (let y = room.y; y < room.y + room.height; y += 1) {
+    for (let x = room.x; x < room.x + room.width; x += 1) {
+      const cellKey = `${x},${y}`;
+      if (!isWalkableCell(grid, x, y) || occupied.has(cellKey)) continue;
+      const collection =
+        x > room.x &&
+        x < room.x + room.width - 1 &&
+        y > room.y &&
+        y < room.y + room.height - 1
+          ? interior
+          : edge;
+      collection.push({ x, y });
+    }
+  }
+  shuffle(rng, interior);
+  shuffle(rng, edge);
+  const picked = [...interior, ...edge].slice(0, count);
+  for (const cell of picked) occupied.add(`${cell.x},${cell.y}`);
+  return picked;
+}
+
 export function revealAround(revealed, grid, center, radius = 4) {
   let changed = false;
   for (let y = center.y - radius; y <= center.y + radius; y += 1) {
     for (let x = center.x - radius; x <= center.x + radius; x += 1) {
       if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) continue;
       if (Math.hypot(x - center.x, y - center.y) > radius + 0.35) continue;
+      if (!hasLineOfSight(grid, center, { x, y })) continue;
       const key = `${x},${y}`;
       if (revealed.has(key)) continue;
       revealed.add(key);
@@ -168,16 +381,24 @@ function pickSpawnCells(rng, grid, spawn, count, occupied) {
   return picked;
 }
 
-export function generateDungeon({ seed, depth = 1, width = MAP_WIDTH, height = MAP_HEIGHT }) {
+export function generateDungeon({
+  seed,
+  depth = 1,
+  width = MAP_WIDTH,
+  height = MAP_HEIGHT,
+  scalingVersion = SCALING_VERSION,
+  difficulty = DEFAULT_DIFFICULTY,
+}) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
   if (!Number.isInteger(depth) || depth < 1)
     throw new Error('Dungeon depth must be a positive integer');
   if (width < 24 || height < 18) throw new Error('Dungeon dimensions are too small');
+  const scaling = floorScaling(depth, scalingVersion, difficulty);
   const floorSeed = mixSeed(seed, depth);
   const rng = createRng(floorSeed);
   const grid = Array.from({ length: height }, () => Array(width).fill('#'));
   const rooms = [];
-  const desiredRooms = Math.min(15, 9 + Math.floor(depth / 2));
+  const desiredRooms = scaling.layout.roomCount;
   for (let attempt = 0; attempt < 260 && rooms.length < desiredRooms; attempt += 1) {
     const room = {
       width: rng.int(4, 8),
@@ -210,9 +431,70 @@ export function generateDungeon({ seed, depth = 1, width = MAP_WIDTH, height = M
   const exit = roomCenter(
     [...rooms].sort((a, b) => distanceFromSpawn(b) - distanceFromSpawn(a))[0],
   );
+  const route = findGridPath(grid, spawn, exit);
+  if (route.length === 0) throw new Error('Generated dungeon has no route to the exit');
   const occupied = new Set([`${spawn.x},${spawn.y}`, `${exit.x},${exit.y}`]);
 
-  const eventRooms = shuffle(rng, rooms.slice(1, -1)).slice(0, Math.min(4, 3 + (depth % 2)));
+  const sanctuary = depth > 1 ? { ...route[0] } : null;
+  if (sanctuary) occupied.add(`${sanctuary.x},${sanctuary.y}`);
+  const bossCell = depth === FINAL_DEPTH ? route.at(-2) : null;
+  const objective = bossCell
+    ? {
+        bossId: FINAL_BOSS_ID,
+        bossInstanceId: `monster-${depth}-boss`,
+        boss: { ...bossCell },
+        artifact: { ...exit },
+      }
+    : null;
+  if (bossCell) occupied.add(`${bossCell.x},${bossCell.y}`);
+
+  const doorPlan = planDungeonDoors({
+    grid,
+    rooms,
+    spawn,
+    exit,
+    sanctuary,
+    objective,
+    depth,
+    floorSeed,
+  });
+  const surpriseRoom = doorPlan.surprise
+    ? rooms[doorPlan.surprise.roomIndex]
+    : null;
+
+  const initialReveal = new Set();
+  revealAround(initialReveal, grid, spawn, 4);
+  const nearRoute = route.filter((cell) => {
+    const distance = Math.abs(cell.x - spawn.x) + Math.abs(cell.y - spawn.y);
+    return (
+      distance >= 2 &&
+      distance <= 3 &&
+      initialReveal.has(`${cell.x},${cell.y}`) &&
+      isWalkableCell(grid, cell.x, cell.y) &&
+      !occupied.has(`${cell.x},${cell.y}`)
+    );
+  });
+  const visibleFloorCells = [];
+  for (const cellKey of initialReveal) {
+    const [x, y] = cellKey.split(',').map(Number);
+    const distance = Math.abs(x - spawn.x) + Math.abs(y - spawn.y);
+    if (distance >= 2 && isWalkableCell(grid, x, y) && !occupied.has(cellKey)) {
+      visibleFloorCells.push({ x, y });
+    }
+  }
+  shuffle(rng, visibleFloorCells);
+  const starterMonsterCell = nearRoute[0] ?? visibleFloorCells[0] ?? route[0];
+  occupied.add(`${starterMonsterCell.x},${starterMonsterCell.y}`);
+  const starterLootCell = visibleFloorCells.find(
+    (cell) => !occupied.has(`${cell.x},${cell.y}`),
+  );
+  if (!starterLootCell) throw new Error('Dungeon generator could not place the starter reward');
+  occupied.add(`${starterLootCell.x},${starterLootCell.y}`);
+
+  const eventRooms = shuffle(rng, rooms.slice(1)).filter((room) => {
+    const position = roomCenter(room);
+    return !occupied.has(`${position.x},${position.y}`);
+  }).slice(0, scaling.layout.eventCount);
   const events = eventRooms.map((room, index) => {
     const position = roomCenter(room);
     occupied.add(`${position.x},${position.y}`);
@@ -220,47 +502,189 @@ export function generateDungeon({ seed, depth = 1, width = MAP_WIDTH, height = M
     return { instanceId: `event-${depth}-${index}`, id: definition.id, ...position };
   });
 
-  const maxTier = Math.min(9, 1 + Math.floor((depth - 1) * 0.72));
-  const monsterPool = MONSTER_CATALOG.filter((monster) => monster.tier <= maxTier);
-  const monsterCells = pickSpawnCells(rng, grid, spawn, Math.min(24, 6 + depth * 2), occupied);
-  const monsters = monsterCells.map((position, index) => {
-    const definition = weightedPick(rng, monsterPool, (monster) => 12 / monster.tier);
-    return { instanceId: `monster-${depth}-${index}`, id: definition.id, ...position };
-  });
+  const monsterPool = MONSTER_CATALOG.filter((monster) =>
+    monsterEligibleForFloor(monster, scaling),
+  );
+  const monsterCount = scaling.encounters.monsterCount;
+  const fixedMonsterCount = 1 + (objective ? 1 : 0);
+  const desiredSurpriseMonsterCount = doorPlan.surprise?.type === 'horde'
+    ? Math.min(4, monsterCount - fixedMonsterCount)
+    : doorPlan.surprise?.type === 'mixed'
+      ? Math.min(2, monsterCount - fixedMonsterCount)
+      : 0;
+  const surpriseMonsterCells = surpriseRoom
+    ? pickRoomSpawnCells(
+        rng,
+        grid,
+        surpriseRoom,
+        desiredSurpriseMonsterCount,
+        occupied,
+      )
+    : [];
+  const monsterCells = pickSpawnCells(
+    rng,
+    grid,
+    spawn,
+    monsterCount - fixedMonsterCount - surpriseMonsterCells.length,
+    occupied,
+  );
+  const starterMonster = weightedPick(rng, MONSTER_CATALOG.filter((monster) => monster.tier === 1));
+  const monsters = [
+    { instanceId: `monster-${depth}-0`, id: starterMonster.id, ...starterMonsterCell },
+    ...(objective
+      ? [
+          {
+            instanceId: objective.bossInstanceId,
+            id: objective.bossId,
+            ...objective.boss,
+          },
+        ]
+      : []),
+    ...monsterCells.map((position, index) => {
+      const definition = weightedPick(rng, monsterPool, (monster) => 12 / monsterTier(monster));
+      return {
+        instanceId: `monster-${depth}-${index + fixedMonsterCount}`,
+        id: definition.id,
+        ...position,
+      };
+    }),
+    ...surpriseMonsterCells.map((position, index) => {
+      const definition = weightedPick(rng, monsterPool, (monster) => 12 / monsterTier(monster));
+      return {
+        instanceId: `monster-${depth}-${index + fixedMonsterCount + monsterCells.length}`,
+        id: definition.id,
+        ...position,
+      };
+    }),
+  ];
+  if (doorPlan.surprise) {
+    doorPlan.surprise.monsterIds = monsters
+      .slice(monsters.length - surpriseMonsterCells.length)
+      .map(({ instanceId }) => instanceId);
+  }
 
-  const lootPool = LOOT_CATALOG.filter((item) => item.minDepth <= depth);
+  const lootPool = LOOT_CATALOG.filter((item) => lootEligibleForFloor(item, scaling));
+  const starterIds = new Set(['short-blade', 'wood-buckler', 'heavy-leather', 'jackboots']);
+  const starterLootPool = lootPool.filter((item) => item.slot && !starterIds.has(item.id));
+  const desiredSurpriseLootCount = doorPlan.surprise?.type === 'treasure'
+    ? Math.min(3, scaling.rewards.lootCount - 1)
+    : doorPlan.surprise?.type === 'mixed'
+      ? Math.min(2, scaling.rewards.lootCount - 1)
+      : 0;
+  const surpriseLootCells = surpriseRoom
+    ? pickRoomSpawnCells(rng, grid, surpriseRoom, desiredSurpriseLootCount, occupied)
+    : [];
   const lootCells = pickSpawnCells(
     rng,
     grid,
     spawn,
-    Math.min(9, 4 + Math.floor(depth / 2)),
+    Math.max(0, scaling.rewards.lootCount - 1 - surpriseLootCells.length),
     occupied,
   );
-  const loot = lootCells.map((position, index) => {
-    const definition = weightedPick(rng, lootPool);
-    return { instanceId: `loot-${depth}-${index}`, id: definition.id, ...position };
-  });
+  const starterLoot = weightedPick(rng, starterLootPool);
+  const loot = [
+    { instanceId: `loot-${depth}-0`, id: starterLoot.id, ...starterLootCell },
+    ...lootCells.map((position, index) => {
+      const definition = weightedPick(rng, lootPool);
+      return { instanceId: `loot-${depth}-${index + 1}`, id: definition.id, ...position };
+    }),
+    ...surpriseLootCells.map((position, index) => ({
+      instanceId: `loot-${depth}-${index + lootCells.length + 1}`,
+      id: 'coin-cache',
+      amount: 4 + depth * 2 + rng.int(0, 4),
+      ...position,
+    })),
+  ];
+  if (doorPlan.surprise) {
+    doorPlan.surprise.lootIds = loot
+      .slice(loot.length - surpriseLootCells.length)
+      .map(({ instanceId }) => instanceId);
+  }
 
-  const route = findGridPath(grid, spawn, exit);
-  if (route.length === 0) throw new Error('Generated dungeon has no route to the exit');
+  // Passive wildlife owns a separate RNG stream. Adding or tuning it therefore
+  // cannot reshuffle rooms, hostile encounters, loot or door surprises.
+  const passiveRng = createRng(mixSeed(floorSeed, 0x50415353));
+  const passivePool = PASSIVE_CREATURE_CATALOG.filter(({ minDepth }) => minDepth <= depth);
+  const desiredPassiveCount = Math.min(
+    5,
+    2 + Math.floor((depth - 1) / 2) + passiveRng.int(0, 1),
+  );
+  const passiveCreatures = [];
+  for (
+    let attempt = 0;
+    attempt < 120 && passiveCreatures.length < desiredPassiveCount;
+    attempt += 1
+  ) {
+    const roomIndex = passiveRng.int(1, rooms.length - 1);
+    const room = rooms[roomIndex];
+    const x = passiveRng.int(room.x + 1, room.x + room.width - 2);
+    const y = passiveRng.int(room.y + 1, room.y + room.height - 2);
+    const key = `${x},${y}`;
+    if (grid[y]?.[x] !== '.' || occupied.has(key)) continue;
+    const definition = weightedPick(passiveRng, passivePool);
+    const index = passiveCreatures.length;
+    occupied.add(key);
+    passiveCreatures.push({
+      instanceId: `passive-${depth}-${index}`,
+      id: definition.id,
+      x,
+      y,
+      roomIndex,
+      seed: mixSeed(floorSeed, 0x57494c44 + index),
+    });
+  }
+  // Interactive finds own an independent stream. Adding a new find or changing
+  // its presentation cannot reshuffle rooms, monsters, loot, fauna or doors.
+  const findRng = createRng(mixSeed(floorSeed, 0x46494e44));
+  const finds = createDungeonFinds({
+    level: {
+      depth,
+      grid,
+      rooms,
+      exit,
+      surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
+    },
+    rng: findRng,
+    occupiedCells: occupied,
+    avoidCells: route.map(({ x, y }) => `${x},${y}`),
+  });
   return {
     seed: floorSeed,
     depth,
+    scaling,
     width,
     height,
     grid,
     rooms,
     spawn,
     exit,
+    sanctuary,
+    objective,
+    doors: doorPlan.doors,
+    surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
     events,
     monsters,
+    passiveCreatures,
+    finds,
     loot,
   };
 }
 
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
+  const items = [
+    { id: 'short-blade', uid: 'starter-blade' },
+    { id: 'wood-buckler', uid: 'starter-buckler' },
+    { id: 'heavy-leather', uid: 'starter-armour' },
+    { id: 'jackboots', uid: 'starter-boots' },
+    { id: 'healing-potion', uid: 'starter-potion', stack: 2 },
+    { id: 'bread', uid: 'starter-bread', stack: 3 },
+  ];
   return {
     version: SAVE_VERSION,
+    generatorVersion: GENERATOR_VERSION,
+    contentVersion: CONTENT_VERSION,
+    scalingVersion: dungeon.scaling?.version ?? SCALING_VERSION,
+    difficulty: dungeon.scaling?.difficulty ?? DEFAULT_DIFFICULTY,
     seed: seed >>> 0,
     depth: dungeon.depth,
     hero: {
@@ -271,15 +695,238 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       level: 1,
       xp: 0,
       power: 1,
+      effects: createActorEffects(),
+      skills: createSkillState(),
     },
     shards: 0,
-    equipment: { body: 0, head: 0, hand1: 0, hand2: 0, boots: 0, ring1: 0, ring2: 0, amulet: 0 },
-    inventory: [
-      { id: 'healing-potion', uid: 'starter-potion', stack: 2 },
-      { id: 'bread', uid: 'starter-bread', stack: 3 },
-    ],
-    floor: { revealed: [], defeated: [], collected: [], resolved: [] },
+    status: 'playing',
+    started: false,
+    items,
+    equipment: {
+      cloak: null,
+      body: 'starter-armour',
+      head: null,
+      hand1: 'starter-blade',
+      hand2: 'starter-buckler',
+      gloves: null,
+      belt: null,
+      boots: 'starter-boots',
+      ring1: null,
+      ring2: null,
+      amulet: null,
+    },
+    inventory: ['starter-potion', 'starter-bread'],
+    floor: {
+      revealed: [],
+      defeated: [],
+      collected: [],
+      resolved: [],
+      resolvedFindIds: [],
+      detectedTrapIds: [],
+      opened: [],
+      triggered: [],
+      monsters: [],
+      passives: [],
+    },
   };
+}
+
+function normalizeEquipment(equipment) {
+  return Object.fromEntries(
+    EQUIPMENT_SLOTS.map((slot) => [slot, equipment?.[slot] ?? null]),
+  );
+}
+
+function uniqueLegacyUid(uid, used, fallback) {
+  const base = typeof uid === 'string' && uid.length > 0 && uid.length <= 70 ? uid : fallback;
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+function legacySkillState(hero) {
+  // Only absence is migrated. Explicit corrupt skill data must remain an error.
+  if (!Object.hasOwn(hero ?? {}, 'skills')) return createSkillState(hero?.level);
+  if (!validateSkillState(hero.skills, hero.level)) throw new Error('Invalid legacy skill state');
+  return cloneSkillState(hero.skills);
+}
+
+export function migrateLegacyRun(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(snapshot.version)) {
+    throw new Error('Not a supported legacy RPG save');
+  }
+  if (snapshot.version === 9 || snapshot.version === 10 || snapshot.version === 11) {
+    // v12 adds a separate deterministic find stream. Existing room geometry,
+    // actor positions, event IDs, wounded actors and owned gear survive.
+    const migrated = structuredClone(snapshot);
+    migrated.version = SAVE_VERSION;
+    migrated.generatorVersion = GENERATOR_VERSION;
+    migrated.contentVersion = CONTENT_VERSION;
+    if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
+    const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
+    if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
+    if (migrated.floor) migrated.floor.resolvedFindIds = [];
+    if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
+    const dungeon = generateDungeon({
+      seed: migrated.seed,
+      depth: migrated.depth,
+      scalingVersion: migrated.scalingVersion,
+      difficulty: migrated.difficulty,
+    });
+    const traps = trapsFromDungeon(dungeon);
+    if (missingDiscovery) {
+      // Old releases drew every trap on a revealed tile. Preserve that knowledge,
+      // including already-triggered ones; unseen tiles remain genuinely unknown.
+      const revealed = new Set(migrated.floor.revealed);
+      migrated.floor.detectedTrapIds = traps
+        .filter(({ x, y }) => revealed.has(`${x},${y}`))
+        .map(({ instanceId }) => instanceId)
+        .sort();
+    }
+    if (!validateDetectedTrapIds(migrated.floor.detectedTrapIds, traps)) {
+      throw new Error('Cannot migrate unknown detected trap');
+    }
+    return migrated;
+  }
+  if ([2, 3, 4, 5, 6, 7, 8].includes(snapshot.version)) {
+    const crossesGeneratorBoundary = true;
+    const depth = Math.min(snapshot.depth, FINAL_DEPTH);
+    const scalingVersion = SCALING_VERSION;
+    // v9 intentionally rebases every existing local run onto the new combat
+    // pressure. Hero progression and owned gear survive; the current floor is
+    // rebuilt so living monsters cannot retain obsolete HP and damage.
+    const difficulty = DEFAULT_DIFFICULTY;
+    const dungeon = generateDungeon({ seed: snapshot.seed, depth, scalingVersion, difficulty });
+    const migrated = {
+      ...snapshot,
+      version: SAVE_VERSION,
+      generatorVersion: GENERATOR_VERSION,
+      contentVersion: CONTENT_VERSION,
+      scalingVersion,
+      difficulty,
+      depth,
+      hero: crossesGeneratorBoundary
+        ? {
+            ...snapshot.hero,
+            x: dungeon.spawn.x,
+            y: dungeon.spawn.y,
+            effects: createActorEffects(snapshot.hero?.effects),
+            skills: legacySkillState(snapshot.hero),
+          }
+        : { ...snapshot.hero, effects: createActorEffects(snapshot.hero?.effects), skills: legacySkillState(snapshot.hero) },
+      status: crossesGeneratorBoundary
+        ? snapshot.hero?.hp === 0
+          ? 'dead'
+          : 'playing'
+        : snapshot.status,
+      started: crossesGeneratorBoundary ? snapshot.hero?.hp === 0 : snapshot.started,
+      items: snapshot.items.map((item) => ({ ...item })),
+      equipment: normalizeEquipment(snapshot.equipment),
+      inventory: [...snapshot.inventory],
+      // Loot pool changes can attach an old collected ID to a different item.
+      // Only persistent hero/gear progression crosses the generator boundary.
+      floor: crossesGeneratorBoundary
+        ? {
+            revealed: [],
+            defeated: [],
+            collected: [],
+            resolved: [],
+            resolvedFindIds: [],
+            detectedTrapIds: [],
+            opened: [],
+            triggered: [],
+            monsters: [],
+            passives: [],
+          }
+        : {
+            revealed: [...snapshot.floor.revealed],
+            defeated: [...snapshot.floor.defeated],
+            collected: [...snapshot.floor.collected],
+            resolved: [...snapshot.floor.resolved],
+            resolvedFindIds: [],
+            detectedTrapIds: [],
+            opened: [],
+            triggered: [],
+            monsters: snapshot.floor.monsters.map((monster) => ({ ...monster })),
+            passives: (snapshot.floor.passives ?? []).map((creature) => ({ ...creature })),
+          },
+    };
+    if (!validateRun(migrated)) {
+      throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
+    }
+    return migrated;
+  }
+  const used = new Set();
+  const items = [];
+  const inventory = [];
+  for (const [index, record] of (Array.isArray(snapshot.inventory) ? snapshot.inventory : []).entries()) {
+    const definition = lootById(record?.id);
+    if (!definition) continue;
+    const uid = uniqueLegacyUid(record.uid, used, `legacy-item-${index}`);
+    items.push({ id: definition.id, uid, ...(record.stack ? { stack: record.stack } : {}) });
+    inventory.push(uid);
+  }
+  const equipment = Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));
+  for (const slot of EQUIPMENT_SLOTS) {
+    const variant = snapshot.equipment?.[slot];
+    if (!Number.isInteger(variant)) continue;
+    const definition = LOOT_CATALOG.find(
+      (item) => item.variant === variant && allowedSlotsForItem(item).includes(slot),
+    );
+    if (!definition) continue;
+    let uid = inventory.find((candidate) => items.find((item) => item.uid === candidate)?.id === definition.id);
+    const mayRestoreAppearance = !slot.startsWith('ring') && slot !== 'amulet';
+    if (!uid && mayRestoreAppearance) {
+      uid = uniqueLegacyUid('', used, `migrated-${slot}-${definition.id}`);
+      items.push({ id: definition.id, uid });
+    }
+    if (!uid) continue;
+    equipment[slot] = uid;
+    const index = inventory.indexOf(uid);
+    if (index >= 0) inventory.splice(index, 1);
+  }
+  const depth = Math.min(snapshot.depth, FINAL_DEPTH);
+  const dungeon = generateDungeon({ seed: snapshot.seed, depth });
+  const migrated = {
+    ...snapshot,
+    version: SAVE_VERSION,
+    generatorVersion: GENERATOR_VERSION,
+    contentVersion: CONTENT_VERSION,
+    scalingVersion: SCALING_VERSION,
+    difficulty: DEFAULT_DIFFICULTY,
+    depth,
+    hero: {
+      ...snapshot.hero,
+      x: dungeon.spawn.x,
+      y: dungeon.spawn.y,
+      effects: createActorEffects(snapshot.hero?.effects),
+      skills: legacySkillState(snapshot.hero),
+    },
+    status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
+    started: true,
+    items,
+    equipment,
+    inventory,
+    floor: {
+      revealed: [],
+      defeated: [],
+      collected: [],
+      resolved: [],
+      resolvedFindIds: [],
+      detectedTrapIds: [],
+      opened: [],
+      triggered: [],
+      monsters: [],
+      passives: [],
+    },
+  };
+  if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
+  return migrated;
 }
 
 function isFiniteInteger(value, min, max) {
@@ -288,7 +935,18 @@ function isFiniteInteger(value, min, max) {
 
 export function validateRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== SAVE_VERSION) return false;
-  if (!isFiniteInteger(snapshot.seed, 0, 0xffffffff) || !isFiniteInteger(snapshot.depth, 1, 9999))
+  if (
+    snapshot.generatorVersion !== GENERATOR_VERSION ||
+    snapshot.contentVersion !== CONTENT_VERSION ||
+    !scalingVersionSupported(snapshot.scalingVersion) ||
+    !Number.isFinite(snapshot.difficulty) ||
+    snapshot.difficulty < MIN_DIFFICULTY ||
+    snapshot.difficulty > MAX_DIFFICULTY
+  ) return false;
+  if (
+    !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
+    !isFiniteInteger(snapshot.depth, 1, FINAL_DEPTH)
+  )
     return false;
   const hero = snapshot.hero;
   if (
@@ -301,20 +959,24 @@ export function validateRun(snapshot) {
     !Number.isFinite(hero.hp) ||
     !Number.isFinite(hero.maxHp) ||
     hero.hp < 0 ||
-    hero.maxHp < 1 ||
-    hero.hp > hero.maxHp
+    hero.maxHp < 1
   )
     return false;
   if (!isFiniteInteger(hero.level, 1, 999) || !Number.isFinite(hero.xp) || hero.xp < 0)
     return false;
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
+  if (!validateActorEffects(hero.effects)) return false;
+  if (!validateSkillState(hero.skills, hero.level)) return false;
   if (!isFiniteInteger(snapshot.shards, 0, Number.MAX_SAFE_INTEGER)) return false;
+  if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
+  if (typeof snapshot.started !== 'boolean') return false;
+  if ((snapshot.status === 'dead') !== (hero.hp === 0)) return false;
   if (!snapshot.equipment || typeof snapshot.equipment !== 'object') return false;
-  const slots = ['body', 'head', 'hand1', 'hand2', 'boots', 'ring1', 'ring2', 'amulet'];
-  if (slots.some((slot) => !isFiniteInteger(snapshot.equipment[slot], 0, 31))) return false;
-  if (!Array.isArray(snapshot.inventory) || snapshot.inventory.length > 12) return false;
+  if (!Array.isArray(snapshot.items) || snapshot.items.length > EQUIPMENT_SLOTS.length + 12) {
+    return false;
+  }
   if (
-    snapshot.inventory.some(
+    snapshot.items.some(
       (item) =>
         !item ||
         !lootById(item.id) ||
@@ -323,45 +985,206 @@ export function validateRun(snapshot) {
         item.uid.length > 80 ||
         (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999)),
     )
-  )
-    return false;
+  ) return false;
+  const itemIds = snapshot.items.map((item) => item.uid);
+  if (new Set(itemIds).size !== itemIds.length) return false;
+  const itemByUid = new Map(snapshot.items.map((item) => [item.uid, item]));
+  if (!Array.isArray(snapshot.inventory) || snapshot.inventory.length > 12) return false;
+  if (snapshot.inventory.some((uid) => typeof uid !== 'string' || !itemByUid.has(uid))) return false;
+  if (new Set(snapshot.inventory).size !== snapshot.inventory.length) return false;
+  const equippedUids = [];
+  for (const slot of EQUIPMENT_SLOTS) {
+    const uid = snapshot.equipment[slot];
+    if (uid === null) continue;
+    if (typeof uid !== 'string' || !itemByUid.has(uid)) return false;
+    const definition = lootById(itemByUid.get(uid).id);
+    if (!allowedSlotsForItem(definition).includes(slot)) return false;
+    equippedUids.push(uid);
+  }
+  if (new Set(equippedUids).size !== equippedUids.length) return false;
+  const owned = [...snapshot.inventory, ...equippedUids];
+  if (new Set(owned).size !== owned.length || owned.length !== snapshot.items.length) return false;
+  const items = snapshot.items.map((record) => ({ ...lootById(record.id), ...record }));
+  if (hero.hp > deriveHeroStats(hero, snapshot.equipment, items).maxHp) return false;
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved'].every((key) => Array.isArray(floor[key]))
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'opened', 'triggered', 'monsters'].every(
+      (key) => Array.isArray(floor[key]),
+    ) ||
+    (floor.passives !== undefined && !Array.isArray(floor.passives))
   )
     return false;
   if (
     floor.revealed.length > MAP_WIDTH * MAP_HEIGHT ||
-    floor.revealed.some((cell) => !/^\d{1,2},\d{1,2}$/.test(cell))
+    floor.revealed.some((cell) => {
+      if (!/^\d{1,2},\d{1,2}$/.test(cell)) return true;
+      const [x, y] = cell.split(',').map(Number);
+      return x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT;
+    })
   )
     return false;
-  if (floor.defeated.some((id) => !/^monster-\d+-\d+$/.test(id))) return false;
-  if (floor.collected.some((id) => !/^loot-\d+-\d+$/.test(id))) return false;
-  if (floor.resolved.some((id) => !/^event-\d+-\d+$/.test(id))) return false;
+  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'opened', 'triggered']) {
+    if (new Set(floor[key]).size !== floor[key].length) return false;
+  }
+  if (
+    floor.defeated.some(
+      (id) => !new RegExp(`^monster-${snapshot.depth}-(?:\\d+|boss)$`).test(id),
+    )
+  ) return false;
+  if (floor.collected.some((id) => !new RegExp(`^loot-${snapshot.depth}-\\d+$`).test(id))) return false;
+  if (floor.resolved.some((id) => !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id))) return false;
+  if (
+    floor.resolvedFindIds.length > 3 ||
+    floor.resolvedFindIds.some(
+      (id) => typeof id !== 'string' || !new RegExp(`^find-${snapshot.depth}-\\d+$`).test(id),
+    )
+  ) return false;
+  // Cheap autosave validation; hydrateDungeon resolves exact blade-trap IDs from
+  // the generated floor, as it already does for other event/actor references.
+  if (floor.detectedTrapIds.length > MAP_WIDTH * MAP_HEIGHT || floor.detectedTrapIds.some(
+    (id) => typeof id !== 'string' || !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id),
+  )) return false;
+  if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
+  if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
+  if (floor.monsters.length > 24) return false;
+  if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
+    return false;
+  if (
+    floor.monsters.some(
+      (monster) =>
+        !monster ||
+        !new RegExp(`^monster-${snapshot.depth}-(?:\\d+|boss)$`).test(monster.instanceId) ||
+        !Number.isFinite(monster.x) ||
+        !Number.isFinite(monster.y) ||
+        monster.x < 0 || monster.y < 0 || monster.x >= MAP_WIDTH || monster.y >= MAP_HEIGHT ||
+        !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000,
+    )
+  ) return false;
+  const passiveStates = floor.passives ?? [];
+  if (passiveStates.length > 5) return false;
+  if (new Set(passiveStates.map((creature) => creature?.instanceId)).size !== passiveStates.length)
+    return false;
+  if (
+    passiveStates.some(
+      (creature) =>
+        !creature ||
+        !new RegExp(`^passive-${snapshot.depth}-\\d+$`).test(creature.instanceId) ||
+        !Number.isFinite(creature.x) ||
+        !Number.isFinite(creature.y) ||
+        creature.x < 0 || creature.y < 0 || creature.x >= MAP_WIDTH || creature.y >= MAP_HEIGHT ||
+        !isFiniteInteger(creature.wanderStep, 0, 1_000_000_000) ||
+        ![-1, 1].includes(creature.facing),
+    )
+  ) return false;
+  if (
+    snapshot.status === 'victory' &&
+    (
+      snapshot.depth !== FINAL_DEPTH ||
+      !floor.defeated.includes(`monster-${FINAL_DEPTH}-boss`)
+    )
+  ) return false;
   return true;
 }
 
 export function hydrateDungeon(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
-  const dungeon = generateDungeon({ seed: snapshot.seed, depth: snapshot.depth });
+  const dungeon = generateDungeon({
+    seed: snapshot.seed,
+    depth: snapshot.depth,
+    scalingVersion: snapshot.scalingVersion,
+    difficulty: snapshot.difficulty,
+  });
+  const opened = new Set(snapshot.floor.opened);
+  const triggered = new Set(snapshot.floor.triggered);
+  const doorIds = new Set(dungeon.doors.map((door) => door.instanceId));
+  const surpriseIds = new Set(dungeon.surprises.map((surprise) => surprise.id));
+  if ([...opened].some((id) => !doorIds.has(id))) throw new Error('Unknown opened door');
+  if ([...triggered].some((id) => !surpriseIds.has(id))) throw new Error('Unknown door surprise');
+  const grid = dungeon.grid.map((row) => [...row]);
+  for (const door of dungeon.doors) {
+    if (opened.has(door.instanceId)) grid[door.y][door.x] = '.';
+  }
+  if (!isWalkableCell(grid, snapshot.hero.x, snapshot.hero.y)) {
+    throw new Error('Saved hero position is blocked');
+  }
   const defeated = new Set(snapshot.floor.defeated);
   const collected = new Set(snapshot.floor.collected);
   const resolved = new Set(snapshot.floor.resolved);
+  const resolvedFindIds = new Set(snapshot.floor.resolvedFindIds);
+  const monsterIds = new Set(dungeon.monsters.map((monster) => monster.instanceId));
+  const lootIds = new Set(dungeon.loot.map((item) => item.instanceId));
+  const eventIds = new Set(dungeon.events.map((event) => event.instanceId));
+  const findIds = new Set(dungeon.finds.map((find) => find.instanceId));
+  if (!validateDetectedTrapIds(snapshot.floor.detectedTrapIds, trapsFromDungeon(dungeon))) {
+    throw new Error('Unknown detected trap');
+  }
+  const passiveIds = new Set(dungeon.passiveCreatures.map((creature) => creature.instanceId));
+  if ([...defeated].some((id) => !monsterIds.has(id))) throw new Error('Unknown defeated monster');
+  if ([...collected].some((id) => !lootIds.has(id))) throw new Error('Unknown collected loot');
+  if ([...resolved].some((id) => !eventIds.has(id))) throw new Error('Unknown resolved event');
+  if ([...resolvedFindIds].some((id) => !findIds.has(id))) throw new Error('Unknown resolved find');
+  const savedMonsters = new Map(snapshot.floor.monsters.map((monster) => [monster.instanceId, monster]));
+  for (const state of savedMonsters.values()) {
+    if (!monsterIds.has(state.instanceId) || defeated.has(state.instanceId)) {
+      throw new Error('Unknown saved monster state');
+    }
+    // NPC saves store center-offset coordinates (runtime / TILE - 0.5),
+    // unlike the hero's integer cell. Validate the cell the hydrated center
+    // actually occupies, not the previous cell when an actor is mid-step.
+    if (!isWalkableCell(grid, Math.floor(state.x + 0.5), Math.floor(state.y + 0.5))) {
+      throw new Error('Saved monster position is blocked');
+    }
+  }
+  const savedPassives = new Map(
+    (snapshot.floor.passives ?? []).map((creature) => [creature.instanceId, creature]),
+  );
+  for (const state of savedPassives.values()) {
+    if (!passiveIds.has(state.instanceId)) throw new Error('Unknown saved passive creature state');
+    if (!isWalkableCell(grid, Math.floor(state.x + 0.5), Math.floor(state.y + 0.5))) {
+      throw new Error('Saved passive creature position is blocked');
+    }
+  }
   return {
     ...dungeon,
-    monsters: dungeon.monsters.filter((monster) => !defeated.has(monster.instanceId)),
+    grid,
+    // An open door is still an interactive world object. The grid and opened
+    // IDs own passability; triggered IDs independently own one-time surprises.
+    doors: dungeon.doors,
+    surprises: dungeon.surprises.map((surprise) => ({
+      ...surprise,
+      triggered: triggered.has(surprise.id),
+    })),
+    monsters: dungeon.monsters
+      .filter((monster) => !defeated.has(monster.instanceId))
+      .map((monster) => ({ ...monster, ...(savedMonsters.has(monster.instanceId) ? { state: savedMonsters.get(monster.instanceId) } : {}) })),
+    passiveCreatures: dungeon.passiveCreatures.map((creature) => ({
+      ...creature,
+      ...(savedPassives.has(creature.instanceId)
+        ? { state: savedPassives.get(creature.instanceId) }
+        : {}),
+    })),
     loot: dungeon.loot.filter((item) => !collected.has(item.instanceId)),
     events: dungeon.events.filter((event) => !resolved.has(event.instanceId)),
+    finds: dungeon.finds.map((find) => ({
+      ...find,
+      resolved: resolvedFindIds.has(find.instanceId),
+    })),
   };
 }
 
 export function advanceRunFloor(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
-  if (snapshot.depth >= 9999) throw new Error('Maximum dungeon depth reached');
+  if (snapshot.status !== 'playing') throw new Error('Cannot descend after the run has ended');
+  if (snapshot.depth >= FINAL_DEPTH) throw new Error('Final dungeon floor reached');
 
   const depth = snapshot.depth + 1;
-  const dungeon = generateDungeon({ seed: snapshot.seed, depth });
+  const dungeon = generateDungeon({
+    seed: snapshot.seed,
+    depth,
+    scalingVersion: snapshot.scalingVersion,
+    difficulty: snapshot.difficulty,
+  });
   return {
     ...snapshot,
     depth,
@@ -369,11 +1192,24 @@ export function advanceRunFloor(snapshot) {
       ...snapshot.hero,
       x: dungeon.spawn.x,
       y: dungeon.spawn.y,
-      hp: Math.min(snapshot.hero.maxHp, snapshot.hero.hp + Math.ceil(snapshot.hero.maxHp * 0.18)),
+      hp: snapshot.hero.hp,
+      skills: cloneSkillState(snapshot.hero.skills),
     },
     equipment: { ...snapshot.equipment },
-    inventory: snapshot.inventory.map((item) => ({ ...item })),
-    floor: { revealed: [], defeated: [], collected: [], resolved: [] },
+    items: snapshot.items.map((item) => ({ ...item })),
+    inventory: [...snapshot.inventory],
+    floor: {
+      revealed: [],
+      defeated: [],
+      collected: [],
+      resolved: [],
+      resolvedFindIds: [],
+      detectedTrapIds: [],
+      opened: [],
+      triggered: [],
+      monsters: [],
+      passives: [],
+    },
   };
 }
 
@@ -384,5 +1220,7 @@ export function assertCatalogReferences() {
     if (!lootById(item.id)) throw new Error(`Missing loot ${item.id}`);
   for (const event of EVENT_CATALOG)
     if (!eventById(event.id)) throw new Error(`Missing event ${event.id}`);
+  for (const creature of PASSIVE_CREATURE_CATALOG)
+    if (!passiveCreatureById(creature.id)) throw new Error(`Missing passive creature ${creature.id}`);
   return true;
 }

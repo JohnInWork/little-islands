@@ -1,47 +1,48 @@
-**English** · [Русский](README.ru.md)
+# DNG Codex
 
-# Little Islands
+Мобильная пиксельная roguelike/RPG, вдохновлённая системностью Pathos и NetHack.
+Исследуй случайные подземелья, собирай героя из найденных вещей и доберись до
+хранителя артефакта. Герой сражается и подбирает добычу автоматически —
+ты выбираешь путь, экипировку и риск.
 
-A mobile-first 2D roguelike RPG inspired by the systemic depth of NetHack and
-Pathos. Tap an explored tile to choose a route; the hero moves, fights and picks
-up loot automatically. The controls stay simple while procedural floors,
-equipment and events create the decisions.
+[Открыть опубликованную игру](https://johninwork.github.io/little-islands/)
+· [Начать разработку](docs/START-HERE.md)
+· [Следующие задачи](docs/NEXT-TASKS.md)
 
-**▶ [Play in the browser](https://johninwork.github.io/little-islands/)** — no
-account or download required.
+Публичная версия обновляется отдельной публикацией и может отставать от
+локальной разработки. Название репозитория `little-islands` сохраняет прежние ссылки.
 
-![Procedural dungeon, fog of war and minimal HUD](screenshots/dungeon-desktop.png)
+![Подземелье и пиксельный интерфейс DNG Codex](screenshots/dungeon-desktop.png)
 
-<p align="center">
-  <img src="screenshots/dungeon-mobile.png" width="38%" alt="Large pixel-art paper doll and equipment inventory on a phone">
-</p>
+## Текущая основа
 
-## Playable foundation
+- Воспроизводимые этажи, туман войны, двери, события и бой с растущей сложностью.
+- Законченный трёхэтажный забег: святилища, хранитель, артефакт, победа и смерть.
+- Один герой, 11 слотов снаряжения, 12 мест в рюкзаке, сравнение и массовый разбор.
+- Видимая экипировка, разные боевые профили оружия и волшебные свойства вещей.
+- Горение, мокрота, холод и яд с общими правилами и пиксельными эффектами.
+- Пассивные животные, которые бродят по комнатам; приручение — следующий этап.
+- Фундамент 40 навыков: три ранга, очки за уровень, сохранение и RU/EN.
+  [Точный статус навыков и рецепт подключения](docs/2D-SKILLS-FOUNDATION.md).
+- Первый рабочий навык — Чутьё: замечает ловушки на 2/3/4 клетки с учётом стен;
+  известная опасность сохраняется и обходится маршрутом. Обезвреживание — далее.
+- Версионированное локальное сохранение с резервной копией.
+- Крупный интерфейс RU/EN, реальные объёмные стены, свет и тени в пиксельной сцене.
 
-- Seeded room-and-corridor floors with loops, a reachable exit and fog of war.
-- Tap/click pathfinding, WASD support, enemy pursuit and automatic melee combat.
-- Experience, levels, health, growing difficulty and persistent progression.
-- 24 active monsters, 36 loot definitions, four events and four dungeon themes.
-- Twelve inventory spaces, consumables, bulk salvage and eight equipment slots.
-- Armour, headgear, weapons, shields and boots appear on the paper-doll hero.
-- Versioned local save with a backup; a damaged save cannot block a fresh run.
-- Icon-first responsive interface designed around a 390 × 844 phone screen.
+Это самостоятельный игровой срез. Полный объём правил NetHack, все 40 способностей,
+мультиплеер и долговременный баланс большого каталога пока не реализованы.
 
-This is a playable vertical slice and a foundation for a much larger RPG, not a
-claim of full NetHack content parity yet. The next planned systems are unknown
-potions and scrolls, curses, resistances, status effects, icon-based choices,
-unique rooms and minibosses.
+## Управление
 
-## Controls
+- Телефон: тап по разведанному полу или экранный крест-стик.
+- Компьютер: мышь, WASD или стрелки.
+- Бой и подбор: автоматически; новый приказ движения задаёт отход или новый путь.
+- Рюкзак: нижняя кнопка. Характеристики и навыки: тап по здоровью героя.
+- Меню и инвентарь ставят мир на паузу; Escape закрывает текущий экран.
 
-- **Phone / mouse:** tap any revealed walkable tile.
-- **Keyboard:** WASD or arrow keys.
-- **Combat and pickup:** automatic when the hero reaches danger or loot.
-- **Backpack:** the single lower-right button; Escape closes it on desktop.
+## Локальный запуск
 
-## Development
-
-Requires Node.js 22 or newer:
+Нужен Node.js `^22.13.0` или `>=24`.
 
 ```bash
 npm ci
@@ -49,25 +50,25 @@ npm run check
 npm run dev
 ```
 
-The game uses Vite, Canvas 2D and plain JavaScript modules. Rules, content and
-rendering are separated so new monsters and items can be added as data rather
-than copied into the game loop:
+Открой адрес из вывода Vite. Главная страница перенаправляет на
+`/tools/dcss.html`. Для телефона в той же Wi-Fi-сети:
 
-- `tools/dcss-rpg-content.js` — monster, item and event catalogs.
-- `tools/dcss-rpg-core.js` — deterministic generation, pathfinding and save rules.
-- `tools/dcss.js` — Canvas rendering, input, combat and presentation.
-- `docs/2D-RPG-FOUNDATION.md` — invariants and safe extension recipes.
+```bash
+npm run dev -- --host 0.0.0.0
+```
 
-GitHub Actions runs the deterministic test suite and publishes `main` to Pages.
+На телефоне открой LAN-адрес, показанный Vite. Mac и сервер должны оставаться
+включёнными; сохранения привязаны к адресу браузера и не переносятся между
+localhost и LAN автоматически.
 
-## Art and attribution
+Стек: Vite, JavaScript ESM, Canvas и Three.js для геометрии/освещения нынешней
+2D-игры. Рабочий проект не содержит отдельной старой островной игры.
+[Карта модулей и правила расширения](docs/2D-RPG-FOUNDATION.md).
 
-The local library contains 3,383 unmodified PNG tiles from the official
-[Dungeon Crawl Stone Soup tile repository](https://github.com/crawl/tiles),
-released under CC0 / public-domain dedication. Only the active catalog is loaded
-by the browser. Source details are preserved in
-[`public/assets/dcss-preview/LICENSE.md`](public/assets/dcss-preview/LICENSE.md)
-and [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md).
+## Графика
 
-The previous 3D prototype remains in git history and is no longer the active
-game or development direction.
+Локальные пиксельные ассеты взяты из
+[официального репозитория Dungeon Crawl Stone Soup](https://github.com/crawl/tiles),
+CC0. Браузер загружает только используемые тайлы.
+[Локальная лицензия и происхождение](public/assets/dcss-preview/LICENSE.md),
+[атрибуция проекта](THIRD_PARTY_ASSETS.md).

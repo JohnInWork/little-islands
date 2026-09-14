@@ -17,12 +17,9 @@ content can reuse a coherent visual language without another download.
 предметов, paper-doll героя и подземелий. Игра не загружает все 3383 изображения
 при старте — только файлы активного каталога.
 
-## Archived 3D prototype
+The Dungeon Crawl Stone Soup artists and project are acknowledged for this
+library. Its original notice is kept with the PNG files and is included in the
+production asset directory.
 
-The repository history also contains CC0 assets from KayKit and Kenney used by
-the previous 3D prototype. Their original license files remain beside the asset
-files. They are not loaded by the active 2D game.
-
-История репозитория также содержит CC0-ассеты KayKit и Kenney из прежнего
-3D-прототипа. Оригинальные лицензии сохранены рядом с файлами; новая 2D-игра их
-не загружает.
+Благодарим художников и проект Dungeon Crawl Stone Soup. Лицензионное уведомление
+остаётся рядом с PNG-файлами и входит в каталог ассетов production-сборки.
