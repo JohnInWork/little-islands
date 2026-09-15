@@ -50,6 +50,7 @@ function terminalRuntime({ victory = false } = {}) {
     ARTIFACT_PATH: 'artifact.png',
     performance: { now: () => 0 },
     rarityGlow: ['#ffffff'],
+    updateHunger: () => {},
     updateHeroEffects: () => {},
     resolvePendingHeroAttack: () => {},
     updateHeldMove: () => {},

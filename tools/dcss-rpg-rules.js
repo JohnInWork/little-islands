@@ -1,6 +1,7 @@
 import { lootById, monsterById } from './dcss-rpg-content.js';
 import { floorScaling, monsterTier } from './dcss-rpg-scaling.js';
 import { deriveSkillModifiers } from './dcss-rpg-skills.js';
+import { hungerStatModifiers } from './dcss-rpg-hunger.js';
 
 export const HERO_BASE_MOVE_SPEED = 2.85;
 export const HERO_LEVEL_HP_GAIN = 6;
@@ -166,12 +167,15 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
     const skillBonus = deriveSkillModifiers(hero.skills, skillOptions);
     for (const key of EQUIPMENT_STAT_KEYS) bonus[key] += skillBonus[key];
   }
+  const hunger = hungerStatModifiers(hero.hunger);
+  const attack = Math.max(1, Math.round((1 + hero.power + bonus.attack) * hunger.attack));
+  const defense = Math.max(0, Math.round(bonus.defense * hunger.defense));
   return {
-    attack: Math.max(1, 1 + hero.power + bonus.attack),
-    defense: Math.max(0, bonus.defense),
+    attack,
+    defense,
     maxHp: Math.max(1, hero.maxHp + bonus.maxHp),
-    moveSpeed: Math.max(0.65, 1 + bonus.moveSpeed),
-    attackSpeed: Math.max(0.65, 1 + bonus.attackSpeed),
+    moveSpeed: Math.max(0.45, Math.max(0.65, 1 + bonus.moveSpeed) * hunger.moveSpeed),
+    attackSpeed: Math.max(0.42, Math.max(0.65, 1 + bonus.attackSpeed) * hunger.attackSpeed),
   };
 }
 

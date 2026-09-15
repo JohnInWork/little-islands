@@ -70,11 +70,16 @@ test('unsupported gameplay fields fail loudly instead of promising a fake effect
 
 test('consumable descriptions and runtime read the same useEffect contract', async () => {
   const potion = LOOT_CATALOG.find(({ id }) => id === 'healing-potion');
+  const bread = LOOT_CATALOG.find(({ id }) => id === 'bread');
   assert.deepEqual(potion.useEffect, { type: 'heal', amount: 32 });
   assert.equal(generatedItemDescription(potion, 'ru').summary, 'Зелье · Лечение: +32');
+  assert.deepEqual(bread.useEffect, { type: 'food', nutrition: 1500, healing: 12 });
+  assert.equal(generatedItemDescription(bread, 'ru').summary, 'Еда · Сытость: +25 мин · Лечение: +12');
+  assert.equal(generatedItemDescription(bread, 'en').summary, 'Food · Satiety: +25 min · Healing: +12');
 
   const runtimeSource = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtimeSource, /item\.useEffect\?\.type === 'heal'/);
+  assert.match(runtimeSource, /item\.useEffect\?\.type === 'food'/);
   assert.doesNotMatch(runtimeSource, /item\.id === 'healing-potion'/);
 });
 

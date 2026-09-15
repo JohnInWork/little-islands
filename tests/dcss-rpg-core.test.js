@@ -27,6 +27,7 @@ import {
 import { FINAL_BOSS_ID, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
 import { DEFAULT_DIFFICULTY, SCALING_VERSION } from '../tools/dcss-rpg-scaling.js';
 import { createSkillState } from '../tools/dcss-rpg-skills.js';
+import { HUNGER_MAX } from '../tools/dcss-rpg-hunger.js';
 
 const EMPTY_FLOOR = Object.freeze({
   revealed: [],
@@ -41,6 +42,7 @@ const EMPTY_FLOOR = Object.freeze({
   triggered: [],
   monsters: [],
   passives: [],
+  merchantPurchases: [],
 });
 
 test('RPG dungeon generation is deterministic and every exit is reachable across 100 seeds', () => {
@@ -218,7 +220,9 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v19')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v20')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v21')));
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v22');
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v22')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v23')));
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v24');
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -244,6 +248,52 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.equal(first.equipment.ring1, null);
   assert.equal(new Set(first.items.map((item) => item.uid)).size, first.items.length);
   assert.doesNotThrow(() => hydrateDungeon(first));
+});
+
+test('version 22 saves gain an empty merchant ledger without restarting the floor', () => {
+  let legacy = advanceRunFloor(createRun(2302));
+  legacy.version = 22;
+  delete legacy.floor.merchantPurchases;
+  legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.deepEqual(migrated.floor.merchantPurchases, []);
+  assert.equal(migrated.hero.hunger, HUNGER_MAX);
+  assert.ok(migrated.floor.revealed.includes(`${migrated.hero.x},${migrated.hero.y}`));
+  assert.equal(validateRun(migrated), true);
+});
+
+test('version 23 saves gain full satiety without losing merchant purchases or floor state', () => {
+  const legacy = advanceRunFloor(createRun(2403));
+  const dungeon = generateDungeon({ seed: legacy.seed, depth: legacy.depth });
+  legacy.floor.merchantPurchases.push(dungeon.merchants[0].stock[0].entryId);
+  legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
+  legacy.version = 23;
+  delete legacy.hero.hunger;
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.hero.hunger, HUNGER_MAX);
+  assert.deepEqual(migrated.floor.merchantPurchases, legacy.floor.merchantPurchases);
+  assert.deepEqual(migrated.floor.revealed, legacy.floor.revealed);
+  assert.equal(validateRun(migrated), true);
+  assert.doesNotThrow(() => hydrateDungeon(migrated));
+});
+
+test('merchant purchases remain valid save data only for the generated floor stock', () => {
+  const run = advanceRunFloor(createRun(2303));
+  const dungeon = generateDungeon({ seed: run.seed, depth: run.depth });
+  const entry = dungeon.merchants[0].stock[0];
+  run.gold = Math.max(run.gold, entry.price);
+  run.items.push({ ...entry.record });
+  run.inventory.push(entry.record.uid);
+  run.floor.merchantPurchases.push(entry.entryId);
+
+  assert.equal(validateRun(run), true);
+  assert.doesNotThrow(() => hydrateDungeon(run));
+  run.floor.merchantPurchases[0] = `merchant-entry-${run.depth}-999-999`;
+  assert.equal(validateRun(run), true);
+  assert.throws(() => hydrateDungeon(run), /Unknown merchant purchase/);
 });
 
 test('v15 loadouts migrate two-handed weapons without losing their off-hand item', () => {

@@ -54,17 +54,21 @@ import {
 import { createDungeonFinds } from './dcss-rpg-finds.js';
 import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
+import { validateMerchantPurchaseIds } from './dcss-rpg-merchant.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
+import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
   createItemKnowledge,
   identifiableItemIds,
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
 
-export const SAVE_VERSION = 22;
-export const SAVE_KEY = 'dng-codex:rpg:v22';
+export const SAVE_VERSION = 24;
+export const SAVE_KEY = 'dng-codex:rpg:v24';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v23',
+  'dng-codex:rpg:v22',
   'little-islands:dcss-rpg:v21',
   'little-islands:dcss-rpg:v20',
   'little-islands:dcss-rpg:v19',
@@ -796,6 +800,7 @@ export function generateDungeon({
     loot,
     roomPlans,
     roomEncounters: roomContent.encounters,
+    merchants: roomContent.merchants,
   };
 }
 
@@ -828,6 +833,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       level: 1,
       xp: 0,
       power: 1,
+      hunger: HUNGER_MAX,
       effects: createActorEffects(),
       skills: createSkillState(),
     },
@@ -863,6 +869,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       triggered: [],
       monsters: [],
       passives: [],
+      merchantPurchases: [],
     },
   };
 }
@@ -973,16 +980,17 @@ function migrateTwoHandedEquipment(snapshot) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].includes(snapshot.version)) {
+  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(snapshot.version)) {
     // v15 adds explicitly targeted player traps; v16 makes long weapons truly
     // two-handed; v17 expands the sword loot family; v18 adds per-run item
     // knowledge; v19 adds item sanctity and a persistent loot-abundance knob;
     // v20 adds deterministic affixes; v21 replaces hidden sanctity with clear,
     // seeded procedural artefacts; v22 renames the only currency to gold and
-    // removes the obsolete hidden sanctity fields.
+    // removes obsolete sanctity; v23 persists merchant stock purchases;
+    // v24 adds a long, nonlethal hunger clock.
     // Old heroes keep their exact inventory and current floor;
     // uncollected loot adopts the current content pool. Only new runs receive
     // the starter trap.
@@ -1003,12 +1011,14 @@ export function migrateLegacyRun(snapshot) {
       stripLegacyItemSanctity(migrated.items),
       snapshot.version >= 20,
     ), snapshot.version >= 21);
+    if (snapshot.version < 24) migrated.hero.hunger = HUNGER_MAX;
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
     const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
     if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
     if (migrated.floor && snapshot.version < 12) migrated.floor.resolvedFindIds = [];
     if (migrated.floor && snapshot.version < 13) migrated.floor.disarmedTrapIds = [];
     if (migrated.floor && snapshot.version < 15) migrated.floor.placedTraps = [];
+    if (migrated.floor && snapshot.version < 23) migrated.floor.merchantPurchases = [];
     if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
@@ -1064,10 +1074,16 @@ export function migrateLegacyRun(snapshot) {
             ...snapshot.hero,
             x: dungeon.spawn.x,
             y: dungeon.spawn.y,
+            hunger: HUNGER_MAX,
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
           }
-        : { ...snapshot.hero, effects: createActorEffects(snapshot.hero?.effects), skills: legacySkillState(snapshot.hero) },
+        : {
+            ...snapshot.hero,
+            hunger: HUNGER_MAX,
+            effects: createActorEffects(snapshot.hero?.effects),
+            skills: legacySkillState(snapshot.hero),
+          },
       status: crossesGeneratorBoundary
         ? snapshot.hero?.hp === 0
           ? 'dead'
@@ -1094,6 +1110,7 @@ export function migrateLegacyRun(snapshot) {
             triggered: [],
             monsters: [],
             passives: [],
+            merchantPurchases: [],
           }
         : {
             revealed: [...snapshot.floor.revealed],
@@ -1108,6 +1125,7 @@ export function migrateLegacyRun(snapshot) {
             triggered: [],
             monsters: snapshot.floor.monsters.map((monster) => ({ ...monster })),
             passives: (snapshot.floor.passives ?? []).map((creature) => ({ ...creature })),
+            merchantPurchases: [],
           },
     };
     delete migrated.shards;
@@ -1174,6 +1192,7 @@ export function migrateLegacyRun(snapshot) {
       ...snapshot.hero,
       x: dungeon.spawn.x,
       y: dungeon.spawn.y,
+      hunger: HUNGER_MAX,
       effects: createActorEffects(snapshot.hero?.effects),
       skills: legacySkillState(snapshot.hero),
     },
@@ -1196,6 +1215,7 @@ export function migrateLegacyRun(snapshot) {
       triggered: [],
       monsters: [],
       passives: [],
+      merchantPurchases: [],
     },
   };
   delete migrated.shards;
@@ -1240,6 +1260,7 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.level, 1, 999) || !Number.isFinite(hero.xp) || hero.xp < 0)
     return false;
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
+  if (!validateHunger(hero.hunger)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
@@ -1299,7 +1320,7 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters'].every(
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'merchantPurchases'].every(
       (key) => Array.isArray(floor[key]),
     ) ||
     (floor.passives !== undefined && !Array.isArray(floor.passives))
@@ -1314,7 +1335,7 @@ export function validateRun(snapshot) {
     })
   )
     return false;
-  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered']) {
+  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered', 'merchantPurchases']) {
     if (new Set(floor[key]).size !== floor[key].length) return false;
   }
   if (
@@ -1343,6 +1364,13 @@ export function validateRun(snapshot) {
   if (!validatePlacedTraps(floor.placedTraps, { depth: snapshot.depth })) return false;
   if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
+  if (
+    floor.merchantPurchases.length > 6
+    || floor.merchantPurchases.some((id) => (
+      typeof id !== 'string'
+      || !new RegExp(`^merchant-entry-${snapshot.depth}-\\d+-\\d+$`).test(id)
+    ))
+  ) return false;
   if (floor.monsters.length > 24) return false;
   if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
     return false;
@@ -1414,6 +1442,9 @@ export function hydrateDungeon(snapshot) {
   const lootIds = new Set(dungeon.loot.map((item) => item.instanceId));
   const eventIds = new Set(dungeon.events.map((event) => event.instanceId));
   const findIds = new Set(dungeon.finds.map((find) => find.instanceId));
+  if (!validateMerchantPurchaseIds(snapshot.floor.merchantPurchases, dungeon.merchants, snapshot.depth)) {
+    throw new Error('Unknown merchant purchase');
+  }
   const traps = trapsFromDungeon(dungeon);
   if (!validateDetectedTrapIds(snapshot.floor.detectedTrapIds, traps)) {
     throw new Error('Unknown detected trap');
@@ -1436,6 +1467,7 @@ export function hydrateDungeon(snapshot) {
     ...dungeon.loot.filter((item) => !collected.has(item.instanceId)),
     ...dungeon.events.filter((event) => !resolved.has(event.instanceId)),
     ...dungeon.finds.filter((find) => !resolvedFindIds.has(find.instanceId)),
+    ...dungeon.merchants,
   ].filter(Boolean).map(({ x, y }) => `${x},${y}`);
   if (!validatePlacedTraps(snapshot.floor.placedTraps, {
     depth: snapshot.depth,
@@ -1531,6 +1563,7 @@ export function advanceRunFloor(snapshot) {
       triggered: [],
       monsters: [],
       passives: [],
+      merchantPurchases: [],
     },
   };
 }

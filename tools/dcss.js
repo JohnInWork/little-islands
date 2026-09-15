@@ -135,6 +135,14 @@ import {
   resolveFindInteraction,
 } from './dcss-rpg-finds.js';
 import { contextActionModel } from './dcss-rpg-context-actions.js';
+import {
+  MERCHANT_ACTOR_PATH,
+  MERCHANT_ICON_PATH,
+  buyMerchantItem,
+  merchantPresentation,
+  merchantSellPrice,
+  sellMerchantItem,
+} from './dcss-rpg-merchant.js';
 import { CHEST_RESOURCE_IDS, chestVisualFrames } from './dcss-rpg-chests.js';
 import {
   PLAYER_TRAP_ITEM_ID,
@@ -197,6 +205,13 @@ import {
   createPassiveCreatureStates,
   passiveWanderPause,
 } from './dcss-rpg-passive.js';
+import {
+  HUNGER_TUNING,
+  advanceHunger,
+  consumeFood,
+  hungerPresentation,
+  hungerStage,
+} from './dcss-rpg-hunger.js';
 
 const worldCanvas = document.querySelector('#world-3d');
 const canvas = document.querySelector('#scene');
@@ -293,6 +308,8 @@ const levelUpLabel = document.querySelector('#level-up-label');
 const levelUpValue = document.querySelector('#level-up-value');
 const levelUpPoints = document.querySelector('#level-up-points');
 const healthSegments = [...document.querySelectorAll('.health i')];
+const hungerMeter = document.querySelector('#hunger-meter');
+const hungerFill = document.querySelector('#hunger-fill');
 const combatIndicators = [...document.querySelectorAll('.ailments i')];
 const heroEffectsHud = document.querySelector('#hero-effects');
 const depthBadge = document.querySelector('.depth');
@@ -314,6 +331,15 @@ const contextActionIcon = document.querySelector('#context-action-icon');
 const contextActionTitle = document.querySelector('#context-action-title');
 const contextActionDescription = document.querySelector('#context-action-description');
 const contextActionList = document.querySelector('#context-action-list');
+const merchantShop = document.querySelector('#merchant-shop');
+const merchantShopPortrait = document.querySelector('#merchant-shop-portrait');
+const merchantShopTitle = document.querySelector('#merchant-shop-title');
+const merchantShopGold = document.querySelector('#merchant-shop-gold');
+const merchantShopTabs = document.querySelector('#merchant-shop-tabs');
+const merchantShopTabButtons = [...merchantShopTabs.querySelectorAll('[data-merchant-tab]')];
+const merchantShopList = document.querySelector('#merchant-shop-list');
+const merchantShopFeedback = document.querySelector('#merchant-shop-feedback');
+const closeMerchantShopButton = document.querySelector('#close-merchant-shop');
 const trapPlacement = document.querySelector('#trap-placement');
 const trapPlacementLabel = document.querySelector('#trap-placement-label');
 const trapPlacementTargets = document.querySelector('#trap-placement-targets');
@@ -396,6 +422,8 @@ const requiredPaths = [
   ...FIND_ASSET_PATHS,
   ...effectPaths,
   ...PASSIVE_CREATURE_PATHS,
+  MERCHANT_ACTOR_PATH,
+  MERCHANT_ICON_PATH,
   ...visualOverridePaths(visualOverrides),
 ];
 
@@ -442,6 +470,7 @@ let hazardInputState = createHazardInputState();
 let permittedHazardCell = null;
 let inputGesture = 0;
 let doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
+let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
 
 const hero = {
   x: (run.hero.x + 0.5) * TILE,
@@ -462,6 +491,7 @@ const hero = {
   level: run.hero.level,
   xp: run.hero.xp,
   power: run.hero.power,
+  hunger: run.hero.hunger,
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
   hurt: 0,
@@ -546,6 +576,11 @@ let playerHasActed = run.started;
 let openingDoor = null;
 let contextTarget = null;
 let contextInspected = false;
+let activeMerchant = null;
+let merchantTab = 'buy';
+let hungerAccumulator = 0;
+let hungerAutosaveElapsed = 0;
+let currentHungerStageId = hungerStage(hero.hunger).id;
 let trapPlacementState = null;
 let placedTraps = run.floor.placedTraps.map((trap) => ({ ...trap }));
 let lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
@@ -659,7 +694,10 @@ function renderMainMenu() {
     );
   });
   canvas.setAttribute('aria-label', labels.dungeon);
-  hud.setAttribute('aria-label', labels.hud);
+  hud.setAttribute(
+    'aria-label',
+    `${labels.hud}. ${hungerPresentation(hero.hunger, itemDetailLanguage).ariaLabel}`,
+  );
   characterSheetButton.setAttribute('aria-label', labels.character);
   moveControl.setAttribute('aria-label', labels.move);
   moveDirectionButtons.forEach((button) => {
@@ -711,6 +749,7 @@ function setInterfaceLanguage(language) {
   updateGearUi();
   renderPack();
   if (toastVisible && activeLootToastEntry) renderLootToast(activeLootToastEntry);
+  if (uiScreen === 'merchant') renderMerchantShop();
   updateHud();
 }
 
@@ -891,6 +930,7 @@ function captureRun() {
     level: hero.level,
     xp: hero.xp,
     power: hero.power,
+    hunger: hero.hunger,
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
   };
@@ -977,8 +1017,12 @@ function presentedItem(item) {
     knowledge: run.knowledge,
     identityIds: IDENTIFIABLE_LOOT_IDS,
   });
+  const iconPath = presentation.icon
+    ?? item.icon
+    ?? lootById(item.id)?.icon
+    ?? 'item/misc/misc_orb.png';
   const visual = runtimeVisual(
-    'loot', presentation.id, 'icon', presentation.icon, 1, -7,
+    'loot', presentation.id, 'icon', iconPath, 1, -7,
   );
   return {
     ...presentation,
@@ -1426,7 +1470,10 @@ function closeItemDetail({ restoreFocus = true } = {}) {
 }
 
 function applyItemState(state) {
-  itemInstances = new Map(state.items.map((item) => [item.uid, item]));
+  const normalizedItems = state.items
+    .map((item) => (item?.icon ? item : materializeInventoryItem(item)))
+    .filter(Boolean);
+  itemInstances = new Map(normalizedItems.map((item) => [item.uid, item]));
   backpackItems = state.inventory.map((uid) => itemInstances.get(uid)).filter(Boolean);
   Object.assign(selected, state.equipment);
   hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
@@ -1570,7 +1617,12 @@ function passiveOccupiedCells() {
 }
 
 function heroBlockingCells() {
-  return blockingActorCells([...monsters, ...passiveCreatures], TILE);
+  const merchants = (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
+    .map((merchant) => ({
+      x: (merchant.x + 0.5) * TILE,
+      y: (merchant.y + 0.5) * TILE,
+    }));
+  return blockingActorCells([...monsters, ...passiveCreatures, ...merchants], TILE);
 }
 
 function blockingFindCells() {
@@ -2154,6 +2206,21 @@ function syncWorldActors3D() {
             shadowOpacity: 0.28,
           };
         }),
+      ...merchantDefinitions
+        .filter((merchant) => revealed.has(`${merchant.x},${merchant.y}`))
+        .map((merchant) => ({
+          id: merchant.instanceId,
+          path: merchant.actorPath,
+          x: (merchant.x + 0.5) * TILE,
+          y: (merchant.y + 0.5) * TILE,
+          size: 80,
+          facing: hero.x < (merchant.x + 0.5) * TILE ? -1 : 1,
+          screenOffsetY: -11 + (reducedMotion ? 0 : Math.sin(elapsed * 1.5) * 0.6),
+          opacity: 1,
+          hit: false,
+          shadowScale: 0.86,
+          shadowOpacity: 0.34,
+        })),
     ],
     decorations: [
       ...dungeonEnvironment.props
@@ -3743,6 +3810,17 @@ function renderHeroEffectsHud() {
   heroEffectsHud.hidden = effects.length === 0;
 }
 
+function renderHungerHud() {
+  const presentation = hungerPresentation(hero.hunger, itemDetailLanguage);
+  hungerMeter.dataset.stage = presentation.id;
+  hungerFill.style.transform = `scaleX(${presentation.percent / 100})`;
+  hungerMeter.title = `${presentation.label} · ${presentation.minutes} ${itemDetailLanguage === 'ru' ? 'мин' : 'min'}`;
+  hud.setAttribute(
+    'aria-label',
+    `${currentMainMenuModel().labels.hud}. ${presentation.ariaLabel}`,
+  );
+}
+
 function updateHud() {
   const stats = currentHeroStats();
   const combat = currentHeroCombat();
@@ -3766,6 +3844,7 @@ function updateHud() {
     'aria-label',
     `${currentMainMenuModel().labels.gold}: ${gold}`,
   );
+  renderHungerHud();
   renderHeroEffectsHud();
   updateSanctuaryUi();
   updateInteractionUi();
@@ -3962,6 +4041,14 @@ function nearbyDoor() {
 
 function contextModelTarget(entry = contextTarget) {
   if (!entry) return null;
+  if (entry.kind === 'merchant') {
+    return {
+      kind: 'merchant',
+      variantId: entry.value.variantId,
+      name: merchantPresentation(entry.value.variantId, itemDetailLanguage).name,
+      iconPath: entry.value.iconPath,
+    };
+  }
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
@@ -4008,6 +4095,7 @@ function contextTargetIsAdjacent(entry) {
       && !run.floor.resolved.includes(entry.value.eventId);
   }
   if (entry.kind === 'find') return distance <= 1 && !entry.value.resolved;
+  if (entry.kind === 'merchant') return distance <= 1;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
 }
@@ -4125,7 +4213,179 @@ function closeContextActions({ restoreFocus = false } = {}) {
   return true;
 }
 
+function merchantItemButton({ item, price, disabled = false, sold = false, onActivate }) {
+  const displayItem = presentedItem(item);
+  const presentation = itemPresentation(displayItem, itemDetailLanguage);
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'merchant-item';
+  button.dataset.rarity = String(displayItem.rarity ?? 0);
+  button.disabled = disabled;
+  button.setAttribute(
+    'aria-label',
+    `${presentation.name}. ${presentation.primaryEffect.text}. ${price} ${currentMainMenuModel().labels.gold}`,
+  );
+  const icon = document.createElement('img');
+  icon.src = assetUrl(displayItem.icon);
+  icon.alt = '';
+  const copy = document.createElement('span');
+  copy.className = 'merchant-item-copy';
+  const name = document.createElement('strong');
+  name.textContent = presentation.name;
+  const effect = document.createElement('small');
+  effect.textContent = `${presentation.rarity} · ${presentation.primaryEffect.text}`;
+  copy.append(name, effect);
+  const value = document.createElement('span');
+  value.className = 'merchant-item-price';
+  value.innerHTML = sold ? `<b>${merchantPresentation(activeMerchant.variantId, itemDetailLanguage).sold}</b>` : `<b>${price}</b><i>●</i>`;
+  button.append(icon, copy, value);
+  button.addEventListener('click', onActivate);
+  return button;
+}
+
+function renderMerchantShop() {
+  if (!activeMerchant) return;
+  const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
+  merchantShop.lang = itemDetailLanguage;
+  merchantShopTitle.textContent = copy.name;
+  merchantShopPortrait.src = assetUrl(activeMerchant.actorPath);
+  merchantShopGold.querySelector('b').textContent = String(gold);
+  merchantShopGold.setAttribute('aria-label', `${currentMainMenuModel().labels.gold}: ${gold}`);
+  closeMerchantShopButton.setAttribute('aria-label', copy.close);
+  merchantShop.setAttribute('aria-label', copy.name);
+  merchantShopTabButtons.forEach((button) => {
+    const selectedTab = button.dataset.merchantTab === merchantTab;
+    button.setAttribute('aria-pressed', String(selectedTab));
+    button.textContent = copy[button.dataset.merchantTab];
+  });
+  merchantShopList.replaceChildren();
+  if (merchantTab === 'buy') {
+    for (const entry of activeMerchant.stock) {
+      const item = materializeInventoryItem(entry.record);
+      const sold = run.floor.merchantPurchases.includes(entry.entryId);
+      merchantShopList.append(merchantItemButton({
+        item,
+        price: entry.price,
+        disabled: sold,
+        sold,
+        onActivate: () => transactMerchantPurchase(entry.entryId),
+      }));
+    }
+  } else {
+    for (const item of backpackItems.filter(Boolean)) {
+      merchantShopList.append(merchantItemButton({
+        item,
+        price: merchantSellPrice(item),
+        onActivate: () => transactMerchantSale(item.uid),
+      }));
+    }
+  }
+  if (merchantShopList.childElementCount === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'merchant-shop-empty';
+    empty.textContent = copy.empty;
+    merchantShopList.append(empty);
+  }
+}
+
+function merchantFailureCopy(reason) {
+  const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
+  return copy[reason] ?? (itemDetailLanguage === 'ru' ? 'Сделка невозможна' : 'Trade unavailable');
+}
+
+function transactMerchantPurchase(entryId) {
+  if (uiScreen !== 'merchant' || !activeMerchant) return false;
+  const state = currentItemState();
+  const result = buyMerchantItem({
+    merchant: activeMerchant,
+    entryId,
+    purchasedIds: run.floor.merchantPurchases,
+    gold,
+    items: state.items,
+    inventory: state.inventory,
+  });
+  if (!result.ok) {
+    merchantShopFeedback.textContent = merchantFailureCopy(result.reason);
+    return false;
+  }
+  applyItemState({ ...result.state, equipment: state.equipment });
+  gold = result.state.gold;
+  run.floor.merchantPurchases = [...result.state.purchasedIds];
+  merchantShopFeedback.textContent = itemDetailLanguage === 'ru' ? 'Куплено' : 'Purchased';
+  updateHud();
+  renderMerchantShop();
+  persistRun();
+  return true;
+}
+
+function transactMerchantSale(uid) {
+  if (uiScreen !== 'merchant' || !activeMerchant) return false;
+  const state = currentItemState();
+  const result = sellMerchantItem({ uid, gold, items: state.items, inventory: state.inventory });
+  if (!result.ok) {
+    merchantShopFeedback.textContent = merchantFailureCopy(result.reason);
+    return false;
+  }
+  applyItemState({ ...result.state, equipment: state.equipment });
+  gold = result.state.gold;
+  merchantShopFeedback.textContent = `+${result.price} ●`;
+  updateHud();
+  renderMerchantShop();
+  persistRun();
+  return true;
+}
+
+function openMerchantShop(merchant) {
+  if (!merchant || uiScreen !== 'game' || hero.dead || runStatus !== 'playing') return false;
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  activeMerchant = merchant;
+  merchantTab = 'buy';
+  merchantShopFeedback.textContent = '';
+  uiScreen = 'merchant';
+  document.body.dataset.screen = uiScreen;
+  merchantShop.inert = false;
+  merchantShop.setAttribute('aria-hidden', 'false');
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  pauseGameButton.disabled = true;
+  renderMerchantShop();
+  requestAnimationFrame(() => merchantShopList.querySelector('button:not(:disabled)')?.focus() ?? closeMerchantShopButton.focus());
+  return true;
+}
+
+function closeMerchantShop() {
+  if (uiScreen !== 'merchant') return false;
+  merchantShop.inert = true;
+  merchantShop.setAttribute('aria-hidden', 'true');
+  activeMerchant = null;
+  uiScreen = 'game';
+  document.body.dataset.screen = uiScreen;
+  moveControl.inert = false;
+  moveControl.removeAttribute('aria-hidden');
+  bagButton.disabled = false;
+  characterSheetButton.disabled = false;
+  pauseGameButton.disabled = false;
+  updateInteractionUi();
+  requestAnimationFrame(() => interactActionButton.focus());
+  return true;
+}
+
+function nearbyMerchant() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return merchantDefinitions
+    .filter((merchant) => revealed.has(`${merchant.x},${merchant.y}`))
+    .filter((merchant) => Math.abs(cell.x - merchant.x) + Math.abs(cell.y - merchant.y) <= 1)
+    .sort((a, b) => a.instanceId.localeCompare(b.instanceId))[0] ?? null;
+}
+
 function nearbyContextTarget() {
+  const merchant = nearbyMerchant();
+  if (merchant) return { kind: 'merchant', value: merchant };
   const find = nearbyFind();
   if (find) return { kind: 'find', value: find };
   const trap = nearbyDetectedTrap();
@@ -4157,6 +4417,11 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'find-interact'({ target, action }) {
     closeContextActions();
     return interactNearbyFind(target.value, action.id);
+  },
+  trade({ target }) {
+    const merchant = target.value;
+    closeContextActions();
+    return openMerchantShop(merchant);
   },
 });
 
@@ -4215,7 +4480,9 @@ function beginDoorTransition(door, targetOpen) {
   const distance = Math.abs(Math.floor(hero.x / TILE) - door.x) +
     Math.abs(Math.floor(hero.y / TILE) - door.y);
   if (distance > 1 || (targetOpen && distance !== 1)) return false;
-  if (!targetOpen && !canCloseDoor({ door, actors: [hero, ...monsters, ...passiveCreatures], tileSize: TILE })) {
+  const merchants = (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
+    .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE }));
+  if (!targetOpen && !canCloseDoor({ door, actors: [hero, ...monsters, ...passiveCreatures, ...merchants], tileSize: TILE })) {
     doorAnnouncement.textContent = currentMainMenuModel().labels.doorBlocked;
     addCombatGlyph((door.x + 0.5) * TILE, (door.y + 0.5) * TILE, '!', '#dec982', -36);
     showLootToast({ path: 'dngn/doors/open_door.png', rarity: 0 }, '!');
@@ -4783,6 +5050,24 @@ function useConsumable(item, index) {
       return;
     }
     hero.hp += feedback;
+  } else if (item.useEffect?.type === 'food') {
+    const result = consumeFood({
+      hunger: hero.hunger,
+      hp: hero.hp,
+      maxHp,
+      nutrition: item.useEffect.nutrition,
+      healing: item.useEffect.healing,
+    });
+    if (!result.ok) {
+      showLootToast(item, 0);
+      return;
+    }
+    hero.hunger = result.state.hunger;
+    hero.hp = result.state.hp;
+    currentHungerStageId = hungerStage(hero.hunger).id;
+    hungerAutosaveElapsed = 0;
+    playerHasActed = true;
+    feedback = `+${Math.ceil(result.restored / 60)}′`;
   } else if (item.useEffect?.type === 'return-to-entrance') {
     hero.x = (dungeon.spawn.x + 0.5) * TILE;
     hero.y = (dungeon.spawn.y + 0.5) * TILE;
@@ -5421,6 +5706,7 @@ function replaceFloor(nextDepth) {
     detectedTrapIds: [],
     disarmedTrapIds: [],
     placedTraps: [],
+    merchantPurchases: [],
   };
   monsters = createMonsters(dungeon);
   passiveCreatures = createPassiveCreatures(dungeon);
@@ -5433,6 +5719,7 @@ function replaceFloor(nextDepth) {
   hazardInputState = createHazardInputState();
   permittedHazardCell = null;
   doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
+  merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
   openingDoor = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);
   revealed.clear();
@@ -5471,6 +5758,7 @@ function descendFloor() {
   if (isTerminalRunStatus(runStatus) || dungeon.depth >= FINAL_DEPTH) return;
   run = advanceRunFloor(captureRun());
   hero.hp = run.hero.hp;
+  hero.hunger = run.hero.hunger;
   replaceFloor(run.depth);
   showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
 }
@@ -5489,6 +5777,10 @@ function restartRun() {
   hero.level = run.hero.level;
   hero.xp = run.hero.xp;
   hero.power = run.hero.power;
+  hero.hunger = run.hero.hunger;
+  hungerAccumulator = 0;
+  hungerAutosaveElapsed = 0;
+  currentHungerStageId = hungerStage(hero.hunger).id;
   hero.effects = createActorEffects(run.hero.effects);
   hero.skills = cloneSkillState(run.hero.skills);
   hero.dead = false;
@@ -5522,6 +5814,32 @@ function updateHeroEffects(delta) {
   }
 }
 
+function updateHunger(delta) {
+  if (!playerHasActed || runStatus !== 'playing' || hero.dead) return;
+  hungerAccumulator += delta;
+  const activeSeconds = Math.floor(hungerAccumulator);
+  if (activeSeconds < 1) return;
+  hungerAccumulator -= activeSeconds;
+  const before = hero.hunger;
+  hero.hunger = advanceHunger(hero.hunger, activeSeconds);
+  if (hero.hunger === before) return;
+
+  const nextStageId = hungerStage(hero.hunger).id;
+  renderHungerHud();
+  if (nextStageId !== currentHungerStageId) {
+    currentHungerStageId = nextStageId;
+    const presentation = hungerPresentation(hero.hunger, itemDetailLanguage);
+    showLootToast({ path: 'item/food/bread_ration.png', rarity: nextStageId === 'starving' ? 3 : 1 }, presentation.label);
+    renderCharacterSheet();
+  }
+
+  hungerAutosaveElapsed += activeSeconds;
+  if (hungerAutosaveElapsed >= HUNGER_TUNING.autosaveEvery) {
+    hungerAutosaveElapsed = 0;
+    persistRun();
+  }
+}
+
 function updateHero(delta) {
   const previousAttack = hero.attack;
   hero.attack = Math.max(0, hero.attack - delta);
@@ -5530,6 +5848,7 @@ function updateHero(delta) {
   hero.guardFlash = Math.max(0, hero.guardFlash - delta);
   hero.invisibilityReveal = Math.max(0, hero.invisibilityReveal - delta);
   if (runStatus !== 'playing') return;
+  updateHunger(delta);
   updateHeroEffects(delta);
   if (hero.dead) return;
   resolvePendingHeroAttack(previousAttack, hero.attack);
@@ -5683,7 +6002,13 @@ function updatePassiveCreatures(delta) {
           const next = constrainActorMovement({
             actor: creature,
             next: { x: creature.x + (dx / distance) * movement, y: creature.y + (dy / distance) * movement },
-            blockers: [hero, ...monsters, ...passiveCreatures],
+            blockers: [
+              hero,
+              ...monsters,
+              ...passiveCreatures,
+              ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
+                .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE })),
+            ],
             tileSize: TILE,
           });
           creature.stride += Math.hypot(next.x - creature.x, next.y - creature.y) / TILE;
@@ -5736,6 +6061,9 @@ function updateWorld(delta) {
   const occupiedCells = occupiedMonsterCells(monsters, TILE);
   for (const creature of passiveCreatures) occupiedCells.add(monsterCellKey(creature, TILE));
   const reservedCells = passiveOccupiedCells();
+  for (const merchant of (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)) {
+    reservedCells.add(`${merchant.x},${merchant.y}`);
+  }
   for (const cell of blockingFindCells()) reservedCells.add(cell);
   if (!hero.dead && hero.path[0]) reservedCells.add(monsterCellKey(hero.path[0], TILE));
   const heroCellKey = monsterCellKey(hero, TILE);
@@ -5902,7 +6230,13 @@ function updateWorld(delta) {
       const next = constrainActorMovement({
         actor: monster,
         next: proposed,
-        blockers: [hero, ...monsters, ...passiveCreatures],
+        blockers: [
+          hero,
+          ...monsters,
+          ...passiveCreatures,
+          ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
+            .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE })),
+        ],
         tileSize: TILE,
       });
       const travelled = Math.hypot(next.x - monster.x, next.y - monster.y);
@@ -6097,6 +6431,9 @@ function moveFromPointer(event) {
     (candidate) =>
       Math.floor(candidate.x / TILE) === cellX && Math.floor(candidate.y / TILE) === cellY,
   );
+  const merchant = merchantDefinitions.find(
+    (candidate) => candidate.x === cellX && candidate.y === cellY,
+  );
   const trap = trapDefinitions.find(
     (candidate) =>
       candidate.x === cellX
@@ -6104,6 +6441,16 @@ function moveFromPointer(event) {
       && detectedTrapIds.has(candidate.instanceId)
       && !run.floor.resolved.includes(candidate.eventId),
   );
+  if (merchant && revealed.has(`${cellX},${cellY}`)) {
+    const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+    const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
+    if (adjacent) {
+      openContextActions({ kind: 'merchant', value: merchant });
+      return;
+    }
+    routeHeroBesideCell(cellX, cellY);
+    return;
+  }
   if (find && !find.resolved && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
     const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
@@ -6311,6 +6658,19 @@ window.addEventListener('keydown', (event) => {
     controls[nextIndex].focus();
     return;
   }
+  if (event.code === 'Tab' && uiScreen === 'merchant') {
+    event.preventDefault();
+    const controls = [
+      closeMerchantShopButton,
+      ...merchantShopTabButtons,
+      ...merchantShopList.querySelectorAll('button:not(:disabled)'),
+    ];
+    const currentIndex = controls.indexOf(document.activeElement);
+    const direction = event.shiftKey ? -1 : 1;
+    const nextIndex = (currentIndex + direction + controls.length) % controls.length;
+    controls[nextIndex].focus();
+    return;
+  }
   if (event.code === 'Tab' && uiScreen === 'trap-placement') {
     event.preventDefault();
     const controls = [
@@ -6337,6 +6697,11 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && uiScreen === 'context') {
     event.preventDefault();
     closeContextActions();
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'merchant') {
+    event.preventDefault();
+    closeMerchantShop();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'trap-placement') {
@@ -6417,6 +6782,15 @@ characterSheetLanguageButton.addEventListener('click', () => {
 });
 bagButton.addEventListener('click', openInventory);
 interactActionButton.addEventListener('click', openNearbyContextActions);
+closeMerchantShopButton.addEventListener('click', closeMerchantShop);
+merchantShopTabButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    merchantTab = button.dataset.merchantTab;
+    merchantShopFeedback.textContent = '';
+    renderMerchantShop();
+    requestAnimationFrame(() => merchantShopList.querySelector('button:not(:disabled)')?.focus());
+  });
+});
 closeInventoryButton.addEventListener('click', closeInventory);
 inventoryFilterButtons.forEach((button) => {
   button.addEventListener('click', () => setInventoryFilter(button.dataset.inventoryFilter));

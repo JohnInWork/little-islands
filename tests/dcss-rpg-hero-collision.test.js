@@ -85,7 +85,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     rarityGlow: ['#ffffff'],
     knownTrapCells: () => new Set(hazards),
     isWalkable: (x, y) => grid[y]?.[x] === '.',
-    updateHeroEffects: () => {}, updateHeldMove: () => {}, resolveWorldInteractions: () => {},
+    updateHunger: () => {}, updateHeroEffects: () => {}, updateHeldMove: () => {}, resolveWorldInteractions: () => {},
     warnTrapStep: () => {}, updateDoorOpening: () => {}, monsterSeesHero: () => true,
     damageHero: () => null, monsterInfliction: () => null,
     triggerPlacedTrapForMonster: () => false,

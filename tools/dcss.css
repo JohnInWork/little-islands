@@ -708,7 +708,7 @@ body {
 }
 
 .health,
-.ward {
+.hunger-meter {
   grid-column: 1 / -1;
   height: 16px;
   display: flex;
@@ -730,16 +730,61 @@ body {
   box-shadow: inset 0 -4px #1b1113;
 }
 
-.ward {
+.hunger-meter {
   grid-column: 1;
-  width: 68%;
-  height: 6px;
+  width: 78%;
+  height: 10px;
+  align-items: center;
+  gap: 5px;
+  color: #a8a177;
+  --hunger-color: #a8a177;
 }
 
-.ward i {
-  width: 64%;
-  background: var(--ward);
-  box-shadow: none;
+.hunger-meter > span {
+  width: 10px;
+  color: var(--hunger-color);
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.hunger-meter > i {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  background: #273033;
+  box-shadow: inset 0 -2px #141a1c;
+}
+
+.hunger-meter b {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--hunger-color);
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+.hunger-meter[data-stage='mild'] {
+  --hunger-color: #c2a85b;
+}
+
+.hunger-meter[data-stage='strong'] {
+  --hunger-color: #cc7847;
+}
+
+.hunger-meter[data-stage='starving'] {
+  --hunger-color: #d6524c;
+}
+
+.hunger-meter[data-stage='starving'] > span {
+  animation: hunger-warning 900ms steps(2, end) infinite;
+}
+
+@keyframes hunger-warning {
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .ailments {
@@ -3052,6 +3097,257 @@ body {
 
 [data-screen='context'] .context-action-card {
   transform: translateY(0);
+}
+
+.merchant-shop {
+  position: fixed;
+  z-index: 26;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  background: rgb(2 4 5 / 78%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+[data-screen='merchant'] .merchant-shop {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.merchant-shop-card {
+  width: min(620px, 100%);
+  height: min(760px, 100%);
+  min-height: 0;
+  padding: 8px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) 28px;
+  color: #e9dfc4;
+  background: #0b1012;
+  border-color: #8d7b48;
+  box-shadow: 0 0 0 4px #030506, 8px 8px 0 rgb(2 3 4 / 76%);
+}
+
+.merchant-shop-header {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 2px 8px;
+  border-bottom: 4px solid #514829;
+}
+
+.merchant-shop-header > img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 4px 0 #020304);
+}
+
+.merchant-shop-header h2 {
+  margin: 0 0 7px;
+  overflow: hidden;
+  color: #f0e4c5;
+  font-size: clamp(17px, 4.5vw, 23px);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-shop-header output {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #e0c568;
+  font-size: 16px;
+}
+
+.merchant-shop-header > button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: #dfd7c1;
+  background: #202a2e;
+  border: 4px solid #697577;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.merchant-shop-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.merchant-shop-tabs button {
+  min-height: 48px;
+  color: #9ca6a2;
+  background: #182124;
+  border: 4px solid #465255;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.merchant-shop-tabs button[aria-pressed='true'] {
+  color: #f0df9d;
+  background: #302d1d;
+  border-color: #a38d4e;
+  box-shadow: inset 0 -4px #1b1a11;
+}
+
+.merchant-shop-list {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #75683d #111719;
+}
+
+.merchant-item {
+  width: 100%;
+  min-width: 0;
+  min-height: 76px;
+  margin: 0 0 8px;
+  padding: 7px 8px;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  color: #ddd4bb;
+  text-align: left;
+  background: #172023;
+  border: 4px solid #4e5a5c;
+  box-shadow: inset 0 -4px #0e1416;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.merchant-item[data-rarity='1'] { border-color: #5e846e; }
+.merchant-item[data-rarity='2'] { border-color: #557f9b; }
+.merchant-item[data-rarity='3'] { border-color: #9a6b9b; }
+
+.merchant-item img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.merchant-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.merchant-item-copy strong,
+.merchant-item-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-item-copy strong {
+  color: #eee3c8;
+  font-size: clamp(13px, 3.7vw, 16px);
+}
+
+.merchant-item-copy small {
+  color: #9eaaa5;
+  font-size: clamp(10px, 2.8vw, 12px);
+}
+
+.merchant-item-price {
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: #e2c967;
+  font-size: 15px;
+}
+
+.merchant-item:disabled {
+  filter: grayscale(0.7);
+  opacity: 0.48;
+  cursor: default;
+}
+
+.merchant-shop-empty {
+  min-height: 100%;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  color: #87928f;
+  text-align: center;
+}
+
+.merchant-shop-feedback {
+  min-height: 20px;
+  margin: 4px 4px 0;
+  overflow: hidden;
+  color: #d0b861;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-shop button:focus-visible {
+  outline: 4px solid #e2cf75;
+  outline-offset: -4px;
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .merchant-shop-card {
+    width: min(760px, 100%);
+    height: 100%;
+  }
+
+  .merchant-shop-header {
+    min-height: 60px;
+    grid-template-columns: 52px minmax(0, 1fr) 44px;
+  }
+
+  .merchant-shop-header > img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .merchant-shop-header > button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .merchant-shop-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 8px;
+  }
+
+  .merchant-item {
+    min-height: 70px;
+    margin: 0;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+  }
+
+  .merchant-item img {
+    width: 46px;
+    height: 46px;
+  }
 }
 
 .trap-placement {

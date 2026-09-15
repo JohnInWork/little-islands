@@ -4,6 +4,7 @@ import test from 'node:test';
 import { LOOT_CATALOG, MONSTER_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { createRun, generateDungeon, validateRun } from '../tools/dcss-rpg-core.js';
 import { FINAL_BOSS_ID, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { HUNGER_MAX, HUNGER_TUNING } from '../tools/dcss-rpg-hunger.js';
 import {
   DUAL_WIELD_OFFHAND_DAMAGE_SCALE,
   EQUIPMENT_STAT_KEYS,
@@ -71,6 +72,22 @@ test('equipment exposes bounded movement and attack tempo modifiers', () => {
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.moveSpeed ?? 0) < 0));
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.attackSpeed ?? 0) > 0));
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.attackSpeed ?? 0) < 0));
+});
+
+test('hunger composes with the one derived-stat source without ever dealing damage', () => {
+  const run = createRun(1924);
+  const items = run.items.map((item) => ({ ...lootById(item.id), ...item }));
+  const fed = deriveHeroStats({ ...run.hero, hunger: HUNGER_MAX }, run.equipment, items);
+  const strong = deriveHeroStats({ ...run.hero, hunger: HUNGER_TUNING.strongAt }, run.equipment, items);
+  const starving = deriveHeroStats({ ...run.hero, hunger: 0 }, run.equipment, items);
+
+  assert.ok(strong.attack < fed.attack);
+  assert.ok(strong.moveSpeed < fed.moveSpeed);
+  assert.ok(starving.attack <= strong.attack);
+  assert.ok(starving.defense < strong.defense);
+  assert.ok(starving.attackSpeed < strong.attackSpeed);
+  assert.equal(run.hero.hp, 100);
+  assert.equal(starving.maxHp, fed.maxHp);
 });
 
 test('one-handed axe keeps shield guard and tempo while two-handed axes trade both for impact', () => {

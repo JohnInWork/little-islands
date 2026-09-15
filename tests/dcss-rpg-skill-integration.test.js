@@ -37,7 +37,7 @@ test('v9 migration grants earned skill points without resetting the current floo
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
   assert.equal(next.version, SAVE_VERSION);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v22');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v24');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   const previousShape = structuredClone(next);
   previousShape.version = 9;

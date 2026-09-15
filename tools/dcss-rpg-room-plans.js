@@ -30,6 +30,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
       'ashen-shrine',
       'drowned-chapel',
       'fungal-hollow',
+      'merchant-alcove',
     ],
   }),
   defineDungeonTheme({
@@ -37,21 +38,21 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
     surfaceSetId: 'buried-sanctum',
     atmosphereId: 'ochre',
     chestSkinIds: ['pharaoh'],
-    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
   }),
   defineDungeonTheme({
     id: 'frozen-depths',
     surfaceSetId: 'frozen-depths',
     atmosphereId: 'ice',
     chestSkinIds: ['jade-ruby'],
-    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'drowned-chapel', 'fungal-hollow'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'drowned-chapel', 'fungal-hollow', 'merchant-alcove'],
   }),
   defineDungeonTheme({
     id: 'infernal-core',
     surfaceSetId: 'infernal-core',
     atmosphereId: 'ember',
     chestSkinIds: ['jade-ruby', 'pirate'],
-    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
   }),
 ]);
 
@@ -81,8 +82,7 @@ const COMMON_ENVIRONMENT = Object.freeze({
 /**
  * An archetype describes why a room exists. It never stores PNG paths. The
  * current dungeon theme resolves its compatible environment and chest family.
- * `merchant-alcove` is deliberately dormant: adding its actor/shop system later
- * will activate data that already fits the same contract.
+ * Service rooms use the same data contract as encounters and discoveries.
  */
 export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   defineRoomArchetype({
@@ -210,10 +210,10 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   defineRoomArchetype({
     id: 'merchant-alcove',
     role: 'service',
-    implemented: false,
+    implemented: true,
     minDepth: 2,
-    weight: 1,
-    requiresDoor: true,
+    weight: 0,
+    requiresDoor: false,
     environmentThemeIds: COMMON_ENVIRONMENT,
     content: { actorId: 'merchant', interactionId: 'trade' },
     variants: ['armourer', 'relic-dealer', 'provisioner'],
@@ -305,6 +305,27 @@ function semanticArchetypes(level) {
       surprise.roomIndex,
       ['treasure', 'mixed'].includes(surprise.type) ? 'treasure-vault' : 'ambush-chamber',
     );
+  }
+
+  // One service stop per chapter. It prefers a real door room and then the
+  // calmest free alcove, so a rare map topology never loses its merchant.
+  if (level.depth % FLOORS_PER_CHAPTER === 0) {
+    const candidates = level.rooms
+      .map((_room, roomIndex) => roomIndex)
+      .filter((roomIndex) => (
+        roomIndex > 0
+        && [undefined, 'forgotten-crypt', 'crystal-grotto'].includes(assigned.get(roomIndex))
+      ))
+      .sort((a, b) => (
+        Number(assigned.has(a)) - Number(assigned.has(b))
+        ||
+        Number(!(level.doors ?? []).some((door) => door.roomIndex === a))
+          - Number(!(level.doors ?? []).some((door) => door.roomIndex === b))
+        ||
+        stableHash(level.seed, level.depth, a, 0x4d455243)
+          - stableHash(level.seed, level.depth, b, 0x4d455243)
+      ));
+    if (candidates.length > 0) assigned.set(candidates[0], 'merchant-alcove');
   }
   return assigned;
 }

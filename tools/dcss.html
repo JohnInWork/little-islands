@@ -134,7 +134,9 @@
         <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
         <div class="vitals" aria-hidden="true">
           <div class="health"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="ward"><i></i></div>
+          <div id="hunger-meter" class="hunger-meter" data-stage="fed">
+            <span>◆</span><i><b id="hunger-fill"></b></i>
+          </div>
           <div class="ailments"><i>✦</i><i>◇</i></div>
         </div>
         <div id="hero-effects" class="hero-effects" aria-live="polite" hidden></div>
@@ -306,6 +308,33 @@
             <button id="close-context-actions" type="button" aria-label="Закрыть">×</button>
           </header>
           <div id="context-action-list" class="context-action-list"></div>
+        </article>
+      </section>
+
+      <section
+        id="merchant-shop"
+        class="merchant-shop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="merchant-shop-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="merchant-shop-card pixel-frame">
+          <header class="merchant-shop-header">
+            <img id="merchant-shop-portrait" src="../assets/dcss-preview/mon/human.png" alt="" />
+            <div>
+              <h2 id="merchant-shop-title">Торговец</h2>
+              <output id="merchant-shop-gold" aria-label="Золото: 0"><span>●</span><b>0</b></output>
+            </div>
+            <button id="close-merchant-shop" type="button" aria-label="Закрыть торговлю">×</button>
+          </header>
+          <nav id="merchant-shop-tabs" class="merchant-shop-tabs" aria-label="Торговля">
+            <button type="button" data-merchant-tab="buy" aria-pressed="true">Купить</button>
+            <button type="button" data-merchant-tab="sell" aria-pressed="false">Продать</button>
+          </nav>
+          <div id="merchant-shop-list" class="merchant-shop-list"></div>
+          <p id="merchant-shop-feedback" class="merchant-shop-feedback" role="status" aria-live="polite"></p>
         </article>
       </section>
 

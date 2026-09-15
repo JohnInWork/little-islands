@@ -886,7 +886,7 @@ export const LOOT_CATALOG = Object.freeze([
     icon: 'item/food/bread_ration.png',
     slot: null,
     kind: 'food',
-    useEffect: { type: 'heal', amount: 12 },
+    useEffect: { type: 'food', nutrition: 25 * 60, healing: 12 },
     rarity: 0,
     weight: 18,
     minDepth: 1,

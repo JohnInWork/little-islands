@@ -1,4 +1,9 @@
 import { chestFramesForSkin } from './dcss-rpg-chests.js';
+import {
+  MERCHANT_ACTOR_PATH,
+  MERCHANT_ICON_PATH,
+  createMerchantStock,
+} from './dcss-rpg-merchant.js';
 
 export const ROOM_ENCOUNTER_KINDS = Object.freeze([
   'unguarded',
@@ -246,6 +251,41 @@ function materializeDoorVault(level, plan) {
   });
 }
 
+function materializeMerchant(level, plan, occupied) {
+  const room = level.rooms[plan.roomIndex];
+  // A service room is readable and safe. If the base floor budget happened to
+  // seed ordinary hazards here, remove only those unclaimed ambient spawns.
+  for (const collection of [level.monsters, level.events, level.finds]) {
+    for (let index = collection.length - 1; index >= 0; index -= 1) {
+      if (!roomContains(room, collection[index])) continue;
+      occupied.delete(cellKey(collection[index]));
+      collection.splice(index, 1);
+    }
+  }
+  const anchor = {
+    x: room.x + Math.floor(room.width / 2),
+    y: room.y + Math.floor(room.height / 2),
+  };
+  const [position] = roomCells(level, room, anchor, occupied, 0x53484f50);
+  if (!position) return null;
+  occupied.add(cellKey(position));
+  return deepFreeze({
+    instanceId: `merchant-${level.depth}-${plan.roomIndex}`,
+    id: 'merchant',
+    roomIndex: plan.roomIndex,
+    variantId: plan.variantId,
+    actorPath: MERCHANT_ACTOR_PATH,
+    iconPath: MERCHANT_ICON_PATH,
+    ...position,
+    stock: createMerchantStock({
+      seed: level.seed,
+      depth: level.depth,
+      roomIndex: plan.roomIndex,
+      variantId: plan.variantId,
+    }),
+  });
+}
+
 /**
  * Converts abstract RoomPlans into concrete actors and hazards without changing
  * the floor's total monster/event budgets. Existing spawns are reassigned to a
@@ -268,8 +308,14 @@ export function materializeDungeonRoomContent(level) {
   const occupied = occupiedCells(level);
   const claimed = new Set();
   const encounters = [];
+  const merchants = [];
 
   for (const plan of level.roomPlans) {
+    if (plan.archetypeId === 'merchant-alcove') {
+      const merchant = materializeMerchant({ ...level, monsters, events, finds }, plan, occupied);
+      if (merchant) merchants.push(merchant);
+      continue;
+    }
     if (plan.archetypeId !== 'treasure-vault') continue;
     const encounter = materializeChestVault({
       level: { ...level, monsters },
@@ -283,5 +329,5 @@ export function materializeDungeonRoomContent(level) {
     if (encounter) encounters.push(encounter);
   }
 
-  return deepFreeze({ monsters, events, finds, encounters });
+  return deepFreeze({ monsters, events, finds, encounters, merchants });
 }

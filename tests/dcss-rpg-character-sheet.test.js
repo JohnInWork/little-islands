@@ -21,10 +21,12 @@ test('character sheet explains the complete derived build in both languages', ()
   const english = characterSheetModel({ ...state, language: 'en' });
   assert.equal(russian.title, 'Персонаж');
   assert.equal(english.title, 'Character');
-  assert.equal(russian.statRows.length, 5);
+  assert.equal(russian.statRows.length, 6);
   assert.equal(russian.combatRows.length, 4);
   assert.equal(russian.statRows.find(({ id }) => id === 'health').value, '71/112');
   assert.equal(russian.statRows.find(({ id }) => id === 'movement').value, '3.42 кл/с');
+  assert.equal(russian.statRows.find(({ id }) => id === 'hunger').value, 'Сыт · 100%');
+  assert.match(english.statRows.find(({ id }) => id === 'hunger').description, /never deals direct damage/);
   assert.equal(english.combatRows.find(({ id }) => id === 'rate').value, '2');
   assert.equal(english.combatRows.find(({ id }) => id === 'style').value, 'Spear');
   assert.equal(russian.experienceProgress, 10 / 54);

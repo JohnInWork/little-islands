@@ -26,7 +26,7 @@ test('dungeon themes own compatible surfaces, chests and room families', () => {
     assert.ok(theme.roomArchetypeIds.every((id) => roomArchetypeById(id)?.implemented));
   }
   const merchant = roomArchetypeById('merchant-alcove');
-  assert.equal(merchant.implemented, false);
+  assert.equal(merchant.implemented, true);
   assert.equal(merchant.role, 'service');
   assert.deepEqual(merchant.content, { actorId: 'merchant', interactionId: 'trade' });
 });
@@ -44,7 +44,7 @@ test('visual theme and difficulty chapter advance on the same depth boundary', (
   }
 });
 
-test('room plans are deterministic, semantic and safe for future dormant archetypes', () => {
+test('room plans are deterministic, semantic and schedule one merchant per chapter', () => {
   for (let seed = 1; seed <= 250; seed += 1) {
     const depth = 1 + (seed % 8);
     const dungeon = generateDungeon({ seed, depth });
@@ -69,8 +69,8 @@ test('room plans are deterministic, semantic and safe for future dormant archety
       );
     }));
     assert.equal(
-      dungeon.roomPlans.some(({ archetypeId }) => archetypeId === 'merchant-alcove'),
-      false,
+      dungeon.roomPlans.filter(({ archetypeId }) => archetypeId === 'merchant-alcove').length,
+      depth % FLOORS_PER_CHAPTER === 0 ? 1 : 0,
     );
 
     const chest = dungeon.finds.find(({ id }) => id === 'sealed-cache');

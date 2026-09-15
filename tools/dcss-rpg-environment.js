@@ -205,7 +205,7 @@ function reservedCellsFor(level) {
   reserve(level.sanctuary);
   reserve(level.objective?.boss);
   reserve(level.objective?.artifact);
-  for (const collection of [level.events, level.monsters, level.passiveCreatures, level.finds, level.loot]) {
+  for (const collection of [level.events, level.monsters, level.passiveCreatures, level.merchants, level.finds, level.loot]) {
     for (const point of collection ?? []) reserve(point);
   }
   return reserved;

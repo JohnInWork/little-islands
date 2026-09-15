@@ -12,6 +12,7 @@ const ACTION_COPY = Object.freeze({
     'use-key': 'Ключ',
     'pick-lock': 'Взломать',
     attack: 'Атаковать',
+    trade: 'Торговать',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -24,6 +25,7 @@ const ACTION_COPY = Object.freeze({
     'use-key': 'Use key',
     'pick-lock': 'Pick lock',
     attack: 'Attack',
+    trade: 'Trade',
   }),
 });
 
@@ -38,6 +40,7 @@ const GLYPHS = Object.freeze({
   'use-key': '⌑',
   'pick-lock': '⌁',
   attack: '⚔',
+  trade: '●',
 });
 
 const COPY = Object.freeze({
@@ -55,6 +58,8 @@ const COPY = Object.freeze({
     trapClosed: 'Обнаруженный механизм преграждает безопасный путь.',
     trapInspected: (tier, status) => `Сложность ${tier}. ${status}`,
     trapReady: 'Можно обезвредить.',
+    merchantName: 'Странствующий торговец',
+    merchantDescription: '',
   }),
   en: Object.freeze({
     doorName: 'Stone door',
@@ -70,6 +75,8 @@ const COPY = Object.freeze({
     trapClosed: 'A detected mechanism blocks the safe route.',
     trapInspected: (tier, status) => `Difficulty ${tier}. ${status}`,
     trapReady: 'It can be disarmed.',
+    merchantName: 'Wandering merchant',
+    merchantDescription: '',
   }),
 });
 
@@ -95,6 +102,18 @@ const defineInteraction = (definition) => Object.freeze(definition);
  * input/focus code do not gain another object-specific branch.
  */
 export const INTERACTION_REGISTRY = Object.freeze([
+  defineInteraction({
+    id: 'merchant',
+    command: 'trade',
+    matches: (target) => target?.kind === 'merchant' && typeof target.variantId === 'string',
+    present: ({ target, copy }) => ({
+      name: target.name || copy.merchantName,
+      description: copy.merchantDescription,
+      icon: target.iconPath || 'dngn/shops/shop_gadgets.png',
+      accent: '#d1b35c',
+      actions: [{ id: 'trade' }],
+    }),
+  }),
   defineInteraction({
     id: 'door',
     command: 'door-transition',

@@ -111,6 +111,8 @@ const COPY = Object.freeze({
     vampirism: `Вампиризм · лечение на ${VAMPIRISM_RATIO * 100}% урона`,
     artifactCurse: 'Проклятие',
     heal: 'Лечение',
+    satiety: 'Сытость',
+    minutes: 'мин',
     power: 'Сила до конца забега',
     cleanse: 'Снимает все состояния',
     venom: 'Отравление',
@@ -140,6 +142,8 @@ const COPY = Object.freeze({
     vampirism: `Vampirism · heals for ${VAMPIRISM_RATIO * 100}% of damage`,
     artifactCurse: 'Curse',
     heal: 'Healing',
+    satiety: 'Satiety',
+    minutes: 'min',
     power: 'Run power',
     cleanse: 'Clears all statuses',
     venom: 'Poison',
@@ -250,6 +254,18 @@ function effectFact(effect, language, source) {
   if (effect.type === 'heal' && Number.isFinite(effect.amount) && effect.amount > 0) {
     const text = `${COPY[language].heal}: +${effect.amount}`;
     return freezeFact({ id: `${source}:heal`, kind: 'use', icon: '♥', text, short: text });
+  }
+  if (
+    effect.type === 'food'
+    && Number.isInteger(effect.nutrition)
+    && effect.nutrition > 0
+    && Number.isFinite(effect.healing)
+    && effect.healing >= 0
+  ) {
+    const minutes = Math.ceil(effect.nutrition / 60);
+    const healing = effect.healing > 0 ? ` · ${COPY[language].heal}: +${effect.healing}` : '';
+    const text = `${COPY[language].satiety}: +${minutes} ${COPY[language].minutes}${healing}`;
+    return freezeFact({ id: `${source}:food`, kind: 'use', icon: '◆', text, short: text });
   }
   if (effect.type === 'power' && Number.isFinite(effect.amount) && effect.amount > 0) {
     const text = `${COPY[language].power}: +${effect.amount}`;
