@@ -75,3 +75,24 @@ test('a category filter returns only its localized section', () => {
   assert.equal(equipped[0].title, 'Equipped');
   assert.equal(equipped[0].entries[0].source, 'equipment');
 });
+
+test('the backpack can omit equipped entries when a separate paper doll owns them', () => {
+  const sections = inventorySections({
+    inventory: ['boots', 'ring', 'potion'],
+    equipment: { hand1: 'sword', hand2: 'shield' },
+    items,
+    filter: 'all',
+    language: 'ru',
+    includeEquipped: false,
+  });
+
+  assert.deepEqual(sections.map((section) => section.id), [
+    'armour',
+    'jewellery',
+    'consumables',
+  ]);
+  assert.deepEqual(
+    sections.flatMap((section) => section.entries.map((entry) => entry.item.uid)),
+    ['boots', 'ring', 'potion'],
+  );
+});

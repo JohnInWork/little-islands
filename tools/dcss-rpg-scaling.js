@@ -2,9 +2,9 @@ import {
   DEFAULT_LOOT_ABUNDANCE,
   floorLootEconomy,
 } from './dcss-rpg-loot-economy.js';
-import { FLOORS_PER_CHAPTER } from './dcss-rpg-room-plans.js';
+import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SCALING_VERSION = 1;
+export const SCALING_VERSION = 2;
 
 // Единственный общий регулятор сложности новых забегов. Значение 1 оставлено
 // контрольной точкой прежнего баланса; 2.4 — новый основной профиль игры.
@@ -14,6 +14,18 @@ export const MAX_DIFFICULTY = 4;
 
 const CURVES = Object.freeze({
   1: Object.freeze({
+    floorsPerChapter: 2,
+    maximumMonsterCount: 24,
+    maximumMonsterTier: 9,
+    maximumLootCount: 9,
+    baseMonsterCount: 8,
+    monsterCountPerFloor: 2,
+    baseRoomCount: 9,
+    roomEveryFloors: 2,
+    maximumRoomCount: 15,
+    tierCurve: 'legacy',
+  }),
+  2: Object.freeze({
     floorsPerChapter: FLOORS_PER_CHAPTER,
     maximumMonsterCount: 24,
     maximumMonsterTier: 9,
@@ -23,6 +35,7 @@ const CURVES = Object.freeze({
     baseRoomCount: 9,
     roomEveryFloors: 2,
     maximumRoomCount: 15,
+    tierCurve: 'nine-floor-run',
   }),
 });
 
@@ -76,6 +89,7 @@ export function floorScaling(
   const step = depth - 1;
   const chapter = Math.floor(step / curve.floorsPerChapter) + 1;
   const floorInChapter = (step % curve.floorsPerChapter) + 1;
+  const chapterEnd = floorInChapter === curve.floorsPerChapter;
   const baseMonsterCount = Math.min(
     curve.maximumMonsterCount,
     curve.baseMonsterCount + step * curve.monsterCountPerFloor,
@@ -86,7 +100,12 @@ export function floorScaling(
     curve.maximumMonsterCount,
     Math.round(baseMonsterCount * (0.72 + difficulty * 0.28)),
   );
-  const maxMonsterTier = Math.min(curve.maximumMonsterTier, 1 + step * 2);
+  const maxMonsterTier = curve.tierCurve === 'legacy'
+    ? Math.min(curve.maximumMonsterTier, 1 + step * 2)
+    : Math.min(
+        curve.maximumMonsterTier,
+        1 + Math.floor((step * (curve.maximumMonsterTier - 1)) / (FINAL_DEPTH - 1)),
+      );
   const averageThreat = 1 + Math.min(curve.maximumMonsterTier - 1, step * 0.6);
   const baseThreatBudget = Math.round(monsterCount * averageThreat);
   // Difficulty — честный линейный множитель основных боевых параметров.
@@ -96,8 +115,16 @@ export function floorScaling(
   const difficultyDamage = difficulty;
   const difficultyTempo = 0.82 + difficulty * 0.18;
   const baseBossHp = 1.72 + Math.min(0.72, step * 0.11);
-  const baseLootCount = Math.min(curve.maximumLootCount, 4 + Math.floor(depth / 2));
-  const baseQualityBudget = round((4 + depth * 2.5) * (0.9 + difficulty * 0.1), 2);
+  const baseLootCount = Math.min(
+    curve.maximumLootCount,
+    4 + Math.floor(depth / 2),
+  );
+  const baseQualityBudget = round(
+    (4 + depth * 2.5)
+      * (0.9 + difficulty * 0.1)
+      * (chapterEnd ? 1.25 : 1),
+    2,
+  );
   const lootEconomy = floorLootEconomy({
     baseCount: baseLootCount,
     baseQualityBudget,
@@ -111,6 +138,7 @@ export function floorScaling(
     depth,
     chapter,
     floorInChapter,
+    chapterEnd,
     dangerRating: round(
       (1 + step * 0.62 + step ** 1.18 * 0.08) * difficulty,
       2,
@@ -150,6 +178,7 @@ export function floorScaling(
       lootAbundance,
       maximumItemDepth: depth,
       qualityBudget: lootEconomy.qualityBudget,
+      chapterBonus: chapterEnd,
     },
   });
 }

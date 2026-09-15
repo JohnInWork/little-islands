@@ -54,6 +54,7 @@ test('all equipment has real combat stats and starter HUD values use the same de
     maxHp: 100,
     moveSpeed: 1.08,
     attackSpeed: 1.05,
+    intelligence: 4,
   });
   assert.equal(HERO_BASE_MOVE_SPEED, 2.85);
   assert.equal(HERO_LEVEL_HP_GAIN, 6);
@@ -67,6 +68,7 @@ test('equipment exposes bounded movement and attack tempo modifiers', () => {
     'maxHp',
     'moveSpeed',
     'attackSpeed',
+    'intelligence',
   ]);
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.moveSpeed ?? 0) > 0));
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.moveSpeed ?? 0) < 0));

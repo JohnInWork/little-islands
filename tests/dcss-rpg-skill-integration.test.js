@@ -42,20 +42,27 @@ const v9Fixture = () => {
   return run;
 };
 
-test('v9 migration grants earned skill points without resetting the current floor or difficulty', () => {
+test('v9 migration grants earned skill points and preserves difficulty across the floor rebase', () => {
   const legacy = v9Fixture();
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
   assert.equal(next.version, SAVE_VERSION);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.deepEqual(next.hero.skills, createSkillState(4));
-  const previousShape = structuredClone(next);
-  previousShape.version = 9;
-  delete previousShape.hero.skills;
-  delete previousShape.floor.detectedTrapIds;
-  delete previousShape.floor.placedTraps;
-  delete previousShape.knowledge;
-  assert.deepEqual(previousShape, before);
+  assert.equal(next.difficulty, before.difficulty);
+  assert.equal(next.hero.hp, before.hero.hp);
+  assert.equal(next.hero.level, before.hero.level);
+  assert.equal(next.hero.power, before.hero.power);
+  assert.deepEqual(next.equipment, before.equipment);
+  assert.deepEqual(next.inventory, before.inventory);
+  const { chests, ...floorWithoutChests } = next.floor;
+  assert.deepEqual(floorWithoutChests, {
+    revealed: [], defeated: [], collected: [], resolved: [], resolvedFindIds: [],
+    detectedTrapIds: [], disarmedTrapIds: [], placedTraps: [], opened: [],
+    triggered: [], monsters: [], passives: [], merchants: [],
+  });
+  assert.ok(chests.length > 0);
+  assert.equal(next.started, false);
   assert.deepEqual(legacy, before);
   assert.equal(validateRun(next), true);
   assert.doesNotThrow(() => hydrateDungeon(next));

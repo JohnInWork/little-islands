@@ -15,10 +15,14 @@ import {
   fogAnchorsForDungeon,
 } from '../tools/dcss-rpg-visuals.js';
 
-test('the complete three-floor run uses coherent early biome families', () => {
+test('the complete nine-floor run uses three coherent three-floor biome chapters', () => {
   const ash = biomeThemeForDepth(1);
-  const buried = biomeThemeForDepth(3);
+  const buried = biomeThemeForDepth(4);
+  const frozen = biomeThemeForDepth(7);
   assert.equal(biomeThemeForDepth(2), ash);
+  assert.equal(biomeThemeForDepth(3), ash);
+  assert.equal(biomeThemeForDepth(6), buried);
+  assert.equal(biomeThemeForDepth(9), frozen);
   assert.equal(ash.id, 'ashen-vault');
   assert.equal(buried.id, 'buried-sanctum');
   assert.equal(ash.accentModulo, 0);
@@ -32,7 +36,7 @@ test('the complete three-floor run uses coherent early biome families', () => {
 
 test('biome themes are deterministic, bounded and reference local assets', async () => {
   assert.throws(() => biomeThemeForDepth(0), /positive integer/);
-  assert.equal(biomeThemeForDepth(9), BIOME_THEMES[0]);
+  assert.equal(biomeThemeForDepth(9), BIOME_THEMES[2]);
   const paths = allBiomeAssetPaths();
   assert.equal(new Set(paths).size, paths.length);
   await Promise.all(

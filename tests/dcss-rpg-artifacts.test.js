@@ -33,6 +33,7 @@ import {
   resolveVampiricRecovery,
 } from '../tools/dcss-rpg-magic.js';
 import { itemPowerScore } from '../tools/dcss-rpg-scaling.js';
+import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
 
 test('major powers are a small binary catalog with compatible bases', () => {
   assert.deepEqual(
@@ -72,12 +73,12 @@ test('artifact rolls are seeded, varied and use one fixed power plus at most one
   assert.throws(() => rollProceduralArtifact({ ...input, rate: 3.01 }), /Artifact rate/);
 });
 
-test('a floor creates at most one artifact and every complete three-floor run guarantees one', () => {
+test('a floor creates at most one artifact and every complete nine-floor run guarantees one', () => {
   for (let seed = 1; seed <= 180; seed += 1) {
-    const scheduledDepth = guaranteedArtifactDepth(seed, 3);
-    assert.ok(scheduledDepth === 2 || scheduledDepth === 3);
+    const scheduledDepth = guaranteedArtifactDepth(seed, FINAL_DEPTH);
+    assert.ok(scheduledDepth >= 2 && scheduledDepth <= FINAL_DEPTH);
     let runArtifacts = 0;
-    for (let depth = 1; depth <= 3; depth += 1) {
+    for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
       const dungeon = generateDungeon({ seed, depth });
       const artifacts = dungeon.loot.filter(({ artifactPowerId }) => artifactPowerId);
       assert.ok(artifacts.length <= 1, `seed ${seed}, floor ${depth}`);
@@ -85,7 +86,7 @@ test('a floor creates at most one artifact and every complete three-floor run gu
       if (depth === scheduledDepth) assert.equal(artifacts.length, 1);
       runArtifacts += artifacts.length;
     }
-    assert.ok(runArtifacts >= 1 && runArtifacts <= 3);
+    assert.ok(runArtifacts >= 1 && runArtifacts <= FINAL_DEPTH);
   }
 
   const bases = [lootById('long-sword'), lootById('fire-ring')];
@@ -153,8 +154,8 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
   legacyArtifactRun.hero.hp = 82;
   const artifactMigration = migrateLegacyRun(legacyArtifactRun);
   const migratedArtifact = artifactMigration.items.find(({ uid }) => uid === 'starter-blade');
-  assert.equal(SAVE_VERSION, 26);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.equal(SAVE_VERSION, 34);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.equal(artifactMigration.gold, 13);
   assert.equal(Object.hasOwn(artifactMigration, 'shards'), false);
   assert.equal(migratedArtifact.artifactPowerId, 'vampirism');

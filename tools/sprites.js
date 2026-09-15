@@ -103,6 +103,8 @@ const monsterNames = Object.freeze({
   ghost: 'Призрак',
   'zombie-hound': 'Гончая-зомби',
   ogre: 'Огр',
+  'ashen-guardian': 'Пепельный страж',
+  'sanctum-guardian': 'Страж святилища',
   'depth-warden': 'Страж глубин',
   'orc-wizard': 'Орк-колдун',
   vampire: 'Вампир',

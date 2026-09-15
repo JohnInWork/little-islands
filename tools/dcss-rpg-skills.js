@@ -95,6 +95,33 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ shieldBlockChancePercent: 35, shieldBlockStunMs: 600 }),
     ]),
   }),
+  pyromancy: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ pyromancyRank: 1 }),
+      Object.freeze({ pyromancyRank: 2 }),
+      Object.freeze({ pyromancyRank: 3 }),
+    ]),
+  }),
+  cryomancy: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ cryomancyRank: 1 }),
+      Object.freeze({ cryomancyRank: 2 }),
+      Object.freeze({ cryomancyRank: 3 }),
+    ]),
+  }),
+  'storm-magic': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ stormMagicRank: 1 }),
+      Object.freeze({ stormMagicRank: 2 }),
+      Object.freeze({ stormMagicRank: 3 }),
+    ]),
+  }),
 });
 // Add a system here only when its runtime consumer is connected and verified.
 export const SKILL_SYSTEMS = Object.freeze([
@@ -106,6 +133,9 @@ export const SKILL_SYSTEMS = Object.freeze([
   'sword-rhythm',
   'weapon-cleave',
   'shield-blocking',
+  'fire-spread',
+  'frost-buildup',
+  'chain-lightning',
 ]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
@@ -114,6 +144,7 @@ export const SKILL_MODIFIER_LIMITS = Object.freeze({
   maxHp: Object.freeze([-10000, 10000]),
   moveSpeed: Object.freeze([-0.8, 3]),
   attackSpeed: Object.freeze([-0.8, 3]),
+  intelligence: Object.freeze([-100, 100]),
 });
 
 // Explicit numeric contracts for the first planned consumers. Extend with a
@@ -135,6 +166,9 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   axeCleaveOneHandTargets: Object.freeze([0, 2]),
   shieldBlockChancePercent: Object.freeze([0, 100]),
   shieldBlockStunMs: Object.freeze([0, 10_000]),
+  pyromancyRank: Object.freeze([0, 3]),
+  cryomancyRank: Object.freeze([0, 3]),
+  stormMagicRank: Object.freeze([0, 3]),
 });
 
 function isRecord(value) {
@@ -297,6 +331,7 @@ export function skillAvailability({
   expectedRank,
   implementations = SKILL_IMPLEMENTATIONS,
   systems = SKILL_SYSTEMS,
+  attributes = {},
 } = {}) {
   const unavailable = (reason, rank = 0) => ({ ok: false, reason, rank, nextRank: rank + 1 });
   if (!validateSkillState(state, heroLevel)) return unavailable('invalid-state');
@@ -312,6 +347,14 @@ export function skillAvailability({
   if (!implementationFor(definition, implementations)) return unavailable('not-implemented', rank);
   if (!hasRequiredSystems(definition, systems)) return unavailable('missing-systems', rank);
   if (heroLevel < definition.rankLevels[rank]) return unavailable('level-required', rank);
+  const intelligenceRequired = definition.attributeRequirements?.intelligence?.[rank];
+  if (Number.isFinite(intelligenceRequired) && (attributes.intelligence ?? 0) < intelligenceRequired) {
+    return {
+      ...unavailable('intelligence-required', rank),
+      requiredAttribute: 'intelligence',
+      requiredValue: intelligenceRequired,
+    };
+  }
   if (state.points < 1) return unavailable('no-points', rank);
   return { ok: true, reason: 'available', rank, nextRank: rank + 1 };
 }

@@ -14,6 +14,7 @@ import {
   shieldBlockRoll,
 } from '../tools/dcss-rpg-shield.js';
 import { deriveSkillCapabilities } from '../tools/dcss-rpg-skills.js';
+import { createActorEffects } from '../tools/dcss-rpg-effects.js';
 
 const shieldCombat = Object.freeze({ style: 'blade', guard: 1 });
 const noShieldCombat = Object.freeze({ style: 'heavy', guard: 0 });
@@ -74,6 +75,7 @@ test('monster attack sequence survives save and hydration while old v16 states d
     y: spawn.y,
     hp: 1,
     attackSequence: 9,
+    effects: createActorEffects(),
   }];
   assert.equal(validateRun(run), true);
   const restored = createMonsterStates(hydrateDungeon(run));

@@ -7,6 +7,7 @@ import {
   bookOutcome,
   createBookStudy,
   readSkillBook,
+  readSpellBook,
   validateBookStudy,
 } from '../tools/dcss-rpg-books.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
@@ -32,6 +33,7 @@ import {
   deriveSkillCapabilities,
   effectiveSkillRank,
 } from '../tools/dcss-rpg-skills.js';
+import { createSpellState } from '../tools/dcss-rpg-spells.js';
 
 const command = (sequence, uid) => createGameCommand({
   streamId: 'run:books:1',
@@ -108,6 +110,50 @@ test('a blank book is consumed as a real discovery but has no hidden mutation', 
   assert.deepEqual(result.events.map(({ type }) => type), ['book-read', 'book-was-blank']);
 });
 
+test('spellbooks teach one permanent spell only when intelligence is high enough', () => {
+  const item = owned('book-of-flight');
+  const spells = createSpellState();
+  assert.deepEqual(bookOutcome(item), { type: 'learn-spell', spellId: 'flight' });
+  const blocked = readSpellBook({
+    command: command(4, item.uid), item, spells, intelligence: 5,
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'intelligence-required');
+  assert.deepEqual(spells.knownSpellIds, []);
+
+  const learned = readSpellBook({
+    command: command(5, item.uid), item, spells, intelligence: 6,
+  });
+  assert.equal(learned.ok, true);
+  assert.deepEqual(learned.state.spells.knownSpellIds, ['flight']);
+  assert.deepEqual(learned.events.map(({ type }) => type), ['book-read', 'spell-learned']);
+  assert.equal(readSkillBook({
+    command: command(6, item.uid), item, study: createBookStudy(), skills: createSkillState(), heroLevel: 1,
+  }).reason, 'not-a-skill-book');
+
+  const frostBook = owned('book-of-frost');
+  assert.deepEqual(bookOutcome(frostBook), { type: 'learn-spell', spellId: 'frost-lance' });
+  const frost = readSpellBook({
+    command: command(7, frostBook.uid),
+    item: frostBook,
+    spells,
+    intelligence: 4,
+  });
+  assert.equal(frost.ok, true);
+  assert.deepEqual(frost.state.spells.knownSpellIds, ['frost-lance']);
+
+  const stormBook = owned('book-of-storms');
+  assert.deepEqual(bookOutcome(stormBook), { type: 'learn-spell', spellId: 'storm-bolt' });
+  const storm = readSpellBook({
+    command: command(8, stormBook.uid),
+    item: stormBook,
+    spells,
+    intelligence: 5,
+  });
+  assert.equal(storm.ok, true);
+  assert.deepEqual(storm.state.spells.knownSpellIds, ['storm-bolt']);
+});
+
 test('every unknown family has its own seeded appearance pool without effect leakage', () => {
   assert.equal(BOOK_APPEARANCES.length >= 3, true);
   for (const group of ['potion', 'scroll', 'wand', 'book']) {
@@ -132,12 +178,12 @@ test('every unknown family has its own seeded appearance pool without effect lea
   }
 });
 
-test('v26 saves book adjustments and migrates v25 without resetting command order', () => {
+test('v34 saves book adjustments and migrates v25 without resetting command order', () => {
   const run = createRun(912);
   run.hero.skillStudy = createBookStudy({ rankAdjustments: { swords: 1 } });
   run.commandSequence = 17;
-  assert.equal(SAVE_VERSION, 26);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.equal(SAVE_VERSION, 34);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.equal(validateRun(run), true);
   assert.deepEqual(advanceRunFloor(run).hero.skillStudy, run.hero.skillStudy);
 

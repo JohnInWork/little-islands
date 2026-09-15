@@ -305,6 +305,17 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
   if (!isChestFind(find) || typeof inspected !== 'boolean') return null;
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
+  if (find.containerOpened === true) {
+    return Object.freeze({
+      name: find.containerDestroyed ? copy.result.smash : copy.unlockedName,
+      description: '',
+      icon: typeof find.icon === 'string' && find.icon.length > 0
+        ? find.icon
+        : CHEST_DEFAULT_PATH,
+      accent: find.containerDestroyed ? '#a56c55' : '#d9bd67',
+      actions: Object.freeze([action('browse')]),
+    });
+  }
   const rules = chestActionRules({ find, actor: { ...actor, language: locale } });
   const visibleVariant = inspected || ['unlocked', 'locked'].includes(find.cacheVariant)
     ? find.cacheVariant

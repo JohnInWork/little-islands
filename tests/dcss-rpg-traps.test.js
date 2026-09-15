@@ -112,7 +112,7 @@ test('trap discovery rejects non-finite or out-of-contract detection values', ()
   ]) assert.throws(() => discoverTraps({ ...args, capabilities }));
 });
 
-test('v10 migration preserves floor and earned skills, discovering only formerly visible traps', () => {
+test('v10 migration preserves earned skills while the expanded-run boundary clears floor traps', () => {
   const { seed, dungeon } = dungeonWithTraps();
   const legacy = createRun(seed, dungeon);
   legacy.version = 10;
@@ -134,14 +134,11 @@ test('v10 migration preserves floor and earned skills, discovering only formerly
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.version, SAVE_VERSION);
   assert.deepEqual(migrated.floor.disarmedTrapIds, []);
-  assert.deepEqual(migrated.floor.detectedTrapIds, [traps[0].instanceId]);
-  const restoredShape = structuredClone(migrated);
-  restoredShape.version = 10;
-  delete restoredShape.floor.detectedTrapIds;
-  delete restoredShape.floor.disarmedTrapIds;
-  delete restoredShape.floor.placedTraps;
-  delete restoredShape.knowledge;
-  assert.deepEqual(restoredShape, before);
+  assert.deepEqual(migrated.floor.detectedTrapIds, []);
+  assert.deepEqual(migrated.hero.skills, before.hero.skills);
+  assert.equal(migrated.hero.hp, before.hero.hp);
+  assert.equal(migrated.difficulty, before.difficulty);
+  assert.equal(migrated.started, false);
   assert.deepEqual(legacy, before);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));

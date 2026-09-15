@@ -57,7 +57,7 @@ test('the main touch surfaces share the frame and health stays visibly segmented
   }
 
   assert.equal((html.match(/<div class="health">[\s\S]*?<\/div>/)?.[0].match(/<i><\/i>/g) ?? []).length, 6);
-  assert.equal((html.match(/data-inventory-filter=/g) ?? []).length, 6);
+  assert.equal((html.match(/data-inventory-filter=/g) ?? []).length, 5);
 });
 
 test('one large pixel control combines arrow taps, holds, joystick drags and map taps', async () => {
@@ -90,6 +90,8 @@ test('the touch joystick stays transparent at rest and gains contrast only while
   assert.match(active, /opacity:\s*0\.94/);
   assert.match(css, /\.move-control:focus-within\s*{[^}]*opacity:\s*0\.92/s);
   assert.match(css, /\.move-direction:focus-visible\s*{[^}]*outline:\s*4px solid/s);
+  const finalResponsive = css.slice(css.indexOf('Final responsive authority'));
+  assert.match(finalResponsive, /@media \(max-width: 900px\)[\s\S]*?\.move-control\s*{[^}]*left:\s*50%[^}]*transform:\s*translateX\(-50%\)/s);
 });
 
 test('the dungeon background uses a real WebGL layer instead of painted wall extrusion', async () => {
@@ -162,22 +164,33 @@ test('loot and inventory expose translated item identity before opening full det
   assert.match(runtime, /lootToastQueue\.push/);
 });
 
-test('equipped items live at the top of the same list and use the same detail dialog', async () => {
+test('all equipment slots frame a live inventory paper doll and use the same detail dialog', async () => {
   const [html, css, runtime] = await Promise.all([
     readFile(htmlUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
     readFile(runtimeUrl, 'utf8'),
   ]);
 
-  assert.doesNotMatch(html, /class="doll-panel"|id="paperdoll"/);
-  assert.match(css, /\.pack-item\.inventory-row\.equipped-item-row/);
+  assert.match(html, /id="inventory-paperdoll"/);
+  assert.match(html, /id="inventory-equipment-slots"/);
+  assert.equal((html.match(/<button class="inventory-equipment-slot/g) ?? []).length, 11);
+  for (const slot of ['cloak', 'head', 'amulet', 'body', 'hand1', 'gloves', 'hand2', 'ring1', 'ring2', 'belt', 'boots']) {
+    assert.match(html, new RegExp(`data-equip="${slot}"`));
+  }
+  assert.match(css, /\.inventory-paperdoll-panel\s*{/);
+  assert.match(css, /\.inventory-equipment-slot\s*{/);
+  assert.match(css, /\.inventory-paperdoll-panel \.slot-head/);
+  assert.match(css, /\.inventory-paperdoll-panel \.slot-belt/);
   assert.match(runtime, /let selectedEquipmentSlot = null/);
-  assert.match(runtime, /button\.dataset\.equippedSlot = entry\.slot/);
+  assert.match(runtime, /for \(const button of inventoryEquipmentButtons\)/);
+  assert.match(runtime, /button\.dataset\.equippedSlot = slot/);
+  assert.match(runtime, /button\.classList\.toggle\('empty', !item\)/);
+  assert.match(runtime, /drawPaperDollTo\(inventoryPaperContext, inventoryPaperdoll\)/);
   assert.match(runtime, /selection\.source === 'equipment'/);
   assert.match(runtime, /unequipItem\(currentItemState\(\), selection\.slot\)/);
 });
 
-test('backpack follows a Pathos-like grouped list with large category filters', async () => {
+test('backpack offers persistent grid and table views below the hero preview', async () => {
   const [html, css, runtime] = await Promise.all([
     readFile(htmlUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
@@ -185,17 +198,23 @@ test('backpack follows a Pathos-like grouped list with large category filters', 
   ]);
 
   assert.match(html, /id="inventory-filters"[\s\S]*aria-label="Фильтр предметов"/);
-  assert.equal((html.match(/data-inventory-filter=/g) ?? []).length, 6);
+  assert.equal((html.match(/data-inventory-filter=/g) ?? []).length, 5);
   assert.match(html, /data-inventory-filter="all"[^>]*aria-pressed="true"/);
-  assert.match(css, /\.inventory-filters\s*{[^}]*grid-template-columns:\s*repeat\(6,/s);
+  assert.match(html, /data-pack-view="grid"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-pack-view="table"[^>]*aria-pressed="false"/);
+  assert.match(css, /\.inventory-filters\s*{[^}]*grid-template-columns:\s*repeat\(5,/s);
   assert.match(css, /\.inventory-section-title\s*{[^}]*position:\s*sticky/s);
   assert.match(css, /\.pack-item\.inventory-row\s*{/);
   assert.match(css, /\.pack-item-copy strong[\s\S]*text-overflow:\s*ellipsis/);
-  assert.doesNotMatch(html, /data-pack-view|id="selection-card"/);
-  assert.doesNotMatch(runtime, /INVENTORY_VIEW_KEY|setInventoryView/);
+  assert.doesNotMatch(html, /id="selection-card"/);
+  assert.match(runtime, /const INVENTORY_VIEW_KEY = 'dng-codex:inventory-view:v1'/);
+  assert.match(runtime, /localStorage\.setItem\(INVENTORY_VIEW_KEY, inventoryView\)/);
+  assert.match(runtime, /function setInventoryView\(view\)/);
+  assert.match(runtime, /includeEquipped: false/);
   assert.match(runtime, /inventorySections\(\{/);
   assert.match(runtime, /copy\.className = 'pack-item-copy'/);
   assert.match(runtime, /presentation\.primaryEffect\.text/);
+  assert.match(runtime, /inventoryViewButtons\.forEach/);
   assert.match(runtime, /inventoryFilterButtons\.forEach/);
   assert.doesNotMatch(runtime, /itemDetailLanguageButton/);
 });
@@ -225,14 +244,105 @@ test('a thumb-reachable contextual button appears for any adjacent registered ob
   ]);
 
   assert.match(html, /id="interact-action"[\s\S]*id="interact-action-icon"/);
-  assert.match(css, /\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(92px[^}]*width:\s*72px[^}]*height:\s*72px/s);
+  assert.match(css, /\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(164px[^}]*width:\s*72px[^}]*height:\s*72px/s);
   assert.match(css, /\[data-screen='game'\] \.interact-action:not\(\[hidden\]\)/);
-  assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*right:\s*max\(92px/s);
+  assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(92px/s);
   assert.match(runtime, /function updateInteractionUi\(\)/);
   assert.match(runtime, /const target = ready[\s\S]*\? nearbyContextTarget\(\)/);
   assert.match(runtime, /interactActionButton\.addEventListener\('click', openNearbyContextActions\)/);
   assert.match(runtime, /function startGameFromMenu\(\)[\s\S]*updateInteractionUi\(\)[\s\S]*startGameButton\.blur\(\)/);
   assert.match(runtime, /if \(heroCellKey !== lastHeroCell\)[\s\S]*updateInteractionUi\(\)/);
+});
+
+test('three manual spell buttons and every modal close action live in the thumb zone', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+
+  assert.equal((html.match(/data-spell-slot="[0-2]"/g) ?? []).length, 3);
+  assert.match(html, /id="spell-bar"[\s\S]*data-spell-slot="0"[\s\S]*data-spell-slot="1"[\s\S]*data-spell-slot="2"/);
+  assert.match(css, /\.spell-bar\s*{[^}]*bottom:\s*max\(12px/s);
+  assert.match(runtime, /button\.addEventListener\('click', \(\) => castPreparedSpell/);
+
+  for (const [footerClass, closeId] of [
+    ['appearance-actions', 'close-appearance'],
+    ['context-action-footer', 'close-context-actions'],
+    ['merchant-shop-footer', 'close-merchant-shop'],
+    ['chest-container-footer', 'close-chest-container'],
+    ['character-sheet-actions', 'close-character-sheet'],
+    ['inventory-actions', 'close-inventory'],
+    ['item-detail-actions', 'close-item-detail'],
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`<footer class="${footerClass}">[\\s\\S]*?id="${closeId}"[\\s\\S]*?</footer>`),
+    );
+  }
+});
+
+test('opened chests use a persistent two-way mobile container instead of instant loot', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+
+  assert.match(html, /id="chest-container"[\s\S]*role="dialog"[\s\S]*aria-modal="true"/);
+  assert.match(html, /id="chest-storage-list"[\s\S]*id="chest-backpack-list"/);
+  assert.match(html, /<footer class="chest-container-footer">[\s\S]*id="close-chest-container"/);
+  assert.match(css, /\[data-screen='chest'\] \.chest-container/);
+  assert.match(css, /\.chest-transfer-list\s*{[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto[^}]*touch-action:\s*pan-y/s);
+  assert.match(css, /@media \(orientation: landscape\), \(min-width: 640px\)[\s\S]*grid-template-columns:\s*repeat\(2,/s);
+  assert.match(runtime, /function openChestContainerUi\(find\)/);
+  assert.match(runtime, /function transactChestItem\(direction, uid\)/);
+  assert.match(runtime, /takeChestItem\(\{ command, container, uid, items: state\.items/);
+  assert.match(runtime, /storeChestItem\(\{ command, container, uid, items: state\.items/);
+  assert.match(runtime, /if \(find\.id !== 'sealed-cache'\) gold = result\.state\.gold/);
+  assert.match(runtime, /if \(event\.code === 'Escape' && uiScreen === 'chest'\)/);
+});
+
+test('merchant UI exposes two purses and persistent buyback through command events', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+
+  assert.match(html, /class="merchant-shop-wallets"[\s\S]*id="merchant-shop-gold"[\s\S]*id="merchant-shop-funds"/);
+  assert.match(css, /\.merchant-shop-wallets\s*{[^}]*display:\s*flex/s);
+  assert.match(runtime, /MERCHANT_COMMANDS[\s\S]*buybackMerchantItem[\s\S]*merchantStateFor/);
+  assert.match(runtime, /nextGameCommand\(MERCHANT_COMMANDS\.buy/);
+  assert.match(runtime, /nextGameCommand\(MERCHANT_COMMANDS\.sell/);
+  assert.match(runtime, /nextGameCommand\(MERCHANT_COMMANDS\.buyback/);
+  assert.match(runtime, /applyGameEvents\(result\.events\)/);
+});
+
+test('targeted spells and scrolls share one explicit thumb-safe targeting screen', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+
+  assert.match(html, /id="ability-targeting"[\s\S]*role="dialog"[\s\S]*aria-modal="true"/);
+  assert.match(html, /id="ability-targeting-targets"/);
+  assert.match(html, /id="cancel-ability-targeting"/);
+  assert.match(css, /\.cancel-ability-targeting\s*{[^}]*bottom:\s*max\(14px[^}]*width:\s*58px[^}]*height:\s*58px/s);
+  assert.match(css, /\.ability-targeting-target\s*{[^}]*pointer-events:\s*auto[^}]*touch-action:\s*manipulation/s);
+  assert.match(runtime, /function openAbilityTargeting\(nextState\)/);
+  assert.match(runtime, /function beginSpellTargeting\(slotIndex, spell, targets\)/);
+  assert.match(runtime, /function beginBlinkTargeting\(itemUid\)/);
+  assert.match(runtime, /performAbilityTargetAtCell\(Math\.floor\(target\.x \/ TILE\), Math\.floor\(target\.y \/ TILE\)\)/);
+  assert.match(runtime, /position\.x - halfWidth < 0[\s\S]*position\.x \+ halfWidth > viewportWidth/);
+  assert.match(runtime, /usedSpell\.kind === 'projectile' && usedSpell\.targetMode === 'actor' && !explicitTarget/);
+  assert.match(runtime, /selection\.item\.useEffect\?\.type === 'blink'[\s\S]*beginBlinkTargeting\(selection\.item\.uid\)/);
+  const blinkRuntime = runtime.slice(
+    runtime.indexOf('function performBlinkTarget(target)'),
+    runtime.indexOf('function performAbilityTarget(target)'),
+  );
+  assert.ok(blinkRuntime.indexOf('const result = resolveBlink({') < blinkRuntime.indexOf('backpackItems.splice(itemIndex, 1)'));
 });
 
 test('atmosphere is rendered on a pixel grid without smooth fullscreen noise', async () => {

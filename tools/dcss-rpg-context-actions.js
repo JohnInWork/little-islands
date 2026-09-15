@@ -4,6 +4,7 @@ const ACTION_COPY = Object.freeze({
   ru: Object.freeze({
     inspect: 'Осмотреть',
     open: 'Открыть',
+    browse: 'Заглянуть',
     close: 'Закрыть',
     smash: 'Ударить',
     disarm: 'Обезвредить',
@@ -19,6 +20,7 @@ const ACTION_COPY = Object.freeze({
   en: Object.freeze({
     inspect: 'Inspect',
     open: 'Open',
+    browse: 'Browse',
     close: 'Close',
     smash: 'Strike',
     disarm: 'Disarm',
@@ -36,6 +38,7 @@ const ACTION_COPY = Object.freeze({
 const GLYPHS = Object.freeze({
   inspect: '?',
   open: '+',
+  browse: '▤',
   close: '−',
   smash: '✕',
   disarm: '✓',

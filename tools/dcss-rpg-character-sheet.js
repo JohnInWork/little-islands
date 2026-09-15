@@ -14,6 +14,7 @@ const COPY = Object.freeze({
       health: ['Здоровье', 'Текущий и максимальный запас жизни.'],
       movement: ['Движение', 'Реальная скорость перемещения по подземелью.'],
       tempo: ['Темп атаки', 'Экипировка сокращает паузу между автоатаками.'],
+      intelligence: ['Интеллект', 'Открывает заклинания и усиливает их действие.'],
       hunger: ['Сытость', 'Голод ослабляет героя, но никогда не наносит прямой урон.'],
     }),
     combatStats: Object.freeze({
@@ -44,6 +45,7 @@ const COPY = Object.freeze({
       health: ['Health', 'Current and maximum life reserve.'],
       movement: ['Movement', 'Actual movement speed through the dungeon.'],
       tempo: ['Attack speed', 'Equipment shortens the pause between auto-attacks.'],
+      intelligence: ['Intelligence', 'Unlocks spells and increases their power.'],
       hunger: ['Satiety', 'Hunger weakens the hero but never deals direct damage.'],
     }),
     combatStats: Object.freeze({
@@ -91,6 +93,7 @@ export function characterSheetModel({
     { id: 'health', icon: '♥', label: copy.stats.health[0], value: `${hero.hp}/${stats.maxHp}`, description: copy.stats.health[1] },
     { id: 'movement', icon: '↟', label: copy.stats.movement[0], value: `${decimal(movement)} ${copy.tilesPerSecond}`, description: copy.stats.movement[1] },
     { id: 'tempo', icon: '✦', label: copy.stats.tempo[0], value: `${Math.round(stats.attackSpeed * 100)}%`, description: copy.stats.tempo[1] },
+    { id: 'intelligence', icon: '✧', label: copy.stats.intelligence[0], value: String(stats.intelligence), description: copy.stats.intelligence[1] },
     { id: 'hunger', icon: '◆', label: copy.stats.hunger[0], value: `${hunger.label} · ${hunger.percent}%`, description: `${copy.stats.hunger[1]} ${hunger.description}` },
   ];
   const combatRows = [

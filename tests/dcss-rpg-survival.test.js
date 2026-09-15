@@ -163,7 +163,7 @@ test('each floor guarantees one real cooking prop without touching dungeon geome
   }
 });
 
-test('wildlife danger uses floor scaling and survives the v26 save contract', () => {
+test('wildlife danger uses floor scaling and old wildlife safely rebases with the floor', () => {
   const shallow = generateDungeon({ seed: 818, depth: 1 });
   const deep = generateDungeon({ seed: 818, depth: 3 });
   const shallowState = createPassiveCreatureStates(shallow)[0];
@@ -194,7 +194,7 @@ test('wildlife danger uses floor scaling and survives the v26 save contract', ()
   }) => state);
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.commandSequence, 0);
-  assert.equal(migrated.floor.passives[0].hunted, false);
+  assert.deepEqual(migrated.floor.passives, []);
   assert.equal(validateRun(migrated), true);
 });
 

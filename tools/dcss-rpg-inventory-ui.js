@@ -59,13 +59,14 @@ export function inventorySections({
   items = [],
   filter = 'all',
   language = 'ru',
+  includeEquipped = true,
 } = {}) {
   const locale = language === 'en' ? 'en' : 'ru';
   const activeFilter = INVENTORY_FILTERS.includes(filter) ? filter : 'all';
   const itemByUid = itemMapFrom(items);
   const sections = [];
 
-  if (activeFilter === 'all' || activeFilter === 'equipped') {
+  if (includeEquipped && (activeFilter === 'all' || activeFilter === 'equipped')) {
     const entries = EQUIPMENT_SLOT_ORDER.flatMap((slot) => {
       const item = itemByUid.get(equipment[slot]);
       return item ? [{ item, source: 'equipment', slot }] : [];

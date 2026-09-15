@@ -204,7 +204,7 @@ test('resolved finds survive v12 reload and foreign IDs are rejected during hydr
   assert.throws(() => hydrateDungeon(foreign), /Unknown resolved find/);
 });
 
-test('v11 runs gain empty find history without losing their active floor', () => {
+test('v11 runs gain empty find history on the safely rebased expanded floor', () => {
   const current = createRun(2718);
   current.version = 11;
   current.generatorVersion = 3;
@@ -214,8 +214,8 @@ test('v11 runs gain empty find history without losing their active floor', () =>
   current.floor.revealed.push(`${current.hero.x},${current.hero.y}`);
   const migrated = migrateLegacyRun(current);
   assert.deepEqual(migrated.floor.resolvedFindIds, []);
-  assert.equal(migrated.started, true);
-  assert.deepEqual(migrated.floor.revealed, current.floor.revealed);
+  assert.equal(migrated.started, false);
+  assert.deepEqual(migrated.floor.revealed, []);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));
 });
@@ -231,7 +231,7 @@ test('runtime keeps finds diegetic, tappable and free of persistent HUD highligh
   assert.match(runtime, /run\.floor\.resolvedFindIds/);
   assert.match(runtime, /blockingFindCells\(\)/);
   assert.match(runtime, /\.\.\.findDefinitions/);
-  assert.match(runtime, /if \(find && !find\.resolved && revealed\.has/);
+  assert.match(runtime, /if \(find && findIsInteractable\(find\) && revealed\.has/);
   assert.match(runtime, /if \(adjacent\) \{\s+openContextActions\(\{ kind: 'find', value: find \}\);/);
   assert.doesNotMatch(runtime, /drawFindSignals/);
   assert.doesNotMatch(html, /id="find-action"/);

@@ -60,10 +60,14 @@ const RUSSIAN_NAMES = Object.freeze({
   'venom-potion': 'Зелье яда',
   'unidentified-potion': 'Неизвестное зелье',
   'blink-scroll': 'Свиток скачка',
+  'book-of-frost': 'Книга мороза',
   'bone-wand': 'Костяной жезл',
+  'tide-wand': 'Жезл прилива',
   'practice-manual': 'Учебник мастерства',
   'tome-of-amnesia': 'Книга забвения',
   'blank-codex': 'Пустой кодекс',
+  'book-of-flight': 'Книга полёта',
+  'book-of-invisibility': 'Книга невидимости',
   'dead-book': 'Книга мёртвых',
   bread: 'Хлебный паёк',
   'raw-meat': 'Сырое мясо',
@@ -84,6 +88,10 @@ const ENGLISH_NAMES = Object.freeze({
   'practice-manual': 'Manual of Mastery',
   'tome-of-amnesia': 'Tome of Amnesia',
   'blank-codex': 'Blank Codex',
+  'book-of-flight': 'Book of Flight',
+  'book-of-invisibility': 'Book of Invisibility',
+  'book-of-frost': 'Book of Frost',
+  'tide-wand': 'Tide Wand',
 });
 
 const RARITY = Object.freeze({
@@ -99,6 +107,7 @@ const COMPARISON_STATS = Object.freeze([
   Object.freeze({ id: 'maxHp', icon: '♥', ru: 'Здоровье', en: 'Health', percent: false }),
   Object.freeze({ id: 'moveSpeed', icon: '↟', ru: 'Движение', en: 'Move', percent: true }),
   Object.freeze({ id: 'attackSpeed', icon: '✦', ru: 'Темп', en: 'Tempo', percent: true }),
+  Object.freeze({ id: 'intelligence', icon: '✧', ru: 'Интеллект', en: 'Intelligence', percent: false }),
 ]);
 
 function titleFromId(id) {

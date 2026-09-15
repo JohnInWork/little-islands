@@ -99,11 +99,11 @@ test('door treasure and mixed surprises use the same room encounter contract', (
 
 test('merchant rooms are deterministic, calm and occupy a real free cell', () => {
   for (let seed = 1; seed <= 500; seed += 1) {
-    const dungeon = generateDungeon({ seed, depth: 2 });
+    const dungeon = generateDungeon({ seed, depth: 3 });
     const [merchant] = dungeon.merchants;
     assert.ok(merchant);
     assert.equal(Object.isFrozen(merchant), true);
-    assert.equal(merchant.instanceId, `merchant-2-${merchant.roomIndex}`);
+    assert.equal(merchant.instanceId, `merchant-3-${merchant.roomIndex}`);
     assert.ok(['armourer', 'relic-dealer', 'provisioner'].includes(merchant.variantId));
     assert.ok(merchant.stock.length >= 4 && merchant.stock.length <= 6);
     const room = dungeon.rooms[merchant.roomIndex];

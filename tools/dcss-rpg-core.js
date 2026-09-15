@@ -23,7 +23,11 @@ import {
   PASSIVE_CREATURE_CATALOG,
   passiveCreatureById,
 } from './dcss-rpg-passive.js';
-import { FINAL_BOSS_ID, FINAL_DEPTH } from './dcss-rpg-run.js';
+import {
+  FINAL_BOSS_ID,
+  FINAL_DEPTH,
+  chapterGuardianForDepth,
+} from './dcss-rpg-run.js';
 import {
   DEFAULT_DIFFICULTY,
   MAX_DIFFICULTY,
@@ -54,7 +58,12 @@ import {
 import { createDungeonFinds } from './dcss-rpg-finds.js';
 import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
-import { validateMerchantPurchaseIds } from './dcss-rpg-merchant.js';
+import {
+  createMerchantStates,
+  validateMerchantPurchaseIds,
+  validateMerchantStateShape,
+  validateMerchantStates,
+} from './dcss-rpg-merchant.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
@@ -63,11 +72,25 @@ import {
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
 import { createBookStudy, validateBookStudy } from './dcss-rpg-books.js';
+import { createStartingMagic } from './dcss-rpg-build-presets.js';
+import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
+import {
+  createChestContainerStates,
+  validateChestContainerStates,
+} from './dcss-rpg-chest-containers.js';
 
-export const SAVE_VERSION = 26;
-export const SAVE_KEY = 'dng-codex:rpg:v26';
+export const SAVE_VERSION = 34;
+export const SAVE_KEY = 'dng-codex:rpg:v34';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v33',
+  'dng-codex:rpg:v32',
+  'dng-codex:rpg:v31',
+  'dng-codex:rpg:v30',
+  'dng-codex:rpg:v29',
+  'dng-codex:rpg:v28',
+  'dng-codex:rpg:v27',
+  'dng-codex:rpg:v26',
   'dng-codex:rpg:v25',
   'dng-codex:rpg:v24',
   'dng-codex:rpg:v23',
@@ -94,8 +117,8 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 6;
-export const CONTENT_VERSION = 13;
+export const GENERATOR_VERSION = 7;
+export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
 
@@ -490,13 +513,16 @@ export function generateDungeon({
 
   const sanctuary = depth > 1 ? { ...route[0] } : null;
   if (sanctuary) occupied.add(`${sanctuary.x},${sanctuary.y}`);
-  const bossCell = depth === FINAL_DEPTH ? route.at(-2) : null;
+  const chapterGuardian = chapterGuardianForDepth(depth);
+  const bossCell = chapterGuardian ? route.at(-2) : null;
   const objective = bossCell
     ? {
-        bossId: FINAL_BOSS_ID,
+        kind: chapterGuardian.final ? 'final-artifact' : 'chapter-gate',
+        bossId: chapterGuardian.monsterId,
         bossInstanceId: `monster-${depth}-boss`,
         boss: { ...bossCell },
-        artifact: { ...exit },
+        gate: { ...exit },
+        artifact: chapterGuardian.final ? { ...exit } : null,
       }
     : null;
   if (bossCell) occupied.add(`${bossCell.x},${bossCell.y}`);
@@ -808,6 +834,7 @@ export function generateDungeon({
 }
 
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
+  const startingMagic = createStartingMagic();
   const items = [
     { id: 'short-blade', uid: 'starter-blade', affixIds: [], artifactPowerId: null, artifactCurseId: null },
     { id: 'wood-buckler', uid: 'starter-buckler', affixIds: [], artifactPowerId: null, artifactCurseId: null },
@@ -840,6 +867,8 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       effects: createActorEffects(),
       skills: createSkillState(),
       skillStudy: createBookStudy(),
+      intelligence: startingMagic.intelligence,
+      spells: startingMagic.spells,
     },
     gold: 0,
     status: 'playing',
@@ -861,21 +890,35 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       amulet: null,
     },
     inventory: ['starter-potion', 'starter-bread', 'starter-key', 'starter-lockpicks', 'starter-hunter-trap'],
-    floor: {
-      revealed: [],
-      defeated: [],
-      collected: [],
-      resolved: [],
-      resolvedFindIds: [],
-      detectedTrapIds: [],
-      disarmedTrapIds: [],
-      placedTraps: [],
-      opened: [],
-      triggered: [],
-      monsters: [],
-      passives: [],
-      merchantPurchases: [],
-    },
+    floor: createEmptyFloorState(dungeon),
+  };
+}
+
+function createEmptyFloorState(dungeon = null) {
+  return {
+    revealed: [],
+    defeated: [],
+    collected: [],
+    resolved: [],
+    resolvedFindIds: [],
+    detectedTrapIds: [],
+    disarmedTrapIds: [],
+    placedTraps: [],
+    opened: [],
+    triggered: [],
+    monsters: [],
+    passives: [],
+    merchants: dungeon
+      ? [...createMerchantStates({ merchants: dungeon.merchants, depth: dungeon.depth })]
+      : [],
+    chests: dungeon
+      ? [...createChestContainerStates({
+          seed: dungeon.seed,
+          depth: dungeon.depth,
+          finds: dungeon.finds,
+          lootAbundance: dungeon.scaling?.lootAbundance ?? DEFAULT_LOOT_ABUNDANCE,
+        })]
+      : [],
   };
 }
 
@@ -984,11 +1027,74 @@ function migrateTwoHandedEquipment(snapshot) {
   snapshot.equipment.hand1 = replacementUid;
 }
 
+function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
+  const continuesCompletedPrologue = legacyStatus === 'victory' && migrated.depth < FINAL_DEPTH;
+  const depth = Math.min(
+    FINAL_DEPTH,
+    continuesCompletedPrologue ? migrated.depth + 1 : migrated.depth,
+  );
+  migrated.depth = depth;
+  migrated.generatorVersion = GENERATOR_VERSION;
+  migrated.contentVersion = CONTENT_VERSION;
+  migrated.scalingVersion = SCALING_VERSION;
+  const dungeon = generateDungeon({
+    seed: migrated.seed,
+    depth,
+    scalingVersion: migrated.scalingVersion,
+    difficulty: migrated.difficulty,
+    lootAbundance: migrated.lootAbundance,
+  });
+  migrated.hero.x = dungeon.spawn.x;
+  migrated.hero.y = dungeon.spawn.y;
+  migrated.status = migrated.hero.hp === 0 ? 'dead' : 'playing';
+  migrated.started = migrated.hero.hp === 0;
+  migrated.floor = createEmptyFloorState(dungeon);
+}
+
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(snapshot.version)) {
+  if ([31, 32, 33].includes(snapshot.version)) {
+    // v32 activates Storm Magic. v33 turns each generated chest into a real
+    // persisted container. A previously resolved chest migrates as an empty,
+    // already-open container so an update can never duplicate its old reward.
+    // v34 replaces the flat purchase ledger with an authoritative merchant
+    // purse and buyback inventory. Existing purchases stay sold and also fund
+    // the migrated merchant; no owned item changes hands during migration.
+    const migrated = structuredClone(snapshot);
+    migrated.version = SAVE_VERSION;
+    migrated.contentVersion = CONTENT_VERSION;
+    const dungeon = generateDungeon({
+      seed: migrated.seed,
+      depth: migrated.depth,
+      scalingVersion: migrated.scalingVersion,
+      difficulty: migrated.difficulty,
+      lootAbundance: migrated.lootAbundance,
+    });
+    if (snapshot.version < 33) {
+      migrated.floor.chests = [...createChestContainerStates({
+        seed: dungeon.seed,
+        depth: migrated.depth,
+        finds: dungeon.finds,
+        lootAbundance: migrated.lootAbundance,
+        resolvedFindIds: migrated.floor.resolvedFindIds,
+      })];
+    }
+    const legacyMerchantPurchases = migrated.floor.merchantPurchases ?? [];
+    if (!validateMerchantPurchaseIds(legacyMerchantPurchases, dungeon.merchants, migrated.depth)) {
+      throw new Error('Cannot migrate unknown merchant purchase');
+    }
+    migrated.floor.merchants = [...createMerchantStates({
+      merchants: dungeon.merchants,
+      depth: migrated.depth,
+      purchasedIds: legacyMerchantPurchases,
+    })];
+    delete migrated.floor.merchantPurchases;
+    if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
+    return migrated;
+  }
+  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(snapshot.version)) {
     // v15 adds explicitly targeted player traps; v16 makes long weapons truly
     // two-handed; v17 expands the sword loot family; v18 adds per-run item
     // knowledge; v19 adds item sanctity and a persistent loot-abundance knob;
@@ -997,11 +1103,34 @@ export function migrateLegacyRun(snapshot) {
     // removes obsolete sanctity; v23 persists merchant stock purchases;
     // v24 adds a long, nonlethal hunger clock; v25 adds the shared command
     // sequence and persistent wildlife combat state; v26 adds persistent book
-    // rank adjustments and unknown scroll/wand/book families.
-    // Old heroes keep their exact inventory and current floor;
-    // uncollected loot adopts the current content pool. Only new runs receive
-    // the starter trap.
-    // Existing room geometry, actor positions, event IDs, finds and gear survive.
+    // rank adjustments and unknown scroll/wand/book families; v27 adds the
+    // intelligence stat and three prepared spell slots; v28 persists actor
+    // conditions on monsters and adds targeted frost/blink content; v29 adds
+    // the persisted frozen condition and the full Cryomancy I-III chain;
+    // v30 adds the targeted Tide Wand to the unknown wand pool; v31 expands a
+    // run to three three-floor chapters; v32 activates Storm Magic and its
+    // spellbook; v33 persists real chest containers; v34 persists merchant
+    // purses and buyback stock. The generator/scaling boundary rebuilds
+    // only the active floor. Character progression, gear, gold, hunger, spells
+    // and knowledge survive. A completed old three-floor run continues on floor
+    // four instead of remaining a false victory under the new nine-floor rules.
+    if (Object.hasOwn(snapshot.floor ?? {}, 'detectedTrapIds')) {
+      const legacyDungeon = generateDungeon({
+        seed: snapshot.seed,
+        depth: snapshot.depth,
+        scalingVersion: scalingVersionSupported(snapshot.scalingVersion)
+          ? snapshot.scalingVersion
+          : SCALING_VERSION,
+        difficulty: snapshot.difficulty,
+        lootAbundance: validateLootAbundance(snapshot.lootAbundance)
+          ? snapshot.lootAbundance
+          : DEFAULT_LOOT_ABUNDANCE,
+      });
+      if (!validateDetectedTrapIds(
+        snapshot.floor.detectedTrapIds,
+        trapsFromDungeon(legacyDungeon),
+      )) throw new Error('Cannot migrate unknown detected trap');
+    }
     const migrated = structuredClone(snapshot);
     migrated.version = SAVE_VERSION;
     migrated.generatorVersion = GENERATOR_VERSION;
@@ -1021,7 +1150,17 @@ export function migrateLegacyRun(snapshot) {
     ), snapshot.version >= 21);
     if (snapshot.version < 24) migrated.hero.hunger = HUNGER_MAX;
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
-    migrated.hero.skillStudy = createBookStudy();
+    migrated.hero.skillStudy = snapshot.version >= 26
+      ? createBookStudy(snapshot.hero.skillStudy)
+      : createBookStudy();
+    const startingMagic = createStartingMagic();
+    migrated.hero.intelligence = snapshot.version >= 27
+      ? snapshot.hero.intelligence
+      : startingMagic.intelligence;
+    migrated.hero.spells = snapshot.version >= 27
+      ? createSpellState(snapshot.hero.spells)
+      : startingMagic.spells;
+    migrated.hero.effects = createActorEffects(snapshot.hero.effects);
     const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
     if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
     if (migrated.floor && snapshot.version < 12) migrated.floor.resolvedFindIds = [];
@@ -1029,6 +1168,10 @@ export function migrateLegacyRun(snapshot) {
     if (migrated.floor && snapshot.version < 15) migrated.floor.placedTraps = [];
     if (migrated.floor && snapshot.version < 23) migrated.floor.merchantPurchases = [];
     if (migrated.floor) {
+      migrated.floor.monsters = (migrated.floor.monsters ?? []).map((monster) => ({
+        ...monster,
+        effects: createActorEffects(monster.effects),
+      }));
       migrated.floor.passives = (migrated.floor.passives ?? []).map((creature) => ({
         ...creature,
         ...(snapshot.version < 25
@@ -1042,6 +1185,8 @@ export function migrateLegacyRun(snapshot) {
       }));
     }
     if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
+    rebaseLegacyRunForExpandedDungeon(migrated, snapshot.status);
+    delete migrated.floor.merchantPurchases;
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1100,6 +1245,8 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
+            intelligence: createStartingMagic().intelligence,
+            spells: createStartingMagic().spells,
           }
         : {
             ...snapshot.hero,
@@ -1107,6 +1254,8 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
+            intelligence: createStartingMagic().intelligence,
+            spells: createStartingMagic().spells,
           },
       status: crossesGeneratorBoundary
         ? snapshot.hero?.hp === 0
@@ -1135,7 +1284,7 @@ export function migrateLegacyRun(snapshot) {
             triggered: [],
             monsters: [],
             passives: [],
-            merchantPurchases: [],
+            merchants: [...createMerchantStates({ merchants: dungeon.merchants, depth })],
           }
         : {
             revealed: [...snapshot.floor.revealed],
@@ -1150,9 +1299,15 @@ export function migrateLegacyRun(snapshot) {
             triggered: [],
             monsters: snapshot.floor.monsters.map((monster) => ({ ...monster })),
             passives: (snapshot.floor.passives ?? []).map((creature) => ({ ...creature })),
-            merchantPurchases: [],
+            merchants: [...createMerchantStates({ merchants: dungeon.merchants, depth })],
           },
     };
+    migrated.floor.chests = [...createChestContainerStates({
+      seed: dungeon.seed,
+      depth,
+      finds: dungeon.finds,
+      lootAbundance,
+    })];
     delete migrated.shards;
     if (!validateRun(migrated)) {
       throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
@@ -1221,6 +1376,8 @@ export function migrateLegacyRun(snapshot) {
       effects: createActorEffects(snapshot.hero?.effects),
       skills: legacySkillState(snapshot.hero),
       skillStudy: createBookStudy(),
+      intelligence: createStartingMagic().intelligence,
+      spells: createStartingMagic().spells,
     },
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
     started: true,
@@ -1242,9 +1399,15 @@ export function migrateLegacyRun(snapshot) {
       triggered: [],
       monsters: [],
       passives: [],
-      merchantPurchases: [],
+      merchants: [...createMerchantStates({ merchants: dungeon.merchants, depth })],
     },
   };
+  migrated.floor.chests = [...createChestContainerStates({
+    seed: dungeon.seed,
+    depth,
+    finds: dungeon.finds,
+    lootAbundance: DEFAULT_LOOT_ABUNDANCE,
+  })];
   delete migrated.shards;
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
   return migrated;
@@ -1287,10 +1450,12 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.level, 1, 999) || !Number.isFinite(hero.xp) || hero.xp < 0)
     return false;
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
+  if (!isFiniteInteger(hero.intelligence, 0, 999)) return false;
   if (!validateHunger(hero.hunger)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
   if (!validateBookStudy(hero.skillStudy)) return false;
+  if (!validateSpellState(hero.spells)) return false;
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
@@ -1349,11 +1514,36 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'passives', 'merchantPurchases'].every(
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'passives', 'merchants', 'chests'].every(
       (key) => Array.isArray(floor[key]),
     )
   )
     return false;
+  if (!validateChestContainerStates(floor.chests, { depth: snapshot.depth })) return false;
+  if (!validateMerchantStateShape(floor.merchants, snapshot.depth)) return false;
+  const storedItemRecords = [
+    ...floor.chests.flatMap(({ items: storedItems }) => storedItems),
+    ...floor.merchants.flatMap(({ buyback }) => buyback.map(({ record }) => record)),
+  ];
+  const storedItemUids = storedItemRecords.map(({ uid }) => uid);
+  if (
+    new Set(storedItemUids).size !== storedItemUids.length
+    || storedItemUids.some((uid) => itemByUid.has(uid))
+    || storedItemRecords.some((item) => (
+      !item
+      || !lootById(item.id)
+      || typeof item.uid !== 'string'
+      || item.uid.length < 1
+      || item.uid.length > 80
+      || !validateItemAffixIds(
+        lootById(item.id),
+        item.affixIds,
+        { required: Boolean(lootById(item.id)?.slot) },
+      )
+      || !validateProceduralArtifactState(lootById(item.id), item)
+      || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
+    ))
+  ) return false;
   if (
     floor.revealed.length > MAP_WIDTH * MAP_HEIGHT ||
     floor.revealed.some((cell) => {
@@ -1363,7 +1553,7 @@ export function validateRun(snapshot) {
     })
   )
     return false;
-  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered', 'merchantPurchases']) {
+  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered']) {
     if (new Set(floor[key]).size !== floor[key].length) return false;
   }
   if (
@@ -1392,13 +1582,6 @@ export function validateRun(snapshot) {
   if (!validatePlacedTraps(floor.placedTraps, { depth: snapshot.depth })) return false;
   if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
-  if (
-    floor.merchantPurchases.length > 6
-    || floor.merchantPurchases.some((id) => (
-      typeof id !== 'string'
-      || !new RegExp(`^merchant-entry-${snapshot.depth}-\\d+-\\d+$`).test(id)
-    ))
-  ) return false;
   if (floor.monsters.length > 24) return false;
   if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
     return false;
@@ -1411,7 +1594,8 @@ export function validateRun(snapshot) {
         !Number.isFinite(monster.y) ||
         monster.x < 0 || monster.y < 0 || monster.x >= MAP_WIDTH || monster.y >= MAP_HEIGHT ||
         !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000 ||
-        !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000),
+        !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000) ||
+        !validateActorEffects(monster.effects),
     )
   ) return false;
   const passiveStates = floor.passives;
@@ -1476,8 +1660,15 @@ export function hydrateDungeon(snapshot) {
   const lootIds = new Set(dungeon.loot.map((item) => item.instanceId));
   const eventIds = new Set(dungeon.events.map((event) => event.instanceId));
   const findIds = new Set(dungeon.finds.map((find) => find.instanceId));
-  if (!validateMerchantPurchaseIds(snapshot.floor.merchantPurchases, dungeon.merchants, snapshot.depth)) {
-    throw new Error('Unknown merchant purchase');
+  const chestFindIds = dungeon.finds
+    .filter(({ id }) => id === 'sealed-cache')
+    .map(({ instanceId }) => instanceId);
+  if (!validateChestContainerStates(snapshot.floor.chests, {
+    depth: snapshot.depth,
+    findIds: chestFindIds,
+  })) throw new Error('Unknown chest container');
+  if (!validateMerchantStates(snapshot.floor.merchants, dungeon.merchants, snapshot.depth)) {
+    throw new Error('Unknown merchant state');
   }
   const traps = trapsFromDungeon(dungeon);
   if (!validateDetectedTrapIds(snapshot.floor.detectedTrapIds, traps)) {
@@ -1581,25 +1772,12 @@ export function advanceRunFloor(snapshot) {
       hp: snapshot.hero.hp,
       skills: cloneSkillState(snapshot.hero.skills),
       skillStudy: createBookStudy(snapshot.hero.skillStudy),
+      spells: createSpellState(snapshot.hero.spells),
     },
     equipment: { ...snapshot.equipment },
     items: snapshot.items.map((item) => ({ ...item })),
     inventory: [...snapshot.inventory],
-    floor: {
-      revealed: [],
-      defeated: [],
-      collected: [],
-      resolved: [],
-      resolvedFindIds: [],
-      detectedTrapIds: [],
-      disarmedTrapIds: [],
-      placedTraps: [],
-      opened: [],
-      triggered: [],
-      monsters: [],
-      passives: [],
-      merchantPurchases: [],
-    },
+    floor: createEmptyFloorState(dungeon),
     commandSequence: snapshot.commandSequence,
   };
 }

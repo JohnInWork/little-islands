@@ -19,6 +19,7 @@ const COPY = Object.freeze({
     level: (level) => `Нужен уровень ${level}`,
     noPoints: 'Нет очков навыков',
     maxRank: 'Максимальный ранг',
+    intelligence: (value) => `Нужен интеллект ${value}`,
     bookModified: 'Изменено книгой',
     notPlaying: 'Доступно во время забега',
     unavailable: 'Недоступно',
@@ -32,17 +33,19 @@ const COPY = Object.freeze({
     level: (level) => `Requires level ${level}`,
     noPoints: 'No skill points',
     maxRank: 'Maximum rank',
+    intelligence: (value) => `Requires intelligence ${value}`,
     bookModified: 'Modified by a book',
     notPlaying: 'Available during a run',
     unavailable: 'Unavailable',
   }),
 });
 
-function reasonLabel(reason, definition, rank, copy) {
+function reasonLabel(reason, definition, rank, copy, availability = {}) {
   switch (reason) {
     case 'available': return '';
     case 'level-required': return copy.level(definition.rankLevels[rank]);
     case 'no-points': return copy.noPoints;
+    case 'intelligence-required': return copy.intelligence(availability.requiredValue);
     case 'max-rank': return copy.maxRank;
     case 'not-playing': return copy.notPlaying;
     default: return copy.unavailable;
@@ -62,6 +65,7 @@ export function skillMenuModel({
   implementations = SKILL_IMPLEMENTATIONS,
   systems = SKILL_SYSTEMS,
   rankAdjustments = {},
+  attributes = {},
 } = {}) {
   if (!validateSkillState(state, heroLevel)) {
     throw new TypeError('Skill menu requires valid skill state matching the hero level');
@@ -87,6 +91,7 @@ export function skillMenuModel({
           runStatus,
           skillId: definition.id,
           expectedRank: trainedRank,
+          attributes,
           ...readiness,
         });
         const isMaxRank = rank >= definition.maxRank;
@@ -107,7 +112,7 @@ export function skillMenuModel({
           actionLabel: isMaxRank ? copy.mastered : trainedRank === 0 ? copy.learn : copy.upgrade,
           reasonLabel: isMaxRank
             ? copy.maxRank
-            : reasonLabel(availability.reason, definition, trainedRank, copy),
+            : reasonLabel(availability.reason, definition, trainedRank, copy, availability),
         });
       });
     if (skills.length > 0) {

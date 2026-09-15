@@ -175,28 +175,31 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'pyromancy', category: 'magic', mode: 'passive',
     name: { ru: 'Пиромантия', en: 'Pyromancy' },
     description: {
-      ru: 'Огонь от оружия и заклинаний распространяется с горящей цели на близких врагов. Требует источника огня.',
-      en: 'Spreads fire from a burning target to nearby enemies. Requires a weapon or spell that deals fire damage.',
+      ru: 'Огненная стрела наносит больше урона и обжигает 1/2/3 ближайшие цели на 35%/45%/55% урона.',
+      en: 'Ember Bolt deals more damage and scorches 1/2/3 nearby targets for 35%/45%/55% damage.',
     },
     requiresSystems: ['fire-spread'],
+    attributeRequirements: { intelligence: [4, 7, 10] },
   },
   {
     id: 'cryomancy', category: 'magic', mode: 'passive',
     name: { ru: 'Криомантия', en: 'Cryomancy' },
     description: {
-      ru: 'Повторные ледяные попадания кратко примораживают врага. Мокрые цели замерзают быстрее.',
-      en: 'Repeated ice hits briefly freeze an enemy in place. Wet targets freeze faster.',
+      ru: 'I: сильнее замедляет. II: замораживает мокрые цели. III: повторный лёд замораживает, а попадание по замороженному раскалывает лёд вокруг.',
+      en: 'I: stronger slow. II: freezes wet targets. III: repeated frost freezes, while hitting a frozen target shatters ice around it.',
     },
     requiresSystems: ['frost-buildup'],
+    attributeRequirements: { intelligence: [4, 7, 10] },
   },
   {
     id: 'storm-magic', category: 'magic', mode: 'passive',
     name: { ru: 'Грозовая магия', en: 'Storm magic' },
     description: {
-      ru: 'Электрические атаки перескакивают между мокрыми противниками.',
-      en: 'Electrical attacks chain between wet enemies.',
+      ru: 'I/II/III: разряд перескакивает на 1/2/3 мокрые цели и наносит им 55%/65%/75% урона. Мокрота не расходуется.',
+      en: 'I/II/III: the bolt chains to 1/2/3 wet targets for 55%/65%/75% damage. Wet is not consumed.',
     },
     requiresSystems: ['chain-lightning'],
+    attributeRequirements: { intelligence: [5, 8, 11] },
   },
   {
     id: 'necromancy', category: 'magic', mode: 'contextual',

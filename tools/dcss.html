@@ -78,7 +78,6 @@
       >
         <article class="appearance-card pixel-frame">
           <header class="appearance-header">
-            <button id="close-appearance" type="button" aria-label="Закрыть редактор">×</button>
             <h2 id="appearance-editor-title">Внешность</h2>
             <i aria-hidden="true"></i>
           </header>
@@ -104,6 +103,7 @@
             </section>
           </div>
           <footer class="appearance-actions">
+            <button id="close-appearance" class="secondary" type="button" aria-label="Закрыть редактор">×</button>
             <button id="save-appearance" type="button">Готово</button>
           </footer>
         </article>
@@ -191,6 +191,18 @@
           </svg>
         </button>
       </div>
+
+      <nav id="spell-bar" class="spell-bar" aria-label="Подготовленные заклинания" aria-hidden="true" inert>
+        <button class="spell-action pixel-frame" type="button" data-spell-slot="0" aria-label="Пустой слот" disabled>
+          <img alt="" /><i></i><b>1</b><output></output>
+        </button>
+        <button class="spell-action pixel-frame" type="button" data-spell-slot="1" aria-label="Пустой слот" disabled>
+          <img alt="" /><i></i><b>2</b><output></output>
+        </button>
+        <button class="spell-action pixel-frame" type="button" data-spell-slot="2" aria-label="Пустой слот" disabled>
+          <img alt="" /><i></i><b>3</b><output></output>
+        </button>
+      </nav>
 
       <div id="move-marker" class="move-marker" aria-hidden="true"><i></i></div>
 
@@ -305,9 +317,11 @@
               <h2 id="context-action-title"></h2>
               <p id="context-action-description"></p>
             </div>
-            <button id="close-context-actions" type="button" aria-label="Закрыть">×</button>
           </header>
           <div id="context-action-list" class="context-action-list"></div>
+          <footer class="context-action-footer">
+            <button id="close-context-actions" type="button" aria-label="Закрыть">×</button>
+          </footer>
         </article>
       </section>
 
@@ -325,9 +339,11 @@
             <img id="merchant-shop-portrait" src="../assets/dcss-preview/mon/human.png" alt="" />
             <div>
               <h2 id="merchant-shop-title">Торговец</h2>
-              <output id="merchant-shop-gold" aria-label="Золото: 0"><span>●</span><b>0</b></output>
+              <div class="merchant-shop-wallets">
+                <output id="merchant-shop-gold" aria-label="Твоё золото: 0"><span>◆</span><b>0</b></output>
+                <output id="merchant-shop-funds" aria-label="Золото торговца: 0"><span>●</span><b>0</b></output>
+              </div>
             </div>
-            <button id="close-merchant-shop" type="button" aria-label="Закрыть торговлю">×</button>
           </header>
           <nav id="merchant-shop-tabs" class="merchant-shop-tabs" aria-label="Торговля">
             <button type="button" data-merchant-tab="buy" aria-pressed="true">Купить</button>
@@ -335,6 +351,49 @@
           </nav>
           <div id="merchant-shop-list" class="merchant-shop-list"></div>
           <p id="merchant-shop-feedback" class="merchant-shop-feedback" role="status" aria-live="polite"></p>
+          <footer class="merchant-shop-footer">
+            <button id="close-merchant-shop" type="button" aria-label="Закрыть торговлю">×</button>
+          </footer>
+        </article>
+      </section>
+
+      <section
+        id="chest-container"
+        class="chest-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chest-container-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="chest-container-card pixel-frame">
+          <header class="chest-container-header">
+            <img id="chest-container-icon" src="../assets/dcss-preview/licensed/cmski-chests/wooden/4.png" alt="" />
+            <div>
+              <h2 id="chest-container-title">Сундук</h2>
+              <p id="chest-container-state"></p>
+            </div>
+          </header>
+          <div class="chest-container-body">
+            <section class="chest-storage-panel" aria-labelledby="chest-storage-title">
+              <header>
+                <h3 id="chest-storage-title">Сундук</h3>
+                <output id="chest-storage-count">0/8</output>
+              </header>
+              <div id="chest-storage-list" class="chest-transfer-list"></div>
+            </section>
+            <section class="chest-backpack-panel" aria-labelledby="chest-backpack-title">
+              <header>
+                <h3 id="chest-backpack-title">Рюкзак</h3>
+                <output id="chest-backpack-count">0/12</output>
+              </header>
+              <div id="chest-backpack-list" class="chest-transfer-list"></div>
+            </section>
+          </div>
+          <p id="chest-container-feedback" class="chest-container-feedback" role="status" aria-live="polite"></p>
+          <footer class="chest-container-footer">
+            <button id="close-chest-container" type="button" aria-label="Закрыть сундук">×</button>
+          </footer>
         </article>
       </section>
 
@@ -356,6 +415,23 @@
       </section>
 
       <section
+        id="ability-targeting"
+        class="ability-targeting"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ability-targeting-label"
+        aria-hidden="true"
+        inert
+      >
+        <output class="ability-targeting-prompt pixel-frame">
+          <img id="ability-targeting-icon" alt="" />
+          <strong id="ability-targeting-label">Выбери цель</strong>
+        </output>
+        <div id="ability-targeting-targets" class="ability-targeting-targets" role="group"></div>
+        <button id="cancel-ability-targeting" class="cancel-ability-targeting pixel-frame" type="button" aria-label="Отменить выбор цели">×</button>
+      </section>
+
+      <section
         id="character-sheet"
         class="character-sheet"
         role="dialog"
@@ -366,7 +442,6 @@
       >
         <article class="character-sheet-card pixel-frame">
           <header class="character-sheet-header">
-            <button id="close-character-sheet" type="button" aria-label="Закрыть характеристики">×</button>
             <div>
               <h2 id="character-sheet-title">Персонаж</h2>
               <p><span id="character-level">Уровень 1</span><i>◆</i><span id="character-floor">Этаж I</span></p>
@@ -386,6 +461,17 @@
             </section>
 
             <section class="character-details">
+              <section id="character-spells" class="character-spells" aria-labelledby="character-spells-title">
+                <header>
+                  <div>
+                    <h3 id="character-spells-title">Заклинания</h3>
+                    <p id="character-spells-hint">Выбери слот, затем заклинание</p>
+                  </div>
+                  <output id="character-spells-intelligence">✧ 4</output>
+                </header>
+                <div id="character-spell-slots" class="character-spell-slots" role="group"></div>
+                <div id="character-known-spells" class="character-known-spells" role="list"></div>
+              </section>
               <section id="character-skills" class="character-skills" aria-labelledby="character-skills-title" hidden>
                 <header>
                   <h3 id="character-skills-title"></h3>
@@ -400,6 +486,9 @@
               </section>
             </section>
           </div>
+          <footer class="character-sheet-actions">
+            <button id="close-character-sheet" type="button" aria-label="Закрыть характеристики">×</button>
+          </footer>
         </article>
       </section>
 
@@ -414,17 +503,21 @@
       >
         <div class="inventory-shell pixel-frame">
           <header class="inventory-header">
-            <button id="close-inventory" type="button" aria-label="Закрыть рюкзак">×</button>
             <strong id="inventory-title">РЮКЗАК</strong>
+            <div class="inventory-view-switcher" role="group" aria-label="Вид рюкзака">
+              <button type="button" data-pack-view="grid" aria-label="Плитка" aria-pressed="true">
+                <span class="view-glyph view-glyph-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              </button>
+              <button type="button" data-pack-view="table" aria-label="Таблица" aria-pressed="false">
+                <span class="view-glyph view-glyph-table" aria-hidden="true"><i></i><i></i><i></i></span>
+              </button>
+            </div>
             <div class="currency" aria-label="Золото: 86"><span>●</span><b>86</b></div>
           </header>
 
           <nav id="inventory-filters" class="inventory-filters" aria-label="Фильтр предметов">
             <button type="button" data-inventory-filter="all" aria-label="Все предметы" aria-pressed="true">
               <span class="filter-all" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            </button>
-            <button type="button" data-inventory-filter="equipped" aria-label="Надетое" aria-pressed="false">
-              <span aria-hidden="true">✓</span>
             </button>
             <button type="button" data-inventory-filter="weapons" aria-label="Оружие" aria-pressed="false">
               <img src="../assets/dcss-preview/item/weapon/long_sword1.png" alt="" />
@@ -441,12 +534,53 @@
           </nav>
 
           <div class="inventory-body">
-            <section class="pack-panel" aria-label="Предметы в рюкзаке">
+            <section class="inventory-paperdoll-panel" aria-label="Герой и надетое снаряжение">
+              <div class="inventory-doll-aura" aria-hidden="true"></div>
+              <canvas id="inventory-paperdoll" width="192" height="224"></canvas>
+              <div id="inventory-equipment-slots" class="inventory-equipment-slots" role="group" aria-label="Надетое снаряжение">
+                <button class="inventory-equipment-slot slot-cloak" data-equip="cloak" type="button" aria-label="Плащ: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/cloak1_leather.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-head" data-equip="head" type="button" aria-label="Шлем: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/headgear/helmet1.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-amulet" data-equip="amulet" type="button" aria-label="Амулет: пустой слот">
+                  <img src="../assets/dcss-preview/item/amulet/artefact/urand_vitality.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-body" data-equip="body" type="button" aria-label="Броня: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/plate1.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-weapon" data-equip="hand1" type="button" aria-label="Оружие: пустой слот">
+                  <img src="../assets/dcss-preview/item/weapon/long_sword1.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-gloves" data-equip="gloves" type="button" aria-label="Перчатки: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/glove1.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-offhand" data-equip="hand2" type="button" aria-label="Вторая рука: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/shields/buckler1.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-ring-one" data-equip="ring1" type="button" aria-label="Первое кольцо: пустой слот">
+                  <img src="../assets/dcss-preview/item/ring/i-fire.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-ring-two" data-equip="ring2" type="button" aria-label="Второе кольцо: пустой слот">
+                  <img src="../assets/dcss-preview/item/ring/i-ice.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-belt" data-equip="belt" type="button" aria-label="Пояс: пустой слот">
+                  <img src="../assets/dcss-preview/player/legs/belt_gray.png" alt="" /><i></i>
+                </button>
+                <button class="inventory-equipment-slot slot-boots" data-equip="boots" type="button" aria-label="Обувь: пустой слот">
+                  <img src="../assets/dcss-preview/item/armour/boots2_jackboots.png" alt="" /><i></i>
+                </button>
+              </div>
+              <output id="inventory-equipped-count" class="inventory-equipped-count" aria-live="polite">0</output>
+            </section>
+            <section class="pack-panel" data-view="grid" aria-label="Предметы в рюкзаке">
               <div id="pack-grid" class="pack-grid"></div>
             </section>
           </div>
 
           <footer class="inventory-actions">
+            <button id="close-inventory" type="button" aria-label="Закрыть рюкзак">×</button>
             <button
               id="salvage"
               type="button"
@@ -475,7 +609,6 @@
         >
           <article class="item-detail-card pixel-frame">
             <header class="item-detail-header">
-              <button id="close-item-detail" type="button" aria-label="Закрыть описание">×</button>
               <div class="item-detail-heading">
                 <h2 id="item-detail-name">Предмет</h2>
                 <p>
@@ -502,6 +635,7 @@
               </div>
             </div>
             <footer class="item-detail-actions">
+              <button id="close-item-detail" type="button" aria-label="Закрыть описание">×</button>
               <button id="item-detail-action" type="button">Надеть</button>
             </footer>
           </article>

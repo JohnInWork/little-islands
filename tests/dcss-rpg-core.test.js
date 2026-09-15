@@ -10,6 +10,7 @@ import {
   monsterById,
 } from '../tools/dcss-rpg-content.js';
 import {
+  CONTENT_VERSION,
   LEGACY_SAVE_KEY,
   LEGACY_SAVE_KEYS,
   SAVE_KEY,
@@ -24,10 +25,17 @@ import {
   revealAround,
   validateRun,
 } from '../tools/dcss-rpg-core.js';
-import { FINAL_BOSS_ID, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import {
+  CHAPTER_GUARDIANS,
+  FINAL_BOSS_ID,
+  FINAL_DEPTH,
+} from '../tools/dcss-rpg-run.js';
 import { DEFAULT_DIFFICULTY, SCALING_VERSION } from '../tools/dcss-rpg-scaling.js';
 import { createSkillState } from '../tools/dcss-rpg-skills.js';
 import { HUNGER_MAX } from '../tools/dcss-rpg-hunger.js';
+import { createStartingMagic } from '../tools/dcss-rpg-build-presets.js';
+import { createActorEffects } from '../tools/dcss-rpg-effects.js';
+import { createSpellState } from '../tools/dcss-rpg-spells.js';
 
 const EMPTY_FLOOR = Object.freeze({
   revealed: [],
@@ -42,8 +50,20 @@ const EMPTY_FLOOR = Object.freeze({
   triggered: [],
   monsters: [],
   passives: [],
-  merchantPurchases: [],
 });
+
+function assertFreshFloor(floor) {
+  const { chests, merchants, ...rest } = floor;
+  assert.deepEqual(rest, EMPTY_FLOOR);
+  assert.ok(Array.isArray(chests) && chests.length > 0);
+  assert.ok(chests.every((container) => !container.opened && !container.destroyed));
+  assert.ok(Array.isArray(merchants) && merchants.length <= 1);
+  assert.ok(merchants.every((merchant) => (
+    merchant.gold > 0
+    && merchant.purchasedEntryIds.length === 0
+    && merchant.buyback.length === 0
+  )));
+}
 
 test('RPG dungeon generation is deterministic and every exit is reachable across 100 seeds', () => {
   for (let seed = 1; seed <= 100; seed += 1) {
@@ -68,8 +88,8 @@ test('different seeds and depths create different layouts and progressively deep
   assert.ok(deep.monsters.length > first.monsters.length);
 });
 
-test('the three-floor run exposes a real tiered danger curve', () => {
-  const tiersByDepth = [1, 2, 3].map((depth) => {
+test('the nine-floor run introduces one readable monster tier per depth', () => {
+  const tiersByDepth = Array.from({ length: FINAL_DEPTH }, (_, index) => index + 1).map((depth) => {
     const seen = new Set();
     for (let seed = 1; seed <= 250; seed += 1) {
       for (const spawn of generateDungeon({ seed, depth }).monsters) {
@@ -79,7 +99,12 @@ test('the three-floor run exposes a real tiered danger curve', () => {
     return [...seen].sort((a, b) => a - b);
   });
 
-  assert.deepEqual(tiersByDepth, [[1], [1, 2, 3], [1, 2, 3, 4, 5]]);
+  assert.deepEqual(
+    tiersByDepth,
+    Array.from({ length: FINAL_DEPTH }, (_, index) => (
+      Array.from({ length: index + 1 }, (_value, tierIndex) => tierIndex + 1)
+    )),
+  );
 });
 
 test('revealing is bounded, repeatable and never mutates the generated grid', () => {
@@ -137,7 +162,7 @@ test('descending advances the deterministic floor while preserving persistent pr
   assert.equal(next.gold, 9);
   assert.equal(next.equipment.hand1, 'test-sword');
   assert.equal(next.inventory.length, run.inventory.length);
-  assert.deepEqual(next.floor, EMPTY_FLOOR);
+  assertFreshFloor(next.floor);
   assert.equal(run.depth, 1);
   assert.deepEqual(run.floor.revealed, ['1,1']);
   assert.ok(findGridPath(dungeon.grid, dungeon.spawn, dungeon.exit, { allowDoors: true }).length > 0);
@@ -222,7 +247,13 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v21')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v22')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v23')));
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v26')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v28')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v29')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v30')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v31')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v33')));
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -250,50 +281,100 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.doesNotThrow(() => hydrateDungeon(first));
 });
 
-test('version 22 saves gain an empty merchant ledger without restarting the floor', () => {
+test('version 26 saves gain magic while the expanded-run boundary rebuilds only the floor', () => {
+  const legacy = advanceRunFloor(createRun(2701));
+  legacy.version = 26;
+  legacy.contentVersion = 13;
+  legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
+  delete legacy.hero.intelligence;
+  delete legacy.hero.spells;
+  const migrated = migrateLegacyRun(legacy);
+  const startingMagic = createStartingMagic();
+  const dungeon = generateDungeon({ seed: migrated.seed, depth: migrated.depth });
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.equal(migrated.hero.intelligence, startingMagic.intelligence);
+  assert.deepEqual(migrated.hero.spells, startingMagic.spells);
+  assertFreshFloor(migrated.floor);
+  assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, dungeon.spawn);
+  assert.equal(validateRun(migrated), true);
+});
+
+test('version 28 saves gain frozen timers without losing active actor conditions', () => {
+  const legacy = createRun(2901);
+  const level = generateDungeon({ seed: legacy.seed, depth: legacy.depth });
+  const spawn = level.monsters[0];
+  legacy.version = 28;
+  legacy.contentVersion = 15;
+  legacy.hero.effects = { burning: 0, wet: 3, chilled: 2, poison: 0 };
+  legacy.floor.monsters.push({
+    instanceId: spawn.instanceId,
+    x: spawn.x,
+    y: spawn.y,
+    hp: 5,
+    attackSequence: 2,
+    effects: { burning: 0, wet: 0, chilled: 4, poison: 0 },
+  });
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.equal(migrated.contentVersion, CONTENT_VERSION);
+  assert.deepEqual(migrated.hero.effects, createActorEffects({ wet: 3, chilled: 2 }));
+  assertFreshFloor(migrated.floor);
+  assert.equal(validateRun(migrated), true);
+});
+
+test('version 22 saves gain fresh merchant states and rebase onto the expanded run', () => {
   let legacy = advanceRunFloor(createRun(2302));
   legacy.version = 22;
+  delete legacy.floor.merchants;
   delete legacy.floor.merchantPurchases;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
 
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.version, SAVE_VERSION);
-  assert.deepEqual(migrated.floor.merchantPurchases, []);
+  assert.ok(Array.isArray(migrated.floor.merchants));
+  assert.equal(Object.hasOwn(migrated.floor, 'merchantPurchases'), false);
   assert.equal(migrated.hero.hunger, HUNGER_MAX);
-  assert.ok(migrated.floor.revealed.includes(`${migrated.hero.x},${migrated.hero.y}`));
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
 });
 
-test('version 23 saves gain full satiety without losing merchant purchases or floor state', () => {
-  const legacy = advanceRunFloor(createRun(2403));
+test('version 23 saves gain full satiety while obsolete floor purchases are safely cleared', () => {
+  const legacy = advanceRunFloor(advanceRunFloor(createRun(2403)));
   const dungeon = generateDungeon({ seed: legacy.seed, depth: legacy.depth });
-  legacy.floor.merchantPurchases.push(dungeon.merchants[0].stock[0].entryId);
+  delete legacy.floor.merchants;
+  legacy.floor.merchantPurchases = [dungeon.merchants[0].stock[0].entryId];
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
   legacy.version = 23;
   delete legacy.hero.hunger;
 
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.hero.hunger, HUNGER_MAX);
-  assert.deepEqual(migrated.floor.merchantPurchases, legacy.floor.merchantPurchases);
-  assert.deepEqual(migrated.floor.revealed, legacy.floor.revealed);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));
 });
 
-test('merchant purchases remain valid save data only for the generated floor stock', () => {
-  const run = advanceRunFloor(createRun(2303));
+test('merchant states remain valid save data only for the generated floor merchant', () => {
+  const run = advanceRunFloor(advanceRunFloor(createRun(2303)));
   const dungeon = generateDungeon({ seed: run.seed, depth: run.depth });
   const entry = dungeon.merchants[0].stock[0];
+  const merchantState = run.floor.merchants[0];
   run.gold = Math.max(run.gold, entry.price);
   run.items.push({ ...entry.record });
   run.inventory.push(entry.record.uid);
-  run.floor.merchantPurchases.push(entry.entryId);
+  run.floor.merchants[0] = {
+    ...merchantState,
+    gold: merchantState.gold + entry.price,
+    purchasedEntryIds: [entry.entryId],
+    buyback: [],
+  };
 
   assert.equal(validateRun(run), true);
   assert.doesNotThrow(() => hydrateDungeon(run));
-  run.floor.merchantPurchases[0] = `merchant-entry-${run.depth}-999-999`;
+  run.floor.merchants[0].purchasedEntryIds[0] = `merchant-entry-${run.depth}-999-999`;
   assert.equal(validateRun(run), true);
-  assert.throws(() => hydrateDungeon(run), /Unknown merchant purchase/);
+  assert.throws(() => hydrateDungeon(run), /Unknown merchant state/);
 });
 
 test('v15 loadouts migrate two-handed weapons without losing their off-hand item', () => {
@@ -317,7 +398,7 @@ test('v15 loadouts migrate two-handed weapons without losing their off-hand item
   assert.equal(validateRun(invalid), false);
 });
 
-test('v16 runs keep their floor and owned gear across the expanded sword content pool', () => {
+test('v16 runs keep owned gear while the nine-floor generator rebases the active floor', () => {
   const legacy = createRun(1617);
   legacy.version = 16;
   legacy.contentVersion = 7;
@@ -326,9 +407,9 @@ test('v16 runs keep their floor and owned gear across the expanded sword content
 
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.version, SAVE_VERSION);
-  assert.equal(migrated.contentVersion, 13);
+  assert.equal(migrated.contentVersion, CONTENT_VERSION);
   assert.deepEqual(migrated.knowledge, { version: 1, identifiedItemIds: [] });
-  assert.deepEqual(migrated.floor, before.floor);
+  assertFreshFloor(migrated.floor);
   assert.deepEqual(migrated.items, before.items.map((item) => (
     lootById(item.id)?.slot
       ? { ...item, artifactPowerId: null, artifactCurseId: null }
@@ -369,7 +450,7 @@ test('version 4 saves gain a stable scaling profile and restart across the door 
   assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.scalingVersion, SCALING_VERSION);
   assert.equal(migrated.difficulty, DEFAULT_DIFFICULTY);
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
 });
 
@@ -388,9 +469,10 @@ test('version 5 saves adopt the current difficulty and gain an empty effect stat
     burning: 0,
     wet: 0,
     chilled: 0,
+    frozen: 0,
     poison: 0,
   });
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
 });
 
@@ -407,7 +489,7 @@ test('version 6 saves preserve status effects and adopt the current difficulty',
   assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.difficulty, DEFAULT_DIFFICULTY);
   assert.equal(migrated.hero.effects.wet, 5);
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
 });
 
@@ -438,7 +520,7 @@ test('version 8 saves keep hero progression and gear while adopting the harder v
   assert.deepEqual(migrated.equipment, legacy.equipment);
   assert.deepEqual(migrated.inventory, legacy.inventory);
   assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, harderFloor.spawn);
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
 });
 
@@ -483,6 +565,16 @@ test('save validation rejects duplicated ownership, dead-state mismatches and fo
     validateRun({ ...run, floor: { ...run.floor, defeated: ['monster-99-0'] } }),
     false,
   );
+  const duplicatedChestOwnership = structuredClone(run);
+  duplicatedChestOwnership.floor.chests[0].items[0].uid = run.inventory[0];
+  assert.equal(validateRun(duplicatedChestOwnership), false);
+  const merchantRun = advanceRunFloor(advanceRunFloor(createRun(413)));
+  const duplicatedMerchantOwnership = structuredClone(merchantRun);
+  duplicatedMerchantOwnership.floor.merchants[0].buyback.push({
+    record: structuredClone(merchantRun.items.find(({ uid }) => uid === merchantRun.inventory[0])),
+    price: 4,
+  });
+  assert.equal(validateRun(duplicatedMerchantOwnership), false);
   const blocked = structuredClone(run);
   blocked.hero.x = 0;
   blocked.hero.y = 0;
@@ -498,6 +590,7 @@ test('living monster position and health survive hydration', () => {
     x: monster.x,
     y: monster.y,
     hp: 1,
+    effects: createActorEffects({ chilled: 3 }),
   });
 
   const hydrated = hydrateDungeon(run);
@@ -507,6 +600,7 @@ test('living monster position and health survive hydration', () => {
     x: monster.x,
     y: monster.y,
     hp: 1,
+    effects: createActorEffects({ chilled: 3 }),
   });
 });
 
@@ -518,32 +612,32 @@ test('a dead run cannot descend and cannot be revived by floor healing', () => {
   assert.throws(() => advanceRunFloor(run), /run has ended/);
 });
 
-test('the third floor reserves one guardian next to the sealed artifact objective', () => {
-  for (let seed = 1; seed <= 500; seed += 1) {
-    const dungeon = generateDungeon({ seed, depth: FINAL_DEPTH });
-    assert.ok(dungeon.sanctuary);
-    assert.equal(dungeon.objective.bossId, FINAL_BOSS_ID);
-    assert.deepEqual(dungeon.objective.artifact, dungeon.exit);
-    const guardian = dungeon.monsters.find(
-      ({ instanceId }) => instanceId === dungeon.objective.bossInstanceId,
-    );
-    assert.equal(guardian.id, FINAL_BOSS_ID);
-    assert.equal(
-      Math.abs(guardian.x - dungeon.exit.x) + Math.abs(guardian.y - dungeon.exit.y),
-      1,
-    );
-    assert.ok(
-      findGridPath(dungeon.grid, dungeon.spawn, dungeon.objective.artifact, {
-        allowDoors: true,
-      }).length > 0,
-    );
+test('each three-floor chapter ends with a reachable guardian and only floor nine has the artifact', () => {
+  for (let seed = 1; seed <= 200; seed += 1) {
+    for (const expected of CHAPTER_GUARDIANS) {
+      const dungeon = generateDungeon({ seed, depth: expected.depth });
+      assert.ok(dungeon.sanctuary);
+      assert.equal(dungeon.objective.bossId, expected.monsterId);
+      assert.deepEqual(dungeon.objective.gate, dungeon.exit);
+      assert.deepEqual(dungeon.objective.artifact, expected.final ? dungeon.exit : null);
+      const guardian = dungeon.monsters.find(
+        ({ instanceId }) => instanceId === dungeon.objective.bossInstanceId,
+      );
+      assert.equal(guardian.id, expected.monsterId);
+      assert.equal(
+        Math.abs(guardian.x - dungeon.exit.x) + Math.abs(guardian.y - dungeon.exit.y),
+        1,
+      );
+      assert.ok(
+        findGridPath(dungeon.grid, dungeon.spawn, dungeon.exit, { allowDoors: true }).length > 0,
+      );
+    }
   }
 });
 
 test('victory is valid only after the final guardian is defeated', () => {
   let run = createRun(891);
-  run = advanceRunFloor(run);
-  run = advanceRunFloor(run);
+  while (run.depth < FINAL_DEPTH) run = advanceRunFloor(run);
   const dungeon = generateDungeon({ seed: run.seed, depth: FINAL_DEPTH });
   run.status = 'victory';
   assert.equal(validateRun(run), false);
@@ -553,7 +647,7 @@ test('victory is valid only after the final guardian is defeated', () => {
   assert.throws(() => advanceRunFloor(run), /run has ended/);
 });
 
-test('version 2 saves migrate to the final-floor run without losing owned gear', () => {
+test('version 2 saves can resume on a valid expanded-run floor without losing owned gear', () => {
   const current = createRun(321);
   const legacy = structuredClone(current);
   legacy.version = 2;
@@ -563,17 +657,106 @@ test('version 2 saves migrate to the final-floor run without losing owned gear',
   legacy.hero.x = 1;
   legacy.hero.y = 1;
   const migrated = migrateLegacyRun(legacy);
-  const finalFloor = generateDungeon({ seed: migrated.seed, depth: FINAL_DEPTH });
-  assert.equal(migrated.depth, FINAL_DEPTH);
+  const resumedFloor = generateDungeon({ seed: migrated.seed, depth: 5 });
+  assert.equal(migrated.depth, 5);
   assert.deepEqual(
     { x: migrated.hero.x, y: migrated.hero.y },
-    finalFloor.spawn,
+    resumedFloor.spawn,
   );
   assert.deepEqual(migrated.equipment, current.equipment);
   assert.deepEqual(migrated.inventory, current.inventory);
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.equal(validateRun(migrated), true);
   assert.equal(legacy.depth, 5);
+});
+
+test('a completed v30 prologue continues on floor four instead of becoming a false victory', () => {
+  let legacy = createRun(3031);
+  legacy = advanceRunFloor(advanceRunFloor(legacy));
+  const oldFinal = generateDungeon({ seed: legacy.seed, depth: legacy.depth });
+  legacy.version = 30;
+  legacy.generatorVersion = 6;
+  legacy.contentVersion = 17;
+  legacy.scalingVersion = 1;
+  legacy.status = 'victory';
+  legacy.floor.defeated.push(oldFinal.objective.bossInstanceId);
+
+  const migrated = migrateLegacyRun(legacy);
+  const fourthFloor = generateDungeon({ seed: migrated.seed, depth: 4 });
+  assert.equal(migrated.depth, 4);
+  assert.equal(migrated.status, 'playing');
+  assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, fourthFloor.spawn);
+  assertFreshFloor(migrated.floor);
+  assert.equal(validateRun(migrated), true);
+});
+
+test('v31 gains Storm Magic content without rebuilding the active floor', () => {
+  const current = createRun(3132);
+  current.started = true;
+  current.floor.revealed.push(`${current.hero.x},${current.hero.y}`);
+  current.hero.spells = createSpellState({
+    knownSpellIds: ['ember-bolt', 'mending-light', 'frost-lance'],
+    preparedSpellIds: ['frost-lance', 'mending-light', null],
+  });
+  const legacy = structuredClone(current);
+  legacy.version = 31;
+  legacy.contentVersion = 18;
+  delete legacy.floor.chests;
+  delete legacy.floor.merchants;
+  legacy.floor.merchantPurchases = [];
+  const beforeFloor = structuredClone(legacy.floor);
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, 34);
+  assert.equal(migrated.contentVersion, 19);
+  const { chests, merchants, ...persistentFloor } = migrated.floor;
+  const { merchantPurchases: _legacyPurchases, ...legacyPersistentFloor } = beforeFloor;
+  assert.deepEqual(persistentFloor, legacyPersistentFloor);
+  assert.ok(chests.length > 0);
+  assert.deepEqual(merchants, []);
+  assert.deepEqual(migrated.hero.spells, legacy.hero.spells);
+  assert.equal(validateRun(migrated), true);
+  assert.doesNotThrow(() => hydrateDungeon(migrated));
+  assert.equal(legacy.version, 31);
+});
+
+test('v32 creates persistent chest contents without duplicating a resolved reward', () => {
+  const legacy = createRun(32033);
+  const dungeon = generateDungeon({ seed: legacy.seed, depth: legacy.depth });
+  const chest = dungeon.finds.find(({ id }) => id === 'sealed-cache');
+  legacy.version = 32;
+  delete legacy.floor.chests;
+  delete legacy.floor.merchants;
+  legacy.floor.merchantPurchases = [];
+  legacy.floor.resolvedFindIds.push(chest.instanceId);
+
+  const migrated = migrateLegacyRun(legacy);
+  const container = migrated.floor.chests.find(({ findId }) => findId === chest.instanceId);
+  assert.equal(migrated.version, 34);
+  assert.equal(container.opened, true);
+  assert.equal(container.gold, 0);
+  assert.deepEqual(container.items, []);
+  assert.equal(validateRun(migrated), true);
+  assert.doesNotThrow(() => hydrateDungeon(migrated));
+});
+
+test('v33 merchant purchases become a funded persistent v34 merchant state', () => {
+  const current = advanceRunFloor(advanceRunFloor(createRun(33034)));
+  const dungeon = generateDungeon({ seed: current.seed, depth: current.depth });
+  const entry = dungeon.merchants[0].stock[0];
+  const legacy = structuredClone(current);
+  legacy.version = 33;
+  legacy.floor.merchantPurchases = [entry.entryId];
+  delete legacy.floor.merchants;
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, 34);
+  assert.equal(Object.hasOwn(migrated.floor, 'merchantPurchases'), false);
+  assert.deepEqual(migrated.floor.merchants[0].purchasedEntryIds, [entry.entryId]);
+  assert.ok(migrated.floor.merchants[0].gold > entry.price);
+  assert.deepEqual(migrated.floor.merchants[0].buyback, []);
+  assert.equal(validateRun(migrated), true);
+  assert.doesNotThrow(() => hydrateDungeon(migrated));
 });
 
 test('version 2 migration restarts the current floor across the generator boundary', () => {
@@ -591,7 +774,7 @@ test('version 2 migration restarts the current floor across the generator bounda
   const dungeon = generateDungeon({ seed: migrated.seed, depth: 2 });
   assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, dungeon.spawn);
   assert.equal(migrated.started, false);
-  assert.deepEqual(migrated.floor, EMPTY_FLOOR);
+  assertFreshFloor(migrated.floor);
   assert.deepEqual(migrated.equipment, legacy.equipment);
   assert.deepEqual(migrated.inventory, legacy.inventory);
   assert.equal(validateRun(migrated), true);

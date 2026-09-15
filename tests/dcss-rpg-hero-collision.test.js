@@ -20,6 +20,7 @@ import { resolveShieldBlock, shieldBlockRoll } from '../tools/dcss-rpg-shield.js
 import { findGridPath, generateDungeon, hasLineOfSight } from '../tools/dcss-rpg-core.js';
 import { choosePassiveWanderTarget, createPassiveCreatureStates } from '../tools/dcss-rpg-passive.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
+import { createActorEffects, tickActorEffects } from '../tools/dcss-rpg-effects.js';
 import {
   HERO_BASE_MOVE_SPEED, MONSTER_MIN_SEPARATION, canMeleeAttack, canMonsterAdvance,
   canWeaponAttack, combatDamage, monsterCellKey, occupiedMonsterCells, weaponCombatProfile,
@@ -46,6 +47,7 @@ function monsterAt(x, y, overrides = {}) {
     hit: 0, attackRecovery: 0, alertFlash: 0, attackCooldown: 0,
     repathCooldown: 0, alerted: 10, attackWindup: 0, pursuit: 10,
     windup: 0.2, attackRate: 1, damage: 1, attackSequence: 0,
+    effects: createActorEffects(),
     ...overrides,
   };
 }
@@ -80,7 +82,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     currentHeroCleave: () => axeCleaveProfile(null, {}),
     currentHeroStats: () => ({ attack: 10, moveSpeed: 1 }),
     currentHeroMagic: () => ({ flight: false, invisibility: false, vampirism: false, immunity: [], healOnKill: 0 }),
-    actorEffectModifiers: () => ({ moveSpeed: 1 }),
+    actorEffectModifiers: () => ({ moveSpeed: 1 }), tickActorEffects,
     equippedItem: () => null,
     rarityGlow: ['#ffffff'],
     knownTrapCells: () => new Set(hazards),

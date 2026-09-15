@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createRun, generateDungeon, hydrateDungeon, SAVE_VERSION, validateRun } from '../tools/dcss-rpg-core.js';
 import { canCloseDoor } from '../tools/dcss-rpg-doors.js';
 import { createMonsterStates } from '../tools/dcss-rpg-rules.js';
+import { createActorEffects } from '../tools/dcss-rpg-effects.js';
 import { createPassiveCreatureStates } from '../tools/dcss-rpg-passive.js';
 import {
   createDoorAssembly,
@@ -78,7 +79,7 @@ test('v15 reload retains open doors, and reclosing does not rearm surprise encou
       assert.equal(loadedRun.version, originalVersion);
     }
   }
-  assert.equal(SAVE_VERSION, 26, 'interaction state is persisted in the current save');
+  assert.equal(SAVE_VERSION, 34, 'interaction state is persisted in the current save');
 });
 
 for (const kind of ['monster', 'passive']) {
@@ -108,7 +109,9 @@ for (const kind of ['monster', 'passive']) {
         assert.equal(canCloseDoor({ door: doorway, actors: [runtimeActor], tileSize }), true);
         run.floor.opened = [];
         const state = { instanceId: original.instanceId, ...position };
-        if (kind === 'monster') run.floor.monsters = [{ ...state, hp: original.hp }];
+        if (kind === 'monster') run.floor.monsters = [{
+          ...state, hp: original.hp, effects: createActorEffects(),
+        }];
         else run.floor.passives = [{
           ...state,
           wanderStep: 3,
@@ -135,7 +138,9 @@ for (const kind of ['monster', 'passive']) {
           x: doorway.x - (doorway.axis === 'x' ? 0.1 : 0),
           y: doorway.y - (doorway.axis === 'y' ? 0.1 : 0),
         };
-        if (kind === 'monster') loadedRun.floor.monsters = [{ ...blockedState, hp: original.hp }];
+        if (kind === 'monster') loadedRun.floor.monsters = [{
+          ...blockedState, hp: original.hp, effects: createActorEffects(),
+        }];
         else loadedRun.floor.passives = [{
           ...blockedState,
           wanderStep: 3,

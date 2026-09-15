@@ -10,11 +10,12 @@ import {
   commandRejected,
   gameEvent,
 } from './dcss-rpg-game-commands.js';
+import { learnSpell, spellById, validateSpellState } from './dcss-rpg-spells.js';
 
 export const BOOK_STUDY_VERSION = 1;
 export const READ_BOOK_COMMAND = 'read-book';
 
-const BOOK_EFFECT_TYPES = Object.freeze(['study', 'forget', 'blank']);
+const BOOK_EFFECT_TYPES = Object.freeze(['study', 'forget', 'blank', 'learn-spell']);
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -48,9 +49,16 @@ export function createBookStudy(source = {}) {
 
 export function bookOutcome(item) {
   if (item?.identification?.group !== 'book' || !isRecord(item.bookEffect)) return null;
-  if (!exactKeys(item.bookEffect, ['type']) || !BOOK_EFFECT_TYPES.includes(item.bookEffect.type)) {
+  if (!BOOK_EFFECT_TYPES.includes(item.bookEffect.type)) {
     throw new Error(`Invalid book effect for ${item.id}`);
   }
+  if (item.bookEffect.type === 'learn-spell') {
+    if (!exactKeys(item.bookEffect, ['type', 'spellId']) || !spellById(item.bookEffect.spellId)) {
+      throw new Error(`Invalid spell book effect for ${item.id}`);
+    }
+    return Object.freeze({ type: item.bookEffect.type, spellId: item.bookEffect.spellId });
+  }
+  if (!exactKeys(item.bookEffect, ['type'])) throw new Error(`Invalid book effect for ${item.id}`);
   return Object.freeze({ type: item.bookEffect.type });
 }
 
@@ -63,13 +71,16 @@ function stableIndex(commandId, itemId, length) {
   return (hash >>> 0) % length;
 }
 
-function eligibleSkills({ skills, heroLevel, rankAdjustments, direction }) {
+function eligibleSkills({ skills, heroLevel, rankAdjustments, direction, attributes = {} }) {
   return SKILL_CATALOG
     .filter((definition) => isSkillReady(definition.id))
     .filter((definition) => {
       const rank = effectiveSkillRank(skills, definition.id, rankAdjustments);
       if (direction < 0) return rank > 0;
-      return rank < definition.maxRank;
+      if (rank >= definition.maxRank) return false;
+      const intelligenceRequired = definition.attributeRequirements?.intelligence?.[rank];
+      return !Number.isFinite(intelligenceRequired)
+        || (attributes.intelligence ?? 0) >= intelligenceRequired;
     })
     .map(({ id }) => id)
     .sort();
@@ -88,7 +99,7 @@ function adjustedStudy(study, skillId, direction) {
  * or trained ranks. This keeps the level-up economy conserved and makes both a
  * blessing and amnesia reversible by a later book.
  */
-export function readSkillBook({ command, item, study, skills, heroLevel } = {}) {
+export function readSkillBook({ command, item, study, skills, heroLevel, attributes = {} } = {}) {
   if (
     command?.type !== READ_BOOK_COMMAND
     || command.actorId !== 'hero'
@@ -99,6 +110,7 @@ export function readSkillBook({ command, item, study, skills, heroLevel } = {}) 
   }
   const outcome = bookOutcome(item);
   if (!outcome) return commandRejected(command, 'not-a-book');
+  if (outcome.type === 'learn-spell') return commandRejected(command, 'not-a-skill-book');
 
   const events = [gameEvent(command, 0, 'book-read', {
     itemId: item.id,
@@ -115,6 +127,7 @@ export function readSkillBook({ command, item, study, skills, heroLevel } = {}) 
     heroLevel,
     rankAdjustments: study.rankAdjustments,
     direction,
+    attributes,
   });
   if (candidates.length === 0) {
     events.push(gameEvent(command, 1, 'book-had-no-effect', { itemId: item.id }));
@@ -135,4 +148,26 @@ export function readSkillBook({ command, item, study, skills, heroLevel } = {}) 
     direction,
   }));
   return commandAccepted(command, { study: nextStudy }, events);
+}
+
+export function readSpellBook({ command, item, spells, intelligence } = {}) {
+  if (
+    command?.type !== READ_BOOK_COMMAND
+    || command.actorId !== 'hero'
+    || command.targetId !== item?.uid
+  ) return commandRejected(command, 'invalid-target');
+  if (!validateSpellState(spells) || !Number.isFinite(intelligence)) {
+    return commandRejected(command, 'invalid-state');
+  }
+  const outcome = bookOutcome(item);
+  if (!outcome) return commandRejected(command, 'not-a-book');
+  if (outcome.type !== 'learn-spell') return commandRejected(command, 'not-a-spell-book');
+  const learned = learnSpell(spells, outcome.spellId, intelligence);
+  if (!learned.ok) {
+    return commandRejected(command, learned.reason);
+  }
+  return commandAccepted(command, { spells: learned.state }, [
+    gameEvent(command, 0, 'book-read', { itemId: item.id, outcome: outcome.type }),
+    gameEvent(command, 1, 'spell-learned', { spellId: outcome.spellId }),
+  ]);
 }

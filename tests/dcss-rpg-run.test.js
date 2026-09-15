@@ -3,10 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  CHAPTER_GUARDIANS,
   FINAL_DEPTH,
+  FLOORS_PER_CHAPTER,
   SANCTUARY_COST,
   SANCTUARY_HEAL,
   canClaimFinalArtifact,
+  canLeaveDungeonFloor,
+  chapterGuardianForDepth,
   isTerminalRunStatus,
   goldRewardForMonster,
   useSanctuary,
@@ -48,6 +52,28 @@ test('boss rewards are exceptional and the artifact closes only a final run', ()
   assert.equal(isTerminalRunStatus('dead'), true);
   assert.equal(isTerminalRunStatus('victory'), true);
   assert.equal(isTerminalRunStatus('playing'), false);
+});
+
+test('nine floors form three guarded chapters and exits unlock only after their guardian', () => {
+  assert.equal(FINAL_DEPTH, 9);
+  assert.equal(FLOORS_PER_CHAPTER, 3);
+  assert.deepEqual(CHAPTER_GUARDIANS.map(({ depth }) => depth), [3, 6, 9]);
+  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+    const guardian = chapterGuardianForDepth(depth);
+    assert.equal(Boolean(guardian), depth % FLOORS_PER_CHAPTER === 0);
+    assert.equal(
+      canLeaveDungeonFloor({ depth, status: 'playing', guardianDefeated: false }),
+      !guardian,
+    );
+    assert.equal(
+      canLeaveDungeonFloor({ depth, status: 'playing', guardianDefeated: true }),
+      true,
+    );
+  }
+  assert.equal(
+    canLeaveDungeonFloor({ depth: 3, status: 'dead', guardianDefeated: true }),
+    false,
+  );
 });
 
 test('terminal screen CSS uses the same dead and victory statuses as the run state', async () => {

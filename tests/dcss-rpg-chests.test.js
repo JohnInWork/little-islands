@@ -173,9 +173,16 @@ test('inspection hides unknown hazards until the player chooses to examine the c
   assert.equal(known.description, 'The chest breathes.');
   assert.doesNotMatch(known.description, /13|reward|damage|loot/i);
   assert.deepEqual(known.actions.map(({ id }) => id), ['inspect', 'open', 'attack']);
+
+  const opened = chestContextPresentation({
+    find: chest({ containerOpened: true }),
+    language: 'ru',
+  });
+  assert.equal(opened.description, '');
+  assert.deepEqual(opened.actions.map(({ id }) => id), ['browse']);
 });
 
-test('v13 saves migrate without inventing starter tools or rebuilding the active floor', () => {
+test('v13 saves migrate without inventing starter tools across the expanded-run rebase', () => {
   const legacy = createRun(4401);
   legacy.version = 13;
   legacy.contentVersion = 4;
@@ -187,10 +194,11 @@ test('v13 saves migrate without inventing starter tools or rebuilding the active
   legacy.started = true;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 26);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.equal(SAVE_VERSION, 34);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.equal(migrated.items.some(({ id }) => Object.values(CHEST_RESOURCE_IDS).includes(id)), false);
-  assert.deepEqual(migrated.floor.revealed, legacy.floor.revealed);
+  assert.deepEqual(migrated.floor.revealed, []);
+  assert.equal(migrated.started, false);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));
 });

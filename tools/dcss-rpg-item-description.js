@@ -1,6 +1,7 @@
 import { ACTOR_EFFECTS } from './dcss-rpg-effects.js';
 import { artifactCurseById, artifactCursePresentation } from './dcss-rpg-artifacts.js';
 import { INVISIBILITY_REVEAL_SECONDS, VAMPIRISM_RATIO } from './dcss-rpg-magic.js';
+import { spellById } from './dcss-rpg-spells.js';
 
 export const ITEM_DESCRIPTION_VERSION = 3;
 
@@ -14,6 +15,7 @@ export const ITEM_STAT_DICTIONARY = Object.freeze({
   maxHp: Object.freeze({ icon: '♥', percent: false, ru: 'здоровье', en: 'health', weight: 0.5 }),
   moveSpeed: Object.freeze({ icon: '↟', percent: true, ru: 'движение', en: 'move speed', weight: 100 }),
   attackSpeed: Object.freeze({ icon: '✦', percent: true, ru: 'темп атаки', en: 'attack tempo', weight: 100 }),
+  intelligence: Object.freeze({ icon: '✧', percent: false, ru: 'интеллект', en: 'intelligence', weight: 4 }),
 });
 
 const SLOT_TYPES = Object.freeze({
@@ -121,7 +123,8 @@ const COPY = Object.freeze({
     cleanse: 'Снимает все состояния',
     venom: 'Отравление',
     seconds: 'с',
-    returnToEntrance: 'Возврат ко входу',
+    blink: (range) => `Скачок на выбранную клетку · дальность ${range}`,
+    targetEffect: (effect, duration, range) => `Состояние «${effect}»: ${duration} с · дальность ${range}`,
     key: 'Открывает обычный замок · расходуется',
     lockpick: 'Взлом замка · нужен навык · расходуется',
     trap: 'Установка рядом · нужен Ловушечник I',
@@ -130,6 +133,7 @@ const COPY = Object.freeze({
     bookStudy: 'Случайный навык получает +1 ранг до конца забега',
     bookForget: 'Случайный действующий навык теряет 1 ранг до конца забега',
     bookBlank: 'Пустые страницы · эффекта нет',
+    bookSpell: (spell) => `Обучает: ${spell.name.ru} · нужен интеллект ${spell.minimumIntelligence}`,
   }),
   en: Object.freeze({
     unknownItem: 'unknown effect',
@@ -156,7 +160,8 @@ const COPY = Object.freeze({
     cleanse: 'Clears all statuses',
     venom: 'Poison',
     seconds: 's',
-    returnToEntrance: 'Return to entrance',
+    blink: (range) => `Blink to a chosen tile · range ${range}`,
+    targetEffect: (effect, duration, range) => `Applies “${effect}”: ${duration}s · range ${range}`,
     key: 'Opens an ordinary lock · consumed',
     lockpick: 'Picks a lock · requires skill · consumed',
     trap: 'Place nearby · requires Trap setting I',
@@ -165,6 +170,7 @@ const COPY = Object.freeze({
     bookStudy: 'One random skill gains +1 rank for this run',
     bookForget: 'One random active skill loses 1 rank for this run',
     bookBlank: 'Blank pages · no effect',
+    bookSpell: (spell) => `Teaches: ${spell.name.en} · requires intelligence ${spell.minimumIntelligence}`,
   }),
 });
 
@@ -297,9 +303,37 @@ function effectFact(effect, language, source) {
     const text = `−${effect.damage} ♥ · ${COPY[language].venom}: ${effect.duration}${COPY[language].seconds}`;
     return freezeFact({ id: `${source}:venom`, kind: 'use', icon: '☠', text, short: text });
   }
-  if (effect.type === 'return-to-entrance') {
-    const text = COPY[language].returnToEntrance;
-    return freezeFact({ id: `${source}:return-to-entrance`, kind: 'use', icon: '✦', text, short: text });
+  if (
+    effect.type === 'blink'
+    && Number.isInteger(effect.range)
+    && effect.range >= 1
+    && effect.range <= 8
+  ) {
+    const text = COPY[language].blink(effect.range);
+    return freezeFact({ id: `${source}:blink`, kind: 'use', icon: '✦', text, short: text });
+  }
+  if (
+    effect.type === 'target-effect'
+    && ACTOR_EFFECTS[effect.effectId]
+    && Number.isFinite(effect.duration)
+    && effect.duration > 0
+    && Number.isInteger(effect.range)
+    && effect.range >= 1
+    && effect.range <= 8
+  ) {
+    const definition = ACTOR_EFFECTS[effect.effectId];
+    const text = COPY[language].targetEffect(
+      definition.labels[language],
+      effect.duration,
+      effect.range,
+    );
+    return freezeFact({
+      id: `${source}:target-effect:${effect.effectId}`,
+      kind: 'use',
+      icon: effect.effectId === 'wet' ? '≈' : '✦',
+      text,
+      short: text,
+    });
   }
   throw new Error(`Missing item use-effect dictionary entry: ${effect.type ?? 'unknown'}`);
 }
@@ -311,19 +345,32 @@ function utilityFacts(item, language) {
   if (potion) facts.push(potion);
   if (use) facts.push(use);
   if (item.bookEffect) {
+    const taughtSpell = item.bookEffect.type === 'learn-spell'
+      ? spellById(item.bookEffect.spellId)
+      : null;
     const copyId = item.bookEffect.type === 'study'
       ? 'bookStudy'
       : item.bookEffect.type === 'forget'
         ? 'bookForget'
         : item.bookEffect.type === 'blank'
           ? 'bookBlank'
+          : taughtSpell
+            ? 'bookSpell'
           : null;
     if (!copyId) throw new Error(`Missing book-effect dictionary entry: ${item.bookEffect.type}`);
-    const text = COPY[language][copyId];
+    const text = copyId === 'bookSpell'
+      ? COPY[language][copyId](taughtSpell)
+      : COPY[language][copyId];
     facts.push(freezeFact({
       id: `book:${item.bookEffect.type}`,
       kind: 'use',
-      icon: item.bookEffect.type === 'study' ? '+' : item.bookEffect.type === 'forget' ? '−' : '·',
+      icon: item.bookEffect.type === 'study'
+        ? '+'
+        : item.bookEffect.type === 'forget'
+          ? '−'
+          : item.bookEffect.type === 'learn-spell'
+            ? '✦'
+            : '·',
       text,
       short: text,
     }));

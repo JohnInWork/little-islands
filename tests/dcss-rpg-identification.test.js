@@ -122,8 +122,8 @@ test('item knowledge is strict, survives floors and migrates additively from v17
   legacy.contentVersion = 8;
   delete legacy.knowledge;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 26);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
+  assert.equal(SAVE_VERSION, 34);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.deepEqual(migrated.knowledge, createItemKnowledge());
   assert.equal(validateRun(migrated), true);
 });

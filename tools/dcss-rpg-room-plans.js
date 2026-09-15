@@ -1,4 +1,6 @@
-export const FLOORS_PER_CHAPTER = 2;
+import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
+
+export { FLOORS_PER_CHAPTER };
 
 const deepFreeze = (value) => {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;

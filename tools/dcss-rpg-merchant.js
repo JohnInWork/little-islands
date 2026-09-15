@@ -1,18 +1,40 @@
 import { LOOT_CATALOG, lootById } from './dcss-rpg-content.js';
-import { materializeItemAffixes, rollItemAffixes } from './dcss-rpg-affixes.js';
+import {
+  materializeItemAffixes,
+  rollItemAffixes,
+  validateItemAffixIds,
+} from './dcss-rpg-affixes.js';
+import {
+  materializeProceduralArtifact,
+  validateProceduralArtifactState,
+} from './dcss-rpg-artifacts.js';
 import { effectiveLootDepth, itemPowerScore } from './dcss-rpg-scaling.js';
+import {
+  commandAccepted,
+  commandRejected,
+  gameEvent,
+} from './dcss-rpg-game-commands.js';
 
 export const MERCHANT_ACTOR_PATH = 'mon/human.png';
 export const MERCHANT_ICON_PATH = 'dngn/shops/shop_gadgets.png';
 export const MERCHANT_STOCK_MIN = 4;
 export const MERCHANT_STOCK_MAX = 6;
 export const MERCHANT_INVENTORY_LIMIT = 12;
+export const MERCHANT_BUYBACK_LIMIT = 8;
+export const MERCHANT_COMMANDS = Object.freeze({
+  buy: 'merchant-buy',
+  buyback: 'merchant-buyback',
+  sell: 'merchant-sell',
+});
 
 // One public profile keeps economy tuning out of the UI and room generator.
 export const MERCHANT_ECONOMY = Object.freeze({
   buyMultiplier: 1,
   sellMultiplier: 0.34,
+  buybackMultiplier: 0.68,
   nextDepthPreview: 1,
+  startingGold: 60,
+  goldPerDepth: 18,
 });
 
 export const MERCHANT_VARIANTS = Object.freeze({
@@ -47,6 +69,50 @@ function stableHash(...parts) {
   return value >>> 0;
 }
 
+function cloneItemRecord(item) {
+  const definition = lootById(item?.id);
+  return {
+    id: item.id,
+    uid: item.uid,
+    ...(item.stack ? { stack: item.stack } : {}),
+    ...(item.affixIds ? { affixIds: [...item.affixIds] } : {}),
+    ...(item.artifactPowerId
+      ? {
+          artifactPowerId: item.artifactPowerId,
+          artifactCurseId: item.artifactCurseId ?? null,
+        }
+      : definition?.slot
+        ? { artifactPowerId: null, artifactCurseId: null }
+        : {}),
+  };
+}
+
+function validItemRecord(item) {
+  const definition = lootById(item?.id);
+  return Boolean(
+    definition
+    && typeof item.uid === 'string'
+    && item.uid.length >= 1
+    && item.uid.length <= 80
+    && validateItemAffixIds(definition, item.affixIds, { required: Boolean(definition.slot) })
+    && validateProceduralArtifactState(definition, item)
+    && (item.stack === undefined || (
+      Number.isInteger(item.stack)
+      && item.stack >= 1
+      && item.stack <= 999
+    )),
+  );
+}
+
+function materializeRecord(record) {
+  const definition = lootById(record?.id);
+  if (!definition) return null;
+  return materializeProceduralArtifact(
+    materializeItemAffixes(definition, record),
+    record,
+  );
+}
+
 function stableOrder(seed, depth, roomIndex, salt, item) {
   return stableHash('merchant-v1', seed, depth, roomIndex, salt, item.id);
 }
@@ -74,6 +140,23 @@ export function merchantBuyPrice(item, economy = MERCHANT_ECONOMY) {
 export function merchantSellPrice(item, economy = MERCHANT_ECONOMY) {
   return Math.max(1, Math.floor(baseItemPrice(item) * economy.sellMultiplier))
     * Math.max(1, item?.stack ?? 1);
+}
+
+export function merchantBuybackPrice(item, economy = MERCHANT_ECONOMY) {
+  const stack = Math.max(1, item?.stack ?? 1);
+  return Math.max(
+    merchantSellPrice(item, economy) + 1,
+    Math.ceil(baseItemPrice(item) * economy.buybackMultiplier) * stack,
+  );
+}
+
+export function merchantStartingGold(merchant, depth, economy = MERCHANT_ECONOMY) {
+  if (!merchant || !Number.isInteger(depth) || depth < 1) {
+    throw new TypeError('Merchant purse requires a merchant and positive depth');
+  }
+  return economy.startingGold
+    + depth * economy.goldPerDepth
+    + stableHash('merchant-purse-v1', merchant.instanceId, merchant.variantId) % 17;
 }
 
 function merchantItemRecord({ seed, depth, roomIndex, item, index }) {
@@ -139,55 +222,245 @@ export function merchantPresentation(variantId, language = 'ru') {
   const locale = language === 'en' ? 'en' : 'ru';
   return Object.freeze({
     name: variant.labels[locale],
+    trade: locale === 'ru' ? 'Торговля' : 'Trade',
     buy: locale === 'ru' ? 'Купить' : 'Buy',
     sell: locale === 'ru' ? 'Продать' : 'Sell',
     empty: locale === 'ru' ? 'Нечего продавать' : 'Nothing to sell',
     sold: locale === 'ru' ? 'Продано' : 'Sold',
+    buyback: locale === 'ru' ? 'Обратный выкуп' : 'Buyback',
     full: locale === 'ru' ? 'Рюкзак заполнен' : 'Backpack is full',
     poor: locale === 'ru' ? 'Недостаточно золота' : 'Not enough gold',
+    merchantPoor: locale === 'ru' ? 'У торговца недостаточно золота' : 'Merchant has insufficient gold',
+    merchantFull: locale === 'ru' ? 'Торговец больше не принимает вещи' : 'Merchant cannot hold more items',
+    playerGold: locale === 'ru' ? 'Твоё золото' : 'Your gold',
+    merchantGold: locale === 'ru' ? 'Золото торговца' : 'Merchant gold',
+    purchased: locale === 'ru' ? 'Куплено' : 'Purchased',
     close: locale === 'ru' ? 'Закрыть торговлю' : 'Close trade',
   });
 }
 
-export function buyMerchantItem({ merchant, entryId, purchasedIds = [], gold, items, inventory } = {}) {
-  const entry = merchant?.stock?.find((candidate) => candidate.entryId === entryId);
-  if (!entry) return Object.freeze({ ok: false, reason: 'unknown-item' });
-  if (purchasedIds.includes(entryId)) return Object.freeze({ ok: false, reason: 'sold' });
-  if (!Number.isInteger(gold) || gold < entry.price) return Object.freeze({ ok: false, reason: 'poor' });
-  if (!Array.isArray(inventory) || inventory.length >= MERCHANT_INVENTORY_LIMIT) {
-    return Object.freeze({ ok: false, reason: 'full' });
+export function createMerchantStates({ merchants, depth, purchasedIds = [] } = {}) {
+  if (!Array.isArray(merchants) || !Number.isInteger(depth) || depth < 1 || !Array.isArray(purchasedIds)) {
+    throw new TypeError('Merchant states require generated merchants and positive depth');
   }
-  if (!Array.isArray(items) || items.some(({ uid }) => uid === entry.record.uid)) {
-    return Object.freeze({ ok: false, reason: 'duplicate' });
-  }
-  return Object.freeze({
-    ok: true,
-    state: Object.freeze({
-      gold: gold - entry.price,
-      items: Object.freeze([...items.map((item) => ({ ...item })), { ...entry.record }]),
-      inventory: Object.freeze([...inventory, entry.record.uid]),
-      purchasedIds: Object.freeze([...purchasedIds, entryId]),
-    }),
-  });
+  return Object.freeze(merchants.map((merchant) => {
+    const purchases = merchant.stock
+      .filter(({ entryId }) => purchasedIds.includes(entryId))
+      .map(({ entryId }) => entryId);
+    const purchaseValue = merchant.stock
+      .filter(({ entryId }) => purchases.includes(entryId))
+      .reduce((sum, { price }) => sum + price, 0);
+    return Object.freeze({
+      merchantId: merchant.instanceId,
+      gold: merchantStartingGold(merchant, depth) + purchaseValue,
+      purchasedEntryIds: Object.freeze(purchases),
+      buyback: Object.freeze([]),
+    });
+  }));
 }
 
-export function sellMerchantItem({ uid, gold, items, inventory } = {}) {
-  const record = items?.find((item) => item.uid === uid);
-  const definition = lootById(record?.id);
-  if (!record || !definition || !inventory?.includes(uid)) {
-    return Object.freeze({ ok: false, reason: 'unknown-item' });
+export function validateMerchantStateShape(states, depth) {
+  if (
+    !Array.isArray(states)
+    || !Number.isInteger(depth)
+    || depth < 1
+    || states.length > 1
+  ) return false;
+  const merchantIds = states.map(({ merchantId } = {}) => merchantId);
+  if (new Set(merchantIds).size !== merchantIds.length) return false;
+  const storedUids = [];
+  for (const state of states) {
+    if (
+      !state
+      || !new RegExp(`^merchant-${depth}-\\d+$`).test(state.merchantId)
+      || !Number.isSafeInteger(state.gold)
+      || state.gold < 0
+      || state.gold > 1_000_000_000
+      || !Array.isArray(state.purchasedEntryIds)
+      || state.purchasedEntryIds.length > MERCHANT_STOCK_MAX
+      || new Set(state.purchasedEntryIds).size !== state.purchasedEntryIds.length
+      || !Array.isArray(state.buyback)
+      || state.buyback.length > MERCHANT_BUYBACK_LIMIT
+    ) return false;
+    if (state.purchasedEntryIds.some((entryId) => (
+      typeof entryId !== 'string'
+      || !new RegExp(`^merchant-entry-${depth}-\\d+-\\d+$`).test(entryId)
+    ))) return false;
+    for (const entry of state.buyback) {
+      if (
+        !entry
+        || !validItemRecord(entry.record)
+        || !Number.isSafeInteger(entry.price)
+        || entry.price < 1
+        || entry.price > 1_000_000_000
+      ) return false;
+      storedUids.push(entry.record.uid);
+    }
   }
-  const item = materializeItemAffixes(definition, record);
+  return new Set(storedUids).size === storedUids.length;
+}
+
+export function validateMerchantStates(states, merchants, depth) {
+  if (
+    !validateMerchantStateShape(states, depth)
+    || !Array.isArray(merchants)
+    || states.length !== merchants.length
+  ) return false;
+  const merchantById = new Map(merchants.map((merchant) => [merchant.instanceId, merchant]));
+  if (merchantById.size !== merchants.length) return false;
+  for (const state of states) {
+    const merchant = merchantById.get(state.merchantId);
+    if (!merchant) return false;
+    const stockById = new Map(merchant.stock.map((entry) => [entry.entryId, entry]));
+    if (state.purchasedEntryIds.some((entryId) => !stockById.has(entryId))) return false;
+    const stockByUid = new Map(merchant.stock.map((entry) => [entry.record.uid, entry]));
+    for (const entry of state.buyback) {
+      const stockEntry = stockByUid.get(entry.record.uid);
+      if (stockEntry && !state.purchasedEntryIds.includes(stockEntry.entryId)) return false;
+    }
+  }
+  return true;
+}
+
+export function merchantStateFor(states, merchantId) {
+  return states?.find((state) => state.merchantId === merchantId) ?? null;
+}
+
+function validPlayerState(items, inventory) {
+  return Array.isArray(items)
+    && Array.isArray(inventory)
+    && inventory.length <= MERCHANT_INVENTORY_LIMIT
+    && new Set(items.map(({ uid } = {}) => uid)).size === items.length
+    && new Set(inventory).size === inventory.length
+    && inventory.every((uid) => items.some((item) => item.uid === uid));
+}
+
+function validMerchantCommand(command, merchant, merchantState, type) {
+  const depth = Number(merchant?.instanceId?.split('-')[1]);
+  return Boolean(
+    command?.type === type
+    && command.targetId === merchant?.instanceId
+    && merchantState?.merchantId === merchant?.instanceId
+    && validateMerchantStates([merchantState], [merchant], depth)
+  );
+}
+
+function receiveItem({ record, items, inventory }) {
+  const definition = lootById(record.id);
+  const merge = !definition.slot
+    ? items.find((item) => inventory.includes(item.uid) && item.id === record.id && !item.affixIds)
+    : null;
+  if (!merge && inventory.length >= MERCHANT_INVENTORY_LIMIT) return null;
+  if (!merge && items.some((item) => item.uid === record.uid)) return null;
+  return {
+    items: merge
+      ? items.map((item) => item.uid === merge.uid
+        ? { ...item, stack: (item.stack ?? 1) + (record.stack ?? 1) }
+        : { ...item })
+      : [...items.map((item) => ({ ...item })), cloneItemRecord(record)],
+    inventory: merge ? [...inventory] : [...inventory, record.uid],
+    mergedInto: merge?.uid ?? null,
+  };
+}
+
+export function buyMerchantItem({ command, merchant, merchantState, entryId, gold, items, inventory } = {}) {
+  if (!validMerchantCommand(command, merchant, merchantState, MERCHANT_COMMANDS.buy)) {
+    return commandRejected(command, 'invalid');
+  }
+  const entry = merchant?.stock?.find((candidate) => candidate.entryId === entryId);
+  if (!entry) return commandRejected(command, 'unknown-item');
+  if (merchantState.purchasedEntryIds.includes(entryId)) return commandRejected(command, 'sold');
+  if (!validPlayerState(items, inventory) || !Number.isSafeInteger(gold) || gold < 0) {
+    return commandRejected(command, 'invalid-state');
+  }
+  if (gold < entry.price) return commandRejected(command, 'poor');
+  const received = receiveItem({ record: entry.record, items, inventory });
+  if (!received) return commandRejected(command, inventory.length >= MERCHANT_INVENTORY_LIMIT ? 'full' : 'duplicate');
+  return commandAccepted(command, {
+    merchantState: {
+      ...merchantState,
+      gold: merchantState.gold + entry.price,
+      purchasedEntryIds: [...merchantState.purchasedEntryIds, entryId],
+      buyback: merchantState.buyback.map((candidate) => ({
+        ...candidate,
+        record: cloneItemRecord(candidate.record),
+      })),
+    },
+    transactionAmount: entry.price,
+    gold: gold - entry.price,
+    items: received.items,
+    inventory: received.inventory,
+  }, [gameEvent(command, 0, 'merchant-item-bought', {
+    entryId,
+    uid: entry.record.uid,
+    price: entry.price,
+    mergedInto: received.mergedInto,
+  })]);
+}
+
+export function sellMerchantItem({ command, merchant, merchantState, uid, gold, items, inventory } = {}) {
+  if (!validMerchantCommand(command, merchant, merchantState, MERCHANT_COMMANDS.sell)) {
+    return commandRejected(command, 'invalid');
+  }
+  if (!validPlayerState(items, inventory) || !Number.isSafeInteger(gold) || gold < 0) {
+    return commandRejected(command, 'invalid-state');
+  }
+  const record = items?.find((item) => item.uid === uid);
+  const item = materializeRecord(record);
+  if (!record || !item || !inventory.includes(uid)) return commandRejected(command, 'unknown-item');
   const price = merchantSellPrice(item);
-  return Object.freeze({
-    ok: true,
-    price,
-    state: Object.freeze({
-      gold: gold + price,
-      items: Object.freeze(items.filter((candidate) => candidate.uid !== uid).map((candidate) => ({ ...candidate }))),
-      inventory: Object.freeze(inventory.filter((candidate) => candidate !== uid)),
-    }),
-  });
+  if (merchantState.gold < price) return commandRejected(command, 'merchant-poor');
+  if (merchantState.buyback.length >= MERCHANT_BUYBACK_LIMIT) {
+    return commandRejected(command, 'merchant-full');
+  }
+  const buybackPrice = merchantBuybackPrice(item);
+  return commandAccepted(command, {
+    merchantState: {
+      ...merchantState,
+      gold: merchantState.gold - price,
+      purchasedEntryIds: [...merchantState.purchasedEntryIds],
+      buyback: [
+        ...merchantState.buyback.map((entry) => ({ ...entry, record: cloneItemRecord(entry.record) })),
+        { record: cloneItemRecord(record), price: buybackPrice },
+      ],
+    },
+    transactionAmount: price,
+    gold: gold + price,
+    items: items.filter((candidate) => candidate.uid !== uid).map((candidate) => ({ ...candidate })),
+    inventory: inventory.filter((candidate) => candidate !== uid),
+  }, [gameEvent(command, 0, 'merchant-item-sold', { uid, price, buybackPrice })]);
+}
+
+export function buybackMerchantItem({ command, merchant, merchantState, uid, gold, items, inventory } = {}) {
+  if (!validMerchantCommand(command, merchant, merchantState, MERCHANT_COMMANDS.buyback)) {
+    return commandRejected(command, 'invalid');
+  }
+  if (!validPlayerState(items, inventory) || !Number.isSafeInteger(gold) || gold < 0) {
+    return commandRejected(command, 'invalid-state');
+  }
+  const entry = merchantState.buyback.find(({ record }) => record.uid === uid);
+  if (!entry) return commandRejected(command, 'unknown-item');
+  if (gold < entry.price) return commandRejected(command, 'poor');
+  const received = receiveItem({ record: entry.record, items, inventory });
+  if (!received) return commandRejected(command, inventory.length >= MERCHANT_INVENTORY_LIMIT ? 'full' : 'duplicate');
+  return commandAccepted(command, {
+    merchantState: {
+      ...merchantState,
+      gold: merchantState.gold + entry.price,
+      purchasedEntryIds: [...merchantState.purchasedEntryIds],
+      buyback: merchantState.buyback
+        .filter(({ record }) => record.uid !== uid)
+        .map((candidate) => ({ ...candidate, record: cloneItemRecord(candidate.record) })),
+    },
+    transactionAmount: entry.price,
+    gold: gold - entry.price,
+    items: received.items,
+    inventory: received.inventory,
+  }, [gameEvent(command, 0, 'merchant-item-bought-back', {
+    uid,
+    price: entry.price,
+    mergedInto: received.mergedInto,
+  })]);
 }
 
 export function validateMerchantPurchaseIds(ids, merchants, depth) {

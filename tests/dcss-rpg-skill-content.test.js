@@ -57,6 +57,12 @@ test('future skill availability requires explicit runtime system support', () =>
   assert.deepEqual(skillById('swords').requiresSystems, ['sword-rhythm']);
   assert.deepEqual(skillById('axes').requiresSystems, ['weapon-cleave']);
   assert.deepEqual(skillById('shield').requiresSystems, ['shield-blocking']);
+  assert.deepEqual(skillById('pyromancy').requiresSystems, ['fire-spread']);
+  assert.deepEqual(skillById('pyromancy').attributeRequirements, { intelligence: [4, 7, 10] });
+  assert.deepEqual(skillById('cryomancy').requiresSystems, ['frost-buildup']);
+  assert.deepEqual(skillById('cryomancy').attributeRequirements, { intelligence: [4, 7, 10] });
+  assert.deepEqual(skillById('storm-magic').requiresSystems, ['chain-lightning']);
+  assert.deepEqual(skillById('storm-magic').attributeRequirements, { intelligence: [5, 8, 11] });
 });
 
 test('catalog is deeply immutable so consumers cannot alter global rules', () => {

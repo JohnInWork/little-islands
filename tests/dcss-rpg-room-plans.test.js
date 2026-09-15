@@ -16,7 +16,7 @@ import { floorScaling } from '../tools/dcss-rpg-scaling.js';
 import { biomeThemeForDepth } from '../tools/dcss-rpg-visuals.js';
 
 test('dungeon themes own compatible surfaces, chests and room families', () => {
-  assert.equal(FLOORS_PER_CHAPTER, 2);
+  assert.equal(FLOORS_PER_CHAPTER, 3);
   assert.equal(new Set(DUNGEON_THEME_CATALOG.map(({ id }) => id)).size, DUNGEON_THEME_CATALOG.length);
   assert.equal(new Set(ROOM_ARCHETYPE_CATALOG.map(({ id }) => id)).size, ROOM_ARCHETYPE_CATALOG.length);
   for (const theme of DUNGEON_THEME_CATALOG) {

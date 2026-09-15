@@ -44,6 +44,7 @@ import {
   FINAL_DEPTH,
   SANCTUARY_COST,
   canClaimFinalArtifact,
+  canLeaveDungeonFloor,
   isTerminalRunStatus,
   goldRewardForMonster,
   useSanctuary,
@@ -138,13 +139,27 @@ import {
 import { contextActionModel } from './dcss-rpg-context-actions.js';
 import {
   MERCHANT_ACTOR_PATH,
+  MERCHANT_COMMANDS,
   MERCHANT_ICON_PATH,
+  buybackMerchantItem,
   buyMerchantItem,
+  createMerchantStates,
   merchantPresentation,
   merchantSellPrice,
+  merchantStateFor,
   sellMerchantItem,
 } from './dcss-rpg-merchant.js';
 import { CHEST_RESOURCE_IDS, chestVisualFrames } from './dcss-rpg-chests.js';
+import {
+  CHEST_CONTAINER_CAPACITY,
+  CHEST_CONTAINER_COMMANDS,
+  HERO_BACKPACK_CAPACITY,
+  createChestContainerStates,
+  openChestContainer as openChestContainerState,
+  storeChestItem,
+  takeChestGold,
+  takeChestItem,
+} from './dcss-rpg-chest-containers.js';
 import {
   PLAYER_TRAP_ITEM_ID,
   PLAYER_TRAP_PATH,
@@ -156,6 +171,7 @@ import {
   ACTOR_EFFECTS,
   activeActorEffects,
   actorEffectModifiers,
+  applyActorEffect,
   clearActorEffects,
   createActorEffects,
   monsterInfliction,
@@ -203,8 +219,39 @@ import {
 import {
   READ_BOOK_COMMAND,
   createBookStudy,
+  bookOutcome,
+  readSpellBook,
   readSkillBook,
 } from './dcss-rpg-books.js';
+import {
+  createSpellState,
+  knownSpellModel,
+  prepareSpell,
+  pyromancySpreadProfile,
+  spellBarModel,
+  spellById,
+  spellDamage,
+  spellHealing,
+  spellMagic,
+  spellStatus,
+  spellUseAvailability,
+  toggleSustainedSpell,
+} from './dcss-rpg-spells.js';
+import {
+  cryomancyHitProfile,
+  cryomancyShatterDamage,
+  selectCryomancyShatterTargets,
+} from './dcss-rpg-cryomancy.js';
+import {
+  selectStormChainTargets,
+  stormChainDamage,
+  stormChainProfile,
+} from './dcss-rpg-storm-magic.js';
+import {
+  blinkTargetCells,
+  resolveBlink,
+  resolveTargetedItemUse,
+} from './dcss-rpg-targeting.js';
 import {
   PASSIVE_CREATURE_PATHS,
   choosePassiveWanderTarget,
@@ -286,6 +333,12 @@ const characterSkills = document.querySelector('#character-skills');
 const characterSkillsTitle = document.querySelector('#character-skills-title');
 const characterSkillPoints = document.querySelector('#character-skill-points');
 const characterSkillGroups = document.querySelector('#character-skill-groups');
+const characterSpells = document.querySelector('#character-spells');
+const characterSpellsTitle = document.querySelector('#character-spells-title');
+const characterSpellsHint = document.querySelector('#character-spells-hint');
+const characterSpellsIntelligence = document.querySelector('#character-spells-intelligence');
+const characterSpellSlots = document.querySelector('#character-spell-slots');
+const characterKnownSpells = document.querySelector('#character-known-spells');
 const characterPaperdoll = document.querySelector('#character-paperdoll');
 const characterPaperContext = characterPaperdoll.getContext('2d');
 const characterIdentity = characterSheet.querySelector('.character-identity');
@@ -293,6 +346,8 @@ const moveControl = document.querySelector('#move-control');
 const moveStick = document.querySelector('#move-stick');
 const moveDirectionButtons = [...moveControl.querySelectorAll('[data-move]')];
 const moveMarker = document.querySelector('#move-marker');
+const spellBar = document.querySelector('#spell-bar');
+const spellActionButtons = [...spellBar.querySelectorAll('[data-spell-slot]')];
 const bagButton = document.querySelector('#bag');
 const interactActionButton = document.querySelector('#interact-action');
 const interactActionIcon = document.querySelector('#interact-action-icon');
@@ -301,8 +356,18 @@ const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
 const closeInventoryButton = document.querySelector('#close-inventory');
 const inventoryTitle = document.querySelector('#inventory-title');
+const inventoryViewSwitcher = inventory.querySelector('.inventory-view-switcher');
+const inventoryViewButtons = [...inventoryViewSwitcher.querySelectorAll('[data-pack-view]')];
 const inventoryFilters = document.querySelector('#inventory-filters');
 const inventoryFilterButtons = [...inventoryFilters.querySelectorAll('[data-inventory-filter]')];
+const inventoryPaperdoll = document.querySelector('#inventory-paperdoll');
+const inventoryPaperContext = inventoryPaperdoll.getContext('2d');
+const inventoryEquippedCount = document.querySelector('#inventory-equipped-count');
+const inventoryEquipmentSlots = document.querySelector('#inventory-equipment-slots');
+const inventoryEquipmentButtons = [...inventoryEquipmentSlots.querySelectorAll('[data-equip]')];
+const inventoryEquipmentPlaceholderIcons = new Map(
+  inventoryEquipmentButtons.map((button) => [button.dataset.equip, button.querySelector('img').getAttribute('src')]),
+);
 const packGrid = document.querySelector('#pack-grid');
 const salvageButton = document.querySelector('#salvage');
 const salvageCount = document.querySelector('#salvage-count');
@@ -350,15 +415,34 @@ const merchantShop = document.querySelector('#merchant-shop');
 const merchantShopPortrait = document.querySelector('#merchant-shop-portrait');
 const merchantShopTitle = document.querySelector('#merchant-shop-title');
 const merchantShopGold = document.querySelector('#merchant-shop-gold');
+const merchantShopFunds = document.querySelector('#merchant-shop-funds');
 const merchantShopTabs = document.querySelector('#merchant-shop-tabs');
 const merchantShopTabButtons = [...merchantShopTabs.querySelectorAll('[data-merchant-tab]')];
 const merchantShopList = document.querySelector('#merchant-shop-list');
 const merchantShopFeedback = document.querySelector('#merchant-shop-feedback');
 const closeMerchantShopButton = document.querySelector('#close-merchant-shop');
+const chestContainer = document.querySelector('#chest-container');
+const chestContainerIcon = document.querySelector('#chest-container-icon');
+const chestContainerTitle = document.querySelector('#chest-container-title');
+const chestContainerStateLabel = document.querySelector('#chest-container-state');
+const chestStorageTitle = document.querySelector('#chest-storage-title');
+const chestStorageCount = document.querySelector('#chest-storage-count');
+const chestStorageList = document.querySelector('#chest-storage-list');
+const chestBackpackTitle = document.querySelector('#chest-backpack-title');
+const chestBackpackCount = document.querySelector('#chest-backpack-count');
+const chestBackpackList = document.querySelector('#chest-backpack-list');
+const chestContainerFeedback = document.querySelector('#chest-container-feedback');
+const closeChestContainerButton = document.querySelector('#close-chest-container');
 const trapPlacement = document.querySelector('#trap-placement');
 const trapPlacementLabel = document.querySelector('#trap-placement-label');
 const trapPlacementTargets = document.querySelector('#trap-placement-targets');
 const cancelTrapPlacementButton = document.querySelector('#cancel-trap-placement');
+const abilityTargeting = document.querySelector('#ability-targeting');
+const abilityTargetingPrompt = abilityTargeting.querySelector('.ability-targeting-prompt');
+const abilityTargetingLabel = document.querySelector('#ability-targeting-label');
+const abilityTargetingIcon = document.querySelector('#ability-targeting-icon');
+const abilityTargetingTargets = document.querySelector('#ability-targeting-targets');
+const cancelAbilityTargetingButton = document.querySelector('#cancel-ability-targeting');
 const itemDetail = document.querySelector('#item-detail');
 const itemDetailCard = itemDetail.querySelector('.item-detail-card');
 const closeItemDetailButton = document.querySelector('#close-item-detail');
@@ -389,6 +473,7 @@ function runtimeVisual(kind, id, channel, path, scale = 1, offsetY = 0) {
 
 const TILE = 64;
 const ITEM_LANGUAGE_KEY = 'little-islands:2d:item-language:v1';
+const INVENTORY_VIEW_KEY = 'dng-codex:inventory-view:v1';
 const IDENTIFIABLE_LOOT_IDS = identifiableItemIds(LOOT_CATALOG, null);
 const IDENTIFIABLE_LOOT_IDS_BY_GROUP = Object.freeze(Object.fromEntries(
   ['potion', 'scroll', 'wand', 'book'].map((group) => [group, identifiableItemIds(LOOT_CATALOG, group)]),
@@ -544,6 +629,8 @@ const hero = {
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
   skillStudy: createBookStudy(run.hero.skillStudy),
+  intelligence: run.hero.intelligence,
+  spells: createSpellState(run.hero.spells),
   hurt: 0,
   guardFlash: 0,
   invisibilityReveal: 0,
@@ -576,6 +663,10 @@ if (previewHuntNearSpawn && passiveCreatures[0]) {
 const sparks = [];
 const impactWaves = [];
 const projectiles = [];
+const lightningArcs = [];
+let lightningArcSequence = 0;
+const spellCooldowns = Object.create(null);
+let spellUiAccumulator = 0;
 const combatGlyphs = [];
 const bloodDrops = [];
 const bloodStains = [];
@@ -625,7 +716,9 @@ let ready = false;
 let uiScreen = 'menu';
 let selectedPackIndex = -1;
 let selectedEquipmentSlot = null;
+let selectedSpellSlot = 0;
 let inventoryFilter = 'all';
+let inventoryView = loadInventoryView();
 let salvageMode = false;
 let toastTimer = 0;
 let toastVisible = false;
@@ -649,10 +742,12 @@ let contextTarget = null;
 let contextInspected = false;
 let activeMerchant = null;
 let merchantTab = 'buy';
+let activeChestFindId = null;
 let hungerAccumulator = 0;
 let hungerAutosaveElapsed = 0;
 let currentHungerStageId = hungerStage(hero.hunger).id;
 let trapPlacementState = null;
+let abilityTargetingState = null;
 let placedTraps = run.floor.placedTraps.map((trap) => ({ ...trap }));
 let lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
 const markedForSalvage = new Set();
@@ -690,6 +785,47 @@ function persistItemDetailLanguage() {
   } catch {
     // Language remains active for this tab when storage is unavailable.
   }
+}
+
+function loadInventoryView() {
+  try {
+    return localStorage.getItem(INVENTORY_VIEW_KEY) === 'table' ? 'table' : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
+
+function persistInventoryView() {
+  try {
+    localStorage.setItem(INVENTORY_VIEW_KEY, inventoryView);
+  } catch {
+    // The chosen view remains active for this tab when storage is unavailable.
+  }
+}
+
+function updateInventoryViewUi() {
+  const labels = currentMainMenuModel().labels;
+  inventoryViewSwitcher.setAttribute('aria-label', labels.inventoryView);
+  packPanel.dataset.view = inventoryView;
+  for (const button of inventoryViewButtons) {
+    const active = button.dataset.packView === inventoryView;
+    const label = button.dataset.packView === 'table'
+      ? labels.inventoryTable
+      : labels.inventoryGrid;
+    button.setAttribute('aria-pressed', String(active));
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  }
+}
+
+function setInventoryView(view) {
+  const nextView = view === 'table' ? 'table' : 'grid';
+  if (inventoryView === nextView) return false;
+  inventoryView = nextView;
+  persistInventoryView();
+  updateInventoryViewUi();
+  renderPack();
+  return true;
 }
 
 function updateInventoryFilterUi() {
@@ -780,6 +916,9 @@ function renderMainMenu() {
   characterIdentity.setAttribute('aria-label', labels.characterDevelopment);
   characterPaperdoll.setAttribute('aria-label', labels.equippedHero);
   packPanel.setAttribute('aria-label', labels.backpackItems);
+  inventoryPaperdoll.setAttribute('aria-label', labels.equippedHero);
+  inventoryEquipmentSlots.setAttribute('aria-label', labels.equippedGear);
+  updateInventoryViewUi();
   updateInventoryFilterUi();
   salvageButton.setAttribute('aria-label', labels.salvage);
   salvageConfirm.setAttribute('aria-label', labels.salvageConfirm);
@@ -821,6 +960,7 @@ function setInterfaceLanguage(language) {
   renderPack();
   if (toastVisible && activeLootToastEntry) renderLootToast(activeLootToastEntry);
   if (uiScreen === 'merchant') renderMerchantShop();
+  if (uiScreen === 'chest') renderChestContainer();
   updateHud();
 }
 
@@ -961,6 +1101,9 @@ function createFindDefinitions(level) {
           skinIds: roomPlan?.chestSkinId ? [roomPlan.chestSkinId] : null,
         })
       : null;
+    const container = find.id === 'sealed-cache'
+      ? run.floor.chests.find(({ findId }) => findId === find.instanceId)
+      : null;
     return {
       ...find,
       definition: {
@@ -973,8 +1116,23 @@ function createFindDefinitions(level) {
       x: (find.x + 0.5) * TILE,
       y: (find.y + 0.5) * TILE,
       resolved: find.resolved || run.floor.resolvedFindIds.includes(find.instanceId),
+      containerOpened: container?.opened === true,
+      containerDestroyed: container?.destroyed === true,
+      consumedByMimic: container?.destroyed === true && find.cacheVariant === 'mimic',
     };
   });
+}
+
+function openedChestIsInteractable(find) {
+  return Boolean(
+    find?.id === 'sealed-cache'
+    && find.containerOpened
+    && !find.consumedByMimic,
+  );
+}
+
+function findIsInteractable(find) {
+  return Boolean(find && (!find.resolved || openedChestIsInteractable(find)));
 }
 
 function findSpritePath(find) {
@@ -1005,6 +1163,8 @@ function captureRun() {
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
     skillStudy: createBookStudy(hero.skillStudy),
+    intelligence: hero.intelligence,
+    spells: createSpellState(hero.spells),
   };
   run.gold = gold;
   run.status = runStatus;
@@ -1029,6 +1189,45 @@ function captureRun() {
     .filter(({ resolved }) => resolved)
     .map(({ instanceId }) => instanceId)
     .sort();
+  run.floor.chests = run.floor.chests.map((container) => ({
+    ...container,
+    items: container.items.map((item) => ({
+      id: item.id,
+      uid: item.uid,
+      ...(item.stack ? { stack: item.stack } : {}),
+      ...(item.affixIds ? { affixIds: [...item.affixIds] } : {}),
+      ...(item.artifactPowerId
+        ? {
+            artifactPowerId: item.artifactPowerId,
+            artifactCurseId: item.artifactCurseId ?? null,
+          }
+        : lootById(item.id)?.slot
+          ? { artifactPowerId: null, artifactCurseId: null }
+          : {}),
+    })),
+  }));
+  run.floor.merchants = run.floor.merchants.map((merchantState) => ({
+    merchantId: merchantState.merchantId,
+    gold: merchantState.gold,
+    purchasedEntryIds: [...merchantState.purchasedEntryIds],
+    buyback: merchantState.buyback.map(({ record, price }) => ({
+      price,
+      record: {
+        id: record.id,
+        uid: record.uid,
+        ...(record.stack ? { stack: record.stack } : {}),
+        ...(record.affixIds ? { affixIds: [...record.affixIds] } : {}),
+        ...(record.artifactPowerId
+          ? {
+              artifactPowerId: record.artifactPowerId,
+              artifactCurseId: record.artifactCurseId ?? null,
+            }
+          : lootById(record.id)?.slot
+            ? { artifactPowerId: null, artifactCurseId: null }
+            : {}),
+      },
+    })),
+  }));
   run.floor.monsters = monsters
     .filter((monster) => monster.dead === 0)
     .map((monster) => ({
@@ -1037,6 +1236,7 @@ function captureRun() {
       y: monster.y / TILE - 0.5,
       hp: monster.hp,
       attackSequence: monster.attackSequence,
+      effects: createActorEffects(monster.effects),
     }));
   run.floor.passives = passiveCreatures.map((creature) => ({
     instanceId: creature.instanceId,
@@ -1139,7 +1339,13 @@ function currentWeaponLoadout() {
 }
 
 function currentHeroMagic() {
-  return equipmentMagic(selected, itemInstances);
+  const gear = equipmentMagic(selected, itemInstances);
+  const spells = spellMagic(hero.spells, currentHeroStats().intelligence);
+  return Object.freeze({
+    ...gear,
+    flight: gear.flight || spells.flight,
+    invisibility: gear.invisibility || spells.invisibility,
+  });
 }
 
 function isHeroConcealed() {
@@ -1435,6 +1641,7 @@ function learnHeroSkill(skillId, expectedRank) {
     runStatus,
     skillId,
     expectedRank,
+    attributes: { intelligence: currentHeroStats().intelligence },
   });
   if (!result.ok) return result;
   hero.skills = result.state;
@@ -1454,6 +1661,7 @@ function renderCharacterSkills() {
     runStatus,
     language: itemDetailLanguage,
     rankAdjustments: hero.skillStudy.rankAdjustments,
+    attributes: { intelligence: currentHeroStats().intelligence },
   });
   characterSkills.hidden = !model.visible;
   characterSkillsTitle.textContent = model.title;
@@ -1492,6 +1700,122 @@ function renderCharacterSkills() {
       section.append(row);
     }
     return section;
+  }));
+}
+
+function spellCooldownSnapshot() {
+  return Object.fromEntries(Object.entries(spellCooldowns).map(([id, seconds]) => [id, seconds]));
+}
+
+function renderSpellBar() {
+  const model = spellBarModel({
+    state: hero.spells,
+    intelligence: currentHeroStats().intelligence,
+    cooldowns: spellCooldownSnapshot(),
+    language: itemDetailLanguage,
+  });
+  spellBar.setAttribute('aria-label', model.label);
+  for (const slot of model.slots) {
+    const button = spellActionButtons[slot.index];
+    const icon = button.querySelector('img');
+    const cooldown = button.querySelector('output');
+    button.setAttribute('aria-label', `${slot.index + 1}. ${slot.label}`);
+    button.title = slot.label;
+    button.dataset.active = String(Boolean(slot.active));
+    button.style.setProperty('--spell-color', slot.color ?? '#778284');
+    button.style.setProperty('--cooldown', String(slot.cooldownProgress ?? 0));
+    button.disabled = slot.empty || slot.intelligenceLocked || slot.cooldown > 0
+      || runStatus !== 'playing' || hero.dead;
+    icon.hidden = slot.empty;
+    if (!slot.empty) icon.src = assetUrl(slot.icon);
+    cooldown.textContent = slot.cooldown > 0 ? String(Math.ceil(slot.cooldown)) : '';
+  }
+}
+
+function setPreparedSpell(slotIndex, spellId) {
+  const result = prepareSpell(hero.spells, slotIndex, spellId);
+  if (!result.ok) return false;
+  hero.spells = result.state;
+  selectedSpellSlot = slotIndex;
+  renderSpellBar();
+  renderCharacterSpells();
+  persistRun();
+  return true;
+}
+
+function renderCharacterSpells() {
+  const stats = currentHeroStats();
+  const bar = spellBarModel({
+    state: hero.spells,
+    intelligence: stats.intelligence,
+    language: itemDetailLanguage,
+  });
+  const known = knownSpellModel(hero.spells, stats.intelligence, itemDetailLanguage);
+  const ru = itemDetailLanguage !== 'en';
+  characterSpells.hidden = known.length === 0;
+  characterSpellsTitle.textContent = ru ? 'Заклинания' : 'Spells';
+  characterSpellsHint.textContent = ru
+    ? 'Выбери слот, затем заклинание'
+    : 'Choose a slot, then a spell';
+  characterSpellsIntelligence.textContent = `✧ ${stats.intelligence}`;
+  characterSpellSlots.replaceChildren(...bar.slots.map((slot) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'character-spell-slot';
+    button.dataset.spellSlot = String(slot.index);
+    button.style.setProperty('--spell-color', slot.color ?? '#697577');
+    button.setAttribute('aria-pressed', String(slot.index === selectedSpellSlot));
+    button.setAttribute('aria-label', `${slot.index + 1}. ${slot.label}`);
+    const number = document.createElement('b');
+    number.textContent = String(slot.index + 1);
+    const icon = document.createElement('img');
+    icon.alt = '';
+    icon.hidden = slot.empty;
+    if (!slot.empty) icon.src = assetUrl(slot.icon);
+    const copy = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = slot.empty ? (ru ? 'Пусто' : 'Empty') : slot.name;
+    const kind = document.createElement('small');
+    kind.textContent = slot.empty ? (ru ? 'Выбери заклинание' : 'Choose a spell') : slot.status;
+    copy.append(name, kind);
+    button.append(number, icon, copy);
+    button.addEventListener('click', () => {
+      selectedSpellSlot = slot.index;
+      renderCharacterSpells();
+      requestAnimationFrame(() => characterSpellSlots.querySelector(`[data-spell-slot="${slot.index}"]`)?.focus());
+    });
+    return button;
+  }));
+  characterKnownSpells.replaceChildren(...known.map((spell) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'known-spell';
+    button.dataset.spellId = spell.id;
+    button.dataset.locked = String(spell.intelligenceLocked);
+    button.dataset.prepared = String(spell.preparedSlot >= 0);
+    button.style.setProperty('--spell-color', spell.color);
+    button.setAttribute(
+      'aria-label',
+      `${spell.name}. ${spell.description}. ${spell.requirement}`,
+    );
+    const icon = document.createElement('img');
+    icon.alt = '';
+    icon.src = assetUrl(spell.icon);
+    const copy = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = spell.name;
+    const details = document.createElement('small');
+    details.textContent = `${spell.kind} · ${spell.requirement}`;
+    copy.append(name, details);
+    const slot = document.createElement('b');
+    slot.textContent = spell.preparedSlot >= 0 ? ['I', 'II', 'III'][spell.preparedSlot] : '+';
+    button.append(icon, copy, slot);
+    button.addEventListener('click', () => {
+      const shouldClear = spell.preparedSlot === selectedSpellSlot;
+      setPreparedSpell(selectedSpellSlot, shouldClear ? null : spell.id);
+      requestAnimationFrame(() => characterKnownSpells.querySelector(`[data-spell-id="${spell.id}"]`)?.focus());
+    });
+    return button;
   }));
 }
 
@@ -1534,6 +1858,7 @@ function renderCharacterSheet() {
     }),
   );
   characterCombatTitle.textContent = model.combatTitle;
+  renderCharacterSpells();
   renderCharacterSkills();
   characterCombatGrid.replaceChildren(
     ...model.combatRows.map((stat) => {
@@ -1596,7 +1921,7 @@ function closeItemDetail({ restoreFocus = true } = {}) {
         : returnTarget?.source === 'pack'
           ? `[data-pack-index="${returnTarget.index}"]`
           : null;
-      (selector ? packGrid.querySelector(selector) : closeInventoryButton)?.focus();
+      (selector ? inventoryShell.querySelector(selector) : closeInventoryButton)?.focus();
     });
   }
   return true;
@@ -1652,6 +1977,7 @@ function resize() {
   voidSkyCanvas.height = Math.max(1, Math.ceil(viewportHeight / VOID_STAR_SCALE));
   voidSkyContext.imageSmoothingEnabled = false;
   if (trapPlacementState) renderTrapPlacementTargets();
+  if (abilityTargetingState) renderAbilityTargetingTargets();
 }
 
 function isWalkable(x, y) {
@@ -2678,6 +3004,56 @@ function drawProjectiles() {
       context.globalAlpha = Math.min(1, projectile.life * 3);
       context.fillRect(-13, -2, 24, 4);
       context.fillRect(7, -5, 5, 10);
+    } else if (projectile.kind === 'ember-bolt') {
+      context.globalAlpha *= 0.22;
+      context.fillStyle = '#7d3024';
+      context.fillRect(-25, -4, 14, 8);
+      context.fillStyle = '#c64d2d';
+      context.fillRect(-17, -6, 12, 12);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.fillStyle = '#ef7840';
+      context.fillRect(-8, -8, 16, 16);
+      context.fillStyle = '#ffd36e';
+      context.fillRect(-3, -5, 9, 10);
+      context.fillStyle = '#fff0a3';
+      context.fillRect(1, -2, 5, 4);
+    } else if (projectile.kind === 'frost-lance') {
+      context.globalAlpha *= 0.22;
+      context.fillStyle = '#386f82';
+      context.fillRect(-28, -3, 18, 6);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.fillStyle = '#69bfce';
+      context.fillRect(-16, -5, 20, 10);
+      context.fillStyle = '#b9f2ee';
+      context.fillRect(-6, -7, 16, 14);
+      context.fillStyle = '#effffc';
+      context.fillRect(5, -3, 10, 6);
+    } else if (projectile.kind === 'storm-bolt') {
+      context.globalAlpha *= 0.24;
+      context.fillStyle = '#315e79';
+      context.fillRect(-30, -4, 18, 8);
+      context.fillRect(-18, -7, 8, 4);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.fillStyle = '#55a9cb';
+      context.fillRect(-17, -7, 18, 14);
+      context.fillStyle = '#9ceafa';
+      context.fillRect(-7, -9, 17, 18);
+      context.fillStyle = '#f4ffff';
+      context.fillRect(3, -4, 12, 8);
+      context.fillRect(-1, -13, 4, 5);
+      context.fillRect(-5, 10, 4, 4);
+    } else if (projectile.kind === 'tide-wand') {
+      context.globalAlpha *= 0.2;
+      context.fillStyle = '#285968';
+      context.fillRect(-30, -4, 18, 8);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.fillStyle = '#438ca0';
+      context.fillRect(-18, -7, 18, 14);
+      context.fillStyle = '#72c7d3';
+      context.fillRect(-8, -9, 17, 18);
+      context.fillStyle = '#d3fbf8';
+      context.fillRect(4, -5, 12, 10);
+      context.fillRect(-2, -12, 5, 5);
     } else {
       context.globalAlpha *= 0.22;
       context.fillRect(-22, -4, 10, 8);
@@ -2686,6 +3062,63 @@ function drawProjectiles() {
       context.fillRect(-7, -7, 14, 14);
       context.fillStyle = '#d9f3ef';
       context.fillRect(-3, -3, 6, 6);
+    }
+    context.restore();
+  }
+}
+
+function drawLightningArcs() {
+  for (const arc of lightningArcs) {
+    const start = worldToScreen(arc.fromX, arc.fromY - 8);
+    const end = worldToScreen(arc.toX, arc.toY - 8);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const normalX = -dy / distance;
+    const normalY = dx / distance;
+    const segments = Math.max(5, Math.min(15, Math.ceil(distance / 18)));
+    const fade = Math.max(0, arc.life / arc.maxLife);
+    const points = [];
+    for (let index = 0; index <= segments; index += 1) {
+      const progress = index / segments;
+      const atEnd = index === 0 || index === segments;
+      const noise = atEnd
+        ? 0
+        : ((hash(arc.sequence, index, 347) % 9) - 4) * (reducedMotion ? 0.55 : 1);
+      points.push({
+        x: pixelRound(start.x + dx * progress + normalX * noise, 2),
+        y: pixelRound(start.y + dy * progress + normalY * noise, 2),
+      });
+    }
+    context.save();
+    for (const layer of [
+      { size: 8, color: '#3c98bd', alpha: fade * 0.42 },
+      { size: 4, color: '#d8fbff', alpha: fade },
+    ]) {
+      context.globalAlpha = layer.alpha;
+      context.fillStyle = layer.color;
+      for (let index = 1; index < points.length; index += 1) {
+        const from = points[index - 1];
+        const to = points[index];
+        const half = layer.size / 2;
+        context.fillRect(
+          Math.min(from.x, to.x) - half,
+          from.y - half,
+          Math.abs(to.x - from.x) + layer.size,
+          layer.size,
+        );
+        context.fillRect(
+          to.x - half,
+          Math.min(from.y, to.y) - half,
+          layer.size,
+          Math.abs(to.y - from.y) + layer.size,
+        );
+      }
+    }
+    context.globalAlpha = fade;
+    context.fillStyle = '#ffffff';
+    for (let index = 0; index < points.length; index += 3) {
+      context.fillRect(points[index].x - 2, points[index].y - 2, 4, 4);
     }
     context.restore();
   }
@@ -2747,6 +3180,54 @@ function drawMonster(monster) {
       Math.max(0, Math.round((width - 4) * (monster.hp / monster.maxHp))),
       2,
     );
+  }
+  if (monster.effects?.wet > 0 && monster.dead === 0) {
+    context.save();
+    const pulse = reducedMotion ? 0 : Math.round(Math.sin(elapsed * 4.2 + monster.phase) * 2);
+    context.fillStyle = ACTOR_EFFECTS.wet.color;
+    context.globalAlpha = 0.58;
+    for (let index = 0; index < 5; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const x = Math.round((position.x + side * (16 + (index % 3) * 6)) / 2) * 2;
+      const y = Math.round((position.y - 26 + index * 11 + pulse) / 2) * 2;
+      context.fillRect(x, y, index % 3 === 0 ? 6 : 4, index % 2 === 0 ? 8 : 6);
+      context.fillStyle = index % 2 === 0 ? '#a9e8e7' : ACTOR_EFFECTS.wet.color;
+    }
+    context.restore();
+  }
+  if (monster.effects?.chilled > 0 && monster.dead === 0) {
+    context.save();
+    context.fillStyle = '#8de0e5';
+    context.globalAlpha = 0.52;
+    const pulse = reducedMotion ? 0 : Math.round(Math.sin(elapsed * 5 + monster.phase) * 2);
+    for (let index = 0; index < 6; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const x = Math.round((position.x + side * (18 + (index % 3) * 4)) / 2) * 2;
+      const y = Math.round((position.y + 18 - index * 8 + pulse) / 2) * 2;
+      context.fillRect(x, y, index % 3 === 0 ? 6 : 4, 8);
+      context.fillStyle = index % 2 === 0 ? '#c9f7f3' : '#6fc8d5';
+    }
+    context.restore();
+  }
+  if (monster.effects?.frozen > 0 && monster.dead === 0) {
+    context.save();
+    const pulse = reducedMotion ? 0 : Math.round(Math.sin(elapsed * 7 + monster.phase) * 2);
+    const centerX = Math.round(position.x / 2) * 2;
+    const baseY = Math.round((position.y + 31) / 2) * 2;
+    context.globalAlpha = 0.72;
+    context.fillStyle = '#6ec8d8';
+    context.fillRect(centerX - 28, baseY - 8, 56, 8);
+    context.fillRect(centerX - 22, baseY - 28, 8, 22);
+    context.fillRect(centerX + 14, baseY - 28, 8, 22);
+    context.fillStyle = '#c9fbf6';
+    context.fillRect(centerX - 24, baseY - 10, 48, 4);
+    for (let index = 0; index < 5; index += 1) {
+      const x = centerX - 28 + index * 14;
+      const height = 14 + ((index * 7) % 18) + pulse;
+      context.fillRect(x, baseY - 8 - height, 4, height);
+      context.fillStyle = index % 2 === 0 ? '#eafffb' : '#83d9e2';
+    }
+    context.restore();
   }
 }
 
@@ -2968,11 +3449,16 @@ function drawEvents() {
   if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
     const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
     const finalFloor = dungeon.depth === FINAL_DEPTH;
+    const chapterGateLocked = Boolean(
+      dungeon.objective && !finalFloor && !objectiveBossDefeated(),
+    );
     const visual = finalFloor
       ? artifactAvailable()
         ? artifactVisual
         : finalGateVisual
-      : exitVisual;
+      : chapterGateLocked
+        ? finalGateVisual
+        : exitVisual;
     drawSprite(
       visual.path,
       (dungeon.exit.x + 0.5) * TILE,
@@ -3437,6 +3923,21 @@ function atmosphereLightSources() {
       beam: false,
     });
   }
+  for (const arc of lightningArcs.slice(-3)) {
+    const x = (arc.fromX + arc.toX) / 2;
+    const y = (arc.fromY + arc.toY) / 2;
+    sources.push({
+      id: `storm-arc:${arc.sequence}`,
+      x,
+      y,
+      gridX: Math.floor(x / TILE),
+      gridY: Math.floor(y / TILE),
+      color: '#8fe8ff',
+      radius: 2.4,
+      phase: arc.sequence * 0.37,
+      beam: false,
+    });
+  }
   return sources.filter(({ gridX, gridY }) => revealed.has(`${gridX},${gridY}`));
 }
 
@@ -3573,6 +4074,8 @@ function drawFog() {
 
 function updateGearUi() {
   drawPaperDoll();
+  drawPaperDollTo(inventoryPaperContext, inventoryPaperdoll);
+  renderEquippedPreview();
 }
 
 function drawPaperDollTo(targetContext, targetCanvas, profile = playerAppearance, withEquipment = true) {
@@ -3605,6 +4108,49 @@ function drawPaperDoll() {
   drawPaperDollTo(characterPaperContext, characterPaperdoll);
 }
 
+function renderEquippedPreview() {
+  const labels = currentMainMenuModel().labels;
+  let equippedCount = 0;
+
+  for (const button of inventoryEquipmentButtons) {
+    const slot = button.dataset.equip;
+    const item = equippedItem(slot);
+    const icon = button.querySelector('img');
+    const slotLabel = labels.slots[slot] ?? slot;
+    button.dataset.equippedSlot = slot;
+    button.classList.toggle('selected', slot === selectedEquipmentSlot);
+    button.classList.toggle('empty', !item);
+    button.disabled = !item;
+
+    if (!item) {
+      delete button.dataset.rarity;
+      icon.src = inventoryEquipmentPlaceholderIcons.get(slot);
+      button.title = slotLabel;
+      button.setAttribute('aria-label', `${slotLabel}: ${labels.emptySlot}`);
+      button.onclick = null;
+      continue;
+    }
+
+    equippedCount += 1;
+    const displayItem = presentedItem(item);
+    const presentation = itemPresentation(displayItem, itemDetailLanguage);
+    button.dataset.rarity = String(displayItem.rarity);
+    icon.src = assetUrl(displayItem.icon);
+    button.title = presentation.name;
+    button.setAttribute('aria-label', `${slotLabel}: ${presentation.name}`);
+    button.onclick = () => {
+      selectedPackIndex = -1;
+      selectedEquipmentSlot = slot;
+      renderEquippedPreview();
+      renderPack();
+      openItemDetail(item, { item, slot, source: 'equipment' });
+    };
+  }
+
+  inventoryEquippedCount.textContent = String(equippedCount);
+  inventoryEquippedCount.setAttribute('aria-label', `${labels.equippedTitle}: ${equippedCount}`);
+}
+
 function updateSalvageUi() {
   salvageButton.setAttribute('aria-pressed', String(salvageMode));
   document.body.dataset.salvage = String(salvageMode);
@@ -3628,6 +4174,7 @@ function renderPack() {
     items: itemInstances,
     filter: inventoryFilter,
     language: itemDetailLanguage,
+    includeEquipped: false,
   });
 
   for (const section of sections) {
@@ -3726,6 +4273,7 @@ function renderPack() {
   bagButton.querySelector('b').textContent = String(itemCount);
   inventoryCount.textContent = `${itemCount}/12`;
   inventoryCount.setAttribute('aria-label', `${labels.itemCount}: ${itemCount} / 12`);
+  updateInventoryViewUi();
 }
 
 function focusSelectedInventoryRow() {
@@ -3735,7 +4283,7 @@ function focusSelectedInventoryRow() {
       : selectedPackIndex >= 0
         ? `[data-pack-index="${selectedPackIndex}"]`
         : null;
-    (selector ? packGrid.querySelector(selector) : closeInventoryButton)?.focus();
+    (selector ? inventoryShell.querySelector(selector) : closeInventoryButton)?.focus();
   });
 }
 
@@ -3856,6 +4404,32 @@ function playSwordRhythmAccent(rank) {
     gain.connect(audio.destination);
     oscillator.start(now);
     oscillator.stop(now + voice.duration + 0.01);
+  }
+}
+
+function playStormCrackle(chainTargets = 0) {
+  const audio = levelUpAudio;
+  if (!audio || audio.state !== 'running') return;
+  const now = audio.currentTime;
+  const strength = Math.max(0, Math.min(3, chainTargets));
+  const voices = [
+    { type: 'square', from: 1240 + strength * 90, to: 260, gain: 0.018, duration: 0.11 },
+    { type: 'sawtooth', from: 610 + strength * 55, to: 130, gain: 0.012, duration: 0.16 },
+  ];
+  for (const [index, voice] of voices.entries()) {
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+    const start = now + index * 0.014;
+    oscillator.type = voice.type;
+    oscillator.frequency.setValueAtTime(voice.from, start);
+    oscillator.frequency.exponentialRampToValueAtTime(voice.to, start + voice.duration);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(voice.gain, start + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + voice.duration);
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
+    oscillator.start(start);
+    oscillator.stop(start + voice.duration + 0.01);
   }
 }
 
@@ -3983,6 +4557,7 @@ function updateHud() {
   );
   renderHungerHud();
   renderHeroEffectsHud();
+  renderSpellBar();
   updateSanctuaryUi();
   updateInteractionUi();
   updateBossHud();
@@ -3994,7 +4569,7 @@ function nearbyFind() {
   return findDefinitions
     .filter(
       (find) =>
-        !find.resolved &&
+        findIsInteractable(find) &&
         revealed.has(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`),
     )
     .filter(
@@ -4013,6 +4588,13 @@ function nearbyFind() {
 function interactNearbyFind(preferredFind = null, action = null) {
   const find = preferredFind ?? nearbyFind();
   if (!find || !ready || uiScreen !== 'game' || hero.dead || openingDoor) return false;
+  const findContainer = find.id === 'sealed-cache'
+    ? chestContainerState(find.instanceId)
+    : null;
+  if (find.id === 'sealed-cache' && action === 'browse' && findContainer?.opened) {
+    return openChestContainerUi(find);
+  }
+  if (find.id === 'sealed-cache' && !findContainer) return false;
   const encounter = (dungeon.roomEncounters ?? []).find(({ findId }) => findId === find.instanceId);
   const livingGuards = encounter?.kind === 'guarded'
     ? monsters.filter(
@@ -4068,7 +4650,7 @@ function interactNearbyFind(preferredFind = null, action = null) {
   hero.attack = 0;
   hero.hp = result.state.hero.hp;
   hero.power = result.state.hero.power;
-  gold = result.state.gold;
+  if (find.id !== 'sealed-cache') gold = result.state.gold;
   run.floor.resolvedFindIds = [...result.state.resolvedFindIds];
   find.resolved = true;
   if (find.id === 'sealed-cache') find.resolvedAt = elapsed;
@@ -4103,6 +4685,24 @@ function interactNearbyFind(preferredFind = null, action = null) {
     addCombatGlyph(hero.x, hero.y, result.damage, '#c76a63');
     addBloodImpact({ ...hero, bloodColor: '#6a302b' }, find.x, find.y, false);
     beginHitStop(0.05);
+  }
+  if (find.id === 'sealed-cache') {
+    const consumedByMimic = awakened.length > 0;
+    const nextContainer = openChestContainerState(findContainer, {
+      damaged: result.action === 'smash' && !consumedByMimic,
+      consumedByMimic,
+    });
+    if (!nextContainer || !replaceChestContainerState(nextContainer)) return false;
+    const damaged = nextContainer.destroyed && !consumedByMimic;
+    burst(find.x, find.y - 10, consumedByMimic ? '#b45c58' : damaged ? '#b87b62' : presentation.color, 24);
+    addImpactWave(find.x, find.y, presentation.color, 50, 1);
+    if (damaged) addCombatGlyph(find.x, find.y, '✕', '#cf7068', -44);
+    if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
+    findAnnouncement.textContent = resultPresentation?.message ?? presentation.result;
+    updateHud();
+    persistRun();
+    if (!consumedByMimic) openChestContainerUi(find);
+    return true;
   }
   const damagedLoot = ['smash', 'attack'].includes(result.action);
   const chestDanger = find.id === 'sealed-cache' && result.damage > 0;
@@ -4217,6 +4817,8 @@ function contextModelTarget(entry = contextTarget) {
       curseEffectId: entry.value.curseEffectId ?? null,
       curseDuration: entry.value.curseDuration ?? 0,
       mimicMonsterId: entry.value.mimicMonsterId ?? null,
+      containerOpened: entry.value.containerOpened === true,
+      containerDestroyed: entry.value.containerDestroyed === true,
     };
   }
   const availability = trapDisarmState(entry.value);
@@ -4253,7 +4855,7 @@ function contextTargetIsAdjacent(entry) {
       && detectedTrapIds.has(entry.value.instanceId)
       && !run.floor.resolved.includes(entry.value.eventId);
   }
-  if (entry.kind === 'find') return distance <= 1 && !entry.value.resolved;
+  if (entry.kind === 'find') return distance <= 1 && findIsInteractable(entry.value);
   if (entry.kind === 'merchant') return distance <= 1;
   if (entry.kind === 'campfire') return distance <= 1;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -4346,6 +4948,8 @@ function openContextActions(nextTarget) {
   contextActions.setAttribute('aria-hidden', 'false');
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
@@ -4366,6 +4970,8 @@ function closeContextActions({ restoreFocus = false } = {}) {
   document.body.dataset.screen = uiScreen;
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
@@ -4374,7 +4980,33 @@ function closeContextActions({ restoreFocus = false } = {}) {
   return true;
 }
 
-function merchantItemButton({ item, price, disabled = false, sold = false, onActivate }) {
+function activeMerchantState() {
+  return merchantStateFor(run.floor.merchants, activeMerchant?.instanceId);
+}
+
+function replaceMerchantState(nextState) {
+  if (!nextState) return false;
+  let replaced = false;
+  run.floor.merchants = run.floor.merchants.map((state) => {
+    if (state.merchantId !== nextState.merchantId) return state;
+    replaced = true;
+    return {
+      merchantId: nextState.merchantId,
+      gold: nextState.gold,
+      purchasedEntryIds: [...nextState.purchasedEntryIds],
+      buyback: nextState.buyback.map(({ record, price }) => ({
+        price,
+        record: {
+          ...record,
+          ...(record.affixIds ? { affixIds: [...record.affixIds] } : {}),
+        },
+      })),
+    };
+  });
+  return replaced;
+}
+
+function merchantItemButton({ item, price, disabled = false, sold = false, badge = null, onActivate }) {
   const displayItem = presentedItem(item);
   const presentation = itemPresentation(displayItem, itemDetailLanguage);
   const button = document.createElement('button');
@@ -4396,6 +5028,11 @@ function merchantItemButton({ item, price, disabled = false, sold = false, onAct
   const effect = document.createElement('small');
   effect.textContent = `${presentation.rarity} · ${presentation.primaryEffect.text}`;
   copy.append(name, effect);
+  if (badge) {
+    const marker = document.createElement('em');
+    marker.textContent = badge;
+    copy.append(marker);
+  }
   const value = document.createElement('span');
   value.className = 'merchant-item-price';
   value.innerHTML = sold ? `<b>${merchantPresentation(activeMerchant.variantId, itemDetailLanguage).sold}</b>` : `<b>${price}</b><i>●</i>`;
@@ -4407,13 +5044,18 @@ function merchantItemButton({ item, price, disabled = false, sold = false, onAct
 function renderMerchantShop() {
   if (!activeMerchant) return;
   const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
+  const merchantState = activeMerchantState();
+  if (!merchantState) return;
   merchantShop.lang = itemDetailLanguage;
   merchantShopTitle.textContent = copy.name;
   merchantShopPortrait.src = assetUrl(activeMerchant.actorPath);
   merchantShopGold.querySelector('b').textContent = String(gold);
-  merchantShopGold.setAttribute('aria-label', `${currentMainMenuModel().labels.gold}: ${gold}`);
+  merchantShopGold.setAttribute('aria-label', `${copy.playerGold}: ${gold}`);
+  merchantShopFunds.querySelector('b').textContent = String(merchantState.gold);
+  merchantShopFunds.setAttribute('aria-label', `${copy.merchantGold}: ${merchantState.gold}`);
   closeMerchantShopButton.setAttribute('aria-label', copy.close);
   merchantShop.setAttribute('aria-label', copy.name);
+  merchantShopTabs.setAttribute('aria-label', copy.trade);
   merchantShopTabButtons.forEach((button) => {
     const selectedTab = button.dataset.merchantTab === merchantTab;
     button.setAttribute('aria-pressed', String(selectedTab));
@@ -4423,13 +5065,22 @@ function renderMerchantShop() {
   if (merchantTab === 'buy') {
     for (const entry of activeMerchant.stock) {
       const item = materializeInventoryItem(entry.record);
-      const sold = run.floor.merchantPurchases.includes(entry.entryId);
+      const sold = merchantState.purchasedEntryIds.includes(entry.entryId);
       merchantShopList.append(merchantItemButton({
         item,
         price: entry.price,
         disabled: sold,
         sold,
         onActivate: () => transactMerchantPurchase(entry.entryId),
+      }));
+    }
+    for (const entry of merchantState.buyback) {
+      const item = materializeInventoryItem(entry.record);
+      merchantShopList.append(merchantItemButton({
+        item,
+        price: entry.price,
+        badge: copy.buyback,
+        onActivate: () => transactMerchantBuyback(entry.record.uid),
       }));
     }
   } else {
@@ -4451,16 +5102,320 @@ function renderMerchantShop() {
 
 function merchantFailureCopy(reason) {
   const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
+  if (reason === 'merchant-poor') return copy.merchantPoor;
+  if (reason === 'merchant-full') return copy.merchantFull;
   return copy[reason] ?? (itemDetailLanguage === 'ru' ? 'Сделка невозможна' : 'Trade unavailable');
+}
+
+const CHEST_CONTAINER_COPY = Object.freeze({
+  ru: Object.freeze({
+    title: 'Сундук',
+    destroyedTitle: 'Разбитый сундук',
+    open: 'Открыт',
+    destroyed: 'Повреждён · хранение недоступно',
+    storage: 'Сундук',
+    backpack: 'Рюкзак',
+    emptyStorage: 'Пусто',
+    emptyBackpack: 'В рюкзаке пусто',
+    gold: 'Золото',
+    takeGold: 'Забрать всё',
+    taken: 'Предмет взят',
+    stored: 'Предмет положен',
+    full: 'Нет свободного места',
+    broken: 'В разбитый сундук нельзя класть вещи',
+    unavailable: 'Действие недоступно',
+    close: 'Закрыть сундук',
+  }),
+  en: Object.freeze({
+    title: 'Chest',
+    destroyedTitle: 'Broken chest',
+    open: 'Open',
+    destroyed: 'Damaged · storage unavailable',
+    storage: 'Chest',
+    backpack: 'Backpack',
+    emptyStorage: 'Empty',
+    emptyBackpack: 'Backpack is empty',
+    gold: 'Gold',
+    takeGold: 'Take all',
+    taken: 'Item taken',
+    stored: 'Item stored',
+    full: 'No free space',
+    broken: 'A broken chest cannot store items',
+    unavailable: 'Action unavailable',
+    close: 'Close chest',
+  }),
+});
+
+function chestContainerCopy() {
+  return CHEST_CONTAINER_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru'];
+}
+
+function chestContainerState(findId = activeChestFindId) {
+  return run.floor.chests.find((container) => container.findId === findId) ?? null;
+}
+
+function replaceChestContainerState(nextContainer) {
+  if (!nextContainer) return false;
+  let replaced = false;
+  run.floor.chests = run.floor.chests.map((container) => {
+    if (container.findId !== nextContainer.findId) return container;
+    replaced = true;
+    return {
+      ...nextContainer,
+      items: nextContainer.items.map((item) => ({ ...item })),
+    };
+  });
+  const find = findDefinitions.find(({ instanceId }) => instanceId === nextContainer.findId);
+  if (find) {
+    find.containerOpened = nextContainer.opened === true;
+    find.containerDestroyed = nextContainer.destroyed === true;
+    find.consumedByMimic = nextContainer.destroyed === true && find.cacheVariant === 'mimic';
+  }
+  return replaced;
+}
+
+function chestTransferItemButton({ item, direction, disabled = false, onActivate }) {
+  const displayItem = presentedItem(item);
+  const presentation = itemPresentation(displayItem, itemDetailLanguage);
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'chest-transfer-item';
+  button.dataset.rarity = String(displayItem.rarity ?? 0);
+  button.dataset.transfer = direction;
+  button.disabled = disabled;
+  const action = direction === 'take'
+    ? (itemDetailLanguage === 'ru' ? 'Взять' : 'Take')
+    : (itemDetailLanguage === 'ru' ? 'Положить' : 'Store');
+  button.setAttribute(
+    'aria-label',
+    `${action}: ${presentation.name}. ${presentation.primaryEffect?.text ?? presentation.rarity}`,
+  );
+  const icon = document.createElement('img');
+  icon.src = assetUrl(displayItem.icon);
+  icon.alt = '';
+  const copy = document.createElement('span');
+  copy.className = 'chest-transfer-copy';
+  const name = document.createElement('strong');
+  name.textContent = presentation.name;
+  const effect = document.createElement('small');
+  effect.textContent = `${presentation.rarity} · ${presentation.primaryEffect?.text ?? ''}`;
+  copy.append(name, effect);
+  const arrow = document.createElement('span');
+  arrow.className = 'chest-transfer-arrow';
+  arrow.textContent = direction === 'take' ? '↓' : '↑';
+  arrow.setAttribute('aria-hidden', 'true');
+  button.append(icon, copy, arrow);
+  button.addEventListener('click', onActivate);
+  return button;
+}
+
+function chestTransferEmpty(copy) {
+  const empty = document.createElement('p');
+  empty.className = 'chest-transfer-empty';
+  empty.textContent = copy;
+  return empty;
+}
+
+function renderChestContainer() {
+  const container = chestContainerState();
+  if (!container) return false;
+  const copy = chestContainerCopy();
+  const find = findDefinitions.find(({ instanceId }) => instanceId === container.findId);
+  const frames = find?.definition.animationFrames;
+  chestContainer.lang = itemDetailLanguage;
+  chestContainerTitle.textContent = container.destroyed ? copy.destroyedTitle : copy.title;
+  chestContainerStateLabel.textContent = container.destroyed ? copy.destroyed : copy.open;
+  chestStorageTitle.textContent = copy.storage;
+  chestBackpackTitle.textContent = copy.backpack;
+  chestStorageCount.textContent = `${container.items.length}/${CHEST_CONTAINER_CAPACITY}`;
+  chestBackpackCount.textContent = `${backpackItems.length}/${HERO_BACKPACK_CAPACITY}`;
+  chestContainer.setAttribute('aria-label', chestContainerTitle.textContent);
+  closeChestContainerButton.setAttribute('aria-label', copy.close);
+  chestContainerIcon.src = assetUrl(
+    Array.isArray(frames) && frames.length > 0
+      ? frames.at(-1)
+      : find?.definition.path ?? 'licensed/cmski-chests/wooden/4.png',
+  );
+
+  chestStorageList.replaceChildren();
+  if (container.gold > 0) {
+    const goldButton = document.createElement('button');
+    goldButton.type = 'button';
+    goldButton.className = 'chest-transfer-gold';
+    goldButton.dataset.transfer = 'take';
+    goldButton.setAttribute('aria-label', `${copy.takeGold}: ${container.gold} ${copy.gold}`);
+    const icon = document.createElement('img');
+    icon.src = assetUrl('item/gold/16.png');
+    icon.alt = '';
+    const label = document.createElement('span');
+    label.className = 'chest-transfer-copy';
+    const name = document.createElement('strong');
+    name.textContent = copy.gold;
+    const amount = document.createElement('small');
+    amount.textContent = `${container.gold} · ${copy.takeGold}`;
+    label.append(name, amount);
+    const arrow = document.createElement('span');
+    arrow.className = 'chest-transfer-arrow';
+    arrow.textContent = '↓';
+    arrow.setAttribute('aria-hidden', 'true');
+    goldButton.append(icon, label, arrow);
+    goldButton.addEventListener('click', transactChestGold);
+    chestStorageList.append(goldButton);
+  }
+  for (const record of container.items) {
+    const item = materializeInventoryItem(record);
+    if (!item) continue;
+    const canMerge = !item.slot && backpackItems.some((candidate) => candidate.id === item.id);
+    chestStorageList.append(chestTransferItemButton({
+      item,
+      direction: 'take',
+      disabled: backpackItems.length >= HERO_BACKPACK_CAPACITY && !canMerge,
+      onActivate: () => transactChestItem('take', record.uid),
+    }));
+  }
+  if (chestStorageList.childElementCount === 0) {
+    chestStorageList.append(chestTransferEmpty(copy.emptyStorage));
+  }
+
+  chestBackpackList.replaceChildren();
+  for (const item of backpackItems.filter(Boolean)) {
+    const canMerge = !item.slot && container.items.some((record) => record.id === item.id);
+    chestBackpackList.append(chestTransferItemButton({
+      item,
+      direction: 'store',
+      disabled: container.destroyed
+        || (container.items.length >= CHEST_CONTAINER_CAPACITY && !canMerge),
+      onActivate: () => transactChestItem('store', item.uid),
+    }));
+  }
+  if (chestBackpackList.childElementCount === 0) {
+    chestBackpackList.append(chestTransferEmpty(copy.emptyBackpack));
+  }
+  return true;
+}
+
+function chestFailureCopy(reason) {
+  const copy = chestContainerCopy();
+  if (reason === 'full') return copy.full;
+  if (reason === 'destroyed') return copy.broken;
+  return copy.unavailable;
+}
+
+function transactChestItem(direction, uid) {
+  const container = chestContainerState();
+  if (uiScreen !== 'chest' || !container) return false;
+  const state = currentItemState();
+  const type = direction === 'take' ? CHEST_CONTAINER_COMMANDS.take : CHEST_CONTAINER_COMMANDS.store;
+  const command = nextGameCommand(type, container.findId, { uid });
+  const result = direction === 'take'
+    ? takeChestItem({ command, container, uid, items: state.items, inventory: state.inventory })
+    : storeChestItem({ command, container, uid, items: state.items, inventory: state.inventory });
+  if (!result.ok) {
+    chestContainerFeedback.textContent = chestFailureCopy(result.reason);
+    return false;
+  }
+  replaceChestContainerState(result.state.container);
+  applyItemState({
+    items: result.state.items,
+    inventory: result.state.inventory,
+    equipment: state.equipment,
+  });
+  chestContainerFeedback.textContent = direction === 'take'
+    ? chestContainerCopy().taken
+    : chestContainerCopy().stored;
+  playerHasActed = true;
+  applyGameEvents(result.events);
+  renderChestContainer();
+  persistRun();
+  return true;
+}
+
+function transactChestGold() {
+  const container = chestContainerState();
+  if (uiScreen !== 'chest' || !container) return false;
+  const command = nextGameCommand(CHEST_CONTAINER_COMMANDS.takeGold, container.findId);
+  const result = takeChestGold({ command, container, gold });
+  if (!result.ok) {
+    chestContainerFeedback.textContent = chestFailureCopy(result.reason);
+    return false;
+  }
+  const amount = result.state.gold - gold;
+  gold = result.state.gold;
+  replaceChestContainerState(result.state.container);
+  chestContainerFeedback.textContent = `+${amount} ●`;
+  playerHasActed = true;
+  applyGameEvents(result.events);
+  updateHud();
+  renderChestContainer();
+  persistRun();
+  return true;
+}
+
+function openChestContainerUi(find) {
+  const container = chestContainerState(find?.instanceId);
+  if (
+    !find
+    || !container?.opened
+    || uiScreen !== 'game'
+    || hero.dead
+    || runStatus !== 'playing'
+    || find.consumedByMimic
+  ) return false;
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  activeChestFindId = find.instanceId;
+  chestContainerFeedback.textContent = '';
+  uiScreen = 'chest';
+  document.body.dataset.screen = uiScreen;
+  chestContainer.inert = false;
+  chestContainer.setAttribute('aria-hidden', 'false');
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  pauseGameButton.disabled = true;
+  renderChestContainer();
+  requestAnimationFrame(() => (
+    chestStorageList.querySelector('button:not(:disabled)')
+    ?? chestBackpackList.querySelector('button:not(:disabled)')
+    ?? closeChestContainerButton
+  ).focus());
+  return true;
+}
+
+function closeChestContainerUi() {
+  if (uiScreen !== 'chest') return false;
+  chestContainer.inert = true;
+  chestContainer.setAttribute('aria-hidden', 'true');
+  activeChestFindId = null;
+  uiScreen = 'game';
+  document.body.dataset.screen = uiScreen;
+  moveControl.inert = false;
+  moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
+  bagButton.disabled = false;
+  characterSheetButton.disabled = false;
+  pauseGameButton.disabled = false;
+  updateInteractionUi();
+  requestAnimationFrame(() => interactActionButton.focus());
+  return true;
 }
 
 function transactMerchantPurchase(entryId) {
   if (uiScreen !== 'merchant' || !activeMerchant) return false;
   const state = currentItemState();
+  const merchantState = activeMerchantState();
+  if (!merchantState) return false;
+  const command = nextGameCommand(MERCHANT_COMMANDS.buy, activeMerchant.instanceId, { entryId });
   const result = buyMerchantItem({
+    command,
     merchant: activeMerchant,
+    merchantState,
     entryId,
-    purchasedIds: run.floor.merchantPurchases,
     gold,
     items: state.items,
     inventory: state.inventory,
@@ -4469,10 +5424,12 @@ function transactMerchantPurchase(entryId) {
     merchantShopFeedback.textContent = merchantFailureCopy(result.reason);
     return false;
   }
-  applyItemState({ ...result.state, equipment: state.equipment });
+  replaceMerchantState(result.state.merchantState);
+  applyItemState({ items: result.state.items, inventory: result.state.inventory, equipment: state.equipment });
   gold = result.state.gold;
-  run.floor.merchantPurchases = [...result.state.purchasedIds];
-  merchantShopFeedback.textContent = itemDetailLanguage === 'ru' ? 'Куплено' : 'Purchased';
+  merchantShopFeedback.textContent = merchantPresentation(activeMerchant.variantId, itemDetailLanguage).purchased;
+  playerHasActed = true;
+  applyGameEvents(result.events);
   updateHud();
   renderMerchantShop();
   persistRun();
@@ -4482,14 +5439,59 @@ function transactMerchantPurchase(entryId) {
 function transactMerchantSale(uid) {
   if (uiScreen !== 'merchant' || !activeMerchant) return false;
   const state = currentItemState();
-  const result = sellMerchantItem({ uid, gold, items: state.items, inventory: state.inventory });
+  const merchantState = activeMerchantState();
+  if (!merchantState) return false;
+  const command = nextGameCommand(MERCHANT_COMMANDS.sell, activeMerchant.instanceId, { uid });
+  const result = sellMerchantItem({
+    command,
+    merchant: activeMerchant,
+    merchantState,
+    uid,
+    gold,
+    items: state.items,
+    inventory: state.inventory,
+  });
   if (!result.ok) {
     merchantShopFeedback.textContent = merchantFailureCopy(result.reason);
     return false;
   }
-  applyItemState({ ...result.state, equipment: state.equipment });
+  replaceMerchantState(result.state.merchantState);
+  applyItemState({ items: result.state.items, inventory: result.state.inventory, equipment: state.equipment });
   gold = result.state.gold;
-  merchantShopFeedback.textContent = `+${result.price} ●`;
+  merchantShopFeedback.textContent = `+${result.state.transactionAmount} ●`;
+  playerHasActed = true;
+  applyGameEvents(result.events);
+  updateHud();
+  renderMerchantShop();
+  persistRun();
+  return true;
+}
+
+function transactMerchantBuyback(uid) {
+  if (uiScreen !== 'merchant' || !activeMerchant) return false;
+  const state = currentItemState();
+  const merchantState = activeMerchantState();
+  if (!merchantState) return false;
+  const command = nextGameCommand(MERCHANT_COMMANDS.buyback, activeMerchant.instanceId, { uid });
+  const result = buybackMerchantItem({
+    command,
+    merchant: activeMerchant,
+    merchantState,
+    uid,
+    gold,
+    items: state.items,
+    inventory: state.inventory,
+  });
+  if (!result.ok) {
+    merchantShopFeedback.textContent = merchantFailureCopy(result.reason);
+    return false;
+  }
+  replaceMerchantState(result.state.merchantState);
+  applyItemState({ items: result.state.items, inventory: result.state.inventory, equipment: state.equipment });
+  gold = result.state.gold;
+  merchantShopFeedback.textContent = merchantPresentation(activeMerchant.variantId, itemDetailLanguage).purchased;
+  playerHasActed = true;
+  applyGameEvents(result.events);
   updateHud();
   renderMerchantShop();
   persistRun();
@@ -4510,6 +5512,8 @@ function openMerchantShop(merchant) {
   merchantShop.setAttribute('aria-hidden', 'false');
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
@@ -4527,6 +5531,8 @@ function closeMerchantShop() {
   document.body.dataset.screen = uiScreen;
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
@@ -4907,6 +5913,8 @@ function openMainMenu() {
   mainMenu.setAttribute('aria-hidden', 'false');
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
@@ -4929,6 +5937,8 @@ function startGameFromMenu() {
   document.body.dataset.screen = uiScreen;
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
@@ -4942,6 +5952,8 @@ function openCharacterSheet() {
   clearMoveControl();
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
   uiScreen = 'character';
   hero.path = [];
   document.body.dataset.screen = uiScreen;
@@ -4959,6 +5971,8 @@ function closeCharacterSheet() {
   uiScreen = 'game';
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   document.body.dataset.screen = uiScreen;
   characterSheet.setAttribute('aria-hidden', 'true');
   characterSheet.inert = true;
@@ -4973,6 +5987,8 @@ function openInventory() {
   clearMoveControl();
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
   uiScreen = 'inventory';
   hero.path = [];
   document.body.dataset.screen = uiScreen;
@@ -4987,6 +6003,7 @@ function openInventory() {
   selectedEquipmentSlot = null;
   markedForSalvage.clear();
   salvageMode = false;
+  updateInventoryViewUi();
   updateInventoryFilterUi();
   updateGearUi();
   renderPack();
@@ -4999,6 +6016,8 @@ function closeInventory() {
   uiScreen = 'game';
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   document.body.dataset.screen = uiScreen;
   inventory.setAttribute('aria-hidden', 'true');
   inventory.inert = true;
@@ -5143,6 +6162,8 @@ function closeTrapPlacement({ returnToInventory = false } = {}) {
   document.body.dataset.screen = uiScreen;
   moveControl.inert = false;
   moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   requestAnimationFrame(() => bagButton.focus());
@@ -5200,6 +6221,373 @@ function performTrapPlacement(x, y) {
   renderPack();
   persistRun();
   return true;
+}
+
+function blinkBlockedCells() {
+  const blocked = new Set(heroBlockingCells());
+  for (const find of findDefinitions) {
+    if (!find.resolved) blocked.add(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`);
+  }
+  for (const event of eventDefinitions) {
+    blocked.add(`${Math.floor(event.x / TILE)},${Math.floor(event.y / TILE)}`);
+  }
+  for (const loot of lootDefinitions) {
+    blocked.add(`${Math.floor(loot.x / TILE)},${Math.floor(loot.y / TILE)}`);
+  }
+  for (const prop of dungeonEnvironment.props) blocked.add(`${prop.gridX},${prop.gridY}`);
+  if (dungeon.sanctuary) blocked.add(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`);
+  blocked.add(`${dungeon.exit.x},${dungeon.exit.y}`);
+  return [...blocked];
+}
+
+function currentBlinkTargetCells() {
+  if (abilityTargetingState?.kind !== 'blink') return [];
+  return blinkTargetCells({
+    grid: world,
+    origin: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    revealedCells: [...revealed],
+    blockedCells: blinkBlockedCells(),
+    range: abilityTargetingState.range,
+  });
+}
+
+function abilityTargetLabel(target) {
+  if (abilityTargetingState?.kind !== 'blink') {
+    const monsterName = target.name?.[itemDetailLanguage]
+      ?? target.name?.[itemDetailLanguage === 'ru' ? 'ru' : 'en']
+      ?? target.id;
+    if (abilityTargetingState.kind === 'target-item') {
+      return itemDetailLanguage === 'ru'
+        ? `Намочить: ${monsterName}`
+        : `Drench: ${monsterName}`;
+    }
+    return itemDetailLanguage === 'ru'
+      ? `Применить к цели: ${monsterName}`
+      : `Cast on target: ${monsterName}`;
+  }
+  return itemDetailLanguage === 'ru'
+    ? `Переместиться: ${target.x}, ${target.y}`
+    : `Blink to: ${target.x}, ${target.y}`;
+}
+
+function currentAbilityTargets() {
+  if (!abilityTargetingState) return [];
+  if (abilityTargetingState.kind !== 'blink') {
+    const source = abilityTargetingState.kind === 'spell'
+      ? spellById(abilityTargetingState.spellId)
+      : itemInstances.get(abilityTargetingState.itemUid)?.useEffect;
+    return spellTargetCandidates({
+      ...source,
+      kind: 'projectile',
+      targetMode: 'actor',
+    }).filter(({ instanceId }) => (
+      abilityTargetingState.targetIds.includes(instanceId)
+    ));
+  }
+  return currentBlinkTargetCells();
+}
+
+function renderAbilityTargetingTargets() {
+  if (!abilityTargetingState) {
+    abilityTargetingTargets.replaceChildren();
+    return;
+  }
+  const controls = [];
+  for (const target of currentAbilityTargets()) {
+    const actor = abilityTargetingState.kind !== 'blink';
+    const worldX = actor ? target.x : (target.x + 0.5) * TILE;
+    const worldY = actor ? target.y : (target.y + 0.5) * TILE;
+    const position = worldToScreen(worldX, worldY);
+    const halfWidth = actor ? 29 : 17;
+    const halfHeight = actor ? 33 : 15;
+    const targetTop = position.y + (actor ? -4 : 7);
+    if (
+      position.x - halfWidth < 0
+      || position.x + halfWidth > viewportWidth
+      || targetTop - halfHeight < 0
+      || targetTop + halfHeight > viewportHeight
+    ) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `ability-targeting-target${actor ? ' actor' : ''}`;
+    button.style.left = `${Math.round(position.x)}px`;
+    button.style.top = `${Math.round(targetTop)}px`;
+    button.style.setProperty('--targeting-color', abilityTargetingState.color);
+    button.setAttribute('aria-label', abilityTargetLabel(target));
+    if (actor) button.dataset.targetId = target.instanceId;
+    else {
+      button.dataset.x = String(target.x);
+      button.dataset.y = String(target.y);
+    }
+    button.addEventListener('click', () => {
+      if (actor) performAbilityTarget({ targetId: target.instanceId });
+      else performAbilityTarget({ x: target.x, y: target.y });
+    });
+    controls.push(button);
+  }
+  abilityTargetingTargets.replaceChildren(...controls);
+}
+
+function openAbilityTargeting(nextState) {
+  if (!nextState || !['spell', 'blink', 'target-item'].includes(nextState.kind)) return false;
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  hero.attack = 0;
+  if (nextState.returnScreen === 'inventory') {
+    closeItemDetail({ restoreFocus: false });
+    inventory.setAttribute('aria-hidden', 'true');
+    inventory.inert = true;
+  }
+  abilityTargetingState = nextState;
+  uiScreen = 'ability-targeting';
+  document.body.dataset.screen = uiScreen;
+  abilityTargeting.inert = false;
+  abilityTargeting.setAttribute('aria-hidden', 'false');
+  abilityTargetingPrompt.style.setProperty('--targeting-color', nextState.color);
+  abilityTargetingIcon.src = assetUrl(nextState.icon);
+  abilityTargetingLabel.textContent = nextState.label;
+  cancelAbilityTargetingButton.setAttribute('aria-label', nextState.cancelLabel);
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  renderAbilityTargetingTargets();
+  requestAnimationFrame(() => (
+    abilityTargetingTargets.querySelector('button') ?? cancelAbilityTargetingButton
+  ).focus());
+  return true;
+}
+
+function closeAbilityTargeting({ returnToSource = true } = {}) {
+  if (uiScreen !== 'ability-targeting' || !abilityTargetingState) return false;
+  const returnScreen = abilityTargetingState.returnScreen;
+  abilityTargetingState = null;
+  abilityTargetingTargets.replaceChildren();
+  abilityTargeting.inert = true;
+  abilityTargeting.setAttribute('aria-hidden', 'true');
+  if (returnToSource && returnScreen === 'inventory') {
+    uiScreen = 'inventory';
+    inventory.inert = false;
+    inventory.setAttribute('aria-hidden', 'false');
+    inventoryShell.inert = false;
+    document.body.dataset.screen = uiScreen;
+    renderPack();
+    focusSelectedInventoryRow();
+    return true;
+  }
+  uiScreen = 'game';
+  document.body.dataset.screen = uiScreen;
+  moveControl.inert = false;
+  moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
+  bagButton.disabled = false;
+  characterSheetButton.disabled = false;
+  return true;
+}
+
+function beginBlinkTargeting(itemUid) {
+  const item = itemInstances.get(itemUid);
+  if (
+    uiScreen !== 'inventory'
+    || runStatus !== 'playing'
+    || hero.dead
+    || item?.useEffect?.type !== 'blink'
+  ) return false;
+  const nextState = {
+    kind: 'blink',
+    itemUid,
+    range: item.useEffect.range,
+    returnScreen: 'inventory',
+    icon: presentedItem(item).icon,
+    color: '#81d8dc',
+    label: itemDetailLanguage === 'ru' ? 'Выбери клетку' : 'Choose a tile',
+    cancelLabel: itemDetailLanguage === 'ru' ? 'Отменить скачок' : 'Cancel blink',
+  };
+  abilityTargetingState = nextState;
+  const targets = currentBlinkTargetCells();
+  abilityTargetingState = null;
+  if (targets.length === 0) {
+    showLootToast(item, 0);
+    return false;
+  }
+  return openAbilityTargeting(nextState);
+}
+
+function beginSpellTargeting(slotIndex, spell, targets) {
+  if (uiScreen !== 'game' || !spell || targets.length === 0) return false;
+  return openAbilityTargeting({
+    kind: 'spell',
+    spellId: spell.id,
+    slotIndex,
+    targetIds: targets.map(({ instanceId }) => instanceId),
+    returnScreen: 'game',
+    icon: spell.icon,
+    color: spell.color,
+    label: itemDetailLanguage === 'ru' ? 'Выбери врага' : 'Choose an enemy',
+    cancelLabel: itemDetailLanguage === 'ru' ? 'Отменить заклинание' : 'Cancel spell',
+  });
+}
+
+function beginTargetEffectItemTargeting(itemUid) {
+  const item = itemInstances.get(itemUid);
+  if (
+    uiScreen !== 'inventory'
+    || runStatus !== 'playing'
+    || hero.dead
+    || item?.useEffect?.type !== 'target-effect'
+  ) return false;
+  const targets = spellTargetCandidates({
+    ...item.useEffect,
+    kind: 'projectile',
+    targetMode: 'actor',
+  });
+  if (targets.length === 0) {
+    showLootToast(item, 0);
+    return false;
+  }
+  const definition = ACTOR_EFFECTS[item.useEffect.effectId];
+  return openAbilityTargeting({
+    kind: 'target-item',
+    itemUid,
+    targetIds: targets.map(({ instanceId }) => instanceId),
+    returnScreen: 'inventory',
+    icon: presentedItem(item).icon,
+    color: definition?.color ?? '#63b8ca',
+    label: itemDetailLanguage === 'ru' ? 'Выбери врага' : 'Choose an enemy',
+    cancelLabel: itemDetailLanguage === 'ru' ? 'Отменить применение' : 'Cancel item use',
+  });
+}
+
+function performBlinkTarget(target) {
+  if (abilityTargetingState?.kind !== 'blink') return false;
+  const item = itemInstances.get(abilityTargetingState.itemUid);
+  const itemIndex = backpackItems.findIndex(({ uid }) => uid === abilityTargetingState.itemUid);
+  if (!item || itemIndex < 0) {
+    closeAbilityTargeting({ returnToSource: false });
+    return false;
+  }
+  const source = { x: hero.x, y: hero.y };
+  const result = resolveBlink({
+    runStatus,
+    hero: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE), hp: hero.hp },
+    target,
+    itemCount: item.stack ?? 1,
+    candidates: currentBlinkTargetCells(),
+  });
+  if (!result.ok) return false;
+  run.knowledge = identifyItem(run.knowledge, item.id, IDENTIFIABLE_LOOT_IDS);
+  if (result.remainingItems > 0) item.stack = result.remainingItems;
+  else {
+    itemInstances.delete(item.uid);
+    backpackItems.splice(itemIndex, 1);
+  }
+  hero.x = (result.hero.x + 0.5) * TILE;
+  hero.y = (result.hero.y + 0.5) * TILE;
+  hero.path = [];
+  camera.x = hero.x;
+  camera.y = hero.y;
+  revealAround(revealed, world, result.hero, 4);
+  lastHeroCell = `${result.hero.x},${result.hero.y}`;
+  playerHasActed = true;
+  closeAbilityTargeting({ returnToSource: false });
+  burst(source.x, source.y - 8, '#79c8cd', 20);
+  addImpactWave(source.x, source.y, '#79c8cd', 54, 1);
+  burst(hero.x, hero.y - 8, '#a3edf0', 24);
+  addImpactWave(hero.x, hero.y, '#a3edf0', 68, 2);
+  addCombatGlyph(hero.x, hero.y, '✦', '#bff7f3', -58);
+  showLootToast(item, '−1');
+  selectedPackIndex = Math.max(0, Math.min(itemIndex, backpackItems.length - 1));
+  discoverNearbyTraps({ feedback: false });
+  updateInteractionUi();
+  updateHud();
+  updateGearUi();
+  renderPack();
+  persistRun();
+  return true;
+}
+
+function performTargetedItemUse(target) {
+  if (abilityTargetingState?.kind !== 'target-item') return false;
+  const item = itemInstances.get(abilityTargetingState.itemUid);
+  const itemIndex = backpackItems.findIndex(({ uid }) => uid === abilityTargetingState.itemUid);
+  const candidates = currentAbilityTargets();
+  const monster = candidates.find(({ instanceId }) => instanceId === target.targetId);
+  if (!item || itemIndex < 0 || !monster) return false;
+  const result = resolveTargetedItemUse({
+    runStatus,
+    heroHp: hero.hp,
+    targetId: target.targetId,
+    itemCount: item.stack ?? 1,
+    candidateTargetIds: candidates.map(({ instanceId }) => instanceId),
+    effect: item.useEffect,
+  });
+  if (!result.ok) return false;
+  const sourceItem = item;
+  run.knowledge = identifyItem(run.knowledge, item.id, IDENTIFIABLE_LOOT_IDS);
+  if (result.remainingItems > 0) item.stack = result.remainingItems;
+  else {
+    itemInstances.delete(item.uid);
+    backpackItems.splice(itemIndex, 1);
+  }
+  hero.path = [];
+  hero.attack = Math.max(hero.attack, 0.32);
+  hero.attackDuration = 0.32;
+  hero.attackStyle = 'staff';
+  hero.attackCooldown = Math.max(hero.attackCooldown, 0.38);
+  hero.targetAngle = Math.atan2(monster.y - hero.y, monster.x - hero.x);
+  hero.facing = monster.x < hero.x ? -1 : 1;
+  const angle = hero.targetAngle;
+  const color = ACTOR_EFFECTS[result.application.id]?.color ?? '#63b8ca';
+  projectiles.push({
+    x: hero.x + Math.cos(angle) * 22,
+    y: hero.y + Math.sin(angle) * 22,
+    angle,
+    targetId: monster.instanceId,
+    damage: 0,
+    speed: TILE * 6.6,
+    life: 1.5,
+    color,
+    kind: 'tide-wand',
+    style: 'staff',
+    vampiric: false,
+    itemEffect: true,
+    status: result.application,
+  });
+  playerHasActed = true;
+  closeAbilityTargeting({ returnToSource: false });
+  burst(hero.x + Math.cos(angle) * 20, hero.y + Math.sin(angle) * 20 - 8, color, 14);
+  addImpactWave(hero.x, hero.y - 8, color, 42, 0);
+  showLootToast(sourceItem, '−1');
+  selectedPackIndex = Math.max(0, Math.min(itemIndex, backpackItems.length - 1));
+  updateHud();
+  updateGearUi();
+  renderPack();
+  persistRun();
+  return true;
+}
+
+function performAbilityTarget(target) {
+  if (!abilityTargetingState) return false;
+  if (abilityTargetingState.kind === 'blink') return performBlinkTarget(target);
+  if (abilityTargetingState.kind === 'target-item') return performTargetedItemUse(target);
+  const { slotIndex, spellId } = abilityTargetingState;
+  const spell = spellById(spellId);
+  const monster = currentAbilityTargets().find(({ instanceId }) => instanceId === target.targetId);
+  if (!spell || !monster) return false;
+  closeAbilityTargeting({ returnToSource: false });
+  return castPreparedSpell(slotIndex, monster);
+}
+
+function performAbilityTargetAtCell(x, y) {
+  if (abilityTargetingState?.kind === 'blink') return performAbilityTarget({ x, y });
+  const target = currentAbilityTargets().find((actor) => (
+    Math.floor(actor.x / TILE) === x && Math.floor(actor.y / TILE) === y
+  ));
+  return target ? performAbilityTarget({ targetId: target.instanceId }) : false;
 }
 
 function showRunEndScreen(result) {
@@ -5279,14 +6667,44 @@ function applyIdentifiablePotion(item) {
   return `−${result?.damage ?? outcome.damage}`;
 }
 
-function applySkillBook(item) {
+function applyBook(item) {
   const command = nextGameCommand(READ_BOOK_COMMAND, item.uid, { itemId: item.id });
+  const outcome = bookOutcome(item);
+  if (outcome?.type === 'learn-spell') {
+    const result = readSpellBook({
+      command,
+      item,
+      spells: hero.spells,
+      intelligence: currentHeroStats().intelligence,
+    });
+    if (!result.ok) {
+      const required = result.reason === 'intelligence-required'
+        ? spellById(outcome.spellId)?.minimumIntelligence
+        : null;
+      if (Number.isFinite(required)) {
+        addCombatGlyph(hero.x, hero.y, `✧${required}`, '#9abfc0', -62);
+        showLootToast(item, `✧ ${required}`);
+      }
+      return null;
+    }
+    hero.spells = createSpellState(result.state.spells);
+    const firstEmptySlot = hero.spells.preparedSpellIds.indexOf(null);
+    if (firstEmptySlot >= 0) {
+      hero.spells = prepareSpell(hero.spells, firstEmptySlot, outcome.spellId).state;
+    }
+    const spell = spellById(outcome.spellId);
+    burst(hero.x, hero.y - 8, spell.color, 20);
+    addImpactWave(hero.x, hero.y - 8, spell.color, 62, 1);
+    renderSpellBar();
+    return spell.name[itemDetailLanguage];
+  }
   const result = readSkillBook({
     command,
     item,
     study: hero.skillStudy,
     skills: hero.skills,
     heroLevel: hero.level,
+    attributes: { intelligence: currentHeroStats().intelligence },
   });
   if (!result.ok) return null;
   hero.skillStudy = createBookStudy(result.state.study);
@@ -5318,7 +6736,7 @@ function useConsumable(item, index) {
   if (item.identification?.group === 'potion') {
     feedback = applyIdentifiablePotion(item);
   } else if (item.identification?.group === 'book') {
-    feedback = applySkillBook(item);
+    feedback = applyBook(item);
     if (feedback === null) {
       showLootToast(item, 0);
       return;
@@ -5348,13 +6766,6 @@ function useConsumable(item, index) {
     hungerAutosaveElapsed = 0;
     playerHasActed = true;
     feedback = `+${Math.ceil(result.restored / 60)}′`;
-  } else if (item.useEffect?.type === 'return-to-entrance') {
-    hero.x = (dungeon.spawn.x + 0.5) * TILE;
-    hero.y = (dungeon.spawn.y + 0.5) * TILE;
-    hero.path = [];
-    camera.x = hero.x;
-    camera.y = hero.y;
-    feedback = '✓';
   } else if (item.useEffect?.type === 'power') {
     hero.power += item.useEffect.amount;
     feedback = `+${item.useEffect.amount}`;
@@ -5411,6 +6822,12 @@ function performSelectedItemAction({ fromDetail = false } = {}) {
     if (selection.item.placeableTrap) {
       return beginTrapPlacement(selection.item.uid);
     }
+    if (selection.item.useEffect?.type === 'blink') {
+      return beginBlinkTargeting(selection.item.uid);
+    }
+    if (selection.item.useEffect?.type === 'target-effect') {
+      return beginTargetEffectItemTargeting(selection.item.uid);
+    }
     useConsumable(selection.item, selection.index);
     return true;
   }
@@ -5446,6 +6863,20 @@ function burst(x, y, color, count = 9) {
 function addImpactWave(x, y, color, size = 42, shake = 2) {
   impactWaves.push({ x, y, color, size, life: 0.28, maxLife: 0.28 });
   if (!reducedMotion) renderShake.amount = Math.max(renderShake.amount, shake);
+}
+
+function addLightningArc(from, to) {
+  lightningArcSequence += 1;
+  lightningArcs.push({
+    sequence: lightningArcSequence,
+    fromX: from.x,
+    fromY: from.y,
+    toX: to.x,
+    toY: to.y,
+    life: 0.2,
+    maxLife: 0.2,
+  });
+  if (lightningArcs.length > 12) lightningArcs.shift();
 }
 
 function beginHitStop(duration) {
@@ -5686,6 +7117,148 @@ function launchHeroProjectile(monster, damage, combat, color) {
   });
 }
 
+function spellTargetCandidates(spell) {
+  if (!spell || spell.kind !== 'projectile') return [];
+  const candidates = [];
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  for (const target of [
+    ...monsters,
+    ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+  ]) {
+    if (spell.targetMode === 'actor' && target.actorKind === 'wildlife') continue;
+    if (target.actorKind === 'wildlife' ? target.defeated : target.dead > 0) continue;
+    const targetCell = { x: Math.floor(target.x / TILE), y: Math.floor(target.y / TILE) };
+    if (!revealed.has(`${targetCell.x},${targetCell.y}`)) continue;
+    const distance = Math.hypot(target.x - hero.x, target.y - hero.y);
+    if (distance > spell.range * TILE) continue;
+    if (!hasLineOfSight(world, heroCell, targetCell)) continue;
+    candidates.push({ target, distance });
+  }
+  return candidates
+    .sort((left, right) => left.distance - right.distance || left.target.instanceId.localeCompare(right.target.instanceId))
+    .map(({ target }) => target);
+}
+
+function nearestSpellTarget(spell) {
+  return spellTargetCandidates(spell)[0] ?? null;
+}
+
+function rejectSpellUse(slotIndex, reason) {
+  const button = spellActionButtons[slotIndex];
+  button?.classList.remove('rejected');
+  requestAnimationFrame(() => button?.classList.add('rejected'));
+  window.setTimeout(() => button?.classList.remove('rejected'), 240);
+  const glyph = reason === 'full-health' ? '♥' : reason === 'no-target' ? '?' : '!';
+  addCombatGlyph(hero.x, hero.y, glyph, '#b9aaa0', -62);
+}
+
+function castPreparedSpell(slotIndex, explicitTarget = null) {
+  if (!ready || uiScreen !== 'game' || hero.dead || openingDoor || runStatus !== 'playing') return false;
+  const spellId = hero.spells.preparedSpellIds[slotIndex];
+  const spell = spellById(spellId);
+  const stats = currentHeroStats();
+  const targets = spellTargetCandidates(spell);
+  const target = spell?.kind === 'projectile'
+    ? explicitTarget
+      ? targets.find(({ instanceId }) => instanceId === explicitTarget.instanceId) ?? null
+      : nearestSpellTarget(spell)
+    : null;
+  const availability = spellUseAvailability({
+    state: hero.spells,
+    slotIndex,
+    intelligence: stats.intelligence,
+    cooldown: spell ? spellCooldowns[spell.id] ?? 0 : 0,
+    runStatus,
+    heroHp: hero.hp,
+    heroMaxHp: stats.maxHp,
+    hasTarget: Boolean(target),
+  });
+  if (!availability.ok) {
+    rejectSpellUse(slotIndex, availability.reason);
+    return false;
+  }
+
+  const usedSpell = availability.spell;
+  if (usedSpell.kind === 'projectile' && usedSpell.targetMode === 'actor' && !explicitTarget) {
+    return beginSpellTargeting(slotIndex, usedSpell, targets);
+  }
+  if (usedSpell.kind === 'sustained') {
+    const toggled = toggleSustainedSpell(hero.spells, usedSpell.id, stats.intelligence);
+    if (!toggled.ok) {
+      rejectSpellUse(slotIndex, toggled.reason);
+      return false;
+    }
+    hero.spells = toggled.state;
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    if (usedSpell.id === 'invisibility' && toggled.active) hero.invisibilityReveal = 0;
+    burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, toggled.active ? 58 : 34, 0);
+    addCombatGlyph(hero.x, hero.y, toggled.active ? '◆' : '◇', usedSpell.color, -62);
+  } else if (usedSpell.kind === 'heal') {
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    const amount = Math.min(
+      spellHealing(usedSpell.id, stats.intelligence, currentSkillCapabilities().cleansingRank ?? 0),
+      stats.maxHp - hero.hp,
+    );
+    hero.hp += amount;
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    burst(hero.x, hero.y - 12, usedSpell.color, 22);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
+    addCombatGlyph(hero.x, hero.y, `+${amount}`, usedSpell.color, -62);
+  } else {
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.32);
+    hero.attackDuration = 0.32;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.38);
+    hero.targetAngle = Math.atan2(target.y - hero.y, target.x - hero.x);
+    hero.facing = target.x < hero.x ? -1 : 1;
+    hero.invisibilityReveal = currentHeroMagic().invisibility
+      ? INVISIBILITY_REVEAL_SECONDS
+      : hero.invisibilityReveal;
+    const angle = hero.targetAngle;
+    const skillCapabilities = currentSkillCapabilities();
+    const schoolRank = usedSpell.schoolId === 'pyromancy'
+      ? skillCapabilities.pyromancyRank ?? 0
+      : usedSpell.schoolId === 'cryomancy'
+        ? skillCapabilities.cryomancyRank ?? 0
+        : usedSpell.schoolId === 'storm-magic'
+          ? skillCapabilities.stormMagicRank ?? 0
+          : 0;
+    projectiles.push({
+      x: hero.x + Math.cos(angle) * 22,
+      y: hero.y + Math.sin(angle) * 22,
+      sourceX: hero.x,
+      sourceY: hero.y,
+      angle,
+      targetId: target.instanceId,
+      damage: spellDamage(usedSpell.id, stats.intelligence, schoolRank),
+      speed: TILE * 7.2,
+      life: 1.5,
+      color: usedSpell.color,
+      kind: usedSpell.id,
+      style: 'staff',
+      vampiric: false,
+      spellId: usedSpell.id,
+      spread: pyromancySpreadProfile(skillCapabilities.pyromancyRank ?? 0),
+      cryomancyRank: skillCapabilities.cryomancyRank ?? 0,
+      stormMagicRank: skillCapabilities.stormMagicRank ?? 0,
+      status: spellStatus(usedSpell.id, stats.intelligence),
+    });
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    burst(hero.x + Math.cos(angle) * 20, hero.y + Math.sin(angle) * 20 - 8, usedSpell.color, 10);
+  }
+  playerHasActed = true;
+  renderSpellBar();
+  updateHud();
+  persistRun();
+  return true;
+}
+
 function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
   const pending = hero.pendingAttack;
   if (!pending) return;
@@ -5833,8 +7406,12 @@ function defeatMonster(monster) {
     updateHud();
   }
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
-    showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, '◆');
-    burst(monster.x, monster.y - 8, '#d83e82', 28);
+    const finalGuardian = dungeon.depth === FINAL_DEPTH;
+    showLootToast(
+      { path: finalGuardian ? ARTIFACT_PATH : EXIT_PATH, rarity: 3 },
+      finalGuardian ? '◆' : romanDepth(dungeon.depth),
+    );
+    burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
     updateBossHud();
   }
   persistRun();
@@ -5893,6 +7470,7 @@ function damageHero(amount, {
   hero.attackMasteryRank = 0;
   swordRhythmState = createSwordRhythmState();
   projectiles.length = 0;
+  if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   deathTimer = 1.35;
   persistRun();
   return result;
@@ -5990,6 +7568,11 @@ function resolveWorldInteractions() {
   }
 
   if (hero.dead || heroCell.x !== dungeon.exit.x || heroCell.y !== dungeon.exit.y) return;
+  if (!canLeaveDungeonFloor({
+    depth: dungeon.depth,
+    status: runStatus,
+    guardianDefeated: objectiveBossDefeated(),
+  })) return;
   if (artifactAvailable()) {
     completeVictory();
     return;
@@ -6007,6 +7590,7 @@ function completeVictory() {
   hero.attackMasteryRank = 0;
   swordRhythmState = createSwordRhythmState();
   projectiles.length = 0;
+  if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   burst(hero.x, hero.y - 10, '#d83e82', 42);
   showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
   persistRun();
@@ -6043,6 +7627,45 @@ function replaceFloor(nextDepth) {
   world = dungeon.grid;
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
+  const generatedChestIds = dungeon.finds
+    .filter(({ id }) => id === 'sealed-cache')
+    .map(({ instanceId }) => instanceId)
+    .sort();
+  const persistedChestIds = Array.isArray(run.floor?.chests)
+    ? run.floor.chests.map(({ findId }) => findId).sort()
+    : [];
+  const keepPersistedChests = run.depth === nextDepth
+    && generatedChestIds.length === persistedChestIds.length
+    && generatedChestIds.every((id, index) => id === persistedChestIds[index]);
+  const nextChests = keepPersistedChests
+    ? run.floor.chests.map((container) => ({
+        ...container,
+        items: container.items.map((item) => ({ ...item })),
+      }))
+    : [...createChestContainerStates({
+        seed: dungeon.seed,
+        depth: dungeon.depth,
+        finds: dungeon.finds,
+        lootAbundance: run.lootAbundance,
+      })];
+  const generatedMerchantIds = dungeon.merchants.map(({ instanceId }) => instanceId).sort();
+  const persistedMerchantIds = Array.isArray(run.floor?.merchants)
+    ? run.floor.merchants.map(({ merchantId }) => merchantId).sort()
+    : [];
+  const keepPersistedMerchants = run.depth === nextDepth
+    && generatedMerchantIds.length === persistedMerchantIds.length
+    && generatedMerchantIds.every((id, index) => id === persistedMerchantIds[index]);
+  const nextMerchants = keepPersistedMerchants
+    ? run.floor.merchants.map((merchantState) => ({
+        merchantId: merchantState.merchantId,
+        gold: merchantState.gold,
+        purchasedEntryIds: [...merchantState.purchasedEntryIds],
+        buyback: merchantState.buyback.map(({ record, price }) => ({
+          price,
+          record: { ...record, ...(record.affixIds ? { affixIds: [...record.affixIds] } : {}) },
+        })),
+      }))
+    : [...createMerchantStates({ merchants: dungeon.merchants, depth: dungeon.depth })];
   run.depth = nextDepth;
   run.floor = {
     revealed: [],
@@ -6057,7 +7680,8 @@ function replaceFloor(nextDepth) {
     detectedTrapIds: [],
     disarmedTrapIds: [],
     placedTraps: [],
-    merchantPurchases: [],
+    merchants: nextMerchants,
+    chests: nextChests,
   };
   monsters = createMonsters(dungeon);
   passiveCreatures = createPassiveCreatures(dungeon);
@@ -6072,6 +7696,7 @@ function replaceFloor(nextDepth) {
   doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
   merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
   openingDoor = null;
+  activeChestFindId = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);
   revealed.clear();
   revealAround(revealed, world, dungeon.spawn, 4);
@@ -6086,6 +7711,9 @@ function replaceFloor(nextDepth) {
   hero.guardFlash = 0;
   hero.invisibilityReveal = 0;
   projectiles.length = 0;
+  if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
+  for (const id of Object.keys(spellCooldowns)) delete spellCooldowns[id];
+  spellUiAccumulator = 0;
   impactWaves.length = 0;
   combatGlyphs.length = 0;
   bloodDrops.length = 0;
@@ -6129,11 +7757,16 @@ function restartRun() {
   hero.xp = run.hero.xp;
   hero.power = run.hero.power;
   hero.hunger = run.hero.hunger;
+  hero.intelligence = run.hero.intelligence;
+  hero.spells = createSpellState(run.hero.spells);
   hungerAccumulator = 0;
   hungerAutosaveElapsed = 0;
   currentHungerStageId = hungerStage(hero.hunger).id;
   hero.effects = createActorEffects(run.hero.effects);
   hero.skills = cloneSkillState(run.hero.skills);
+  hero.skillStudy = createBookStudy(run.hero.skillStudy);
+  for (const id of Object.keys(spellCooldowns)) delete spellCooldowns[id];
+  spellUiAccumulator = 0;
   hero.dead = false;
   runStatus = 'playing';
   playerHasActed = false;
@@ -6198,6 +7831,22 @@ function updateHero(delta) {
   hero.hurt = Math.max(0, hero.hurt - delta);
   hero.guardFlash = Math.max(0, hero.guardFlash - delta);
   hero.invisibilityReveal = Math.max(0, hero.invisibilityReveal - delta);
+  if (typeof spellCooldowns !== 'undefined' && typeof spellUiAccumulator !== 'undefined') {
+    let cooldownChanged = false;
+    for (const [spellId, remaining] of Object.entries(spellCooldowns)) {
+      const next = Math.max(0, remaining - delta);
+      if (next === 0) delete spellCooldowns[spellId];
+      else spellCooldowns[spellId] = next;
+      cooldownChanged = true;
+    }
+    if (cooldownChanged) {
+      spellUiAccumulator += delta;
+      if (spellUiAccumulator >= 0.1) {
+        spellUiAccumulator = 0;
+        if (typeof renderSpellBar === 'function') renderSpellBar();
+      }
+    }
+  }
   if (runStatus !== 'playing') return;
   updateHunger(delta);
   updateHeroEffects(delta);
@@ -6488,6 +8137,9 @@ function updatePassiveCreatures(delta) {
 
 function updateWorld(delta) {
   updateDoorOpening(delta);
+  const cryomancyRank = typeof currentSkillCapabilities === 'function'
+    ? currentSkillCapabilities().cryomancyRank ?? 0
+    : 0;
   if (hero.dead) {
     deathTimer -= delta;
     if (deathTimer <= 0) showRunEndScreen('dead');
@@ -6504,6 +8156,8 @@ function updateWorld(delta) {
   if (!hero.dead && hero.path[0]) reservedCells.add(monsterCellKey(hero.path[0], TILE));
   const heroCellKey = monsterCellKey(hero, TILE);
   for (const monster of monsters) {
+    const effectTick = tickActorEffects(monster.effects, delta);
+    monster.effects = effectTick.effects;
     monster.hit = Math.max(0, monster.hit - delta);
     monster.attackRecovery = Math.max(0, monster.attackRecovery - delta);
     monster.alertFlash = Math.max(0, monster.alertFlash - delta);
@@ -6521,6 +8175,13 @@ function updateWorld(delta) {
       continue;
     }
     if (runStatus !== 'playing' || !playerHasActed) continue;
+    if (monster.effects.frozen > 0) {
+      monster.route = [];
+      monster.crowdPressure = 0;
+      monster.attackWindup = 0;
+      monster.attackRecovery = Math.max(monster.attackRecovery, monster.effects.frozen);
+      continue;
+    }
     if (triggerPlacedTrapForMonster(monster)) continue;
     if (monster.trapStun > 0 || monster.shieldStun > 0) continue;
     if (isHeroConcealed()) {
@@ -6644,7 +8305,12 @@ function updateWorld(delta) {
     const dx = target.x - monster.x;
     const dy = target.y - monster.y;
     const distance = Math.hypot(dx, dy);
-    const movement = Math.min(distance, delta * TILE * monster.speed);
+    const movement = Math.min(
+      distance,
+      delta * TILE * monster.speed * actorEffectModifiers(monster.effects, {
+        cryomancyRank,
+      }).moveSpeed,
+    );
     if (distance > 0 && movement > 0) {
       const proposed = {
         x: monster.x + (dx / distance) * movement,
@@ -6730,14 +8396,164 @@ function updateWorld(delta) {
       projectile.angle = Math.atan2(dy, dx);
     }
     if (distance > movement + 8) continue;
-    damageMonster(target, projectile.damage, projectile.color, {
-      style: projectile.style,
-      projectile: true,
-      sourceX: projectile.x,
-      sourceY: projectile.y,
-      vampiric: projectile.vampiric,
-    });
+    const cryomancy = projectile.spellId === 'frost-lance'
+      ? cryomancyHitProfile({
+          rank: projectile.cryomancyRank,
+          effects: target.effects,
+          baseChillDuration: projectile.status?.duration ?? 0,
+        })
+      : null;
+    if (projectile.damage > 0) {
+      damageMonster(target, projectile.damage, projectile.color, {
+        style: projectile.style,
+        projectile: true,
+        sourceX: projectile.x,
+        sourceY: projectile.y,
+        vampiric: projectile.vampiric,
+      });
+    }
+    if (projectile.status && (target.actorKind === 'wildlife' ? !target.defeated : target.dead === 0)) {
+      const preparedEffects = cryomancy?.shatter
+        ? createActorEffects({ ...target.effects, frozen: 0 })
+        : target.effects;
+      const applied = applyActorEffect(
+        preparedEffects,
+        projectile.status.id,
+        cryomancy?.chillDuration ?? projectile.status.duration,
+      );
+      target.effects = applied.effects;
+      if (cryomancy?.freezeDuration > 0) {
+        target.effects = applyActorEffect(
+          target.effects,
+          'frozen',
+          cryomancy.freezeDuration,
+        ).effects;
+        target.attackWindup = 0;
+        target.attackRecovery = Math.max(target.attackRecovery ?? 0, cryomancy.freezeDuration);
+      }
+      target.route = [];
+      target.repathCooldown = Math.max(target.repathCooldown ?? 0, 0.18);
+      if (projectile.itemEffect && projectile.status.id === 'wet') {
+        const steam = applied.reaction === 'steam';
+        const color = steam ? '#c8d5d2' : ACTOR_EFFECTS.wet.color;
+        burst(target.x, target.y - 8, color, steam ? 28 : 22);
+        addImpactWave(target.x, target.y, color, steam ? 70 : 54, steam ? 2 : 1);
+        addCombatGlyph(target.x, target.y, '≈', steam ? '#eef4ed' : '#baf3ef', -58);
+      } else {
+        burst(target.x, target.y - 8, '#8de0e5', 18);
+        addImpactWave(target.x, target.y, '#73cbd6', 50, 1);
+        addCombatGlyph(target.x, target.y, cryomancy?.freezeDuration > 0 ? '◆' : '❄', '#c8f7f3', -58);
+      }
+      persistRun();
+    }
+    if (cryomancy?.shatter) {
+      const sourceCell = { x: Math.floor(target.x / TILE), y: Math.floor(target.y / TILE) };
+      const nearbyCandidates = [
+        ...monsters,
+        ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+      ]
+        .filter((candidate) => candidate !== target)
+        .filter((candidate) => candidate.actorKind === 'wildlife' ? !candidate.defeated : candidate.dead === 0)
+        .filter((candidate) => hasLineOfSight(world, sourceCell, {
+          x: Math.floor(candidate.x / TILE),
+          y: Math.floor(candidate.y / TILE),
+        }));
+      const shatterTargets = selectCryomancyShatterTargets({
+        origin: target,
+        candidates: nearbyCandidates,
+        profile: cryomancy,
+        tileSize: TILE,
+      });
+      const shatterDamage = cryomancyShatterDamage(projectile.damage, cryomancy);
+      burst(target.x, target.y - 8, '#d9fffb', 34);
+      addImpactWave(target.x, target.y - 8, '#8ee5e9', 86, 3);
+      addCombatGlyph(target.x, target.y, '✦', '#ecfffc', -70);
+      for (const candidate of shatterTargets) {
+        damageMonster(candidate, shatterDamage, '#a9f2ef', {
+          style: 'staff',
+          projectile: true,
+          sourceX: target.x,
+          sourceY: target.y,
+          vampiric: false,
+        });
+        burst(candidate.x, candidate.y - 8, '#bdeeea', 14);
+      }
+      persistRun();
+    }
+    if (projectile.spellId === 'storm-bolt') {
+      const profile = stormChainProfile(projectile.stormMagicRank);
+      const chainTargets = selectStormChainTargets({
+        origin: target,
+        candidates: monsters.filter((candidate) => candidate !== target && candidate.dead === 0),
+        profile,
+        tileSize: TILE,
+        canLink: (from, to) => hasLineOfSight(world, {
+          x: Math.floor(from.x / TILE),
+          y: Math.floor(from.y / TILE),
+        }, {
+          x: Math.floor(to.x / TILE),
+          y: Math.floor(to.y / TILE),
+        }),
+      });
+      const chainDamage = stormChainDamage(projectile.damage, profile);
+      let previous = { x: projectile.sourceX ?? projectile.x, y: projectile.sourceY ?? projectile.y };
+      addLightningArc(previous, target);
+      previous = target;
+      burst(target.x, target.y - 8, '#bdf7ff', 20);
+      addImpactWave(target.x, target.y - 8, '#79cfe8', 62, chainTargets.length > 0 ? 2 : 1);
+      for (const candidate of chainTargets) {
+        addLightningArc(previous, candidate);
+        damageMonster(candidate, chainDamage, '#8fdff2', {
+          style: 'staff',
+          projectile: true,
+          sourceX: previous.x,
+          sourceY: previous.y,
+          vampiric: false,
+        });
+        burst(candidate.x, candidate.y - 8, '#bdf7ff', 16);
+        addImpactWave(candidate.x, candidate.y - 8, '#79cfe8', 46, 0);
+        previous = candidate;
+      }
+      playStormCrackle(chainTargets.length);
+      persistRun();
+    }
+    if (projectile.spellId === 'ember-bolt' && projectile.spread?.targets > 0) {
+      const sourceCell = { x: Math.floor(target.x / TILE), y: Math.floor(target.y / TILE) };
+      const nearby = [
+        ...monsters,
+        ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+      ]
+        .filter((candidate) => candidate !== target)
+        .filter((candidate) => candidate.actorKind === 'wildlife' ? !candidate.defeated : candidate.dead === 0)
+        .filter((candidate) => Math.hypot(candidate.x - target.x, candidate.y - target.y) <= projectile.spread.radius * TILE)
+        .filter((candidate) => hasLineOfSight(world, sourceCell, {
+          x: Math.floor(candidate.x / TILE),
+          y: Math.floor(candidate.y / TILE),
+        }))
+        .sort((left, right) => (
+          Math.hypot(left.x - target.x, left.y - target.y)
+          - Math.hypot(right.x - target.x, right.y - target.y)
+        ))
+        .slice(0, projectile.spread.targets);
+      const spreadDamage = Math.max(1, Math.round(projectile.damage * projectile.spread.ratio));
+      for (const candidate of nearby) {
+        damageMonster(candidate, spreadDamage, '#d85d34', {
+          style: 'staff',
+          projectile: true,
+          sourceX: target.x,
+          sourceY: target.y,
+          vampiric: false,
+        });
+        burst(candidate.x, candidate.y - 8, '#ed7945', 12);
+      }
+    }
     projectiles.splice(index, 1);
+  }
+  if (typeof lightningArcs !== 'undefined') {
+    for (let index = lightningArcs.length - 1; index >= 0; index -= 1) {
+      lightningArcs[index].life -= delta;
+      if (lightningArcs[index].life <= 0) lightningArcs.splice(index, 1);
+    }
   }
   for (let index = sparks.length - 1; index >= 0; index -= 1) {
     const spark = sparks[index];
@@ -6799,6 +8615,7 @@ function render() {
     if (actor.kind === 'monster') drawMonster(actor.monster);
   }
   drawHeroEffects();
+  drawLightningArcs();
   drawHeroAttackTrail();
   drawBloodDrops();
   drawMotes(1);
@@ -6861,6 +8678,11 @@ function moveFromPointer(event) {
     performTrapPlacement(Math.floor(target.x / TILE), Math.floor(target.y / TILE));
     return;
   }
+  if (uiScreen === 'ability-targeting') {
+    const target = dungeonWorld3D.unprojectGround(event.clientX, event.clientY);
+    performAbilityTargetAtCell(Math.floor(target.x / TILE), Math.floor(target.y / TILE));
+    return;
+  }
   if (uiScreen !== 'game' || openingDoor) return;
   inputGesture += 1;
   const target = dungeonWorld3D.unprojectGround(event.clientX, event.clientY);
@@ -6895,7 +8717,7 @@ function moveFromPointer(event) {
     routeHeroBesideCell(cellX, cellY);
     return;
   }
-  if (find && !find.resolved && revealed.has(`${cellX},${cellY}`)) {
+  if (find && findIsInteractable(find) && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
     const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
     if (adjacent) {
@@ -7023,9 +8845,19 @@ for (const button of moveDirectionButtons) {
     flashMoveControl(direction);
   });
 }
+for (const button of spellActionButtons) {
+  button.addEventListener('click', () => castPreparedSpell(Number(button.dataset.spellSlot)));
+}
+cancelAbilityTargetingButton.addEventListener('click', () => closeAbilityTargeting());
 window.addEventListener('resize', resize);
 window.addEventListener('blur', () => clearMoveControl());
 window.addEventListener('keydown', (event) => {
+  const spellHotkeys = { Digit1: 0, Digit2: 1, Digit3: 2 };
+  if (uiScreen === 'game' && Object.hasOwn(spellHotkeys, event.code)) {
+    event.preventDefault();
+    if (!event.repeat) castPreparedSpell(spellHotkeys[event.code]);
+    return;
+  }
   const focusedDirection = event.target.closest?.('[data-move]')?.dataset.move;
   if ((event.code === 'Enter' || event.code === 'Space') && focusedDirection && uiScreen === 'game') {
     event.preventDefault();
@@ -7071,6 +8903,7 @@ window.addEventListener('keydown', (event) => {
     const controls = [
       closeCharacterSheetButton,
       characterSheetLanguageButton,
+      ...characterSpells.querySelectorAll('button:not(:disabled)'),
       ...characterSkills.querySelectorAll('button:not(:disabled)'),
     ];
     const currentIndex = controls.indexOf(document.activeElement);
@@ -7115,11 +8948,36 @@ window.addEventListener('keydown', (event) => {
     controls[nextIndex].focus();
     return;
   }
+  if (event.code === 'Tab' && uiScreen === 'chest') {
+    event.preventDefault();
+    const controls = [
+      ...chestStorageList.querySelectorAll('button:not(:disabled)'),
+      ...chestBackpackList.querySelectorAll('button:not(:disabled)'),
+      closeChestContainerButton,
+    ];
+    const currentIndex = controls.indexOf(document.activeElement);
+    const direction = event.shiftKey ? -1 : 1;
+    const nextIndex = (currentIndex + direction + controls.length) % controls.length;
+    controls[nextIndex].focus();
+    return;
+  }
   if (event.code === 'Tab' && uiScreen === 'trap-placement') {
     event.preventDefault();
     const controls = [
       ...trapPlacementTargets.querySelectorAll('button'),
       cancelTrapPlacementButton,
+    ];
+    const currentIndex = controls.indexOf(document.activeElement);
+    const direction = event.shiftKey ? -1 : 1;
+    const nextIndex = (currentIndex + direction + controls.length) % controls.length;
+    controls[nextIndex].focus();
+    return;
+  }
+  if (event.code === 'Tab' && uiScreen === 'ability-targeting') {
+    event.preventDefault();
+    const controls = [
+      ...abilityTargetingTargets.querySelectorAll('button'),
+      cancelAbilityTargetingButton,
     ];
     const currentIndex = controls.indexOf(document.activeElement);
     const direction = event.shiftKey ? -1 : 1;
@@ -7148,9 +9006,19 @@ window.addEventListener('keydown', (event) => {
     closeMerchantShop();
     return;
   }
+  if (event.code === 'Escape' && uiScreen === 'chest') {
+    event.preventDefault();
+    closeChestContainerUi();
+    return;
+  }
   if (event.code === 'Escape' && uiScreen === 'trap-placement') {
     event.preventDefault();
     closeTrapPlacement({ returnToInventory: true });
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'ability-targeting') {
+    event.preventDefault();
+    closeAbilityTargeting();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'appearance') {
@@ -7227,6 +9095,10 @@ characterSheetLanguageButton.addEventListener('click', () => {
 bagButton.addEventListener('click', openInventory);
 interactActionButton.addEventListener('click', openNearbyContextActions);
 closeMerchantShopButton.addEventListener('click', closeMerchantShop);
+closeChestContainerButton.addEventListener('click', closeChestContainerUi);
+chestContainer.addEventListener('pointerdown', (event) => {
+  if (event.target === chestContainer) closeChestContainerUi();
+});
 merchantShopTabButtons.forEach((button) => {
   button.addEventListener('click', () => {
     merchantTab = button.dataset.merchantTab;
@@ -7236,6 +9108,9 @@ merchantShopTabButtons.forEach((button) => {
   });
 });
 closeInventoryButton.addEventListener('click', closeInventory);
+inventoryViewButtons.forEach((button) => {
+  button.addEventListener('click', () => setInventoryView(button.dataset.packView));
+});
 inventoryFilterButtons.forEach((button) => {
   button.addEventListener('click', () => setInventoryFilter(button.dataset.inventoryFilter));
 });

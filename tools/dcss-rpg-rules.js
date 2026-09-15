@@ -2,6 +2,7 @@ import { lootById, monsterById } from './dcss-rpg-content.js';
 import { floorScaling, monsterTier } from './dcss-rpg-scaling.js';
 import { deriveSkillModifiers } from './dcss-rpg-skills.js';
 import { hungerStatModifiers } from './dcss-rpg-hunger.js';
+import { createActorEffects } from './dcss-rpg-effects.js';
 
 export const HERO_BASE_MOVE_SPEED = 2.85;
 export const HERO_LEVEL_HP_GAIN = 6;
@@ -13,6 +14,7 @@ export const EQUIPMENT_STAT_KEYS = Object.freeze([
   'maxHp',
   'moveSpeed',
   'attackSpeed',
+  'intelligence',
 ]);
 
 export const WEAPON_FAMILIES = Object.freeze([
@@ -149,7 +151,14 @@ export function combatDamage(stats, combat) {
 
 export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const byUid = itemMap(items);
-  const bonus = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0 };
+  const bonus = {
+    attack: 0,
+    defense: 0,
+    maxHp: 0,
+    moveSpeed: 0,
+    attackSpeed: 0,
+    intelligence: 0,
+  };
   const mainHand = byUid.get(equipment.hand1);
   for (const slot of EQUIPMENT_SLOTS) {
     if (slot === 'hand2' && isTwoHandedItem(mainHand)) continue;
@@ -162,6 +171,7 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
     bonus.maxHp += item.stats?.maxHp ?? 0;
     bonus.moveSpeed += item.stats?.moveSpeed ?? 0;
     bonus.attackSpeed += item.stats?.attackSpeed ?? 0;
+    bonus.intelligence += item.stats?.intelligence ?? 0;
   }
   if (hero.skills) {
     const skillBonus = deriveSkillModifiers(hero.skills, skillOptions);
@@ -176,6 +186,7 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
     maxHp: Math.max(1, hero.maxHp + bonus.maxHp),
     moveSpeed: Math.max(0.45, Math.max(0.65, 1 + bonus.moveSpeed) * hunger.moveSpeed),
     attackSpeed: Math.max(0.42, Math.max(0.65, 1 + bonus.attackSpeed) * hunger.attackSpeed),
+    intelligence: Math.max(0, Math.round((hero.intelligence ?? 0) + bonus.intelligence)),
   };
 }
 
@@ -433,6 +444,7 @@ export function createMonsterStates(level, tileSize = 64) {
       attackTargetY: 0,
       attackRecovery: 0,
       attackSequence: spawn.state?.attackSequence ?? 0,
+      effects: createActorEffects(spawn.state?.effects),
       shieldStun: 0,
       stride: 0,
       movePulse: 0,

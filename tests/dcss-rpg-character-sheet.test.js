@@ -11,7 +11,7 @@ const cssUrl = new URL('../tools/dcss.css', import.meta.url);
 test('character sheet explains the complete derived build in both languages', () => {
   const state = {
     hero: { level: 3, xp: 10, hp: 71 },
-    stats: { attack: 9, defense: 6, maxHp: 112, moveSpeed: 1.2, attackSpeed: 1.15 },
+    stats: { attack: 9, defense: 6, maxHp: 112, moveSpeed: 1.2, attackSpeed: 1.15, intelligence: 7 },
     combat: { style: 'spear', range: 2, cooldown: 0.5 },
     damage: 9,
     baseMoveSpeed: 2.85,
@@ -21,10 +21,11 @@ test('character sheet explains the complete derived build in both languages', ()
   const english = characterSheetModel({ ...state, language: 'en' });
   assert.equal(russian.title, 'Персонаж');
   assert.equal(english.title, 'Character');
-  assert.equal(russian.statRows.length, 6);
+  assert.equal(russian.statRows.length, 7);
   assert.equal(russian.combatRows.length, 4);
   assert.equal(russian.statRows.find(({ id }) => id === 'health').value, '71/112');
   assert.equal(russian.statRows.find(({ id }) => id === 'movement').value, '3.42 кл/с');
+  assert.equal(russian.statRows.find(({ id }) => id === 'intelligence').value, '7');
   assert.equal(russian.statRows.find(({ id }) => id === 'hunger').value, 'Сыт · 100%');
   assert.match(english.statRows.find(({ id }) => id === 'hunger').description, /never deals direct damage/);
   assert.equal(english.combatRows.find(({ id }) => id === 'rate').value, '2');

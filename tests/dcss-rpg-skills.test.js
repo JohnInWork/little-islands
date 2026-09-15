@@ -28,7 +28,7 @@ const TRAP_IMPLEMENTATION = {
 };
 const implementations = { 'trap-sense': TRAP_IMPLEMENTATION };
 const systems = ['trap-detection'];
-const neutral = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0 };
+const neutral = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0, intelligence: 0 };
 const command = (state, heroLevel, expectedRank = 0, overrides = {}) => ({
   state,
   heroLevel,
@@ -47,10 +47,11 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes', 'shield',
+    'pyromancy', 'cryomancy', 'storm-magic',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
     'trap-detection', 'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
-    'weapon-cleave', 'shield-blocking',
+    'weapon-cleave', 'shield-blocking', 'fire-spread', 'frost-buildup', 'chain-lightning',
   ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
@@ -185,6 +186,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     axeCleaveTwoHandDamagePercent: 0, axeCleaveTwoHandTargets: 0,
     axeCleaveOneHandDamagePercent: 0, axeCleaveOneHandTargets: 0,
     shieldBlockChancePercent: 0, shieldBlockStunMs: 0,
+    pyromancyRank: 0, cryomancyRank: 0, stormMagicRank: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionTier, 3);

@@ -15,7 +15,7 @@ import {
 } from '../tools/dcss-rpg-effects.js';
 
 test('actor effects have a complete pixel presentation in both languages', () => {
-  assert.deepEqual(ACTOR_EFFECT_IDS, ['burning', 'wet', 'chilled', 'poison']);
+  assert.deepEqual(ACTOR_EFFECT_IDS, ['burning', 'wet', 'chilled', 'frozen', 'poison']);
   const all = Object.fromEntries(ACTOR_EFFECT_IDS.map((id) => [id, 5]));
   for (const language of ['ru', 'en']) {
     const presentation = activeActorEffects(all, language);
@@ -54,6 +54,11 @@ test('wet cold lasts longer and produces a stronger bounded movement penalty', (
   assert.equal(wetCold.chilled, 6);
   assert.ok(actorEffectModifiers(wetCold).moveSpeed < actorEffectModifiers(dryCold).moveSpeed);
   assert.ok(actorEffectModifiers(wetCold).moveSpeed >= 0.5);
+  assert.ok(
+    actorEffectModifiers(dryCold, { cryomancyRank: 1 }).moveSpeed
+      < actorEffectModifiers(dryCold).moveSpeed,
+  );
+  assert.equal(actorEffectModifiers(createActorEffects({ frozen: 1 })).moveSpeed, 0);
 });
 
 test('damage pulses and expiry are deterministic across frame sizes', () => {

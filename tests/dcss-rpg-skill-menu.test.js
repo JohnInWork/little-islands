@@ -23,7 +23,7 @@ const firstSkill = (model) => model.groups[0].skills[0];
 test('production menu exposes implemented trap skills, with no empty categories', () => {
   const model = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   assert.equal(model.visible, true);
-  assert.equal(model.groups.length, 2);
+  assert.equal(model.groups.length, 3);
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
     'trap-sense',
     'trap-disarming',
@@ -33,6 +33,9 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'swords',
     'axes',
     'shield',
+    'pyromancy',
+    'cryomancy',
+    'storm-magic',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
@@ -70,6 +73,56 @@ test('production shield skill explains exact block ranks and rank III stun in bo
   const englishShield = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'shield');
   assert.match(englishShield.description, /15%\/25%\/35%/);
   assert.match(englishShield.description, /rank III.*stuns/);
+});
+
+test('pyromancy spends the same level point but also requires intelligence', () => {
+  const blockedModel = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 3 },
+  });
+  const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'pyromancy');
+  assert.equal(blocked.canLearn, false);
+  assert.equal(blocked.reasonLabel, 'Нужен интеллект 4');
+
+  const availableModel = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 4 },
+  });
+  const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'pyromancy');
+  assert.equal(available.canLearn, true);
+});
+
+test('cryomancy is an implemented intelligence-gated three-stage mechanic', () => {
+  const blockedModel = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 3 },
+  });
+  const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'cryomancy');
+  assert.equal(blocked.canLearn, false);
+  assert.equal(blocked.reasonLabel, 'Нужен интеллект 4');
+
+  const availableModel = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 4 },
+  });
+  const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'cryomancy');
+  assert.equal(available.canLearn, true);
+  assert.match(available.description, /замораживает мокрые цели/);
+  assert.match(available.description, /раскалывает лёд/);
+});
+
+test('storm magic exposes its wet-chain rules and intelligence gate in both languages', () => {
+  const state = createSkillState(8);
+  const blockedModel = skillMenuModel({
+    state, heroLevel: 8, runStatus: 'playing', language: 'ru', attributes: { intelligence: 4 },
+  });
+  const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
+  assert.equal(blocked.canLearn, false);
+  assert.equal(blocked.reasonLabel, 'Нужен интеллект 5');
+  assert.match(blocked.description, /1\/2\/3 мокрые цели/);
+
+  const availableModel = skillMenuModel({
+    state, heroLevel: 8, runStatus: 'playing', language: 'en', attributes: { intelligence: 5 },
+  });
+  const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
+  assert.equal(available.canLearn, true);
+  assert.match(available.description, /55%\/65%\/75%/);
 });
 
 test('production axes specialization explains both grips and all three real cleave ranks', () => {

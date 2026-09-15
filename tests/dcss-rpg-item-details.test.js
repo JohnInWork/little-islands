@@ -9,7 +9,7 @@ import {
 } from '../tools/dcss-rpg-item-details.js';
 
 test('every inventory item has complete readable details in Russian and English', () => {
-  assert.equal(LOOT_CATALOG.length, 66);
+  assert.equal(LOOT_CATALOG.length, 71);
   assert.deepEqual(itemDetailLanguages, ['ru', 'en']);
   for (const item of LOOT_CATALOG) {
     for (const language of itemDetailLanguages) {
@@ -28,7 +28,8 @@ test('every inventory item has complete readable details in Russian and English'
 test('details describe existing magic and combat mechanics without inventing inactive powers', () => {
   const byId = (id) => LOOT_CATALOG.find((item) => item.id === id);
   assert.match(itemDetails(byId('skull-staff'), 'ru').effects.find(({ id }) => id === 'combat:profile').text, /Дальность: 4\.5/);
-  assert.match(itemDetails(byId('blink-scroll'), 'en').effects[0].text, /Return to entrance/);
+  assert.match(itemDetails(byId('blink-scroll'), 'en').effects[0].text, /chosen tile/);
+  assert.match(itemDetails(byId('tide-wand'), 'ru').effects[0].text, /Мокрый.*10 с.*дальность 6/);
   assert.match(itemDetails(byId('vitality-amulet'), 'ru').effects[0].text, /\+16/);
   assert.match(itemDetails(byId('mystery-potion'), 'ru').effects[0].text, /сила до конца забега: \+1/i);
   assert.match(itemDetails(byId('mystery-potion'), 'en').effects[0].text, /run power: \+1/i);

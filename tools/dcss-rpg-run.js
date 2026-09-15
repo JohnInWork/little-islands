@@ -1,7 +1,20 @@
-export const FINAL_DEPTH = 3;
+export const FLOORS_PER_CHAPTER = 3;
+export const FINAL_DEPTH = 9;
 export const FINAL_BOSS_ID = 'depth-warden';
+export const CHAPTER_GUARDIANS = Object.freeze([
+  Object.freeze({ depth: 3, monsterId: 'ashen-guardian', final: false }),
+  Object.freeze({ depth: 6, monsterId: 'sanctum-guardian', final: false }),
+  Object.freeze({ depth: FINAL_DEPTH, monsterId: FINAL_BOSS_ID, final: true }),
+]);
 export const SANCTUARY_COST = 3;
 export const SANCTUARY_HEAL = 36;
+
+export function chapterGuardianForDepth(depth) {
+  if (!Number.isInteger(depth) || depth < 1) {
+    throw new TypeError('Chapter guardian depth must be a positive integer');
+  }
+  return CHAPTER_GUARDIANS.find((guardian) => guardian.depth === depth) ?? null;
+}
 
 export function goldRewardForMonster(monster) {
   if (!monster || !Number.isFinite(monster.tier)) return 0;
@@ -26,6 +39,12 @@ export function useSanctuary({ depth, hp, maxHp, gold }) {
 
 export function canClaimFinalArtifact({ depth, status, bossDefeated }) {
   return depth === FINAL_DEPTH && status === 'playing' && bossDefeated === true;
+}
+
+export function canLeaveDungeonFloor({ depth, status, guardianDefeated }) {
+  if (!Number.isInteger(depth) || depth < 1 || depth > FINAL_DEPTH) return false;
+  if (status !== 'playing') return false;
+  return !chapterGuardianForDepth(depth) || guardianDefeated === true;
 }
 
 export function isTerminalRunStatus(status) {

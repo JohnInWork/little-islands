@@ -1,4 +1,4 @@
-export const ACTOR_EFFECT_IDS = Object.freeze(['burning', 'wet', 'chilled', 'poison']);
+export const ACTOR_EFFECT_IDS = Object.freeze(['burning', 'wet', 'chilled', 'frozen', 'poison']);
 
 export const MAX_EFFECT_DURATION = 60;
 
@@ -26,6 +26,14 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 0,
     moveSpeed: 0.74,
     labels: Object.freeze({ ru: 'Озноб', en: 'Chilled' }),
+  }),
+  frozen: Object.freeze({
+    id: 'frozen',
+    icon: 'item/ring/i-ice.png',
+    color: '#d7ffff',
+    damagePerPulse: 0,
+    moveSpeed: 0,
+    labels: Object.freeze({ ru: 'Заморозка', en: 'Frozen' }),
   }),
   poison: Object.freeze({
     id: 'poison',
@@ -67,14 +75,19 @@ export function activeActorEffects(effects, language = 'ru') {
   });
 }
 
-export function actorEffectModifiers(effects) {
+export function actorEffectModifiers(effects, { cryomancyRank = 0 } = {}) {
   const normalized = createActorEffects(effects);
+  const frostRank = Math.max(0, Math.min(3, Number.isInteger(cryomancyRank) ? cryomancyRank : 0));
+  if (normalized.frozen > 0) return Object.freeze({ moveSpeed: 0 });
   let moveSpeed = 1;
   for (const id of ACTOR_EFFECT_IDS) {
     if (normalized[id] > 0) moveSpeed *= ACTOR_EFFECTS[id].moveSpeed;
   }
   if (normalized.wet > 0 && normalized.chilled > 0) moveSpeed *= 0.84;
-  return Object.freeze({ moveSpeed: Math.max(0.5, moveSpeed) });
+  if (normalized.chilled > 0 && frostRank > 0) {
+    moveSpeed *= [1, 0.84, 0.8, 0.76][frostRank];
+  }
+  return Object.freeze({ moveSpeed: Math.max(0.45, moveSpeed) });
 }
 
 export function applyActorEffect(effects, id, duration) {

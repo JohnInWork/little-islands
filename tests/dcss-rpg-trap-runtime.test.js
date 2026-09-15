@@ -63,6 +63,8 @@ function terminalRuntime({ victory = false } = {}) {
     resolveHeroDamage,
     createSwordRhythmState,
     artifactAvailable: () => victory,
+    canLeaveDungeonFloor: () => true,
+    objectiveBossDefeated: () => true,
     persistRun: () => {},
     burst: () => {},
     addImpactWave: () => {},

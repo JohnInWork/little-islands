@@ -11,10 +11,11 @@ import {
   itemPowerScore,
   monsterTier,
 } from '../tools/dcss-rpg-scaling.js';
+import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
 
 test('one versioned floor profile owns every progression axis', () => {
   const shallow = floorScaling(1);
-  const final = floorScaling(3);
+  const final = floorScaling(FINAL_DEPTH);
   const endless = floorScaling(24);
 
   assert.equal(shallow.version, SCALING_VERSION);
@@ -34,8 +35,12 @@ test('one versioned floor profile owns every progression axis', () => {
       count: final.encounters.monsterCount,
       tier: final.encounters.maxMonsterTier,
     },
-    { count: 17, tier: 5 },
+    { count: 24, tier: 9 },
   );
+  assert.equal(final.chapter, 3);
+  assert.equal(final.floorInChapter, FLOORS_PER_CHAPTER);
+  assert.equal(final.chapterEnd, true);
+  assert.equal(final.rewards.chapterBonus, true);
   assert.ok(final.dangerRating > shallow.dangerRating);
   assert.ok(final.monsters.hpMultiplier > shallow.monsters.hpMultiplier);
   assert.ok(final.monsters.damageMultiplier > shallow.monsters.damageMultiplier);
@@ -67,10 +72,10 @@ test('the curve is monotonic and bounded across future floors', () => {
 });
 
 test('one persisted difficulty value scales the complete combat pressure', () => {
-  assert.equal(floorScaling(3).difficulty, DEFAULT_DIFFICULTY);
-  const relaxed = floorScaling(3, SCALING_VERSION, 0.7);
-  const normal = floorScaling(3, SCALING_VERSION, 1);
-  const brutal = floorScaling(3, SCALING_VERSION, 1.4);
+  assert.equal(floorScaling(FINAL_DEPTH).difficulty, DEFAULT_DIFFICULTY);
+  const relaxed = floorScaling(FINAL_DEPTH, SCALING_VERSION, 0.7);
+  const normal = floorScaling(FINAL_DEPTH, SCALING_VERSION, 1);
+  const brutal = floorScaling(FINAL_DEPTH, SCALING_VERSION, 1.4);
 
   assert.ok(relaxed.encounters.threatBudget < normal.encounters.threatBudget);
   assert.ok(brutal.encounters.threatBudget > normal.encounters.threatBudget);
