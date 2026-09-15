@@ -128,8 +128,8 @@ test('v19 migration preserves tuning and gear power without inventing affixes', 
   legacy.items = legacy.items.map(({ affixIds: _affixIds, ...item }) => item);
 
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 25);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v25');
+  assert.equal(SAVE_VERSION, 26);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v26');
   assert.equal(migrated.lootAbundance, 1.75);
   assert.ok(migrated.items.filter(({ id }) => lootById(id).slot).every(
     ({ affixIds }) => Array.isArray(affixIds) && affixIds.length === 0,

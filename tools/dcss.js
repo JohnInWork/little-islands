@@ -83,6 +83,7 @@ import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventorySections } from './dcss-rpg-inventory-ui.js';
 import { characterSheetModel } from './dcss-rpg-character-sheet.js';
 import { cloneSkillState, deriveSkillCapabilities, learnSkill } from './dcss-rpg-skills.js';
+import { skillById } from './dcss-rpg-skill-content.js';
 import { activeDetectedTrapCells, discoverTraps, trapsFromDungeon } from './dcss-rpg-traps.js';
 import {
   DISARMED_TRAP_PATH,
@@ -190,7 +191,7 @@ import {
   swordRhythmSource,
 } from './dcss-rpg-swords.js';
 import {
-  POTION_APPEARANCE_PATHS,
+  IDENTIFICATION_APPEARANCE_PATHS,
   appraiseItem,
   createItemKnowledge,
   identifiableItemIds,
@@ -199,6 +200,11 @@ import {
   itemIdentificationView,
   potionOutcome,
 } from './dcss-rpg-identification.js';
+import {
+  READ_BOOK_COMMAND,
+  createBookStudy,
+  readSkillBook,
+} from './dcss-rpg-books.js';
 import {
   PASSIVE_CREATURE_PATHS,
   choosePassiveWanderTarget,
@@ -383,7 +389,10 @@ function runtimeVisual(kind, id, channel, path, scale = 1, offsetY = 0) {
 
 const TILE = 64;
 const ITEM_LANGUAGE_KEY = 'little-islands:2d:item-language:v1';
-const IDENTIFIABLE_LOOT_IDS = identifiableItemIds(LOOT_CATALOG);
+const IDENTIFIABLE_LOOT_IDS = identifiableItemIds(LOOT_CATALOG, null);
+const IDENTIFIABLE_LOOT_IDS_BY_GROUP = Object.freeze(Object.fromEntries(
+  ['potion', 'scroll', 'wand', 'book'].map((group) => [group, identifiableItemIds(LOOT_CATALOG, group)]),
+));
 const ACTOR_SIZE = 82;
 const WORLD_WIDTH = MAP_WIDTH;
 const WORLD_HEIGHT = MAP_HEIGHT;
@@ -426,7 +435,7 @@ const requiredPaths = [
   ...allPlayerAppearanceAssetPaths(),
   ...allEquipmentVisualAssetPaths(),
   ...CONTENT_PATHS,
-  ...POTION_APPEARANCE_PATHS,
+  ...IDENTIFICATION_APPEARANCE_PATHS,
   ...allEnvironmentAssetPaths(),
   ...FIND_ASSET_PATHS,
   ...effectPaths,
@@ -439,7 +448,7 @@ const requiredPaths = [
 const images = new Map();
 const floorLootSpritePaths = new Set([
   ...LOOT_CATALOG.map(({ icon }) => icon),
-  ...POTION_APPEARANCE_PATHS,
+  ...IDENTIFICATION_APPEARANCE_PATHS,
   ...visualOverridePaths(visualOverrides),
 ]);
 const floorLootSpriteBounds = new Map();
@@ -534,6 +543,7 @@ const hero = {
   hunger: run.hero.hunger,
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
+  skillStudy: createBookStudy(run.hero.skillStudy),
   hurt: 0,
   guardFlash: 0,
   invisibilityReveal: 0,
@@ -994,6 +1004,7 @@ function captureRun() {
     hunger: hero.hunger,
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
+    skillStudy: createBookStudy(hero.skillStudy),
   };
   run.gold = gold;
   run.status = runStatus;
@@ -1076,11 +1087,12 @@ function equippedItem(slot) {
 }
 
 function presentedItem(item) {
+  const identificationGroup = item?.identification?.group;
   const presentation = itemIdentificationView({
     item,
     seed: run.seed,
     knowledge: run.knowledge,
-    identityIds: IDENTIFIABLE_LOOT_IDS,
+    identityIds: IDENTIFIABLE_LOOT_IDS_BY_GROUP[identificationGroup] ?? [],
   });
   const iconPath = presentation.icon
     ?? item.icon
@@ -1101,9 +1113,17 @@ function currentAppraisal(item) {
   return appraiseItem({
     knowledge: run.knowledge,
     item,
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
     identifiableIds: IDENTIFIABLE_LOOT_IDS,
   });
+}
+
+function currentSkillOptions() {
+  return { rankAdjustments: hero.skillStudy.rankAdjustments };
+}
+
+function currentSkillCapabilities() {
+  return deriveSkillCapabilities(hero.skills, currentSkillOptions());
 }
 
 function visualForItem(item, renderedSlot = item?.slot) {
@@ -1111,7 +1131,7 @@ function visualForItem(item, renderedSlot = item?.slot) {
 }
 
 function currentHeroStats(equipment = selected, items = itemInstances) {
-  return deriveHeroStats(hero, equipment, items);
+  return deriveHeroStats(hero, equipment, items, currentSkillOptions());
 }
 
 function currentWeaponLoadout() {
@@ -1137,7 +1157,7 @@ function currentHeroCombat() {
 }
 
 function currentHeroCleave() {
-  return axeCleaveProfile(currentWeaponLoadout().primary, deriveSkillCapabilities(hero.skills));
+  return axeCleaveProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
 }
 
 function combatTempo(cooldown) {
@@ -1213,7 +1233,7 @@ function currentInteractionActor() {
       lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
       rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
     },
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
   };
 }
 
@@ -1281,7 +1301,7 @@ function selectedActionModel(selection = selectedUiItem()) {
     };
   }
   if (selection.item.placeableTrap) {
-    const tier = deriveSkillCapabilities(hero.skills).trapPlacementTier;
+    const tier = currentSkillCapabilities().trapPlacementTier;
     const enabled = tier > 0 && runStatus === 'playing' && !hero.dead;
     return {
       label: enabled
@@ -1300,12 +1320,20 @@ function selectedActionModel(selection = selectedUiItem()) {
       return {
         label: itemDetailLanguage === 'ru' ? 'Опознать' : 'Identify',
         ariaLabel: itemDetailLanguage === 'ru'
-          ? 'Опознать зелье без использования'
-          : 'Identify the potion without using it',
+          ? 'Опознать предмет без использования'
+          : 'Identify the item without using it',
         glyph: '?',
         disabled: false,
       };
     }
+  }
+  if (selection.item.kind === 'book') {
+    return {
+      label: itemDetailLanguage === 'ru' ? 'Читать' : 'Read',
+      ariaLabel: itemDetailLanguage === 'ru' ? 'Прочитать выбранную книгу' : 'Read the selected book',
+      glyph: '▤',
+      disabled: false,
+    };
   }
   if (selection.item.slot) {
     const result = equipInventoryItem(currentItemState(), selection.item.uid);
@@ -1329,7 +1357,7 @@ function selectedActionStats(selection = selectedUiItem()) {
   if (!result.ok) return null;
   return {
     before: currentHeroStats(),
-    after: deriveHeroStats(hero, result.state.equipment, result.state.items),
+    after: deriveHeroStats(hero, result.state.equipment, result.state.items, currentSkillOptions()),
   };
 }
 
@@ -1425,6 +1453,7 @@ function renderCharacterSkills() {
     heroLevel: hero.level,
     runStatus,
     language: itemDetailLanguage,
+    rankAdjustments: hero.skillStudy.rankAdjustments,
   });
   characterSkills.hidden = !model.visible;
   characterSkillsTitle.textContent = model.title;
@@ -1440,7 +1469,7 @@ function renderCharacterSkills() {
       row.className = 'character-skill-row';
       const details = document.createElement('div');
       const name = document.createElement('strong');
-      name.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}`;
+      name.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}${skill.rankAdjustmentLabel ? ` · ${skill.rankAdjustmentLabel}` : ''}`;
       const description = document.createElement('p');
       description.textContent = skill.description;
       details.append(name, description);
@@ -1452,7 +1481,7 @@ function renderCharacterSkills() {
       button.setAttribute('aria-label', `${skill.name}: ${button.textContent}`);
       button.addEventListener('click', () => {
         if (uiScreen !== 'character' || hero.dead || runStatus !== 'playing') return;
-        const result = learnHeroSkill(skill.id, skill.rank);
+        const result = learnHeroSkill(skill.id, skill.trainedRank);
         if (!result.ok) return;
         renderCharacterSheet();
         const nextButton = [...characterSkills.querySelectorAll('button')]
@@ -1776,7 +1805,7 @@ function trapDisarmState(trap = nearbyDetectedTrap()) {
       y: Math.floor(hero.y / TILE),
       hp: hero.hp,
     },
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
   });
 }
 
@@ -1794,7 +1823,7 @@ function interactNearbyTrap(preferredTrap = null) {
       y: Math.floor(hero.y / TILE),
       hp: hero.hp,
     },
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
   });
   const presentation = trapDisarmPresentation({
     trap,
@@ -1836,7 +1865,7 @@ function discoverNearbyTraps({ feedback = true } = {}) {
   const next = discoverTraps({
     traps: trapDefinitions,
     origin: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
     detectedTrapIds: [...detectedTrapIds],
     resolvedEventIds: run.floor.resolved,
     hasLineOfSight: (from, to) => hasLineOfSight(world, from, to),
@@ -3160,7 +3189,7 @@ function drawHeroAttackTrail() {
   const color = hero.attackEmpowered ? '#f2d687' : rarityGlow[weapon?.rarity ?? 0];
   const cleaveRank = axeCleaveProfile(
     weapon,
-    deriveSkillCapabilities(hero.skills),
+    currentSkillCapabilities(),
   ).rank;
   const cosine = Math.cos(hero.targetAngle);
   const sine = Math.sin(hero.targetAngle);
@@ -5045,7 +5074,7 @@ function renderTrapPlacementTargets() {
 
 function beginTrapPlacement(itemUid) {
   const item = itemInstances.get(itemUid);
-  const capabilities = deriveSkillCapabilities(hero.skills);
+  const capabilities = currentSkillCapabilities();
   if (
     uiScreen !== 'inventory'
     || runStatus !== 'playing'
@@ -5133,7 +5162,7 @@ function performTrapPlacement(x, y) {
     depth: dungeon.depth,
     hero: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE), hp: hero.hp },
     target: { x, y },
-    capabilities: deriveSkillCapabilities(hero.skills),
+    capabilities: currentSkillCapabilities(),
     itemCount: item.stack ?? 1,
     grid: world,
     revealedCells: [...revealed],
@@ -5250,6 +5279,31 @@ function applyIdentifiablePotion(item) {
   return `−${result?.damage ?? outcome.damage}`;
 }
 
+function applySkillBook(item) {
+  const command = nextGameCommand(READ_BOOK_COMMAND, item.uid, { itemId: item.id });
+  const result = readSkillBook({
+    command,
+    item,
+    study: hero.skillStudy,
+    skills: hero.skills,
+    heroLevel: hero.level,
+  });
+  if (!result.ok) return null;
+  hero.skillStudy = createBookStudy(result.state.study);
+  const adjustment = result.events.find(({ type }) => type === 'skill-rank-adjusted');
+  if (!adjustment) {
+    burst(hero.x, hero.y - 8, '#929b94', 10);
+    return '0';
+  }
+  const { skillId, direction } = adjustment.payload;
+  const skillName = skillById(skillId)?.name?.[itemDetailLanguage] ?? skillId;
+  const color = direction > 0 ? '#d8c76c' : '#9b6d9f';
+  burst(hero.x, hero.y - 8, color, 18);
+  addImpactWave(hero.x, hero.y - 8, color, 54, direction > 0 ? 1 : 0);
+  discoverNearbyTraps();
+  return `${direction > 0 ? '+' : '−'}1 ${skillName}`;
+}
+
 function useConsumable(item, index) {
   if (item.interactionResource) {
     showLootToast(item, item.stack ?? 1);
@@ -5257,10 +5311,18 @@ function useConsumable(item, index) {
   }
   const maxHp = currentHeroStats().maxHp;
   let feedback = 1;
-  if (isIdentifiableItem(item)) {
+  const identifiable = isIdentifiableItem(item);
+  if (identifiable) {
     run.knowledge = identifyItem(run.knowledge, item.id, IDENTIFIABLE_LOOT_IDS);
-    consumeBackpackItem(item, index);
+  }
+  if (item.identification?.group === 'potion') {
     feedback = applyIdentifiablePotion(item);
+  } else if (item.identification?.group === 'book') {
+    feedback = applySkillBook(item);
+    if (feedback === null) {
+      showLootToast(item, 0);
+      return;
+    }
   } else if (item.useEffect?.type === 'heal') {
     feedback = Math.min(item.useEffect.amount, maxHp - hero.hp);
     if (feedback === 0) {
@@ -5299,7 +5361,8 @@ function useConsumable(item, index) {
   } else {
     throw new Error(`Unsupported consumable effect: ${item.id}`);
   }
-  if (!isIdentifiableItem(item)) consumeBackpackItem(item, index);
+  playerHasActed = true;
+  consumeBackpackItem(item, index);
   showLootToast(item, feedback);
   updateHud();
   updateGearUi();
@@ -6217,7 +6280,11 @@ function updateHero(delta) {
       ? combatDamage(currentHeroStats(), combat.secondary)
       : 0;
     const swordSource = swordRhythmSource(loadout.primary, loadout.secondary);
-    const swordCapabilities = swordSource ? deriveSkillCapabilities(hero.skills) : null;
+    const swordCapabilities = swordSource
+      ? hero.skillStudy
+        ? deriveSkillCapabilities(hero.skills, { rankAdjustments: hero.skillStudy.rankAdjustments })
+        : deriveSkillCapabilities(hero.skills)
+      : null;
     const swordPreview = swordSource
       ? resolveSwordRhythmStrike({
           state: swordRhythmState,
@@ -6290,7 +6357,9 @@ function updatePassiveCreatures(delta) {
         creature.attackSequence += 1;
         const block = resolveShieldBlock({
           combat: currentHeroCombat(),
-          capabilities: deriveSkillCapabilities(hero.skills),
+          capabilities: hero.skillStudy
+            ? deriveSkillCapabilities(hero.skills, { rankAdjustments: hero.skillStudy.rankAdjustments })
+            : deriveSkillCapabilities(hero.skills),
           roll: shieldBlockRoll({
             seed: run.seed,
             depth: dungeon.depth,
@@ -6470,7 +6539,9 @@ function updateWorld(delta) {
           monster.attackSequence += 1;
           const block = resolveShieldBlock({
             combat: currentHeroCombat(),
-            capabilities: deriveSkillCapabilities(hero.skills),
+            capabilities: hero.skillStudy
+              ? deriveSkillCapabilities(hero.skills, { rankAdjustments: hero.skillStudy.rankAdjustments })
+              : deriveSkillCapabilities(hero.skills),
             roll: shieldBlockRoll({
               seed: run.seed,
               depth: dungeon.depth,

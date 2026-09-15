@@ -62,11 +62,13 @@ import {
   identifiableItemIds,
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
+import { createBookStudy, validateBookStudy } from './dcss-rpg-books.js';
 
-export const SAVE_VERSION = 25;
-export const SAVE_KEY = 'dng-codex:rpg:v25';
+export const SAVE_VERSION = 26;
+export const SAVE_KEY = 'dng-codex:rpg:v26';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v25',
   'dng-codex:rpg:v24',
   'dng-codex:rpg:v23',
   'dng-codex:rpg:v22',
@@ -93,11 +95,11 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   LEGACY_SAVE_KEY,
 ]);
 export const GENERATOR_VERSION = 6;
-export const CONTENT_VERSION = 12;
+export const CONTENT_VERSION = 13;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
 
-const IDENTIFIABLE_ITEM_IDS = identifiableItemIds(LOOT_CATALOG);
+const IDENTIFIABLE_ITEM_IDS = identifiableItemIds(LOOT_CATALOG, null);
 
 const DIRECTIONS = Object.freeze([
   [1, 0],
@@ -837,6 +839,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       hunger: HUNGER_MAX,
       effects: createActorEffects(),
       skills: createSkillState(),
+      skillStudy: createBookStudy(),
     },
     gold: 0,
     status: 'playing',
@@ -982,10 +985,10 @@ function migrateTwoHandedEquipment(snapshot) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(snapshot.version)) {
+  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(snapshot.version)) {
     // v15 adds explicitly targeted player traps; v16 makes long weapons truly
     // two-handed; v17 expands the sword loot family; v18 adds per-run item
     // knowledge; v19 adds item sanctity and a persistent loot-abundance knob;
@@ -993,7 +996,8 @@ export function migrateLegacyRun(snapshot) {
     // seeded procedural artefacts; v22 renames the only currency to gold and
     // removes obsolete sanctity; v23 persists merchant stock purchases;
     // v24 adds a long, nonlethal hunger clock; v25 adds the shared command
-    // sequence and persistent wildlife combat state.
+    // sequence and persistent wildlife combat state; v26 adds persistent book
+    // rank adjustments and unknown scroll/wand/book families.
     // Old heroes keep their exact inventory and current floor;
     // uncollected loot adopts the current content pool. Only new runs receive
     // the starter trap.
@@ -1003,7 +1007,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.generatorVersion = GENERATOR_VERSION;
     migrated.contentVersion = CONTENT_VERSION;
     migrated.gold = migrateLegacyGold(snapshot);
-    migrated.commandSequence = 0;
+    migrated.commandSequence = snapshot.version >= 25 ? snapshot.commandSequence : 0;
     delete migrated.shards;
     migrated.knowledge = snapshot.version >= 18
       ? createItemKnowledge(snapshot.knowledge)
@@ -1017,6 +1021,7 @@ export function migrateLegacyRun(snapshot) {
     ), snapshot.version >= 21);
     if (snapshot.version < 24) migrated.hero.hunger = HUNGER_MAX;
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
+    migrated.hero.skillStudy = createBookStudy();
     const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
     if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
     if (migrated.floor && snapshot.version < 12) migrated.floor.resolvedFindIds = [];
@@ -1026,10 +1031,14 @@ export function migrateLegacyRun(snapshot) {
     if (migrated.floor) {
       migrated.floor.passives = (migrated.floor.passives ?? []).map((creature) => ({
         ...creature,
-        hunted: false,
-        defeated: false,
-        hp: 1,
-        attackSequence: 0,
+        ...(snapshot.version < 25
+          ? {
+              hunted: false,
+              defeated: false,
+              hp: 1,
+              attackSequence: 0,
+            }
+          : {}),
       }));
     }
     if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
@@ -1090,12 +1099,14 @@ export function migrateLegacyRun(snapshot) {
             hunger: HUNGER_MAX,
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
+            skillStudy: createBookStudy(),
           }
         : {
             ...snapshot.hero,
             hunger: HUNGER_MAX,
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
+            skillStudy: createBookStudy(),
           },
       status: crossesGeneratorBoundary
         ? snapshot.hero?.hp === 0
@@ -1209,6 +1220,7 @@ export function migrateLegacyRun(snapshot) {
       hunger: HUNGER_MAX,
       effects: createActorEffects(snapshot.hero?.effects),
       skills: legacySkillState(snapshot.hero),
+      skillStudy: createBookStudy(),
     },
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
     started: true,
@@ -1278,6 +1290,7 @@ export function validateRun(snapshot) {
   if (!validateHunger(hero.hunger)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
+  if (!validateBookStudy(hero.skillStudy)) return false;
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
@@ -1567,6 +1580,7 @@ export function advanceRunFloor(snapshot) {
       y: dungeon.spawn.y,
       hp: snapshot.hero.hp,
       skills: cloneSkillState(snapshot.hero.skills),
+      skillStudy: createBookStudy(snapshot.hero.skillStudy),
     },
     equipment: { ...snapshot.equipment },
     items: snapshot.items.map((item) => ({ ...item })),

@@ -44,17 +44,17 @@ test('production menu exposes implemented trap skills, with no empty categories'
   assert.deepEqual(unsupported.groups, []);
 });
 
-test('production appraisal explains safe potion identification tiers in both languages', () => {
+test('production appraisal explains safe item identification tiers in both languages', () => {
   const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   const appraisal = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
   assert.equal(appraisal.name, 'Оценка');
-  assert.match(appraisal.description, /зелья сложности I\/II\/III/);
+  assert.match(appraisal.description, /зелья, свитки, жезлы и книги сложности I\/II\/III/);
   assert.match(appraisal.description, /Без расхода/);
   const en = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
   });
   const english = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
-  assert.match(english.description, /tier I\/II\/III potions/);
+  assert.match(english.description, /tier I\/II\/III potions, scrolls, wands and books/);
   assert.match(english.description, /without consuming/);
 });
 
@@ -112,7 +112,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   assert.deepEqual(firstSkill(ru), {
     id: 'trap-sense', name: 'Чутьё',
     description: 'Обнаруживает механические ловушки в радиусе 2/3/4 клеток. Не видит сквозь стены и не обезвреживает.',
-    rank: 0, maxRank: 3, nextRank: 1,
+    rank: 0, trainedRank: 0, rankAdjustment: 0, rankAdjustmentLabel: '', maxRank: 3, nextRank: 1,
     canLearn: true, actionLabel: 'Изучить', reasonLabel: '',
   });
   const en = skillMenuModel({ ...options(), language: 'en' });
@@ -159,6 +159,20 @@ test('finished run keeps learned rank visible but blocks spending', () => {
   assert.equal(firstSkill(model).rank, 1);
   assert.equal(firstSkill(model).canLearn, false);
   assert.equal(firstSkill(model).reasonLabel, 'Available during a run');
+});
+
+test('book adjustments are visible without corrupting trained ranks or point spending', () => {
+  const state = createSkillState(2);
+  const boosted = firstSkill(skillMenuModel({
+    ...options(state, 2),
+    rankAdjustments: { 'trap-sense': 1 },
+  }));
+  assert.equal(boosted.rank, 1);
+  assert.equal(boosted.trainedRank, 0);
+  assert.equal(boosted.rankAdjustment, 1);
+  assert.match(boosted.rankAdjustmentLabel, /\+1.*книг/);
+  assert.equal(boosted.canLearn, true);
+  assert.equal(state.points, 1);
 });
 
 test('model is deeply frozen without mutating or freezing caller state', () => {

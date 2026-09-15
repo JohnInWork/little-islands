@@ -78,7 +78,7 @@ test('v15 reload retains open doors, and reclosing does not rearm surprise encou
       assert.equal(loadedRun.version, originalVersion);
     }
   }
-  assert.equal(SAVE_VERSION, 25, 'interaction state is persisted in the current save');
+  assert.equal(SAVE_VERSION, 26, 'interaction state is persisted in the current save');
 });
 
 for (const kind of ['monster', 'passive']) {

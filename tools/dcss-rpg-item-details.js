@@ -61,6 +61,9 @@ const RUSSIAN_NAMES = Object.freeze({
   'unidentified-potion': 'Неизвестное зелье',
   'blink-scroll': 'Свиток скачка',
   'bone-wand': 'Костяной жезл',
+  'practice-manual': 'Учебник мастерства',
+  'tome-of-amnesia': 'Книга забвения',
+  'blank-codex': 'Пустой кодекс',
   'dead-book': 'Книга мёртвых',
   bread: 'Хлебный паёк',
   'raw-meat': 'Сырое мясо',
@@ -78,6 +81,9 @@ const ENGLISH_NAMES = Object.freeze({
   'venom-potion': 'Potion of Venom',
   'raw-meat': 'Raw meat',
   'cooked-meat': 'Cooked meat',
+  'practice-manual': 'Manual of Mastery',
+  'tome-of-amnesia': 'Tome of Amnesia',
+  'blank-codex': 'Blank Codex',
 });
 
 const RARITY = Object.freeze({
@@ -105,7 +111,7 @@ function titleFromId(id) {
 function localizedItemName(item, language) {
   if (item.unidentified) {
     return item.unknownName?.[language]
-      ?? (language === 'ru' ? 'Неизвестное зелье' : 'Unknown potion');
+      ?? (language === 'ru' ? 'Неизвестный предмет' : 'Unknown item');
   }
   if (item.name?.[language]) return item.name[language];
   return language === 'ru'
@@ -118,7 +124,7 @@ export function itemDetails(item, requestedLanguage = 'ru') {
   const language = requestedLanguage === 'en' ? 'en' : 'ru';
   const generated = generatedItemDescription(item, language);
   return Object.freeze({
-    id: item.unidentified ? 'unidentified-potion' : item.id,
+    id: item.id,
     descriptionVersion: generated.version,
     name: proceduralArtifactName(item, localizedItemName(item, language), language),
     rarity: item.unidentified

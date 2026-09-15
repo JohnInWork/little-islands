@@ -52,6 +52,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     potion: 'Зелье',
     scroll: 'Свиток',
     wand: 'Жезл',
+    book: 'Книга',
     food: 'Еда',
     ingredient: 'Ингредиент',
     key: 'Ключ',
@@ -63,6 +64,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     potion: 'Potion',
     scroll: 'Scroll',
     wand: 'Wand',
+    book: 'Book',
     food: 'Food',
     ingredient: 'Ingredient',
     key: 'Key',
@@ -95,7 +97,7 @@ const WEAPON_TYPES = Object.freeze({
 
 const COPY = Object.freeze({
   ru: Object.freeze({
-    unknownPotion: 'Зелье · эффект неизвестен',
+    unknownItem: 'эффект неизвестен',
     unknownEffect: 'Эффект неизвестен до использования или опознания',
     oneHand: 'Вторая рука свободна',
     twoHands: 'Занимает обе руки',
@@ -125,9 +127,12 @@ const COPY = Object.freeze({
     trap: 'Установка рядом · нужен Ловушечник I',
     gold: 'При подборе превращается в золото',
     cooking: 'Можно приготовить у костра',
+    bookStudy: 'Случайный навык получает +1 ранг до конца забега',
+    bookForget: 'Случайный действующий навык теряет 1 ранг до конца забега',
+    bookBlank: 'Пустые страницы · эффекта нет',
   }),
   en: Object.freeze({
-    unknownPotion: 'Potion · unknown effect',
+    unknownItem: 'unknown effect',
     unknownEffect: 'Effect stays unknown until used or identified',
     oneHand: 'Off hand stays free',
     twoHands: 'Occupies both hands',
@@ -157,6 +162,9 @@ const COPY = Object.freeze({
     trap: 'Place nearby · requires Trap setting I',
     gold: 'Turns into gold when collected',
     cooking: 'Can be cooked at a campfire',
+    bookStudy: 'One random skill gains +1 rank for this run',
+    bookForget: 'One random active skill loses 1 rank for this run',
+    bookBlank: 'Blank pages · no effect',
   }),
 });
 
@@ -302,6 +310,24 @@ function utilityFacts(item, language) {
   const use = effectFact(item.useEffect, language, 'use');
   if (potion) facts.push(potion);
   if (use) facts.push(use);
+  if (item.bookEffect) {
+    const copyId = item.bookEffect.type === 'study'
+      ? 'bookStudy'
+      : item.bookEffect.type === 'forget'
+        ? 'bookForget'
+        : item.bookEffect.type === 'blank'
+          ? 'bookBlank'
+          : null;
+    if (!copyId) throw new Error(`Missing book-effect dictionary entry: ${item.bookEffect.type}`);
+    const text = COPY[language][copyId];
+    facts.push(freezeFact({
+      id: `book:${item.bookEffect.type}`,
+      kind: 'use',
+      icon: item.bookEffect.type === 'study' ? '+' : item.bookEffect.type === 'forget' ? '−' : '·',
+      text,
+      short: text,
+    }));
+  }
   if (item.interactionResource) {
     const text = COPY[language][item.interactionResource];
     if (!text) throw new Error(`Missing interaction-resource dictionary entry: ${item.interactionResource}`);
@@ -331,7 +357,12 @@ function utilityFacts(item, language) {
 
 export function itemTypeLabel(item, requestedLanguage = 'ru') {
   const language = locale(requestedLanguage);
-  if (item?.unidentified || item?.identification?.group === 'potion' || item?.potionEffect) {
+  if (item?.unidentified && item?.kind) {
+    const type = ITEM_KIND_TYPES[language][item.kind];
+    if (!type) throw new Error(`Missing unidentified item-kind dictionary entry: ${item.kind}`);
+    return type;
+  }
+  if (item?.identification?.group === 'potion' || item?.potionEffect) {
     return language === 'ru' ? 'Зелье' : 'Potion';
   }
   if (item?.slot === 'hand1') {
@@ -366,7 +397,7 @@ export function generatedItemDescription(item, requestedLanguage = 'ru') {
     return Object.freeze({
       version: ITEM_DESCRIPTION_VERSION,
       type: itemTypeLabel(item, language),
-      summary: COPY[language].unknownPotion,
+      summary: `${itemTypeLabel(item, language)} · ${COPY[language].unknownItem}`,
       facts: Object.freeze([fact]),
       primary: fact,
     });

@@ -85,8 +85,8 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'appraisal', category: 'exploration', mode: 'passive',
     name: { ru: 'Оценка', en: 'Appraisal' },
     description: {
-      ru: 'Без расхода опознаёт неизвестные зелья сложности I/II/III прямо в рюкзаке.',
-      en: 'Identifies unknown tier I/II/III potions in the backpack without consuming them.',
+      ru: 'Без расхода опознаёт неизвестные зелья, свитки, жезлы и книги сложности I/II/III прямо в рюкзаке.',
+      en: 'Identifies unknown tier I/II/III potions, scrolls, wands and books in the backpack without consuming them.',
     },
     requiresSystems: ['item-identification'],
   },

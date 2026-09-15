@@ -54,8 +54,12 @@ function stableOrder(seed, depth, roomIndex, salt, item) {
 function baseItemPrice(item) {
   if (!item) return 1;
   if (Number.isFinite(item.value) && item.value > 0) return Math.ceil(item.value);
-  // Every unidentified potion must cost the same: prices cannot reveal its effect.
+  // Unknown appearances must keep every effect inside a family at one price.
+  // A merchant may hint at the family, never at the hidden identity.
   if (item.id?.endsWith('-potion')) return 6;
+  if (item.identification?.group === 'scroll') return 8;
+  if (item.identification?.group === 'wand') return 12;
+  if (item.identification?.group === 'book') return 10;
   if (!item.slot) return Math.max(2, 3 + Math.ceil(effectiveLootDepth(item) * 1.5));
   return Math.max(
     4,

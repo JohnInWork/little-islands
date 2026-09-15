@@ -37,6 +37,38 @@ export const POTION_APPEARANCE_PATHS = Object.freeze(
   POTION_APPEARANCES.map(({ icon }) => icon),
 );
 
+export const SCROLL_APPEARANCES = Object.freeze([
+  Object.freeze({ id: 'blue-runes', icon: 'item/scroll/scroll-blue.png', name: Object.freeze({ ru: 'Свиток с синими рунами', en: 'Blue-rune scroll' }) }),
+  Object.freeze({ id: 'brown-runes', icon: 'item/scroll/scroll-brown.png', name: Object.freeze({ ru: 'Свиток с бурыми рунами', en: 'Brown-rune scroll' }) }),
+  Object.freeze({ id: 'green-runes', icon: 'item/scroll/scroll-green.png', name: Object.freeze({ ru: 'Свиток с зелёными рунами', en: 'Green-rune scroll' }) }),
+  Object.freeze({ id: 'purple-runes', icon: 'item/scroll/scroll-purple.png', name: Object.freeze({ ru: 'Свиток с лиловыми рунами', en: 'Purple-rune scroll' }) }),
+]);
+
+export const WAND_APPEARANCES = Object.freeze([
+  Object.freeze({ id: 'brass', icon: 'item/wand/gem_brass.png', name: Object.freeze({ ru: 'Латунный жезл', en: 'Brass wand' }) }),
+  Object.freeze({ id: 'glass', icon: 'item/wand/gem_glass.png', name: Object.freeze({ ru: 'Стеклянный жезл', en: 'Glass wand' }) }),
+  Object.freeze({ id: 'ivory', icon: 'item/wand/gem_ivory.png', name: Object.freeze({ ru: 'Костяной жезл', en: 'Ivory wand' }) }),
+  Object.freeze({ id: 'silver', icon: 'item/wand/gem_silver.png', name: Object.freeze({ ru: 'Серебряный жезл', en: 'Silver wand' }) }),
+]);
+
+export const BOOK_APPEARANCES = Object.freeze([
+  Object.freeze({ id: 'cloth', icon: 'item/book/cloth.png', name: Object.freeze({ ru: 'Книга в тканевом переплёте', en: 'Clothbound book' }) }),
+  Object.freeze({ id: 'dark-blue', icon: 'item/book/dark_blue.png', name: Object.freeze({ ru: 'Тёмно-синяя книга', en: 'Dark blue book' }) }),
+  Object.freeze({ id: 'leather', icon: 'item/book/leather.png', name: Object.freeze({ ru: 'Книга в кожаном переплёте', en: 'Leatherbound book' }) }),
+  Object.freeze({ id: 'metal', icon: 'item/book/metal_cyan.png', name: Object.freeze({ ru: 'Книга в металлическом переплёте', en: 'Metalbound book' }) }),
+]);
+
+export const IDENTIFICATION_APPEARANCES = Object.freeze({
+  potion: POTION_APPEARANCES,
+  scroll: SCROLL_APPEARANCES,
+  wand: WAND_APPEARANCES,
+  book: BOOK_APPEARANCES,
+});
+
+export const IDENTIFICATION_APPEARANCE_PATHS = Object.freeze(
+  Object.values(IDENTIFICATION_APPEARANCES).flatMap((appearances) => appearances.map(({ icon }) => icon)),
+);
+
 const EMPTY_IDS = Object.freeze([]);
 
 const normalizedIds = (values) => (
@@ -64,25 +96,28 @@ export function validateItemKnowledge(knowledge, identifiableIds = EMPTY_IDS) {
   return knowledge.identifiedItemIds.every((id) => allowed.has(id));
 }
 
-export function identifiableItemIds(catalog = []) {
+export function identifiableItemIds(catalog = [], group = 'potion') {
   return Object.freeze(
     catalog
-      .filter((item) => item?.identification?.group === 'potion')
+      .filter((item) => isIdentifiableItem(item) && (group === null || item.identification.group === group))
       .map(({ id }) => id)
       .sort(),
   );
 }
 
 export function isIdentifiableItem(item) {
-  return item?.identification?.group === 'potion'
+  return Boolean(IDENTIFICATION_APPEARANCES[item?.identification?.group])
     && Number.isInteger(item.identification.tier)
     && item.identification.tier >= 1
     && item.identification.tier <= 3;
 }
 
-function seededRng(seed) {
+function seededRng(seed, group) {
   let state = (Number.isInteger(seed) ? seed : 0) >>> 0;
-  state = (state ^ 0x504f544e) >>> 0;
+  for (const char of group) {
+    state ^= char.charCodeAt(0);
+    state = Math.imul(state, 0x01000193) >>> 0;
+  }
   return () => {
     state = (state + 0x6d2b79f5) >>> 0;
     let value = state;
@@ -92,9 +127,9 @@ function seededRng(seed) {
   };
 }
 
-function shuffledAppearances(seed) {
-  const result = [...POTION_APPEARANCES];
-  const next = seededRng(seed);
+function shuffledAppearances(seed, group) {
+  const result = [...(IDENTIFICATION_APPEARANCES[group] ?? [])];
+  const next = seededRng(seed, group);
   for (let index = result.length - 1; index > 0; index -= 1) {
     const target = Math.floor(next() * (index + 1));
     [result[index], result[target]] = [result[target], result[index]];
@@ -103,28 +138,35 @@ function shuffledAppearances(seed) {
 }
 
 export function potionAppearanceFor(seed, itemId, identityIds) {
+  return itemAppearanceFor(seed, 'potion', itemId, identityIds);
+}
+
+export function itemAppearanceFor(seed, group, itemId, identityIds) {
   const ids = normalizedIds(identityIds);
   const index = ids.indexOf(itemId);
   if (index < 0) return null;
-  if (ids.length > POTION_APPEARANCES.length) {
-    throw new RangeError('Not enough authored potion appearances');
+  const appearances = IDENTIFICATION_APPEARANCES[group] ?? [];
+  if (ids.length > appearances.length) {
+    throw new RangeError(`Not enough authored ${group} appearances`);
   }
-  return shuffledAppearances(seed)[index];
+  return shuffledAppearances(seed, group)[index];
 }
 
 export function itemIdentificationView({ item, seed, knowledge, identityIds } = {}) {
   if (!isIdentifiableItem(item)) return item;
-  const appearance = potionAppearanceFor(seed, item.id, identityIds);
-  if (!appearance) throw new Error(`Missing potion identity mapping for ${item.id}`);
+  const group = item.identification.group;
+  const appearance = itemAppearanceFor(seed, group, item.id, identityIds);
+  if (!appearance) throw new Error(`Missing ${group} identity mapping for ${item.id}`);
   const identified = knowledge?.identifiedItemIds?.includes(item.id) ?? false;
   if (identified) {
     return Object.freeze({ ...item, icon: appearance.icon, appearanceId: appearance.id, identified: true });
   }
   return Object.freeze({
-    id: 'unidentified-potion',
+    id: `unidentified-${group}`,
     uid: item.uid,
     stack: item.stack,
     slot: null,
+    kind: group,
     rarity: 0,
     icon: appearance.icon,
     appearanceId: appearance.id,
@@ -166,7 +208,8 @@ export function appraiseItem({ knowledge, item, capabilities, identifiableIds } 
 }
 
 export function potionOutcome(item) {
-  if (!isIdentifiableItem(item) || !item.potionEffect || typeof item.potionEffect !== 'object') {
+  if (item?.identification?.group !== 'potion' || !isIdentifiableItem(item)
+    || !item.potionEffect || typeof item.potionEffect !== 'object') {
     return null;
   }
   const effect = item.potionEffect;

@@ -35,6 +35,11 @@ test('unknown potion identity cannot be inferred from merchant price', () => {
   assert.equal(new Set(ids.map((id) => merchantBuyPrice(lootById(id)))).size, 1);
 });
 
+test('unknown book identity cannot be inferred from merchant price', () => {
+  const ids = ['practice-manual', 'tome-of-amnesia', 'blank-codex'];
+  assert.equal(new Set(ids.map((id) => merchantBuyPrice(lootById(id)))).size, 1);
+});
+
 test('purchase and sale are atomic and cannot create a trade loop', () => {
   const merchant = {
     stock: createMerchantStock({ seed: 90, depth: 2, roomIndex: 3, variantId: 'armourer' }),

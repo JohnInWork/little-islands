@@ -195,6 +195,31 @@ function assertAndInferLevel(state) {
   return level;
 }
 
+export function validateSkillRankAdjustments(adjustments) {
+  if (!isRecord(adjustments)) return false;
+  return Object.entries(adjustments).every(([skillId, amount]) => {
+    const definition = skillById(skillId);
+    return Boolean(
+      definition
+      && Number.isInteger(amount)
+      && amount !== 0
+      && amount >= -definition.maxRank
+      && amount <= definition.maxRank
+    );
+  });
+}
+
+export function effectiveSkillRank(state, skillId, rankAdjustments = {}) {
+  assertAndInferLevel(state);
+  if (!validateSkillRankAdjustments(rankAdjustments)) {
+    throw new TypeError('Invalid skill rank adjustments');
+  }
+  const definition = skillById(skillId);
+  if (!definition) throw new Error(`Unknown skill: ${skillId}`);
+  const trainedRank = state.ranks[skillId] ?? 0;
+  return Math.max(0, Math.min(definition.maxRank, trainedRank + (rankAdjustments[skillId] ?? 0)));
+}
+
 export function cloneSkillState(state) {
   assertAndInferLevel(state);
   return {
@@ -313,15 +338,25 @@ export function learnSkill(options = {}) {
 
 function deriveValues(state, options, field, limits, combine) {
   assertAndInferLevel(state);
-  const { implementations = SKILL_IMPLEMENTATIONS, systems = SKILL_SYSTEMS } = options;
+  const {
+    implementations = SKILL_IMPLEMENTATIONS,
+    systems = SKILL_SYSTEMS,
+    rankAdjustments = {},
+  } = options;
+  if (!validateSkillRankAdjustments(rankAdjustments)) {
+    throw new TypeError('Invalid skill rank adjustments');
+  }
   const values = Object.fromEntries(Object.keys(limits).map((key) => [key, 0]));
   // Canonical order makes floating point accumulation independent of save/UI order.
-  for (const id of Object.keys(state.ranks).sort()) {
+  const skillIds = [...new Set([...Object.keys(state.ranks), ...Object.keys(rankAdjustments)])].sort();
+  for (const id of skillIds) {
     const definition = skillById(id);
     const implementation = implementationFor(definition, implementations);
     if (!implementation || !hasRequiredSystems(definition, systems)) continue;
+    const rank = effectiveSkillRank(state, id, rankAdjustments);
+    if (rank === 0) continue;
     // Each row is the whole effect at that rank, not an increment over lower ranks.
-    for (const [key, value] of Object.entries(implementation[field][state.ranks[id] - 1])) {
+    for (const [key, value] of Object.entries(implementation[field][rank - 1])) {
       values[key] = combine(values[key], value);
     }
   }

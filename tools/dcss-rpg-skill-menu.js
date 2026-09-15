@@ -2,8 +2,10 @@ import { SKILL_CATEGORIES, SKILL_CATALOG } from './dcss-rpg-skill-content.js';
 import {
   SKILL_IMPLEMENTATIONS,
   SKILL_SYSTEMS,
+  effectiveSkillRank,
   isSkillReady,
   skillAvailability,
+  validateSkillRankAdjustments,
   validateSkillState,
 } from './dcss-rpg-skills.js';
 
@@ -17,6 +19,7 @@ const COPY = Object.freeze({
     level: (level) => `Нужен уровень ${level}`,
     noPoints: 'Нет очков навыков',
     maxRank: 'Максимальный ранг',
+    bookModified: 'Изменено книгой',
     notPlaying: 'Доступно во время забега',
     unavailable: 'Недоступно',
   }),
@@ -29,6 +32,7 @@ const COPY = Object.freeze({
     level: (level) => `Requires level ${level}`,
     noPoints: 'No skill points',
     maxRank: 'Maximum rank',
+    bookModified: 'Modified by a book',
     notPlaying: 'Available during a run',
     unavailable: 'Unavailable',
   }),
@@ -57,9 +61,13 @@ export function skillMenuModel({
   language = 'ru',
   implementations = SKILL_IMPLEMENTATIONS,
   systems = SKILL_SYSTEMS,
+  rankAdjustments = {},
 } = {}) {
   if (!validateSkillState(state, heroLevel)) {
     throw new TypeError('Skill menu requires valid skill state matching the hero level');
+  }
+  if (!validateSkillRankAdjustments(rankAdjustments)) {
+    throw new TypeError('Skill menu requires valid book rank adjustments');
   }
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
@@ -70,26 +78,36 @@ export function skillMenuModel({
       .filter((definition) => definition.category === category.id
         && isSkillReady(definition.id, readiness))
       .map((definition) => {
-        const rank = state.ranks[definition.id] ?? 0;
+        const trainedRank = state.ranks[definition.id] ?? 0;
+        const rankAdjustment = rankAdjustments[definition.id] ?? 0;
+        const rank = effectiveSkillRank(state, definition.id, rankAdjustments);
         const availability = skillAvailability({
           state,
           heroLevel,
           runStatus,
           skillId: definition.id,
-          expectedRank: rank,
+          expectedRank: trainedRank,
           ...readiness,
         });
         const isMaxRank = rank >= definition.maxRank;
+        const canLearn = availability.ok && !isMaxRank;
         return Object.freeze({
           id: definition.id,
           name: definition.name[locale],
           description: definition.description[locale],
           rank,
+          trainedRank,
+          rankAdjustment,
+          rankAdjustmentLabel: rankAdjustment === 0
+            ? ''
+            : `${rankAdjustment > 0 ? '+' : '−'}${Math.abs(rankAdjustment)} · ${copy.bookModified}`,
           maxRank: definition.maxRank,
           nextRank: isMaxRank ? null : rank + 1,
-          canLearn: availability.ok,
-          actionLabel: isMaxRank ? copy.mastered : rank === 0 ? copy.learn : copy.upgrade,
-          reasonLabel: reasonLabel(availability.reason, definition, rank, copy),
+          canLearn,
+          actionLabel: isMaxRank ? copy.mastered : trainedRank === 0 ? copy.learn : copy.upgrade,
+          reasonLabel: isMaxRank
+            ? copy.maxRank
+            : reasonLabel(availability.reason, definition, trainedRank, copy),
         });
       });
     if (skills.length > 0) {

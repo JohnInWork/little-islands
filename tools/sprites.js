@@ -12,7 +12,7 @@ import { itemDetails } from './dcss-rpg-item-details.js';
 import { PASSIVE_CREATURE_CATALOG } from './dcss-rpg-passive.js';
 import { DISARMED_TRAP_PATH } from './dcss-rpg-trap-disarming.js';
 import { PLAYER_TRAP_PATH } from './dcss-rpg-player-traps.js';
-import { POTION_APPEARANCE_PATHS } from './dcss-rpg-identification.js';
+import { IDENTIFICATION_APPEARANCES } from './dcss-rpg-identification.js';
 import {
   createVisualOverrides,
   loadVisualOverrides,
@@ -173,7 +173,19 @@ const specialEntities = Object.freeze([
   }),
   Object.freeze({
     kind: 'loot', id: 'unidentified-potion', channel: 'icon', label: 'Неопознанное зелье',
-    path: POTION_APPEARANCE_PATHS[0], scale: 1, offsetY: -7, prefixes: ['item/potion/'],
+    path: IDENTIFICATION_APPEARANCES.potion[0].icon, scale: 1, offsetY: -7, prefixes: ['item/potion/'],
+  }),
+  Object.freeze({
+    kind: 'loot', id: 'unidentified-scroll', channel: 'icon', label: 'Неопознанный свиток',
+    path: IDENTIFICATION_APPEARANCES.scroll[0].icon, scale: 1, offsetY: -7, prefixes: ['item/scroll/'],
+  }),
+  Object.freeze({
+    kind: 'loot', id: 'unidentified-wand', channel: 'icon', label: 'Неопознанный жезл',
+    path: IDENTIFICATION_APPEARANCES.wand[0].icon, scale: 1, offsetY: -7, prefixes: ['item/wand/'],
+  }),
+  Object.freeze({
+    kind: 'loot', id: 'unidentified-book', channel: 'icon', label: 'Неопознанная книга',
+    path: IDENTIFICATION_APPEARANCES.book[0].icon, scale: 1, offsetY: -7, prefixes: ['item/book/'],
   }),
 ]);
 
