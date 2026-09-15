@@ -16,6 +16,7 @@ const prop = (path, options = {}) =>
     size: options.size ?? 68,
     screenOffsetY: options.screenOffsetY ?? -8,
     light: options.light ? Object.freeze(options.light) : null,
+    interactionId: options.interactionId ?? null,
   });
 
 const emberBrazier = prop(flameFrames[0], {
@@ -23,6 +24,7 @@ const emberBrazier = prop(flameFrames[0], {
   size: 66,
   screenOffsetY: -10,
   light: { color: '#d88447', radius: 2.35, beam: false },
+  interactionId: 'campfire',
 });
 
 const roomTheme = (values) =>
@@ -300,7 +302,12 @@ export function createDungeonEnvironment(level) {
     );
     const area = roomSize(room, 'width') * roomSize(room, 'height');
     const desiredProps = roomIndex === 0 ? 3 : 2 + (area >= 30 ? 1 : 0) + rng.int(0, 1);
-    const blueprints = [rng.pick(theme.features), ...shuffle(rng, [...theme.details])];
+    // The refuge always exposes one deterministic cooking site. It remains an
+    // ordinary environment prop, so it cannot perturb dungeon geometry/RNG.
+    const blueprints = [
+      roomIndex === 0 ? emberBrazier : rng.pick(theme.features),
+      ...shuffle(rng, [...theme.details]),
+    ];
     for (let index = 0; index < Math.min(desiredProps, candidates.length); index += 1) {
       const cell = candidates[index];
       const blueprint = blueprints[index % blueprints.length];
@@ -319,6 +326,7 @@ export function createDungeonEnvironment(level) {
           size: blueprint.size,
           screenOffsetY: blueprint.screenOffsetY,
           light: blueprint.light,
+          interactionId: blueprint.interactionId,
           phase: rng.next() * 8,
         }),
       );
@@ -344,6 +352,33 @@ export function createDungeonEnvironment(level) {
         }),
       );
     }
+  }
+
+  if (!props.some(({ interactionId }) => interactionId === 'campfire')) {
+    const fallback = level.rooms.map((room, roomIndex) => ({
+      room,
+      roomIndex,
+      cell: roomEdgeCells(level, room, occupied)
+        .find(({ x, y }) => !transit.has(`${x},${y}`)),
+    })).find(({ cell }) => cell);
+    if (!fallback) throw new Error('Dungeon has no safe cooking-site cell');
+    const { room, roomIndex, cell } = fallback;
+    const position = propPosition(rng, room, cell);
+    props.push(Object.freeze({
+      id: `environment-${level.depth}-${roomIndex}-cook`,
+      themeId: roomThemes[roomIndex],
+      gridX: cell.x,
+      gridY: cell.y,
+      x: position.x,
+      y: position.y,
+      path: emberBrazier.path,
+      frames: emberBrazier.frames,
+      size: emberBrazier.size,
+      screenOffsetY: emberBrazier.screenOffsetY,
+      light: emberBrazier.light,
+      interactionId: emberBrazier.interactionId,
+      phase: rng.next() * 8,
+    }));
   }
 
   return Object.freeze({

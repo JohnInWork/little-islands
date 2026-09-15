@@ -63,10 +63,11 @@ import {
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
 
-export const SAVE_VERSION = 24;
-export const SAVE_KEY = 'dng-codex:rpg:v24';
+export const SAVE_VERSION = 25;
+export const SAVE_KEY = 'dng-codex:rpg:v25';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v24',
   'dng-codex:rpg:v23',
   'dng-codex:rpg:v22',
   'little-islands:dcss-rpg:v21',
@@ -92,7 +93,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   LEGACY_SAVE_KEY,
 ]);
 export const GENERATOR_VERSION = 6;
-export const CONTENT_VERSION = 11;
+export const CONTENT_VERSION = 12;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
 
@@ -840,6 +841,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     gold: 0,
     status: 'playing',
     started: false,
+    commandSequence: 0,
     knowledge: createItemKnowledge(),
     items,
     equipment: {
@@ -980,17 +982,18 @@ function migrateTwoHandedEquipment(snapshot) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(snapshot.version)) {
+  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(snapshot.version)) {
     // v15 adds explicitly targeted player traps; v16 makes long weapons truly
     // two-handed; v17 expands the sword loot family; v18 adds per-run item
     // knowledge; v19 adds item sanctity and a persistent loot-abundance knob;
     // v20 adds deterministic affixes; v21 replaces hidden sanctity with clear,
     // seeded procedural artefacts; v22 renames the only currency to gold and
     // removes obsolete sanctity; v23 persists merchant stock purchases;
-    // v24 adds a long, nonlethal hunger clock.
+    // v24 adds a long, nonlethal hunger clock; v25 adds the shared command
+    // sequence and persistent wildlife combat state.
     // Old heroes keep their exact inventory and current floor;
     // uncollected loot adopts the current content pool. Only new runs receive
     // the starter trap.
@@ -1000,6 +1003,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.generatorVersion = GENERATOR_VERSION;
     migrated.contentVersion = CONTENT_VERSION;
     migrated.gold = migrateLegacyGold(snapshot);
+    migrated.commandSequence = 0;
     delete migrated.shards;
     migrated.knowledge = snapshot.version >= 18
       ? createItemKnowledge(snapshot.knowledge)
@@ -1019,6 +1023,15 @@ export function migrateLegacyRun(snapshot) {
     if (migrated.floor && snapshot.version < 13) migrated.floor.disarmedTrapIds = [];
     if (migrated.floor && snapshot.version < 15) migrated.floor.placedTraps = [];
     if (migrated.floor && snapshot.version < 23) migrated.floor.merchantPurchases = [];
+    if (migrated.floor) {
+      migrated.floor.passives = (migrated.floor.passives ?? []).map((creature) => ({
+        ...creature,
+        hunted: false,
+        defeated: false,
+        hp: 1,
+        attackSequence: 0,
+      }));
+    }
     if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
@@ -1090,6 +1103,7 @@ export function migrateLegacyRun(snapshot) {
           : 'playing'
         : snapshot.status,
       started: crossesGeneratorBoundary ? snapshot.hero?.hp === 0 : snapshot.started,
+      commandSequence: 0,
       knowledge: createItemKnowledge(),
       items: migrateOwnedItemArtifacts(migrateOwnedItemAffixes(stripLegacyItemSanctity(snapshot.items))),
       equipment: normalizeEquipment(snapshot.equipment),
@@ -1198,6 +1212,7 @@ export function migrateLegacyRun(snapshot) {
     },
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
     started: true,
+    commandSequence: 0,
     knowledge: createItemKnowledge(),
     items,
     equipment,
@@ -1266,6 +1281,7 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
+  if (!isFiniteInteger(snapshot.commandSequence, 0, 1_000_000_000)) return false;
   if (!validateItemKnowledge(snapshot.knowledge, IDENTIFIABLE_ITEM_IDS)) return false;
   if ((snapshot.status === 'dead') !== (hero.hp === 0)) return false;
   if (!snapshot.equipment || typeof snapshot.equipment !== 'object') return false;
@@ -1320,10 +1336,9 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'merchantPurchases'].every(
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'passives', 'merchantPurchases'].every(
       (key) => Array.isArray(floor[key]),
-    ) ||
-    (floor.passives !== undefined && !Array.isArray(floor.passives))
+    )
   )
     return false;
   if (
@@ -1386,7 +1401,7 @@ export function validateRun(snapshot) {
         !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000),
     )
   ) return false;
-  const passiveStates = floor.passives ?? [];
+  const passiveStates = floor.passives;
   if (passiveStates.length > 5) return false;
   if (new Set(passiveStates.map((creature) => creature?.instanceId)).size !== passiveStates.length)
     return false;
@@ -1399,7 +1414,13 @@ export function validateRun(snapshot) {
         !Number.isFinite(creature.y) ||
         creature.x < 0 || creature.y < 0 || creature.x >= MAP_WIDTH || creature.y >= MAP_HEIGHT ||
         !isFiniteInteger(creature.wanderStep, 0, 1_000_000_000) ||
-        ![-1, 1].includes(creature.facing),
+        ![-1, 1].includes(creature.facing) ||
+        typeof creature.hunted !== 'boolean' ||
+        typeof creature.defeated !== 'boolean' ||
+        !Number.isFinite(creature.hp) || creature.hp < 0 || creature.hp > 100000 ||
+        (creature.defeated !== (creature.hp === 0)) ||
+        (!creature.hunted && creature.defeated) ||
+        !isFiniteInteger(creature.attackSequence, 0, 1_000_000_000),
     )
   ) return false;
   if (
@@ -1565,6 +1586,7 @@ export function advanceRunFloor(snapshot) {
       passives: [],
       merchantPurchases: [],
     },
+    commandSequence: snapshot.commandSequence,
   };
 }
 

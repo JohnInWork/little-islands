@@ -222,7 +222,7 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v21')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v22')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v23')));
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v24');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v25');
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -326,7 +326,7 @@ test('v16 runs keep their floor and owned gear across the expanded sword content
 
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.version, SAVE_VERSION);
-  assert.equal(migrated.contentVersion, 11);
+  assert.equal(migrated.contentVersion, 12);
   assert.deepEqual(migrated.knowledge, { version: 1, identifiedItemIds: [] });
   assert.deepEqual(migrated.floor, before.floor);
   assert.deepEqual(migrated.items, before.items.map((item) => (

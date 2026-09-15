@@ -13,6 +13,8 @@ const ACTION_COPY = Object.freeze({
     'pick-lock': 'Взломать',
     attack: 'Атаковать',
     trade: 'Торговать',
+    hunt: 'Охотиться',
+    cook: 'Приготовить',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -26,6 +28,8 @@ const ACTION_COPY = Object.freeze({
     'pick-lock': 'Pick lock',
     attack: 'Attack',
     trade: 'Trade',
+    hunt: 'Hunt',
+    cook: 'Cook',
   }),
 });
 
@@ -41,6 +45,8 @@ const GLYPHS = Object.freeze({
   'pick-lock': '⌁',
   attack: '⚔',
   trade: '●',
+  hunt: '⚔',
+  cook: '♨',
 });
 
 const COPY = Object.freeze({
@@ -60,6 +66,9 @@ const COPY = Object.freeze({
     trapReady: 'Можно обезвредить.',
     merchantName: 'Странствующий торговец',
     merchantDescription: '',
+    campfireName: 'Костёр',
+    campfireEmpty: 'Нужно сырое мясо.',
+    wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
   }),
   en: Object.freeze({
     doorName: 'Stone door',
@@ -77,6 +86,9 @@ const COPY = Object.freeze({
     trapReady: 'It can be disarmed.',
     merchantName: 'Wandering merchant',
     merchantDescription: '',
+    campfireName: 'Campfire',
+    campfireEmpty: 'Raw meat required.',
+    wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
   }),
 });
 
@@ -102,6 +114,32 @@ const defineInteraction = (definition) => Object.freeze(definition);
  * input/focus code do not gain another object-specific branch.
  */
 export const INTERACTION_REGISTRY = Object.freeze([
+  defineInteraction({
+    id: 'campfire',
+    command: 'cook-meat',
+    matches: (target) => target?.kind === 'campfire' && Number.isInteger(target.rawMeatCount),
+    present: ({ target, copy }) => ({
+      name: copy.campfireName,
+      description: target.rawMeatCount > 0 ? '' : copy.campfireEmpty,
+      icon: 'dngn/altars/makhleb_flame1.png',
+      accent: '#d88447',
+      actions: [{ id: 'cook', enabled: target.rawMeatCount > 0, hint: target.rawMeatCount > 0 ? '' : copy.campfireEmpty }],
+    }),
+  }),
+  defineInteraction({
+    id: 'wildlife',
+    command: 'hunt-wildlife',
+    matches: (target) => target?.kind === 'wildlife'
+      && typeof target.id === 'string'
+      && typeof target.icon === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.wildlife[target.id] ?? target.id,
+      description: '',
+      icon: target.icon,
+      accent: '#b69062',
+      actions: [{ id: 'hunt' }],
+    }),
+  }),
   defineInteraction({
     id: 'merchant',
     command: 'trade',

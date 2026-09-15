@@ -53,6 +53,7 @@ function stableOrder(seed, depth, roomIndex, salt, item) {
 
 function baseItemPrice(item) {
   if (!item) return 1;
+  if (Number.isFinite(item.value) && item.value > 0) return Math.ceil(item.value);
   // Every unidentified potion must cost the same: prices cannot reveal its effect.
   if (item.id?.endsWith('-potion')) return 6;
   if (!item.slot) return Math.max(2, 3 + Math.ceil(effectiveLootDepth(item) * 1.5));
@@ -97,6 +98,7 @@ export function createMerchantStock({ seed, depth, roomIndex, variantId } = {}) 
   const eligible = LOOT_CATALOG.filter((item) => (
     !item.gold
     && item.id !== 'coin-cache'
+    && item.merchantStock !== false
     && effectiveLootDepth(item) <= maximumDepth
   ));
   const preferred = eligible.filter(MERCHANT_VARIANTS[variantId].accepts);

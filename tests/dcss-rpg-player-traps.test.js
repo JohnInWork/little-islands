@@ -117,8 +117,8 @@ test('an enemy springs an armed trap once; rank controls damage and hold time', 
 test('save v15 persists placed traps and migrates v14 without inventing a trap item', () => {
   const dungeon = generateDungeon({ seed: 71, depth: 1 });
   const run = createRun(71, dungeon);
-  assert.equal(SAVE_VERSION, 24);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v24');
+  assert.equal(SAVE_VERSION, 25);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v25');
   assert.equal(run.items.some(({ id }) => id === PLAYER_TRAP_ITEM_ID), true);
 
   const legacy = structuredClone(run);

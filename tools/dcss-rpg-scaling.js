@@ -200,7 +200,8 @@ export function monsterTier(monster) {
 }
 
 export function lootEligibleForFloor(item, profile) {
-  return effectiveLootDepth(item) <= profile.rewards.maximumItemDepth;
+  return item?.randomDrop !== false
+    && effectiveLootDepth(item) <= profile.rewards.maximumItemDepth;
 }
 
 export function monsterEligibleForFloor(monster, profile) {

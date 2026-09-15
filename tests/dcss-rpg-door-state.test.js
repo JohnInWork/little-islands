@@ -78,7 +78,7 @@ test('v15 reload retains open doors, and reclosing does not rearm surprise encou
       assert.equal(loadedRun.version, originalVersion);
     }
   }
-  assert.equal(SAVE_VERSION, 24, 'interaction state is persisted in the current save');
+  assert.equal(SAVE_VERSION, 25, 'interaction state is persisted in the current save');
 });
 
 for (const kind of ['monster', 'passive']) {
@@ -109,7 +109,15 @@ for (const kind of ['monster', 'passive']) {
         run.floor.opened = [];
         const state = { instanceId: original.instanceId, ...position };
         if (kind === 'monster') run.floor.monsters = [{ ...state, hp: original.hp }];
-        else run.floor.passives = [{ ...state, wanderStep: 3, facing: -1 }];
+        else run.floor.passives = [{
+          ...state,
+          wanderStep: 3,
+          facing: -1,
+          hunted: false,
+          defeated: false,
+          hp: 1,
+          attackSequence: 0,
+        }];
         const serialized = JSON.stringify(run);
         const loadedRun = JSON.parse(serialized);
         assert.equal(validateRun(loadedRun), true);
@@ -128,7 +136,15 @@ for (const kind of ['monster', 'passive']) {
           y: doorway.y - (doorway.axis === 'y' ? 0.1 : 0),
         };
         if (kind === 'monster') loadedRun.floor.monsters = [{ ...blockedState, hp: original.hp }];
-        else loadedRun.floor.passives = [{ ...blockedState, wanderStep: 3, facing: -1 }];
+        else loadedRun.floor.passives = [{
+          ...blockedState,
+          wanderStep: 3,
+          facing: -1,
+          hunted: false,
+          defeated: false,
+          hp: 1,
+          attackSequence: 0,
+        }];
         assert.throws(() => hydrateDungeon(loadedRun), /Saved (monster|passive creature) position is blocked/);
         axes.add(doorway.axis);
       }

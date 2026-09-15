@@ -63,6 +63,8 @@ const RUSSIAN_NAMES = Object.freeze({
   'bone-wand': 'Костяной жезл',
   'dead-book': 'Книга мёртвых',
   bread: 'Хлебный паёк',
+  'raw-meat': 'Сырое мясо',
+  'cooked-meat': 'Жареное мясо',
   'iron-key': 'Железный ключ',
   'lockpick-set': 'Набор отмычек',
   'hunter-trap': 'Охотничий капкан',
@@ -74,6 +76,8 @@ const ENGLISH_NAMES = Object.freeze({
   'mending-potion': 'Potion of Mending',
   'cleansing-potion': 'Potion of Cleansing',
   'venom-potion': 'Potion of Venom',
+  'raw-meat': 'Raw meat',
+  'cooked-meat': 'Cooked meat',
 });
 
 const RARITY = Object.freeze({

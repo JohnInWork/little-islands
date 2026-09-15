@@ -104,6 +104,10 @@ test('passive positions and wander sequence survive a validated save', () => {
     y: creature.y,
     wanderStep: 7,
     facing: -1,
+    hunted: false,
+    defeated: false,
+    hp: 1,
+    attackSequence: 0,
   }];
   assert.equal(validateRun(run), true);
   const hydrated = hydrateDungeon(run);

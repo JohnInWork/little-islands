@@ -9,6 +9,14 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 4,
     tameDifficulty: 1,
     meatYield: 2,
+    maxHp: 18,
+    defense: 0,
+    huntResponse: 'flee',
+    huntSpeed: 0.92,
+    damage: 0,
+    attackRate: 0,
+    windup: 0,
+    bloodColor: '#6d3030',
   }),
   Object.freeze({
     id: 'hog',
@@ -20,6 +28,14 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 4,
     tameDifficulty: 2,
     meatYield: 3,
+    maxHp: 34,
+    defense: 1,
+    huntResponse: 'fight',
+    huntSpeed: 0.82,
+    damage: 7,
+    attackRate: 0.72,
+    windup: 0.42,
+    bloodColor: '#74342f',
   }),
   Object.freeze({
     id: 'yak',
@@ -32,6 +48,14 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     tameDifficulty: 3,
     meatYield: 5,
     large: true,
+    maxHp: 58,
+    defense: 3,
+    huntResponse: 'fight',
+    huntSpeed: 0.68,
+    damage: 11,
+    attackRate: 0.58,
+    windup: 0.54,
+    bloodColor: '#60332b',
   }),
 ]);
 
@@ -80,8 +104,15 @@ export function createPassiveCreatureStates(level, tileSize = 64) {
     const state = spawn.state ?? {};
     const x = state.x ?? spawn.x;
     const y = state.y ?? spawn.y;
+    const scaling = level.scaling?.monsters ?? {};
+    const maxHp = Math.max(1, Math.round(definition.maxHp * (scaling.hpMultiplier ?? 1)));
+    const damage = Math.max(0, Math.round(definition.damage * (scaling.damageMultiplier ?? 1)));
+    const huntSpeed = Math.min(1.8, definition.huntSpeed * (scaling.moveSpeedMultiplier ?? 1));
     return {
       ...definition,
+      maxHp,
+      damage,
+      huntSpeed,
       instanceId: spawn.instanceId,
       spritePath: definition.path,
       seed: spawn.seed >>> 0,
@@ -97,6 +128,23 @@ export function createPassiveCreatureStates(level, tileSize = 64) {
       x: (x + 0.5) * tileSize,
       y: (y + 0.5) * tileSize,
       facing: state.facing === -1 ? -1 : 1,
+      actorKind: 'wildlife',
+      hunted: state.hunted === true,
+      defeated: state.defeated === true,
+      hp: state.defeated === true
+        ? 0
+        : Number.isFinite(state.hp)
+        ? Math.min(maxHp, Math.max(1, state.hp))
+          : maxHp,
+      hit: 0,
+      attackSequence: Number.isInteger(state.attackSequence) ? state.attackSequence : 0,
+      attackCooldown: 0,
+      attackWindup: 0,
+      attackRecovery: 0,
+      attackTargetX: 0,
+      attackTargetY: 0,
+      route: [],
+      repathCooldown: 0,
       stride: 0,
       wanderStep: Number.isInteger(state.wanderStep) ? state.wanderStep : 0,
       wanderCooldown: 0.45 + ((spawn.seed + index * 97) % 900) / 1000,

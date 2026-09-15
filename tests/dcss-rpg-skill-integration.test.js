@@ -28,7 +28,17 @@ const v9Fixture = () => {
   run.floor.defeated = [level.monsters[0].instanceId];
   run.floor.collected = [level.loot[0].instanceId];
   run.floor.monsters = [{ ...level.monsters[1], hp: 3 }].map(({ instanceId, x, y, hp }) => ({ instanceId, x, y, hp }));
-  run.floor.passives = level.passiveCreatures.slice(0, 1).map(({ instanceId, x, y }) => ({ instanceId, x, y, facing: -1, wanderStep: 8 }));
+  run.floor.passives = level.passiveCreatures.slice(0, 1).map(({ instanceId, x, y }) => ({
+    instanceId,
+    x,
+    y,
+    facing: -1,
+    wanderStep: 8,
+    hunted: false,
+    defeated: false,
+    hp: 1,
+    attackSequence: 0,
+  }));
   return run;
 };
 
@@ -37,7 +47,7 @@ test('v9 migration grants earned skill points without resetting the current floo
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
   assert.equal(next.version, SAVE_VERSION);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v24');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v25');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   const previousShape = structuredClone(next);
   previousShape.version = 9;

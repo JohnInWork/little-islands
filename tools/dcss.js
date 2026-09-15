@@ -212,6 +212,15 @@ import {
   hungerPresentation,
   hungerStage,
 } from './dcss-rpg-hunger.js';
+import { createGameCommand } from './dcss-rpg-game-commands.js';
+import {
+  COOKED_MEAT_ITEM_ID,
+  RAW_MEAT_ITEM_ID,
+  SURVIVAL_COMMANDS,
+  beginWildlifeHunt,
+  cookMeat,
+  strikeWildlife,
+} from './dcss-rpg-survival.js';
 
 const worldCanvas = document.querySelector('#world-3d');
 const canvas = document.querySelector('#scene');
@@ -436,6 +445,7 @@ const floorLootSpritePaths = new Set([
 const floorLootSpriteBounds = new Map();
 const requestedSeedValue = new URL(document.location.href).searchParams.get('seed');
 const previewChestNearSpawn = new URL(document.location.href).searchParams.get('preview') === 'chest';
+const previewHuntNearSpawn = new URL(document.location.href).searchParams.get('preview') === 'hunt';
 const requestedSeed = requestedSeedValue != null && /^\d+$/.test(requestedSeedValue)
   ? Number(requestedSeedValue)
   : null;
@@ -461,6 +471,36 @@ let backpackItems = run.inventory.map((uid) => itemInstances.get(uid)).filter(Bo
 const revealed = new Set(run.floor.revealed);
 revealAround(revealed, world, { x: run.hero.x, y: run.hero.y }, 4);
 let dungeonEnvironment = createDungeonEnvironment(dungeon);
+if (previewHuntNearSpawn) {
+  const cookingSite = dungeonEnvironment.props.find(({ interactionId }) => interactionId === 'campfire');
+  const occupiedPreviewCells = new Set([
+    ...dungeon.monsters,
+    ...dungeon.loot,
+    ...dungeon.events,
+    ...dungeon.finds,
+    ...dungeon.merchants,
+  ].map(({ x, y }) => `${x},${y}`));
+  const previewCell = [
+    { x: dungeon.spawn.x + 1, y: dungeon.spawn.y },
+    { x: dungeon.spawn.x - 1, y: dungeon.spawn.y },
+    { x: dungeon.spawn.x, y: dungeon.spawn.y + 1 },
+    { x: dungeon.spawn.x, y: dungeon.spawn.y - 1 },
+  ].find(({ x, y }) => world[y]?.[x] === '.' && !occupiedPreviewCells.has(`${x},${y}`));
+  if (cookingSite && previewCell) {
+    dungeonEnvironment = Object.freeze({
+      ...dungeonEnvironment,
+      props: Object.freeze(dungeonEnvironment.props.map((prop) => prop !== cookingSite
+        ? prop
+        : Object.freeze({
+            ...prop,
+            gridX: previewCell.x,
+            gridY: previewCell.y,
+            x: previewCell.x + 0.25,
+            y: previewCell.y + 0.5,
+          }))),
+    });
+  }
+}
 let lootDefinitions = createLootDefinitions(dungeon);
 let eventDefinitions = createEventDefinitions(dungeon);
 let findDefinitions = createFindDefinitions(dungeon);
@@ -502,6 +542,27 @@ const hero = {
 const camera = { x: hero.x, y: hero.y };
 let monsters = createMonsters(dungeon);
 let passiveCreatures = createPassiveCreatures(dungeon);
+if (previewHuntNearSpawn && passiveCreatures[0]) {
+  const occupiedPreviewCells = new Set([
+    ...monsters.map((actor) => monsterCellKey(actor, TILE)),
+    ...dungeonEnvironment.props.map(({ gridX, gridY }) => `${gridX},${gridY}`),
+    ...findDefinitions.map((find) => `${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`),
+  ]);
+  const previewCell = [
+    { x: dungeon.spawn.x + 1, y: dungeon.spawn.y },
+    { x: dungeon.spawn.x - 1, y: dungeon.spawn.y },
+    { x: dungeon.spawn.x, y: dungeon.spawn.y + 1 },
+    { x: dungeon.spawn.x, y: dungeon.spawn.y - 1 },
+  ].find(({ x, y }) => world[y]?.[x] === '.' && !occupiedPreviewCells.has(`${x},${y}`));
+  if (previewCell) {
+    passiveCreatures[0].x = (previewCell.x + 0.5) * TILE;
+    passiveCreatures[0].y = (previewCell.y + 0.5) * TILE;
+    passiveCreatures[0].wanderCooldown = 999;
+    passiveCreatures[0].maxHp = 1;
+    passiveCreatures[0].hp = 1;
+    passiveCreatures[0].huntSpeed = 0.1;
+  }
+}
 const sparks = [];
 const impactWaves = [];
 const projectiles = [];
@@ -972,6 +1033,10 @@ function captureRun() {
     y: creature.y / TILE - 0.5,
     wanderStep: creature.wanderStep,
     facing: creature.facing,
+    hunted: creature.hunted,
+    defeated: creature.defeated,
+    hp: creature.hp,
+    attackSequence: creature.attackSequence,
   }));
   return run;
 }
@@ -1089,6 +1154,44 @@ function currentItemState() {
   };
 }
 
+function nextGameCommand(type, targetId, payload = {}) {
+  run.commandSequence += 1;
+  return createGameCommand({
+    streamId: `run:${run.seed}:${dungeon.depth}`,
+    sequence: run.commandSequence,
+    type,
+    targetId,
+    payload,
+  });
+}
+
+function applySurvivalItemState(state) {
+  if (!Array.isArray(state?.items) || !Array.isArray(state?.inventory)) return false;
+  applyItemState({ ...state, equipment: { ...selected } });
+  renderPack();
+  return true;
+}
+
+function applyGameEvents(events) {
+  for (const event of events) {
+    if (event.type === 'wildlife-alerted') {
+      addCombatGlyph(hero.x, hero.y, '!', '#d8bd68', -56);
+      continue;
+    }
+    if (event.type === 'wildlife-defeated') {
+      const definition = lootById(event.payload.itemId);
+      showLootToast(
+        definition,
+        event.payload.stored ? event.payload.amount : 'full',
+      );
+      continue;
+    }
+    if (event.type === 'meat-cooked') {
+      showLootToast(lootById(event.payload.itemId), event.payload.amount);
+    }
+  }
+}
+
 function heroNearSanctuary() {
   if (!dungeon.sanctuary || runStatus !== 'playing' || hero.dead) return false;
   const x = Math.floor(hero.x / TILE);
@@ -1108,6 +1211,7 @@ function currentInteractionActor() {
     resources: {
       keyCount: interactionResourceCount(CHEST_RESOURCE_IDS.key),
       lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
+      rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
     },
     capabilities: deriveSkillCapabilities(hero.skills),
   };
@@ -1613,7 +1717,7 @@ function findPath(
 }
 
 function passiveOccupiedCells() {
-  return blockingActorCells(passiveCreatures, TILE);
+  return blockingActorCells(passiveCreatures.filter((creature) => !creature.defeated), TILE);
 }
 
 function heroBlockingCells() {
@@ -1622,7 +1726,11 @@ function heroBlockingCells() {
       x: (merchant.x + 0.5) * TILE,
       y: (merchant.y + 0.5) * TILE,
     }));
-  return blockingActorCells([...monsters, ...passiveCreatures, ...merchants], TILE);
+  return blockingActorCells([
+    ...monsters,
+    ...passiveCreatures.filter((creature) => !creature.defeated),
+    ...merchants,
+  ], TILE);
 }
 
 function blockingFindCells() {
@@ -2181,10 +2289,10 @@ function syncWorldActors3D() {
           };
         }),
       ...passiveCreatures
-        .filter((creature) =>
-          revealed.has(`${Math.floor(creature.x / TILE)},${Math.floor(creature.y / TILE)}`),
-        )
+        .filter((creature) => !creature.defeated &&
+          revealed.has(`${Math.floor(creature.x / TILE)},${Math.floor(creature.y / TILE)}`))
         .map((creature) => {
+          const attackMotion = monsterMotion(creature);
           const walking = creature.wanderTarget !== null;
           const bob = reducedMotion
             ? 0
@@ -2193,15 +2301,15 @@ function syncWorldActors3D() {
           return {
             id: creature.instanceId,
             path: creature.spritePath,
-            x: creature.x,
-            y: creature.y,
+            x: creature.x + attackMotion.dx,
+            y: creature.y + attackMotion.dy,
             size: creature.size * (creature.visualScale ?? 1),
             facing: creature.facing,
             screenOffsetY: (creature.visualOffsetY ?? -9) + bob,
             opacity: 1,
-            scaleX: walking && !reducedMotion ? 1 + Math.sin(creature.stride * 6) * 0.025 : 1,
-            scaleY: walking && !reducedMotion ? 1 - Math.sin(creature.stride * 6) * 0.025 : 1,
-            hit: false,
+            scaleX: attackMotion.scaleX * (walking && !reducedMotion ? 1 + Math.sin(creature.stride * 6) * 0.025 : 1),
+            scaleY: attackMotion.scaleY * (walking && !reducedMotion ? 1 - Math.sin(creature.stride * 6) * 0.025 : 1),
+            hit: creature.hit > 0,
             shadowScale: creature.large ? 0.95 : 0.72,
             shadowOpacity: 0.28,
           };
@@ -4052,6 +4160,19 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
+  if (entry.kind === 'campfire') {
+    return {
+      kind: 'campfire',
+      rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+    };
+  }
+  if (entry.kind === 'wildlife') {
+    return {
+      kind: 'wildlife',
+      id: entry.value.id,
+      icon: entry.value.spritePath,
+    };
+  }
   if (entry.kind === 'find') {
     return {
       kind: 'find',
@@ -4086,8 +4207,17 @@ function contextModelTarget(entry = contextTarget) {
 function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  const x = entry.kind === 'find' ? Math.floor(entry.value.x / TILE) : entry.value.x;
-  const y = entry.kind === 'find' ? Math.floor(entry.value.y / TILE) : entry.value.y;
+  const pixelActor = entry.kind === 'find' || entry.kind === 'wildlife';
+  const x = entry.kind === 'campfire'
+    ? entry.value.gridX
+    : pixelActor
+      ? Math.floor(entry.value.x / TILE)
+      : entry.value.x;
+  const y = entry.kind === 'campfire'
+    ? entry.value.gridY
+    : pixelActor
+      ? Math.floor(entry.value.y / TILE)
+      : entry.value.y;
   const distance = Math.abs(heroCell.x - x) + Math.abs(heroCell.y - y);
   if (entry.kind === 'trap') {
     return distance === 1
@@ -4096,6 +4226,8 @@ function contextTargetIsAdjacent(entry) {
   }
   if (entry.kind === 'find') return distance <= 1 && !entry.value.resolved;
   if (entry.kind === 'merchant') return distance <= 1;
+  if (entry.kind === 'campfire') return distance <= 1;
+  if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
 }
@@ -4383,6 +4515,71 @@ function nearbyMerchant() {
     .sort((a, b) => a.instanceId.localeCompare(b.instanceId))[0] ?? null;
 }
 
+function nearbyCampfire() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return dungeonEnvironment.props
+    .filter(({ interactionId, gridX, gridY }) =>
+      interactionId === 'campfire'
+      && revealed.has(`${gridX},${gridY}`)
+      && Math.abs(cell.x - gridX) + Math.abs(cell.y - gridY) <= 1)
+    .sort((left, right) => left.id.localeCompare(right.id))[0] ?? null;
+}
+
+function nearbyWildlife() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return passiveCreatures
+    .filter((creature) => !creature.hunted && !creature.defeated)
+    .filter((creature) => revealed.has(`${Math.floor(creature.x / TILE)},${Math.floor(creature.y / TILE)}`))
+    .filter((creature) =>
+      Math.abs(cell.x - Math.floor(creature.x / TILE))
+      + Math.abs(cell.y - Math.floor(creature.y / TILE)) <= 1)
+    .sort((left, right) => left.instanceId.localeCompare(right.instanceId))[0] ?? null;
+}
+
+function beginNearbyWildlifeHunt(creature) {
+  if (!creature || hero.dead || runStatus !== 'playing') return false;
+  const command = nextGameCommand(SURVIVAL_COMMANDS.hunt, creature.instanceId);
+  const result = beginWildlifeHunt({ command, creature });
+  if (!result.ok) return false;
+  Object.assign(creature, result.state.creature, {
+    wanderTarget: null,
+    wanderCooldown: 0,
+    route: [],
+    repathCooldown: 0,
+  });
+  playerHasActed = true;
+  applyGameEvents(result.events);
+  persistRun();
+  updateInteractionUi();
+  return true;
+}
+
+function cookAtCampfire(site) {
+  if (!site || hero.dead || runStatus !== 'playing') return false;
+  const amount = interactionResourceCount(RAW_MEAT_ITEM_ID);
+  if (amount < 1) return false;
+  const command = nextGameCommand(SURVIVAL_COMMANDS.cook, site.id, { amount });
+  const current = currentItemState();
+  const result = cookMeat({
+    command,
+    siteId: site.id,
+    items: current.items,
+    inventory: current.inventory,
+    amount,
+    outputUid: `cooked-meat-${dungeon.depth}-${command.sequence}`,
+  });
+  if (!result.ok) return false;
+  applySurvivalItemState(result.state);
+  playerHasActed = true;
+  burst(site.x * TILE, site.y * TILE - 10, '#d88447', 20);
+  addImpactWave(site.x * TILE, site.y * TILE - 4, '#e3a25a', 56, 0);
+  applyGameEvents(result.events);
+  persistRun();
+  return true;
+}
+
 function nearbyContextTarget() {
   const merchant = nearbyMerchant();
   if (merchant) return { kind: 'merchant', value: merchant };
@@ -4390,6 +4587,13 @@ function nearbyContextTarget() {
   if (find) return { kind: 'find', value: find };
   const trap = nearbyDetectedTrap();
   if (trap) return { kind: 'trap', value: trap };
+  const campfire = nearbyCampfire();
+  if (campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0) {
+    return { kind: 'campfire', value: campfire };
+  }
+  const wildlife = nearbyWildlife();
+  if (wildlife) return { kind: 'wildlife', value: wildlife };
+  if (campfire) return { kind: 'campfire', value: campfire };
   const door = nearbyDoor();
   return door ? { kind: 'door', value: door } : null;
 }
@@ -4422,6 +4626,16 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     const merchant = target.value;
     closeContextActions();
     return openMerchantShop(merchant);
+  },
+  'hunt-wildlife'({ target }) {
+    const creature = target.value;
+    closeContextActions();
+    return beginNearbyWildlifeHunt(creature);
+  },
+  'cook-meat'({ target }) {
+    const site = target.value;
+    closeContextActions();
+    return cookAtCampfire(site);
   },
 });
 
@@ -4482,7 +4696,11 @@ function beginDoorTransition(door, targetOpen) {
   if (distance > 1 || (targetOpen && distance !== 1)) return false;
   const merchants = (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
     .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE }));
-  if (!targetOpen && !canCloseDoor({ door, actors: [hero, ...monsters, ...passiveCreatures, ...merchants], tileSize: TILE })) {
+  if (!targetOpen && !canCloseDoor({
+    door,
+    actors: [hero, ...monsters, ...passiveCreatures.filter((creature) => !creature.defeated), ...merchants],
+    tileSize: TILE,
+  })) {
     doorAnnouncement.textContent = currentMainMenuModel().labels.doorBlocked;
     addCombatGlyph((door.x + 0.5) * TILE, (door.y + 0.5) * TILE, '!', '#dec982', -36);
     showLootToast({ path: 'dngn/doors/open_door.png', rarity: 0 }, '!');
@@ -5228,6 +5446,63 @@ function cleanseEquippedWards() {
   return result.cleared.length > 0;
 }
 
+function damageWildlife(
+  creature,
+  damage,
+  color,
+  { style = 'blade', projectile = false, sourceX = hero.x, sourceY = hero.y, vampiric = false } = {},
+) {
+  if (hero.dead || runStatus !== 'playing' || !creature?.hunted || creature.defeated) return;
+  const command = nextGameCommand(SURVIVAL_COMMANDS.strike, creature.instanceId, { damage });
+  const itemState = currentItemState();
+  const result = strikeWildlife({
+    command,
+    creature,
+    damage,
+    items: itemState.items,
+    inventory: itemState.inventory,
+    meatUid: `raw-meat-${creature.instanceId}`,
+  });
+  if (!result.ok) return;
+  const hit = result.events.find(({ type }) => type === 'wildlife-damaged');
+  const dealt = hit?.payload.damage ?? 0;
+  const lethal = result.state.creature.defeated;
+  const profile = combatImpactProfile(style, { projectile, boss: false });
+  Object.assign(creature, result.state.creature, {
+    hit: 0.19,
+    wanderTarget: null,
+    route: [],
+  });
+  if (result.state.items) applySurvivalItemState(result.state);
+  burst(creature.x, creature.y - 8, color, profile.particles);
+  addImpactWave(creature.x, creature.y - 8, color, profile.waveSize, profile.shake);
+  addCombatGlyph(creature.x, creature.y, dealt, color);
+  addBloodImpact(creature, sourceX, sourceY, lethal);
+  beginHitStop(profile.hitStop);
+  if (vampiric && dealt > 0) {
+    const recovery = resolveVampiricRecovery({
+      hp: hero.hp,
+      maxHp: currentHeroStats().maxHp,
+      damage: dealt,
+      magic: { vampirism: true },
+    });
+    hero.hp = recovery.hp;
+    if (recovery.healed > 0) addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#d97873');
+  }
+  if (lethal) {
+    const recovery = resolveKillRecovery({
+      hp: hero.hp,
+      maxHp: currentHeroStats().maxHp,
+      magic: currentHeroMagic(),
+      newlyDefeated: true,
+    });
+    hero.hp = recovery.hp;
+  }
+  applyGameEvents(result.events);
+  updateHud();
+  persistRun();
+}
+
 function applyHeroStatus(id, duration) {
   const previousDuration = hero.effects[id] ?? 0;
   const result = applyWardedEffect(hero.effects, id, duration, currentHeroMagic());
@@ -5253,6 +5528,10 @@ function damageMonster(
   color,
   { style = 'blade', projectile = false, sourceX = hero.x, sourceY = hero.y, vampiric = false } = {},
 ) {
+  if (monster?.actorKind === 'wildlife') {
+    damageWildlife(monster, damage, color, { style, projectile, sourceX, sourceY, vampiric });
+    return;
+  }
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (!monster || monster.dead > 0) return;
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
@@ -5352,8 +5631,14 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     return;
   }
   hero.pendingAttack = null;
-  const monster = monsters.find(({ instanceId }) => instanceId === pending.targetId);
-  if (!monster || monster.dead > 0 || !canHeroAttack(monster, pending.combat)) return;
+  const monster = monsters.find(({ instanceId }) => instanceId === pending.targetId)
+    ?? passiveCreatures.find(({ instanceId, hunted, defeated }) =>
+      instanceId === pending.targetId && hunted && !defeated);
+  if (
+    !monster
+    || (monster.actorKind === 'wildlife' ? monster.defeated : monster.dead > 0)
+    || !canHeroAttack(monster, pending.combat)
+  ) return;
   if (pending.combat.projectile) {
     launchHeroProjectile(monster, pending.damage, pending.combat, pending.color);
     return;
@@ -5362,7 +5647,10 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     grid: world,
     attacker: hero,
     primary: monster,
-    candidates: monsters,
+    candidates: [
+      ...monsters,
+      ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+    ],
     profile: pending.cleave,
     tileSize: TILE,
   });
@@ -5386,7 +5674,7 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     vampiric: pending.vampiric,
   });
   if (primarySwordResult?.empowered) showSwordRhythmImpact(monster, primarySwordResult);
-  if (pending.secondary && monster.dead === 0) {
+  if (pending.secondary && (monster.actorKind === 'wildlife' ? !monster.defeated : monster.dead === 0)) {
     let secondaryDamage = pending.secondary.damage;
     let secondarySwordResult = null;
     if (pending.sword?.slot === 'secondary') {
@@ -5879,7 +6167,7 @@ function updateHero(delta) {
         const next = constrainActorMovement({
           actor: hero,
           next: { x: hero.x + (dx / distance) * movement, y: hero.y + (dy / distance) * movement },
-          blockers: [...monsters, ...passiveCreatures],
+          blockers: [...monsters, ...passiveCreatures.filter((creature) => !creature.defeated)],
           tileSize: TILE,
         });
         hero.stride += Math.hypot(next.x - hero.x, next.y - hero.y) / TILE;
@@ -5900,8 +6188,11 @@ function updateHero(delta) {
   const combat = currentHeroCombat();
   let nearest = null;
   let nearestDistance = Infinity;
-  for (const monster of monsters) {
-    if (monster.dead > 0) continue;
+  for (const monster of [
+    ...monsters,
+    ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+  ]) {
+    if (monster.actorKind !== 'wildlife' && monster.dead > 0) continue;
     if (!canHeroAttack(monster, combat)) continue;
     const distance = Math.hypot(monster.x - hero.x, monster.y - hero.y);
     if (distance < nearestDistance) {
@@ -5972,7 +6263,9 @@ function updatePassiveCreatures(delta) {
   };
   const heroCells = blockingActorCells([hero], TILE);
   const occupied = occupiedMonsterCells(monsters, TILE);
-  for (const creature of passiveCreatures) occupied.add(monsterCellKey(creature, TILE));
+  for (const creature of passiveCreatures) {
+    if (!creature.defeated) occupied.add(monsterCellKey(creature, TILE));
+  }
   const reserved = new Set([
     ...blockingActorCells(monsters, TILE),
     ...heroCells,
@@ -5980,9 +6273,75 @@ function updatePassiveCreatures(delta) {
   ]);
 
   for (const creature of passiveCreatures) {
+    creature.hit = Math.max(0, creature.hit - delta);
+    creature.attackCooldown = Math.max(0, creature.attackCooldown - delta);
+    creature.attackRecovery = Math.max(0, creature.attackRecovery - delta);
+    creature.repathCooldown = Math.max(0, creature.repathCooldown - delta);
+    const previousWindup = creature.attackWindup;
+    creature.attackWindup = Math.max(0, creature.attackWindup - delta);
+    if (creature.defeated) continue;
     creature.wanderCooldown = Math.max(0, creature.wanderCooldown - delta);
     const currentKey = monsterCellKey(creature, TILE);
     occupied.delete(currentKey);
+
+    if (previousWindup > 0) {
+      if (creature.attackWindup === 0 && canActorsMelee(creature, hero)) {
+        const attackSequence = creature.attackSequence;
+        creature.attackSequence += 1;
+        const block = resolveShieldBlock({
+          combat: currentHeroCombat(),
+          capabilities: deriveSkillCapabilities(hero.skills),
+          roll: shieldBlockRoll({
+            seed: run.seed,
+            depth: dungeon.depth,
+            attackerId: creature.instanceId,
+            attackSequence,
+          }),
+        });
+        damageHero(creature.damage, { blocked: block.blocked });
+      }
+      occupied.add(currentKey);
+      continue;
+    }
+
+    if (creature.hunted && creature.huntResponse === 'fight') {
+      if (canActorsMelee(creature, hero)) {
+        creature.wanderTarget = null;
+        creature.route = [];
+        if (creature.attackCooldown === 0) {
+          creature.attackCooldown = 1 / creature.attackRate;
+          creature.attackWindup = creature.windup;
+          creature.attackTargetX = hero.x;
+          creature.attackTargetY = hero.y;
+          creature.facing = hero.x < creature.x ? -1 : 1;
+        }
+        occupied.add(currentKey);
+        continue;
+      }
+      if (!creature.wanderTarget && creature.repathCooldown === 0) {
+        creature.repathCooldown = 0.28;
+        const blockedCells = new Set([...occupied, ...reserved]);
+        blockedCells.delete(currentKey);
+        blockedCells.delete(monsterCellKey(hero, TILE));
+        creature.route = findPath(hero.x / TILE, hero.y / TILE, {
+          allowHidden: true,
+          start: { x: Math.floor(creature.x / TILE), y: Math.floor(creature.y / TILE) },
+          blockedCells,
+        });
+        if (creature.route.length > 0) creature.route.pop();
+        if (creature.route.length === 0) {
+          const approach = meleeApproachPoint(creature, hero, TILE);
+          if (approach) creature.route = [approach];
+        }
+        creature.wanderTarget = creature.route[0]
+          ? {
+              ...creature.route[0],
+              gridX: Math.floor(creature.route[0].x / TILE),
+              gridY: Math.floor(creature.route[0].y / TILE),
+            }
+          : null;
+      }
+    }
 
     if (creature.wanderTarget) {
       const targetKey = `${creature.wanderTarget.gridX},${creature.wanderTarget.gridY}`;
@@ -5996,7 +6355,8 @@ function updatePassiveCreatures(delta) {
         const dx = creature.wanderTarget.x - creature.x;
         const dy = creature.wanderTarget.y - creature.y;
         const distance = Math.hypot(dx, dy);
-        const movement = Math.min(distance, delta * TILE * creature.speed);
+        const movementSpeed = creature.hunted ? creature.huntSpeed : creature.speed;
+        const movement = Math.min(distance, delta * TILE * movementSpeed);
         let blocked = false;
         if (distance > 0 && movement > 0) {
           const next = constrainActorMovement({
@@ -6005,7 +6365,7 @@ function updatePassiveCreatures(delta) {
             blockers: [
               hero,
               ...monsters,
-              ...passiveCreatures,
+              ...passiveCreatures.filter((other) => other !== creature && !other.defeated),
               ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
                 .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE })),
             ],
@@ -6024,6 +6384,7 @@ function updatePassiveCreatures(delta) {
           creature.x = creature.wanderTarget.x;
           creature.y = creature.wanderTarget.y;
           creature.wanderTarget = null;
+          if (creature.route.length > 0) creature.route.shift();
           creature.wanderCooldown = passiveWanderPause(creature);
         } else {
           reserved.add(targetKey);
@@ -6031,7 +6392,11 @@ function updatePassiveCreatures(delta) {
       }
     }
 
-    if (!creature.wanderTarget && creature.wanderCooldown === 0) {
+    if (
+      !creature.wanderTarget
+      && creature.wanderCooldown === 0
+      && !(creature.hunted && creature.huntResponse === 'fight')
+    ) {
       const distanceToHero =
         Math.abs(Math.floor(creature.x / TILE) - heroCell.x) +
         Math.abs(Math.floor(creature.y / TILE) - heroCell.y);
@@ -6039,7 +6404,7 @@ function updatePassiveCreatures(delta) {
         creature,
         grid: world,
         blockedCells: new Set([...occupied, ...reserved, ...heroCells]),
-        avoidCell: distanceToHero <= 2 ? heroCell : null,
+        avoidCell: creature.hunted || distanceToHero <= 2 ? heroCell : null,
         tileSize: TILE,
       });
       creature.wanderStep += 1;
@@ -6059,7 +6424,9 @@ function updateWorld(delta) {
     if (deathTimer <= 0) showRunEndScreen('dead');
   }
   const occupiedCells = occupiedMonsterCells(monsters, TILE);
-  for (const creature of passiveCreatures) occupiedCells.add(monsterCellKey(creature, TILE));
+  for (const creature of passiveCreatures) {
+    if (!creature.defeated) occupiedCells.add(monsterCellKey(creature, TILE));
+  }
   const reservedCells = passiveOccupiedCells();
   for (const merchant of (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)) {
     reservedCells.add(`${merchant.x},${merchant.y}`);
@@ -6233,7 +6600,7 @@ function updateWorld(delta) {
         blockers: [
           hero,
           ...monsters,
-          ...passiveCreatures,
+          ...passiveCreatures.filter((creature) => !creature.defeated),
           ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
             .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE })),
         ],
@@ -6262,8 +6629,14 @@ function updateWorld(delta) {
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];
     projectile.life -= delta;
-    const target = monsters.find((monster) => monster.instanceId === projectile.targetId);
-    if (!target || target.dead > 0 || projectile.life <= 0) {
+    const target = monsters.find(({ instanceId }) => instanceId === projectile.targetId)
+      ?? passiveCreatures.find(({ instanceId, hunted, defeated }) =>
+        instanceId === projectile.targetId && hunted && !defeated);
+    if (
+      !target
+      || (target.actorKind === 'wildlife' ? target.defeated : target.dead > 0)
+      || projectile.life <= 0
+    ) {
       projectiles.splice(index, 1);
       continue;
     }

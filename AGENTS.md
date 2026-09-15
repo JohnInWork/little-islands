@@ -48,6 +48,10 @@ GitHub URL. Не восстанавливай старый островной п
   fixed-step lockstep/replay engine.
 - Не добавлять framework, ECS, глобальную шину событий или массовый рефакторинг
   без конкретного работающего потребителя.
+- Новые изменяющие survival-действия используют конверт
+  `tools/dcss-rpg-game-commands.js` и чистые `{ ok, state, events }`. Первый пример
+  — `tools/dcss-rpg-survival.js`; формат и честные ограничения описаны в
+  [docs/COMMAND-EVENT-FOUNDATION.md](docs/COMMAND-EVENT-FOUNDATION.md).
 - Асинхронные загрузки и dispose должны уважать владельца сцены и общий кэш.
 
 ## Проверка и передача

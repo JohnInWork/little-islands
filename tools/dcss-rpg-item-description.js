@@ -53,6 +53,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     scroll: 'Свиток',
     wand: 'Жезл',
     food: 'Еда',
+    ingredient: 'Ингредиент',
     key: 'Ключ',
     tool: 'Инструмент',
     trap: 'Ловушка',
@@ -63,6 +64,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     scroll: 'Scroll',
     wand: 'Wand',
     food: 'Food',
+    ingredient: 'Ingredient',
     key: 'Key',
     tool: 'Tool',
     trap: 'Trap',
@@ -122,6 +124,7 @@ const COPY = Object.freeze({
     lockpick: 'Взлом замка · нужен навык · расходуется',
     trap: 'Установка рядом · нужен Ловушечник I',
     gold: 'При подборе превращается в золото',
+    cooking: 'Можно приготовить у костра',
   }),
   en: Object.freeze({
     unknownPotion: 'Potion · unknown effect',
@@ -153,6 +156,7 @@ const COPY = Object.freeze({
     lockpick: 'Picks a lock · requires skill · consumed',
     trap: 'Place nearby · requires Trap setting I',
     gold: 'Turns into gold when collected',
+    cooking: 'Can be cooked at a campfire',
   }),
 });
 
@@ -304,7 +308,11 @@ function utilityFacts(item, language) {
     facts.push(freezeFact({
       id: `resource:${item.interactionResource}`,
       kind: 'use',
-      icon: item.interactionResource === 'key' ? '⌑' : '⌁',
+      icon: item.interactionResource === 'key'
+        ? '⌑'
+        : item.interactionResource === 'cooking'
+          ? '♨'
+          : '⌁',
       text,
       short: text,
     }));
