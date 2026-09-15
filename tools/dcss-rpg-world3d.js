@@ -23,6 +23,7 @@ export const MAX_SHADOWED_WORLD_LIGHTS = MAX_SPOT_SHADOW_LIGHTS;
 export const WORLD_DECORATION_DEPTH_BIAS = 0.18;
 export const WORLD_DOOR_HEIGHT = 0.52;
 export const WORLD_DOOR_THICKNESS = 0.12;
+export const DOOR_PANEL_CROP = Object.freeze({ x: 6, y: 5, width: 20, height: 25 });
 
 const elevationRadians = THREE.MathUtils.degToRad(WORLD_CAMERA_ELEVATION);
 const groundVerticalScale = Math.sin(elevationRadians);
@@ -109,17 +110,8 @@ export function createDoorAssembly({ door, panelMaterial, frameMaterial }) {
     frame.add(post);
   }
   postGeometry.dispose();
-  const lintel = new THREE.Mesh(
-    new THREE.BoxGeometry(
-      passageAlongX ? 0.15 * groundVerticalScale : 0.96 * groundVerticalScale,
-      0.12,
-      passageAlongX ? 0.96 : 0.15,
-    ),
-    frameMaterial,
-  );
-  lintel.position.set(centerX, WORLD_WALL_HEIGHT - 0.04, centerZ);
-  lintel.castShadow = true;
-  frame.add(lintel);
+  // A top lintel becomes a bright line across the floor from this camera angle.
+  // The neighbouring wall caps already frame the opening, so only side posts stay.
   group.add(frame);
   const assembly = { axis: door.axis, group, panel, pivot, frame };
   setDoorAssemblyOpenProgress(assembly, door.open ? 1 : 0);
@@ -350,6 +342,45 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     return texture;
   };
 
+  const doorPanelTextureFor = (path, imageForPath) => {
+    const cacheKey = `door-panel:${path}`;
+    if (textureCache.has(cacheKey)) return textureCache.get(cacheKey);
+    const source = imageForPath(path);
+    if (!source) throw new Error(`Missing 3D door texture: ${path}`);
+    const sourceWidth = source.naturalWidth || source.width;
+    const sourceHeight = source.naturalHeight || source.height;
+    const scaleX = sourceWidth / 32;
+    const scaleY = sourceHeight / 32;
+    const cropX = Math.round(DOOR_PANEL_CROP.x * scaleX);
+    const cropY = Math.round(DOOR_PANEL_CROP.y * scaleY);
+    const cropWidth = Math.max(1, Math.round(DOOR_PANEL_CROP.width * scaleX));
+    const cropHeight = Math.max(1, Math.round(DOOR_PANEL_CROP.height * scaleY));
+    const panelCanvas = document.createElement('canvas');
+    panelCanvas.width = DOOR_PANEL_CROP.width;
+    panelCanvas.height = DOOR_PANEL_CROP.height;
+    const panelContext = panelCanvas.getContext('2d', { alpha: false });
+    panelContext.imageSmoothingEnabled = false;
+    panelContext.drawImage(
+      source,
+      cropX,
+      cropY,
+      Math.min(cropWidth, sourceWidth - cropX),
+      Math.min(cropHeight, sourceHeight - cropY),
+      0,
+      0,
+      panelCanvas.width,
+      panelCanvas.height,
+    );
+    const texture = new THREE.CanvasTexture(panelCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.generateMipmaps = false;
+    texture.needsUpdate = true;
+    textureCache.set(cacheKey, texture);
+    return texture;
+  };
+
   const wallFaceTextureFor = (path, imageForPath) => {
     const cacheKey = `wall-face:${path}`;
     if (textureCache.has(cacheKey)) return textureCache.get(cacheKey);
@@ -439,8 +470,16 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     heroContext.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
     heroContext.filter = filter;
     for (const path of layers) {
-      const source = imageForPath(path);
-      if (source) heroContext.drawImage(source, 0, 0, heroCanvas.width, heroCanvas.height);
+      const mirrored = path.startsWith('mirror:');
+      const source = imageForPath(mirrored ? path.slice('mirror:'.length) : path);
+      if (!source) continue;
+      heroContext.save();
+      if (mirrored) {
+        heroContext.translate(heroCanvas.width, 0);
+        heroContext.scale(-1, 1);
+      }
+      heroContext.drawImage(source, 0, 0, heroCanvas.width, heroCanvas.height);
+      heroContext.restore();
     }
     heroContext.filter = 'none';
     heroTexture.needsUpdate = true;
@@ -632,13 +671,21 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
         } else if (grid[y][x] === 'D' || doorByCell.has(`${x},${y}`)) {
           const definition = doorByCell.get(`${x},${y}`);
           const horizontalPassage = grid[y]?.[x - 1] === '.' || grid[y]?.[x + 1] === '.';
+          const axis = definition?.axis ?? (horizontalPassage ? 'x' : 'y');
+          const frameCells = axis === 'x'
+            ? [{ x, y: y - 1 }, { x, y: y + 1 }]
+            : [{ x: x - 1, y }, { x: x + 1, y }];
+          const frameCell = frameCells.find((cell) => grid[cell.y]?.[cell.x] === '#')
+            ?? { x, y };
           doorRecords.push({
             x,
             y,
-            axis: definition?.axis ?? (horizontalPassage ? 'x' : 'y'),
+            axis,
             open: grid[y][x] === '.',
             // Keep the wooden door material when its cell becomes walkable.
             path: wallPathAt(x, y, 'D'),
+            // The fixed frame belongs to the masonry, not to the moving door sprite.
+            framePath: wallPathAt(frameCell.x, frameCell.y, '#'),
           });
         }
       }
@@ -679,6 +726,16 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
         faceMaterial,
       ];
     };
+    const doorPanelMaterialFor = (path) => {
+      const cacheKey = `door-panel:${path}`;
+      if (materialCache.has(cacheKey)) return materialCache.get(cacheKey);
+      const material = new THREE.MeshLambertMaterial({
+        map: doorPanelTextureFor(path, imageForPath),
+        color: theme.world3d.wallTint,
+      });
+      materialCache.set(cacheKey, material);
+      return material;
+    };
 
     const floorGeometry = new THREE.PlaneGeometry(groundVerticalScale, 1);
     floorGeometry.rotateX(-Math.PI / 2);
@@ -703,18 +760,11 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     });
     wallGeometry.dispose();
 
-    const frameMaterial = (() => {
-      const cacheKey = 'door-frame';
-      if (materialCache.has(cacheKey)) return materialCache.get(cacheKey);
-      const material = new THREE.MeshLambertMaterial({ color: theme.world3d.wallTint });
-      materialCache.set(cacheKey, material);
-      return material;
-    })();
     for (const door of doorRecords) {
       const entry = createDoorAssembly({
         door,
-        panelMaterial: wallMaterialSetFor(door.path),
-        frameMaterial,
+        panelMaterial: doorPanelMaterialFor(door.path),
+        frameMaterial: wallMaterialSetFor(door.framePath),
       });
       worldRoot.add(entry.group);
       doorEntries.set(`${door.x},${door.y}`, entry);

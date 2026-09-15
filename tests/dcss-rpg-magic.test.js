@@ -69,7 +69,10 @@ test('kill recovery is capped by health and equipment, never revives or rewards 
 test('magic has readable RU/EN descriptions and contributes to the shared power score', () => {
   for (const id of ['fire-ring', 'ice-ring', 'antidote-ring', 'dragon-cloak', 'ratskin-cloak', 'regeneration-ring']) {
     const item = lootById(id);
-    for (const language of ['ru', 'en']) assert.ok(itemDetails(item, language).effects.at(-1).text.length > 35);
+    for (const language of ['ru', 'en']) {
+      const magic = itemDetails(item, language).effects.find(({ kind }) => kind === 'magic');
+      assert.ok(magic?.text.length >= 14);
+    }
     assert.ok(itemPowerScore(item) > itemPowerScore({ ...item, magic: undefined }));
   }
 });

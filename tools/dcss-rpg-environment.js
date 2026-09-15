@@ -122,6 +122,10 @@ const START_ROOM_THEME = roomTheme({
   floorAccents: numberedPaths('dngn/floor/grey_dirt', [0, 1, 2, 3]),
 });
 
+const ROOM_THEMES_BY_ID = new Map(
+  [START_ROOM_THEME, ...ENVIRONMENT_ROOM_THEMES].map((theme) => [theme.id, theme]),
+);
+
 function roomSize(room, key) {
   return room[key] ?? room[key === 'width' ? 'w' : 'h'];
 }
@@ -253,7 +257,15 @@ function propPosition(rng, room, cell) {
   return position;
 }
 
-function themeForRoom(roomIndex, offset, stride) {
+function themeForRoom(level, roomIndex, offset, stride) {
+  const plannedThemeId = level.roomPlans?.find(
+    (plan) => plan.roomIndex === roomIndex,
+  )?.environmentThemeId;
+  if (plannedThemeId) {
+    const plannedTheme = ROOM_THEMES_BY_ID.get(plannedThemeId);
+    if (!plannedTheme) throw new Error(`Unknown planned room environment: ${plannedThemeId}`);
+    return plannedTheme;
+  }
   if (roomIndex === 0) return START_ROOM_THEME;
   return ENVIRONMENT_ROOM_THEMES[
     (offset + (roomIndex - 1) * stride) % ENVIRONMENT_ROOM_THEMES.length
@@ -281,7 +293,7 @@ export function createDungeonEnvironment(level) {
   const themeStride = rng.next() < 0.5 ? 1 : ENVIRONMENT_ROOM_THEMES.length - 1;
 
   for (const [roomIndex, room] of level.rooms.entries()) {
-    const theme = themeForRoom(roomIndex, themeOffset, themeStride);
+    const theme = themeForRoom(level, roomIndex, themeOffset, themeStride);
     roomThemes.push(theme.id);
     const candidates = shuffle(rng, roomEdgeCells(level, room, occupied)).filter(
       ({ x, y }) => !transit.has(`${x},${y}`),

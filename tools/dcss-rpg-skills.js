@@ -32,9 +32,81 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ lockpickTier: 3 }),
     ]),
   }),
+  'trap-setting': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ trapPlacementTier: 1 }),
+      Object.freeze({ trapPlacementTier: 2 }),
+      Object.freeze({ trapPlacementTier: 3 }),
+    ]),
+  }),
+  appraisal: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ itemIdentificationTier: 1 }),
+      Object.freeze({ itemIdentificationTier: 2 }),
+      Object.freeze({ itemIdentificationTier: 3 }),
+    ]),
+  }),
+  swords: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ swordRhythmRank: 1, swordRhythmHitInterval: 4, swordRhythmBonusPercent: 40 }),
+      Object.freeze({ swordRhythmRank: 2, swordRhythmHitInterval: 3, swordRhythmBonusPercent: 60 }),
+      Object.freeze({ swordRhythmRank: 3, swordRhythmHitInterval: 2, swordRhythmBonusPercent: 80 }),
+    ]),
+  }),
+  axes: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({
+        axeCleaveRank: 1,
+        axeCleaveTwoHandDamagePercent: 35,
+        axeCleaveTwoHandTargets: 1,
+        axeCleaveOneHandDamagePercent: 25,
+        axeCleaveOneHandTargets: 1,
+      }),
+      Object.freeze({
+        axeCleaveRank: 2,
+        axeCleaveTwoHandDamagePercent: 60,
+        axeCleaveTwoHandTargets: 1,
+        axeCleaveOneHandDamagePercent: 40,
+        axeCleaveOneHandTargets: 1,
+      }),
+      Object.freeze({
+        axeCleaveRank: 3,
+        axeCleaveTwoHandDamagePercent: 80,
+        axeCleaveTwoHandTargets: 2,
+        axeCleaveOneHandDamagePercent: 55,
+        axeCleaveOneHandTargets: 1,
+      }),
+    ]),
+  }),
+  shield: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ shieldBlockChancePercent: 15, shieldBlockStunMs: 0 }),
+      Object.freeze({ shieldBlockChancePercent: 25, shieldBlockStunMs: 0 }),
+      Object.freeze({ shieldBlockChancePercent: 35, shieldBlockStunMs: 600 }),
+    ]),
+  }),
 });
 // Add a system here only when its runtime consumer is connected and verified.
-export const SKILL_SYSTEMS = Object.freeze(['trap-detection', 'trap-disarming', 'lockpicking']);
+export const SKILL_SYSTEMS = Object.freeze([
+  'trap-detection',
+  'trap-disarming',
+  'lockpicking',
+  'trap-placement',
+  'item-identification',
+  'sword-rhythm',
+  'weapon-cleave',
+  'shield-blocking',
+]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
   attack: Object.freeze([-1000, 1000]),
@@ -52,6 +124,17 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   trapDisarmTier: Object.freeze([0, 3]),
   trapPlacementTier: Object.freeze([0, 3]),
   lockpickTier: Object.freeze([0, 3]),
+  itemIdentificationTier: Object.freeze([0, 3]),
+  swordRhythmRank: Object.freeze([0, 3]),
+  swordRhythmHitInterval: Object.freeze([0, 8]),
+  swordRhythmBonusPercent: Object.freeze([0, 100]),
+  axeCleaveRank: Object.freeze([0, 3]),
+  axeCleaveTwoHandDamagePercent: Object.freeze([0, 100]),
+  axeCleaveTwoHandTargets: Object.freeze([0, 2]),
+  axeCleaveOneHandDamagePercent: Object.freeze([0, 100]),
+  axeCleaveOneHandTargets: Object.freeze([0, 2]),
+  shieldBlockChancePercent: Object.freeze([0, 100]),
+  shieldBlockStunMs: Object.freeze([0, 10_000]),
 });
 
 function isRecord(value) {

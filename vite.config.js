@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
         game: resolve(import.meta.dirname, 'tools/dcss.html'),
+        sprites: resolve(import.meta.dirname, 'tools/sprites.html'),
       },
     },
   },

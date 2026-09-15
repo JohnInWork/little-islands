@@ -2,15 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { LOOT_CATALOG, MONSTER_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
-import { createRun, generateDungeon } from '../tools/dcss-rpg-core.js';
+import { createRun, generateDungeon, validateRun } from '../tools/dcss-rpg-core.js';
 import { FINAL_BOSS_ID, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
 import {
+  DUAL_WIELD_OFFHAND_DAMAGE_SCALE,
   EQUIPMENT_STAT_KEYS,
   EQUIPMENT_SLOTS,
   HERO_BASE_MOVE_SPEED,
   HERO_LEVEL_HP_GAIN,
   MONSTER_MIN_SEPARATION,
   MIN_DAMAGE_RATIO,
+  WEAPON_FAMILIES,
+  WEAPON_LOADOUTS,
+  allowedSlotsForItem,
   assertEquipmentCatalog,
   canMeleeAttack,
   canMonsterAdvance,
@@ -20,9 +24,13 @@ import {
   occupiedMonsterCells,
   deriveHeroStats,
   equipInventoryItem,
+  isShieldItem,
+  isTwoHandedItem,
+  isWeaponItem,
   mitigateDamage,
   monsterThreatAtDepth,
   resolveHeroDamage,
+  resolveWeaponLoadout,
   salvageInventoryItems,
   unequipItem,
   weaponCombatProfile,
@@ -30,6 +38,10 @@ import {
 
 test('all equipment has real combat stats and starter HUD values use the same derivation', () => {
   assert.equal(assertEquipmentCatalog(LOOT_CATALOG), true);
+  const weapons = LOOT_CATALOG.filter(({ slot }) => slot === 'hand1');
+  assert.ok(weapons.every(({ weaponFamily }) => WEAPON_FAMILIES.includes(weaponFamily)));
+  assert.ok(weapons.filter(({ weaponFamily }) => weaponFamily === 'axe').length >= 2);
+  assert.ok(weapons.filter(({ weaponFamily }) => weaponFamily === 'sword').length >= 5);
   const run = createRun(19);
   const stats = deriveHeroStats(run.hero, run.equipment, run.items.map((item) => ({
     ...lootById(item.id),
@@ -59,6 +71,77 @@ test('equipment exposes bounded movement and attack tempo modifiers', () => {
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.moveSpeed ?? 0) < 0));
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.attackSpeed ?? 0) > 0));
   assert.ok(LOOT_CATALOG.some((item) => (item.stats?.attackSpeed ?? 0) < 0));
+});
+
+test('one-handed axe keeps shield guard and tempo while two-handed axes trade both for impact', () => {
+  const handAxe = lootById('war-axe');
+  const warAxe = lootById('executioner-axe');
+  const buckler = lootById('wood-buckler');
+  const handProfile = weaponCombatProfile(handAxe, buckler);
+  const warProfile = weaponCombatProfile(warAxe, buckler);
+
+  assert.equal(handAxe.hands, 1);
+  assert.equal(isTwoHandedItem(handAxe), false);
+  assert.equal(handProfile.style, 'blade');
+  assert.equal(handProfile.guard, buckler.combat.guard);
+  assert.ok(handProfile.cooldown < warProfile.cooldown);
+  assert.ok(handProfile.attackDuration < warProfile.attackDuration);
+
+  assert.equal(warAxe.hands, 2);
+  assert.equal(isTwoHandedItem(warAxe), true);
+  assert.equal(warProfile.style, 'heavy');
+  assert.equal(warProfile.guard, 0);
+  assert.ok(warProfile.damageScale > handProfile.damageScale);
+});
+
+test('one universal hand contract resolves single, shield, dual and two-handed loadouts', () => {
+  const dagger = lootById('short-blade');
+  const sword = lootById('long-sword');
+  const shield = lootById('wood-buckler');
+  const staff = lootById('skull-staff');
+
+  assert.deepEqual(WEAPON_LOADOUTS, [
+    'unarmed',
+    'one-handed',
+    'weapon-shield',
+    'dual-wield',
+    'two-handed',
+  ]);
+  assert.equal(isWeaponItem(sword), true);
+  assert.equal(isShieldItem(shield), true);
+  assert.deepEqual(allowedSlotsForItem(sword), ['hand1', 'hand2']);
+  assert.deepEqual(allowedSlotsForItem(staff), ['hand1']);
+  assert.equal(resolveWeaponLoadout(sword).mode, 'one-handed');
+  assert.equal(resolveWeaponLoadout(sword, shield).mode, 'weapon-shield');
+  assert.equal(resolveWeaponLoadout(sword, dagger).mode, 'dual-wield');
+  assert.equal(resolveWeaponLoadout(staff, shield).mode, 'two-handed');
+  assert.equal(resolveWeaponLoadout(null, dagger).mode, 'one-handed');
+});
+
+test('dual wield keeps each weapon visible in the loadout and adds a bounded off-hand strike', () => {
+  const sword = lootById('long-sword');
+  const dagger = lootById('short-blade');
+  const profile = weaponCombatProfile(sword, dagger);
+
+  assert.equal(profile.loadout, 'dual-wield');
+  assert.equal(profile.guard, 0);
+  assert.equal(profile.style, sword.combat.style);
+  assert.equal(profile.secondary.style, dagger.combat.style);
+  assert.equal(
+    profile.secondary.damageScale,
+    dagger.combat.damageScale * DUAL_WIELD_OFFHAND_DAMAGE_SCALE,
+  );
+});
+
+test('a shield guards every one-handed family while two-handed weapons always ignore it', () => {
+  const shield = lootById('wood-buckler');
+  const axe = lootById('war-axe');
+  const staff = lootById('skull-staff');
+
+  assert.equal(weaponCombatProfile(axe, shield).loadout, 'weapon-shield');
+  assert.equal(weaponCombatProfile(axe, shield).guard, shield.combat.guard);
+  assert.equal(weaponCombatProfile(staff, shield).loadout, 'two-handed');
+  assert.equal(weaponCombatProfile(staff, shield).guard, 0);
 });
 
 test('cloak, gloves and belt are real equipment families with visible variants', () => {
@@ -96,6 +179,91 @@ test('equipment has one owner and swapping or salvaging is atomic', () => {
   const salvaged = salvageInventoryItems(unequipped.state, [found.uid]);
   assert.equal(salvaged.ok, true);
   assert.ok(!salvaged.state.items.some((item) => item.uid === found.uid));
+});
+
+test('two-handed weapons atomically clear both hands and off-hand gear swaps them out', () => {
+  const run = createRun(2301);
+  const axe = { id: 'executioner-axe', uid: 'test-two-handed', ...lootById('executioner-axe') };
+  const state = {
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), axe],
+    inventory: [...run.inventory, axe.uid],
+    equipment: { ...run.equipment },
+  };
+
+  assert.equal(isTwoHandedItem(axe), true);
+  const equipped = equipInventoryItem(state, axe.uid);
+  assert.equal(equipped.ok, true);
+  assert.equal(equipped.state.equipment.hand1, axe.uid);
+  assert.equal(equipped.state.equipment.hand2, null);
+  assert.deepEqual(equipped.unequippedUids, ['starter-blade', 'starter-buckler']);
+  assert.ok(equipped.state.inventory.includes('starter-blade'));
+  assert.ok(equipped.state.inventory.includes('starter-buckler'));
+
+  const shielded = equipInventoryItem(equipped.state, 'starter-buckler');
+  assert.equal(shielded.ok, true);
+  assert.equal(shielded.state.equipment.hand1, null);
+  assert.equal(shielded.state.equipment.hand2, 'starter-buckler');
+  assert.ok(shielded.state.inventory.includes(axe.uid));
+});
+
+test('one-handed weapons can occupy both hand slots without duplicating one item', () => {
+  const run = createRun(2304);
+  const sword = { id: 'long-sword', uid: 'dual-test-sword', ...lootById('long-sword') };
+  const state = {
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), sword],
+    inventory: [...run.inventory, sword.uid],
+    equipment: { ...run.equipment },
+  };
+  const withoutShield = unequipItem(state, 'hand2');
+  assert.equal(withoutShield.ok, true);
+  const equipped = equipInventoryItem(withoutShield.state, sword.uid);
+
+  assert.equal(equipped.ok, true);
+  assert.equal(equipped.slot, 'hand2');
+  assert.equal(equipped.state.equipment.hand1, 'starter-blade');
+  assert.equal(equipped.state.equipment.hand2, sword.uid);
+  assert.equal(
+    Object.values(equipped.state.equipment).filter((uid) => uid === sword.uid).length,
+    1,
+  );
+});
+
+test('a dual-wield loadout survives the existing save contract without a schema fork', () => {
+  const run = createRun(2305);
+  const previousOffhand = run.equipment.hand2;
+  run.items.push({
+    id: 'long-sword',
+    uid: 'saved-offhand-sword',
+    affixIds: [],
+  });
+  run.inventory.push(previousOffhand);
+  run.equipment.hand2 = 'saved-offhand-sword';
+
+  assert.equal(validateRun(run), true);
+  const restored = structuredClone(run);
+  assert.equal(validateRun(restored), true);
+  assert.equal(restored.equipment.hand1, 'starter-blade');
+  assert.equal(restored.equipment.hand2, 'saved-offhand-sword');
+});
+
+test('a two-handed swap fails without mutating state when two displaced items overflow the backpack', () => {
+  const run = createRun(2302);
+  const axe = { id: 'executioner-axe', uid: 'packed-two-handed', ...lootById('executioner-axe') };
+  const fillers = Array.from({ length: 6 }, (_, index) => ({
+    id: 'mystery-potion',
+    uid: `two-hand-filler-${index}`,
+    ...lootById('mystery-potion'),
+  }));
+  const state = {
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), axe, ...fillers],
+    inventory: [...run.inventory, axe.uid, ...fillers.map(({ uid }) => uid)],
+    equipment: { ...run.equipment },
+  };
+  assert.equal(state.inventory.length, 12);
+  const before = structuredClone(state);
+  const result = equipInventoryItem(state, axe.uid);
+  assert.deepEqual(result, { ok: false, reason: 'inventory-full', state });
+  assert.deepEqual(state, before);
 });
 
 test('monster state keeps its sprite separate from the mutable AI route', () => {
@@ -292,6 +460,8 @@ test('blade, spear and staff create three spatially distinct combat styles', () 
   );
   assert.ok(blade.cooldown < spear.cooldown);
   assert.ok(spear.cooldown < staff.cooldown);
+  assert.equal(isTwoHandedItem(lootById('storm-trident')), true);
+  assert.equal(isTwoHandedItem(lootById('skull-staff')), true);
 });
 
 test('weapon reach respects cardinal lanes and ranged line of sight', () => {

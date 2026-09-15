@@ -36,6 +36,7 @@ const EMPTY_FLOOR = Object.freeze({
   resolvedFindIds: [],
   detectedTrapIds: [],
   disarmedTrapIds: [],
+  placedTraps: [],
   opened: [],
   triggered: [],
   monsters: [],
@@ -114,8 +115,12 @@ test('descending advances the deterministic floor while preserving persistent pr
   run.hero.level = 3;
   run.hero.skills = createSkillState(3);
   run.hero.xp = 17;
-  run.shards = 9;
-  run.items.push({ id: 'long-sword', uid: 'test-sword' });
+  run.gold = 9;
+  run.items.push({
+    id: 'long-sword',
+    uid: 'test-sword',
+    affixIds: [],
+  });
   run.equipment.hand1 = 'test-sword';
   run.items = run.items.filter((item) => item.uid !== 'starter-blade');
   run.floor.revealed.push('1,1');
@@ -127,7 +132,7 @@ test('descending advances the deterministic floor while preserving persistent pr
   assert.equal(next.hero.hp, 40);
   assert.equal(next.hero.level, 3);
   assert.equal(next.hero.xp, 17);
-  assert.equal(next.shards, 9);
+  assert.equal(next.gold, 9);
   assert.equal(next.equipment.hand1, 'test-sword');
   assert.equal(next.inventory.length, run.inventory.length);
   assert.deepEqual(next.floor, EMPTY_FLOOR);
@@ -205,7 +210,15 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v10')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v11')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v12')));
-  assert.ok(SAVE_KEY.endsWith(':v14'));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v14')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v15')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v16')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v17')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v18')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v19')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v20')));
+  assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v21')));
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v22');
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -224,11 +237,57 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   const second = migrateLegacyRun(legacy);
   assert.deepEqual(first, second);
   assert.equal(first.version, SAVE_VERSION);
+  assert.equal(first.gold, 3);
+  assert.equal(Object.hasOwn(first, 'shards'), false);
   assert.equal(validateRun(first), true);
   assert.equal(first.equipment.hand1, 'same');
   assert.equal(first.equipment.ring1, null);
   assert.equal(new Set(first.items.map((item) => item.uid)).size, first.items.length);
   assert.doesNotThrow(() => hydrateDungeon(first));
+});
+
+test('v15 loadouts migrate two-handed weapons without losing their off-hand item', () => {
+  const legacy = createRun(1616);
+  legacy.version = 15;
+  legacy.contentVersion = 6;
+  legacy.items.push({ id: 'executioner-axe', uid: 'legacy-two-handed' });
+  legacy.inventory.push('starter-blade');
+  legacy.equipment.hand1 = 'legacy-two-handed';
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.equal(migrated.equipment.hand1, 'legacy-two-handed');
+  assert.equal(migrated.equipment.hand2, null);
+  assert.ok(migrated.inventory.includes('starter-buckler'));
+  assert.equal(validateRun(migrated), true);
+
+  const invalid = structuredClone(migrated);
+  invalid.inventory = invalid.inventory.filter((uid) => uid !== 'starter-buckler');
+  invalid.equipment.hand2 = 'starter-buckler';
+  assert.equal(validateRun(invalid), false);
+});
+
+test('v16 runs keep their floor and owned gear across the expanded sword content pool', () => {
+  const legacy = createRun(1617);
+  legacy.version = 16;
+  legacy.contentVersion = 7;
+  legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
+  const before = structuredClone(legacy);
+
+  const migrated = migrateLegacyRun(legacy);
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.equal(migrated.contentVersion, 11);
+  assert.deepEqual(migrated.knowledge, { version: 1, identifiedItemIds: [] });
+  assert.deepEqual(migrated.floor, before.floor);
+  assert.deepEqual(migrated.items, before.items.map((item) => (
+    lootById(item.id)?.slot
+      ? { ...item, artifactPowerId: null, artifactCurseId: null }
+      : item
+  )));
+  assert.deepEqual(migrated.equipment, before.equipment);
+  assert.equal(validateRun(migrated), true);
+  assert.doesNotThrow(() => hydrateDungeon(migrated));
+  assert.deepEqual(legacy, before);
 });
 
 test('version 3 saves preserve owned gear and gain empty accessory slots', () => {
@@ -310,6 +369,7 @@ test('version 8 saves keep hero progression and gear while adopting the harder v
   legacy.hero.level = 4;
   delete legacy.hero.skills;
   legacy.hero.power = 5;
+  delete legacy.gold;
   legacy.shards = 17;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
 
@@ -323,7 +383,7 @@ test('version 8 saves keep hero progression and gear while adopting the harder v
   assert.equal(migrated.difficulty, DEFAULT_DIFFICULTY);
   assert.equal(migrated.hero.level, 4);
   assert.equal(migrated.hero.power, 5);
-  assert.equal(migrated.shards, 17);
+  assert.equal(migrated.gold, 17);
   assert.deepEqual(migrated.items, legacy.items);
   assert.deepEqual(migrated.equipment, legacy.equipment);
   assert.deepEqual(migrated.inventory, legacy.inventory);
@@ -345,10 +405,10 @@ test('all eleven equipment slots can coexist with a full twelve-item backpack', 
   ];
   for (const [slot, id] of equipped) {
     const uid = `full-${slot}`;
-    run.items.push({ id, uid });
+    run.items.push({ id, uid, affixIds: [] });
     run.equipment[slot] = uid;
   }
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     const uid = `full-pack-${index}`;
     run.items.push({ id: 'mystery-potion', uid });
     run.inventory.push(uid);

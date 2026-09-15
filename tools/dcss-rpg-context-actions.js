@@ -43,14 +43,14 @@ const GLYPHS = Object.freeze({
 const COPY = Object.freeze({
   ru: Object.freeze({
     doorName: 'Каменная дверь',
-    doorClosed: 'Закрывает проход. За ней может ждать опасность или награда.',
-    doorOpen: 'Проход открыт. Дверь можно закрыть, если проём свободен.',
+    doorClosed: 'Закрыта.',
+    doorOpen: 'Открыта.',
     crystalName: 'Живая кристальная жила',
-    crystalClosed: 'Кристалл пульсирует силой глубин.',
-    crystalInspected: (shards, power) => `Извлечение даст ${shards}◆ и +${power} к силе.`,
-    graveName: 'Проклятая гробница',
-    graveClosed: 'Внутри есть ценности, но печать отвечает болью.',
-    graveInspected: (shards, damage) => `Награда: ${shards}◆. Проклятие: −${damage} здоровья.`,
+    crystalClosed: '',
+    crystalInspected: 'В камне мерцает кристалл.',
+    graveName: 'Древняя гробница',
+    graveClosed: '',
+    graveInspected: 'На плите видна тёмная печать.',
     trapName: 'Механическая ловушка',
     trapClosed: 'Обнаруженный механизм преграждает безопасный путь.',
     trapInspected: (tier, status) => `Сложность ${tier}. ${status}`,
@@ -58,14 +58,14 @@ const COPY = Object.freeze({
   }),
   en: Object.freeze({
     doorName: 'Stone door',
-    doorClosed: 'Blocks the passage. Danger or treasure may wait beyond it.',
-    doorOpen: 'The passage is open. The door can close if the threshold is clear.',
+    doorClosed: 'Closed.',
+    doorOpen: 'Open.',
     crystalName: 'Living crystal vein',
-    crystalClosed: 'The crystal pulses with power from the depths.',
-    crystalInspected: (shards, power) => `Extraction grants ${shards}◆ and +${power} power.`,
-    graveName: 'Cursed tomb',
-    graveClosed: 'Valuables lie within, but the seal answers with pain.',
-    graveInspected: (shards, damage) => `Reward: ${shards}◆. Curse: −${damage} health.`,
+    crystalClosed: '',
+    crystalInspected: 'A crystal glimmers within the stone.',
+    graveName: 'Ancient tomb',
+    graveClosed: '',
+    graveInspected: 'A dark seal marks the slab.',
     trapName: 'Mechanical trap',
     trapClosed: 'A detected mechanism blocks the safe route.',
     trapInspected: (tier, status) => `Difficulty ${tier}. ${status}`,
@@ -75,7 +75,7 @@ const COPY = Object.freeze({
 
 const validFind = (target, id) => target.kind === 'find'
   && target.id === id
-  && Number.isFinite(target.rewardShards)
+  && Number.isFinite(target.rewardGold)
   && Number.isFinite(target.rewardPower)
   && Number.isFinite(target.riskDamage);
 
@@ -145,9 +145,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
     matches: (target) => validFind(target, 'crystal-vein'),
     present: ({ target, copy, inspected }) => ({
       name: copy.crystalName,
-      description: inspected
-        ? copy.crystalInspected(target.rewardShards, target.rewardPower)
-        : copy.crystalClosed,
+      description: inspected ? copy.crystalInspected : copy.crystalClosed,
       icon: 'item/misc/misc_crystal.png',
       accent: '#7fc8d2',
       actions: [{ id: 'inspect' }, { id: 'extract' }],
@@ -159,9 +157,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
     matches: (target) => validFind(target, 'forgotten-grave'),
     present: ({ target, copy, inspected }) => ({
       name: copy.graveName,
-      description: inspected
-        ? copy.graveInspected(target.rewardShards, target.riskDamage)
-        : copy.graveClosed,
+      description: inspected ? copy.graveInspected : copy.graveClosed,
       icon: 'dngn/vaults/sarcophagus_sealed.png',
       accent: '#b45c58',
       actions: [{ id: 'inspect' }, { id: 'defile' }],
@@ -192,6 +188,7 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     description: view.description,
     icon: view.icon,
     accent: view.accent,
+    triggerLabel: locale === 'ru' ? `Взаимодействовать: ${view.name}` : `Interact: ${view.name}`,
     closeLabel: locale === 'ru' ? 'Закрыть действия' : 'Close actions',
     actions: Object.freeze(actions.map((action) => Object.freeze({
       ...action,

@@ -3,10 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  CHEST_ASSET_PATHS,
+  CHEST_DEFAULT_PATH,
   CHEST_RESOURCE_IDS,
   CHEST_VARIANTS,
+  CHEST_VISUAL_SKINS,
   chestActionRules,
   chestContextPresentation,
+  chestFramesForSkin,
+  chestVisualFrames,
   createChestProfile,
   lockpickCost,
   resolveChestInteraction,
@@ -20,18 +25,36 @@ import {
   validateRun,
 } from '../tools/dcss-rpg-core.js';
 
+test('licensed chest art exposes four deterministic animated 32x32 skins', () => {
+  assert.equal(CHEST_VISUAL_SKINS.length, 4);
+  assert.equal(CHEST_ASSET_PATHS.length, 16);
+  assert.equal(CHEST_DEFAULT_PATH, 'licensed/cmski-chests/wooden/1.png');
+  assert.ok(CHEST_ASSET_PATHS.every((path) => /^licensed\/cmski-chests\/.+\/[1-4]\.png$/.test(path)));
+  const first = chestVisualFrames({ seed: 4401, depth: 2, roomIndex: 3 });
+  assert.equal(first.length, 4);
+  assert.deepEqual(first, chestVisualFrames({ seed: 4401, depth: 2, roomIndex: 3 }));
+  assert.deepEqual(
+    chestVisualFrames({ seed: 4401, depth: 2, roomIndex: 3, skinIds: ['pharaoh'] }),
+    chestFramesForSkin('pharaoh'),
+  );
+  assert.throws(() => chestVisualFrames({ seed: 4401, depth: 2, roomIndex: 3, skinIds: ['missing'] }));
+  assert.throws(() => chestVisualFrames({ seed: -1, depth: 2, roomIndex: 3 }));
+});
+
 const chest = (overrides = {}) => ({
   instanceId: 'find-1-2',
   id: 'sealed-cache',
   x: 4,
   y: 5,
-  rewardShards: 12,
+  rewardGold: 12,
   rewardPower: 0,
   riskDamage: 0,
   cacheVariant: 'unlocked',
   lockTier: 0,
   trapTier: 0,
   hazardDamage: 0,
+  curseEffectId: null,
+  curseDuration: 0,
   ...overrides,
 });
 
@@ -41,7 +64,7 @@ const command = (find, action, overrides = {}) => ({
   resolvedFindIds: [],
   runStatus: 'playing',
   hero: { x: find.x + 1, y: find.y, hp: 40, power: 2 },
-  shards: 3,
+  gold: 3,
   actor: { resources: {}, capabilities: {} },
   ...overrides,
 });
@@ -49,10 +72,10 @@ const command = (find, action, overrides = {}) => ({
 test('chest profiles are deterministic, depth-scaled and include every authored variant', () => {
   const seen = new Set();
   for (let seed = 1; seed <= 1000; seed += 1) {
-    const first = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardShards: 10 });
-    const second = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardShards: 10 });
+    const first = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardGold: 10 });
+    const second = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardGold: 10 });
     assert.deepEqual(first, second);
-    assert.ok(first.rewardShards >= 10);
+    assert.ok(first.rewardGold >= 10);
     assert.ok(first.lockTier >= 0 && first.lockTier <= 3);
     assert.ok(first.trapTier >= 0 && first.trapTier <= 3);
     seen.add(first.cacheVariant);
@@ -81,12 +104,12 @@ test('locked chest exposes key, skill-gated lockpicking and destructive fallback
 });
 
 test('key, lockpick and smash outcomes are atomic and economically distinct', () => {
-  const find = chest({ cacheVariant: 'locked', lockTier: 1, rewardShards: 15 });
+  const find = chest({ cacheVariant: 'locked', lockTier: 1, rewardGold: 15 });
   const keyed = resolveChestInteraction(command(find, 'use-key', {
     actor: { resources: { keyCount: 1 }, capabilities: {} },
   }));
   assert.equal(keyed.ok, true);
-  assert.equal(keyed.rewardShards, 15);
+  assert.equal(keyed.rewardGold, 15);
   assert.deepEqual(keyed.consumed, [{ id: CHEST_RESOURCE_IDS.key, amount: 1 }]);
 
   const pickedInput = command(find, 'pick-lock', {
@@ -100,8 +123,8 @@ test('key, lockpick and smash outcomes are atomic and economically distinct', ()
 
   const smashed = resolveChestInteraction(command(find, 'smash'));
   assert.equal(smashed.ok, true);
-  assert.equal(smashed.rewardShards, 8);
-  assert.equal(smashed.destroyedShards, 7);
+  assert.equal(smashed.rewardGold, 8);
+  assert.equal(smashed.destroyedGold, 7);
   assert.equal(smashed.noise, 7);
 });
 
@@ -118,19 +141,25 @@ test('traps, curses and mimics trade health for loot while skill creates a safe 
   }));
   assert.equal(disarmed.ok, true);
   assert.equal(disarmed.damage, 0);
-  assert.equal(disarmed.rewardShards, trapped.rewardShards);
+  assert.equal(disarmed.rewardGold, trapped.rewardGold);
 
   const cursed = chest({ cacheVariant: 'cursed', hazardDamage: 15 });
+  cursed.curseEffectId = 'poison';
+  cursed.curseDuration = 6;
+  const cursedResult = resolveChestInteraction(command(cursed, 'open'));
+  assert.deepEqual(cursedResult.status, { id: 'poison', duration: 6 });
   assert.equal(resolveChestInteraction(command(cursed, 'open', {
     hero: { x: 5, y: 5, hp: 15, power: 2 },
   })).reason, 'unsafe');
 
-  const mimic = chest({ cacheVariant: 'mimic', hazardDamage: 14 });
+  const mimic = chest({ cacheVariant: 'mimic', hazardDamage: 14, mimicMonsterId: 'monster-1-4' });
   const ambush = resolveChestInteraction(command(mimic, 'open'));
   const prepared = resolveChestInteraction(command(mimic, 'attack'));
   assert.equal(ambush.damage, 14);
   assert.equal(prepared.damage, 7);
-  assert.equal(prepared.rewardShards, Math.ceil(mimic.rewardShards / 2));
+  assert.equal(prepared.rewardGold, 0);
+  assert.equal(prepared.deferredRewardGold, mimic.rewardGold);
+  assert.deepEqual(prepared.activatedMonsterIds, ['monster-1-4']);
 });
 
 test('inspection hides unknown hazards until the player chooses to examine the chest', () => {
@@ -141,7 +170,8 @@ test('inspection hides unknown hazards until the player chooses to examine the c
   assert.doesNotMatch(hidden.description, /13/);
   assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open']);
   assert.equal(known.name, 'Living chest');
-  assert.match(known.description, /13/);
+  assert.equal(known.description, 'The chest breathes.');
+  assert.doesNotMatch(known.description, /13|reward|damage|loot/i);
   assert.deepEqual(known.actions.map(({ id }) => id), ['inspect', 'open', 'attack']);
 });
 
@@ -149,13 +179,16 @@ test('v13 saves migrate without inventing starter tools or rebuilding the active
   const legacy = createRun(4401);
   legacy.version = 13;
   legacy.contentVersion = 4;
-  legacy.items = legacy.items.filter(({ id }) => !Object.values(CHEST_RESOURCE_IDS).includes(id));
-  legacy.inventory = legacy.inventory.filter((uid) => !['starter-key', 'starter-lockpicks'].includes(uid));
+  legacy.items = legacy.items.filter(({ id }) =>
+    !Object.values(CHEST_RESOURCE_IDS).includes(id) && id !== 'hunter-trap');
+  legacy.inventory = legacy.inventory.filter((uid) =>
+    !['starter-key', 'starter-lockpicks', 'starter-hunter-trap'].includes(uid));
+  delete legacy.floor.placedTraps;
   legacy.started = true;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 14);
-  assert.equal(SAVE_KEY, 'little-islands:dcss-rpg:v14');
+  assert.equal(SAVE_VERSION, 22);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v22');
   assert.equal(migrated.items.some(({ id }) => Object.values(CHEST_RESOURCE_IDS).includes(id)), false);
   assert.deepEqual(migrated.floor.revealed, legacy.floor.revealed);
   assert.equal(validateRun(migrated), true);

@@ -45,8 +45,13 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.deepEqual(initial, { version: SKILL_STATE_VERSION, points: 0, ranks: {} });
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS));
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
-  assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), ['trap-sense', 'trap-disarming', 'lockpicking']);
-  assert.deepEqual(SKILL_SYSTEMS, ['trap-detection', 'trap-disarming', 'lockpicking']);
+  assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
+    'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes', 'shield',
+  ]);
+  assert.deepEqual(SKILL_SYSTEMS, [
+    'trap-detection', 'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
+    'weapon-cleave', 'shield-blocking',
+  ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
   assert.ok(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank.every(Object.isFrozen));
@@ -138,7 +143,9 @@ test('catalogue text alone cannot enable skills: real implementation and every s
   const state = createSkillState(4);
   assert.equal(isSkillReady('trap-sense'), true);
   assert.equal(isSkillReady('trap-disarming'), true);
-  assert.equal(isSkillReady('trap-setting'), false);
+  assert.equal(isSkillReady('trap-setting'), true);
+  assert.equal(isSkillReady('swords'), true);
+  assert.equal(isSkillReady('axes'), true);
   assert.equal(isSkillReady('missing', { implementations, systems }), false);
   assert.equal(isSkillReady('trap-sense', { implementations, systems: [] }), false);
   assert.equal(isSkillReady('trap-sense', { implementations, systems: ['wrong-system'] }), false);
@@ -173,7 +180,11 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
   assert.deepEqual(deriveSkillModifiers(state), neutral);
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
-    lockpickTier: 0,
+    lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
+    swordRhythmBonusPercent: 0, axeCleaveRank: 0,
+    axeCleaveTwoHandDamagePercent: 0, axeCleaveTwoHandTargets: 0,
+    axeCleaveOneHandDamagePercent: 0, axeCleaveOneHandTargets: 0,
+    shieldBlockChancePercent: 0, shieldBlockStunMs: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionTier, 3);

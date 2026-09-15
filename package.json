@@ -1,10 +1,12 @@
 {
-  "name": "little-islands",
+  "name": "dng-codex",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "sprites:manifest": "node scripts/generate-dcss-sprite-manifest.mjs",
+    "prebuild": "npm run sprites:manifest",
     "build": "vite build",
     "test": "node --test tests/dcss-rpg-*.test.js",
     "check": "npm test && npm run build",

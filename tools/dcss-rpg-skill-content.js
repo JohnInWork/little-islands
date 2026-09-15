@@ -76,8 +76,8 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'trap-setting', category: 'exploration', mode: 'contextual',
     name: { ru: 'Ловушечник', en: 'Trap setting' },
     description: {
-      ru: 'Устанавливает добытые капканы и перенастраивает подходящие ловушки против врагов.',
-      en: 'Sets recovered traps and retargets suitable mechanisms against enemies.',
+      ru: 'Позволяет самому выбрать клетку для капкана; старшие ранги сильнее ранят и дольше удерживают врага.',
+      en: 'Lets you choose a trap tile yourself; higher ranks deal more damage and hold enemies longer.',
     },
     requiresSystems: ['trap-placement'],
   },
@@ -85,8 +85,8 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'appraisal', category: 'exploration', mode: 'passive',
     name: { ru: 'Оценка', en: 'Appraisal' },
     description: {
-      ru: 'Распознаёт неизвестные свойства снаряжения и признаки проклятий.',
-      en: 'Identifies unknown equipment properties and signs of curses.',
+      ru: 'Без расхода опознаёт неизвестные зелья сложности I/II/III прямо в рюкзаке.',
+      en: 'Identifies unknown tier I/II/III potions in the backpack without consuming them.',
     },
     requiresSystems: ['item-identification'],
   },
@@ -112,17 +112,17 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'swords', category: 'combat', mode: 'passive',
     name: { ru: 'Мечи', en: 'Swords' },
     description: {
-      ru: 'После удачного блока герой автоматически отвечает выпадом меча.',
-      en: 'Automatically follows a successful block with a sword riposte.',
+      ru: 'Серия по одной цели усиливает каждый 4-й/3-й/2-й удар мечом на 40%/60%/80%. Смена цели сбрасывает ритм.',
+      en: 'A single-target chain empowers every 4th/3rd/2nd sword hit by 40%/60%/80%. Changing targets resets the rhythm.',
     },
-    requiresSystems: ['weapon-riposte'],
+    requiresSystems: ['sword-rhythm'],
   },
   {
     id: 'axes', category: 'combat', mode: 'passive',
     name: { ru: 'Топоры', en: 'Axes' },
     description: {
-      ru: 'Широкий удар топором задевает соседнего противника.',
-      en: 'A broad axe swing also strikes a nearby opponent.',
+      ru: 'Одноручный топор задевает одну цель на 25%/40%/55%; двуручный — на 35%/60%, а на III ранге две цели по 80%.',
+      en: 'One-handed axes cleave one target for 25%/40%/55%; two-handed axes deal 35%/60%, then hit two targets for 80% at rank III.',
     },
     requiresSystems: ['weapon-cleave'],
   },
@@ -157,10 +157,10 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'shield', category: 'combat', mode: 'passive',
     name: { ru: 'Щит', en: 'Shield' },
     description: {
-      ru: 'Удачный блок щитом может оттолкнуть врага и освободить место для отхода.',
-      en: 'A successful shield block can push an enemy back and make room to retreat.',
+      ru: 'Даёт 15%/25%/35% полностью заблокировать удар щитом. На III ранге успешный блок оглушает атакующего.',
+      en: 'Grants a 15%/25%/35% chance to block a hit completely. At rank III, a successful block stuns the attacker.',
     },
-    requiresSystems: ['shield-repel'],
+    requiresSystems: ['shield-blocking'],
   },
   {
     id: 'mobility', category: 'combat', mode: 'passive',

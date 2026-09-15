@@ -57,7 +57,7 @@ test('door occupancy rejects ambiguous live positions and malformed closing requ
   assert.throws(() => canCloseDoor({ door: {}, actors: [], tileSize }), TypeError);
 });
 
-test('v14 reload retains open doors, and reclosing does not rearm surprise encounters', () => {
+test('v15 reload retains open doors, and reclosing does not rearm surprise encounters', () => {
   const dungeon = generateDungeon({ seed: 404, depth: 1 });
   const run = createRun(404, dungeon);
   const surpriseDoor = dungeon.doors.find(({ surpriseId }) => surpriseId);
@@ -78,7 +78,7 @@ test('v14 reload retains open doors, and reclosing does not rearm surprise encou
       assert.equal(loadedRun.version, originalVersion);
     }
   }
-  assert.equal(SAVE_VERSION, 14, 'interaction state is persisted in v14');
+  assert.equal(SAVE_VERSION, 22, 'interaction state is persisted in the current save');
 });
 
 for (const kind of ['monster', 'passive']) {

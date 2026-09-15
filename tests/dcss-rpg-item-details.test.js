@@ -9,7 +9,7 @@ import {
 } from '../tools/dcss-rpg-item-details.js';
 
 test('every inventory item has complete readable details in Russian and English', () => {
-  assert.equal(LOOT_CATALOG.length, 53);
+  assert.equal(LOOT_CATALOG.length, 61);
   assert.deepEqual(itemDetailLanguages, ['ru', 'en']);
   for (const item of LOOT_CATALOG) {
     for (const language of itemDetailLanguages) {
@@ -17,7 +17,7 @@ test('every inventory item has complete readable details in Russian and English'
       assert.equal(details.id, item.id);
       assert.ok(details.name.length >= 3, `${item.id} ${language} name`);
       assert.ok(details.rarity.length >= 4, `${item.id} ${language} rarity`);
-      assert.ok(details.slot.length >= 4, `${item.id} ${language} slot`);
+      assert.ok(details.slot.length >= 3, `${item.id} ${language} slot`);
       assert.ok(details.description.length >= 12, `${item.id} ${language} description`);
       assert.ok(details.effects.length >= 1, `${item.id} ${language} effects`);
       assert.ok(details.effects.every(({ icon, text }) => icon && text.length >= 5));
@@ -27,14 +27,23 @@ test('every inventory item has complete readable details in Russian and English'
 
 test('details describe existing magic and combat mechanics without inventing inactive powers', () => {
   const byId = (id) => LOOT_CATALOG.find((item) => item.id === id);
-  assert.match(itemDetails(byId('skull-staff'), 'ru').effects.at(-1).text, /4\.5 клеток/);
-  assert.match(itemDetails(byId('blink-scroll'), 'en').effects[0].text, /floor entrance/);
+  assert.match(itemDetails(byId('skull-staff'), 'ru').effects.find(({ id }) => id === 'combat:profile').text, /Дальность: 4\.5/);
+  assert.match(itemDetails(byId('blink-scroll'), 'en').effects[0].text, /Return to entrance/);
   assert.match(itemDetails(byId('vitality-amulet'), 'ru').effects[0].text, /\+16/);
-  assert.doesNotMatch(itemDetails(byId('mystery-potion'), 'ru').effects[0].text, /сил[уы]/i);
-  assert.doesNotMatch(itemDetails(byId('mystery-potion'), 'en').effects[0].text, /power/i);
+  assert.match(itemDetails(byId('mystery-potion'), 'ru').effects[0].text, /сила до конца забега: \+1/i);
+  assert.match(itemDetails(byId('mystery-potion'), 'en').effects[0].text, /run power: \+1/i);
   assert.doesNotMatch(itemDetails(byId('golden-boots'), 'ru').effects.map(({ text }) => text).join(' '), /пол[её]т/i);
-  assert.match(itemDetails(byId('spider-boots'), 'ru').effects.map(({ text }) => text).join(' '), /\+14% к скорости движения/);
-  assert.match(itemDetails(byId('black-plate'), 'en').effects.map(({ text }) => text).join(' '), /−12% movement speed/);
+  assert.match(itemDetails(byId('spider-boots'), 'ru').effects.map(({ text }) => text).join(' '), /\+14% движение/);
+  assert.match(itemDetails(byId('black-plate'), 'en').effects.map(({ text }) => text).join(' '), /−12% move speed/);
+  assert.equal(itemDetails(byId('executioner-axe'), 'ru').slot, 'Двуручный топор');
+  assert.equal(itemDetails(byId('war-axe'), 'ru').slot, 'Одноручный топор');
+  assert.equal(itemDetails(byId('war-axe'), 'en').slot, 'One-handed axe');
+  assert.match(itemDetails(byId('war-axe'), 'ru').effects.at(-1).text, /Вторая рука свободна/);
+  assert.equal(itemDetails(byId('longbow'), 'en').slot, 'Two-handed bow');
+  assert.match(itemDetails(byId('storm-trident'), 'ru').effects.at(-1).text, /Занимает обе руки/);
+  assert.equal(itemDetails(byId('dungeon-greatsword'), 'ru').slot, 'Двуручный меч');
+  assert.equal(itemDetails(byId('duelist-rapier'), 'en').slot, 'One-handed sword');
+  assert.match(itemDetails(byId('sword-of-power'), 'ru').description, /^Двуручный меч · \+10 атака/);
 });
 
 test('compact item presentation reuses translated details and exposes rarity without color alone', () => {
@@ -45,7 +54,7 @@ test('compact item presentation reuses translated details and exposes rarity wit
   assert.equal(ru.name, 'Паучьи сапоги');
   assert.equal(ru.slot, 'Сапоги');
   assert.equal(ru.rarityMarks, '◆◆◆');
-  assert.match(ru.primaryEffect.text, /скорости движения/);
+  assert.match(ru.primaryEffect.text, /\+14% движение/);
   assert.equal(en.name, 'Spider Boots');
   assert.equal(en.slot, 'Boots');
 });

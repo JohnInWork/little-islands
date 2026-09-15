@@ -11,6 +11,50 @@ export const CHEST_RESOURCE_IDS = Object.freeze({
   lockpick: 'lockpick-set',
 });
 
+export const CHEST_VISUAL_SKINS = Object.freeze([
+  Object.freeze({
+    id: 'wooden',
+    frames: Object.freeze(Array.from(
+      { length: 4 },
+      (_, index) => `licensed/cmski-chests/wooden/${index + 1}.png`,
+    )),
+  }),
+  Object.freeze({
+    id: 'pharaoh',
+    frames: Object.freeze(Array.from(
+      { length: 4 },
+      (_, index) => `licensed/cmski-chests/pharaoh/${index + 1}.png`,
+    )),
+  }),
+  Object.freeze({
+    id: 'pirate',
+    frames: Object.freeze(Array.from(
+      { length: 4 },
+      (_, index) => `licensed/cmski-chests/pirate/${index + 1}.png`,
+    )),
+  }),
+  Object.freeze({
+    id: 'jade-ruby',
+    frames: Object.freeze(Array.from(
+      { length: 4 },
+      (_, index) => `licensed/cmski-chests/jade-ruby/${index + 1}.png`,
+    )),
+  }),
+]);
+
+export const CHEST_DEFAULT_PATH = CHEST_VISUAL_SKINS[0].frames[0];
+export const CHEST_ASSET_PATHS = Object.freeze(
+  CHEST_VISUAL_SKINS.flatMap(({ frames }) => frames),
+);
+
+const CHEST_VISUAL_SKINS_BY_ID = new Map(
+  CHEST_VISUAL_SKINS.map((skin) => [skin.id, skin]),
+);
+
+export function chestFramesForSkin(id) {
+  return CHEST_VISUAL_SKINS_BY_ID.get(id)?.frames ?? null;
+}
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     genericName: 'Древний сундук',
@@ -19,14 +63,15 @@ const COPY = Object.freeze({
     trappedName: 'Сундук с ловушкой',
     cursedName: 'Проклятый сундук',
     mimicName: 'Живой сундук',
-    generic: 'Старая крышка скрывает содержимое. Осмотр покажет больше.',
-    unlockedClosed: 'Крышка не заперта. Содержимое пока не видно.',
-    lockedClosed: 'На крышке тяжёлый замок. Можно потратить ключ, применить навык или рискнуть добычей.',
-    unlocked: (reward) => `Замок отсутствует. Внутри примерно ${reward}◆.`,
-    locked: (reward, tier) => `Замок ${tier}. Ключ сохранит ${reward}◆; взлом требует подходящего навыка.`,
-    trapped: (reward, damage, tier) => `Механизм ${tier}: открытие нанесёт ${damage} урона. Внутри ${reward}◆.`,
-    cursed: (reward, damage) => `Печать отнимет ${damage} здоровья. Внутри ${reward}◆.`,
-    mimic: (reward, damage) => `Сундук дышит. Открытие: ${damage} урона и ${reward}◆; удар безопаснее, но портит добычу.`,
+    generic: '',
+    unlockedClosed: 'Не заперт.',
+    lockedClosed: 'Тяжёлый замок.',
+    unlocked: 'Не заперт.',
+    locked: (tier) => `Замок ${tier}.`,
+    trapped: (tier) => `Механизм ${tier}.`,
+    cursed: 'На крышке тёмная печать.',
+    mimic: 'Сундук дышит.',
+    mimicAwake: 'Это мимик!',
     noKey: 'Нужен железный ключ',
     noLockpickSkill: (tier) => `Нужен навык «Взлом» ${tier}`,
     noLockpicks: (amount) => `Нужно отмычек: ${amount}`,
@@ -38,7 +83,7 @@ const COPY = Object.freeze({
       'pick-lock': 'Замок аккуратно вскрыт',
       disarm: 'Механизм обезврежен, сундук открыт',
       smash: 'Сундук разбит',
-      attack: 'Живой сундук подавлен',
+      attack: 'Мимик пробудился',
     }),
   }),
   en: Object.freeze({
@@ -48,14 +93,15 @@ const COPY = Object.freeze({
     trappedName: 'Trapped chest',
     cursedName: 'Cursed chest',
     mimicName: 'Living chest',
-    generic: 'An old lid conceals the contents. Inspection will reveal more.',
-    unlockedClosed: 'The lid is not locked. Its contents are still hidden.',
-    lockedClosed: 'A heavy lock guards the lid. Spend a key, use skill, or risk the loot.',
-    unlocked: (reward) => `There is no lock. About ${reward}◆ rests inside.`,
-    locked: (reward, tier) => `Lock ${tier}. A key preserves all ${reward}◆; picking requires enough skill.`,
-    trapped: (reward, damage, tier) => `Mechanism ${tier}: opening deals ${damage} damage. It holds ${reward}◆.`,
-    cursed: (reward, damage) => `The seal takes ${damage} health. It holds ${reward}◆.`,
-    mimic: (reward, damage) => `The chest breathes. Open: ${damage} damage and ${reward}◆; striking is safer but ruins loot.`,
+    generic: '',
+    unlockedClosed: 'Unlocked.',
+    lockedClosed: 'Heavy lock.',
+    unlocked: 'Unlocked.',
+    locked: (tier) => `Lock ${tier}.`,
+    trapped: (tier) => `Mechanism ${tier}.`,
+    cursed: 'A dark seal marks the lid.',
+    mimic: 'The chest breathes.',
+    mimicAwake: 'It is a mimic!',
     noKey: 'An iron key is required',
     noLockpickSkill: (tier) => `Lockpicking ${tier} required`,
     noLockpicks: (amount) => `Lockpicks required: ${amount}`,
@@ -67,7 +113,7 @@ const COPY = Object.freeze({
       'pick-lock': 'The lock was picked cleanly',
       disarm: 'Mechanism disarmed and chest opened',
       smash: 'Chest smashed',
-      attack: 'Living chest subdued',
+      attack: 'The mimic awakened',
     }),
   }),
 });
@@ -81,6 +127,27 @@ function stableHash(seed, depth, roomIndex, salt = 0) {
   value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
   value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
   return (value ^ (value >>> 15)) >>> 0;
+}
+
+export function chestVisualFrames({ seed = 0, depth, roomIndex, skinIds = null } = {}) {
+  if (
+    !Number.isInteger(seed)
+    || seed < 0
+    || !Number.isInteger(depth)
+    || depth < 1
+    || !Number.isInteger(roomIndex)
+    || roomIndex < 0
+  ) throw new TypeError('Chest visuals require stable floor data');
+  const skins = skinIds == null
+    ? CHEST_VISUAL_SKINS
+    : Array.isArray(skinIds)
+      ? skinIds.map((id) => CHEST_VISUAL_SKINS_BY_ID.get(id))
+      : [];
+  if (skins.length === 0 || skins.some((skin) => !skin)) {
+    throw new TypeError('Chest visuals require known themed skin IDs');
+  }
+  const index = stableHash(seed >>> 0, depth, roomIndex, 0x43484553) % skins.length;
+  return skins[index].frames;
 }
 
 function weightedVariant(roll, depth) {
@@ -108,7 +175,7 @@ function weightedVariant(roll, depth) {
  * Chest identity uses its own stable hash instead of the shared find RNG. That
  * keeps rooms and later finds unchanged when new chest variants are added.
  */
-export function createChestProfile({ seed = 0, depth, roomIndex, rewardShards } = {}) {
+export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold } = {}) {
   if (
     !Number.isInteger(seed)
     || seed < 0
@@ -116,8 +183,8 @@ export function createChestProfile({ seed = 0, depth, roomIndex, rewardShards } 
     || depth < 1
     || !Number.isInteger(roomIndex)
     || roomIndex < 0
-    || !Number.isInteger(rewardShards)
-    || rewardShards < 1
+    || !Number.isInteger(rewardGold)
+    || rewardGold < 1
   ) throw new TypeError('Chest profile requires stable floor data and reward');
   const hash = stableHash(seed >>> 0, depth, roomIndex);
   const cacheVariant = weightedVariant(hash, depth);
@@ -130,12 +197,19 @@ export function createChestProfile({ seed = 0, depth, roomIndex, rewardShards } 
     mimic: 1.8,
   };
   const hazardBase = 5 + depth * 4 + (stableHash(seed >>> 0, depth, roomIndex, 0x48415a44) % 5);
+  const curseEffectId = cacheVariant === 'cursed'
+    ? stableHash(seed >>> 0, depth, roomIndex, 0x43555253) % 2
+      ? 'poison'
+      : 'chilled'
+    : null;
   return Object.freeze({
     cacheVariant,
     lockTier: cacheVariant === 'locked' ? tier : 0,
     trapTier: cacheVariant === 'trapped' ? tier : 0,
     hazardDamage: ['trapped', 'cursed', 'mimic'].includes(cacheVariant) ? hazardBase : 0,
-    rewardShards: Math.max(1, Math.round(rewardShards * rewardMultipliers[cacheVariant])),
+    rewardGold: Math.max(1, Math.round(rewardGold * rewardMultipliers[cacheVariant])),
+    curseEffectId,
+    curseDuration: cacheVariant === 'cursed' ? 4 + Math.min(6, depth) : 0,
   });
 }
 
@@ -152,12 +226,17 @@ export function isChestFind(find) {
     && find.trapTier <= 3
     && Number.isInteger(find.hazardDamage)
     && find.hazardDamage >= 0
-    && Number.isInteger(find.rewardShards)
-    && find.rewardShards >= 1
+    && Number.isInteger(find.rewardGold)
+    && find.rewardGold >= 1
+    && (find.curseEffectId === null || ['poison', 'chilled'].includes(find.curseEffectId))
+    && Number.isInteger(find.curseDuration)
+    && find.curseDuration >= 0
+    && find.curseDuration <= 10
   );
   if (!structurallyValid) return false;
   if ((find.cacheVariant === 'locked') !== (find.lockTier >= 1)) return false;
   if ((find.cacheVariant === 'trapped') !== (find.trapTier >= 1)) return false;
+  if ((find.cacheVariant === 'cursed') !== (find.curseEffectId !== null && find.curseDuration > 0)) return false;
   const hazardous = ['trapped', 'cursed', 'mimic'].includes(find.cacheVariant);
   return hazardous ? find.hazardDamage >= 1 : find.hazardDamage === 0;
 }
@@ -240,11 +319,11 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
   };
   const descriptions = {
     generic: copy.generic,
-    unlocked: copy.unlocked(find.rewardShards),
-    locked: copy.locked(find.rewardShards, ['I', 'II', 'III'][find.lockTier - 1]),
-    trapped: copy.trapped(find.rewardShards, find.hazardDamage, ['I', 'II', 'III'][find.trapTier - 1]),
-    cursed: copy.cursed(find.rewardShards, find.hazardDamage),
-    mimic: copy.mimic(find.rewardShards, find.hazardDamage),
+    unlocked: copy.unlocked,
+    locked: copy.locked(['I', 'II', 'III'][find.lockTier - 1]),
+    trapped: copy.trapped(['I', 'II', 'III'][find.trapTier - 1]),
+    cursed: copy.cursed,
+    mimic: copy.mimic,
   };
   let visibleActions = rules.actions;
   if (!inspected && ['trapped', 'cursed'].includes(find.cacheVariant)) {
@@ -265,7 +344,9 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
         : find.cacheVariant === 'unlocked'
           ? copy.unlockedClosed
           : copy.generic,
-    icon: 'item/misc/misc_box.png',
+    icon: typeof find.icon === 'string' && find.icon.length > 0
+      ? find.icon
+      : CHEST_DEFAULT_PATH,
     accent,
     actions: Object.freeze([
       action('inspect'),
@@ -281,7 +362,7 @@ export function resolveChestInteraction({
   resolvedFindIds,
   runStatus,
   hero,
-  shards,
+  gold,
   action: actionId,
   actor,
 } = {}) {
@@ -298,7 +379,7 @@ export function resolveChestInteraction({
     || !Number.isInteger(hero.y)
     || !Number.isFinite(hero.hp)
     || !Number.isFinite(hero.power)
-    || !Number.isFinite(shards)
+    || !Number.isFinite(gold)
     || typeof actionId !== 'string'
   ) return rejected('invalid');
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive');
@@ -329,8 +410,19 @@ export function resolveChestInteraction({
   }
   if (damage >= hero.hp) return rejected('unsafe');
 
-  const damagedLoot = ['smash', 'attack'].includes(actionId);
-  const rewardShards = damagedLoot ? Math.ceil(find.rewardShards / 2) : find.rewardShards;
+  const awakensMimic = find.cacheVariant === 'mimic' && typeof find.mimicMonsterId === 'string';
+  const damagedLoot = ['smash', 'attack'].includes(actionId) && !awakensMimic;
+  const rewardGold = awakensMimic
+    ? 0
+    : damagedLoot
+      ? Math.ceil(find.rewardGold / 2)
+      : find.rewardGold;
+  const status = find.cacheVariant === 'cursed'
+    ? Object.freeze({
+        id: find.curseEffectId,
+        duration: actionId === 'smash' ? Math.max(1, Math.ceil(find.curseDuration / 2)) : find.curseDuration,
+      })
+    : null;
   const consumed = [];
   if (actionId === 'use-key') consumed.push(Object.freeze({ id: CHEST_RESOURCE_IDS.key, amount: 1 }));
   if (actionId === 'pick-lock') {
@@ -341,14 +433,17 @@ export function resolveChestInteraction({
     action: actionId,
     variant: find.cacheVariant,
     damage,
-    rewardShards,
-    destroyedShards: find.rewardShards - rewardShards,
+    rewardGold,
+    destroyedGold: awakensMimic ? 0 : find.rewardGold - rewardGold,
+    deferredRewardGold: awakensMimic ? find.rewardGold : 0,
     rewardPower: 0,
-    noise: actionId === 'smash' ? 7 : actionId === 'attack' ? 5 : 0,
+    noise: awakensMimic ? 8 : actionId === 'smash' ? 7 : actionId === 'attack' ? 5 : 0,
+    status,
+    activatedMonsterIds: Object.freeze(awakensMimic ? [find.mimicMonsterId] : []),
     consumed: Object.freeze(consumed),
     state: Object.freeze({
       hero: Object.freeze({ ...hero, hp: hero.hp - damage }),
-      shards: shards + rewardShards,
+      gold: gold + rewardGold,
       resolvedFindIds: Object.freeze([...resolvedFindIds, find.instanceId]),
     }),
   });
@@ -359,7 +454,9 @@ export function chestResultPresentation(result, language = 'ru') {
   if (result?.reason === 'unsafe') return Object.freeze({ message: '', unsafe: copy.unsafe });
   if (!result?.ok) return null;
   return Object.freeze({
-    message: copy.result[result.action] ?? copy.result.open,
+    message: result.variant === 'mimic'
+      ? copy.mimicAwake
+      : copy.result[result.action] ?? copy.result.open,
     unsafe: copy.unsafe,
   });
 }

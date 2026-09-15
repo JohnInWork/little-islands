@@ -30,3 +30,26 @@ test('cloak, belt and gloves are independent visible equipment layers', () => {
   });
   assert.deepEqual(bodyOnly, [BASE_PLAYER_LAYER, 'body.png']);
 });
+
+test('a two-handed main-hand layer defensively suppresses the off-hand layer', () => {
+  assert.deepEqual(composePlayerLayers({
+    hand1Visual: { layer: 'battleaxe.png' },
+    hand2Visual: { layer: 'shield.png' },
+    twoHanded: true,
+  }), [BASE_PLAYER_LAYER, 'battleaxe.png']);
+});
+
+test('appearance layers stay independent from equipment and hair hides under a helmet', () => {
+  assert.deepEqual(composePlayerLayers({
+    baseVisual: { layer: 'human-f.png' },
+    hairVisual: { layer: 'hair-red.png' },
+    bodyVisual: { layer: 'iron-armour.png' },
+  }), ['human-f.png', 'iron-armour.png', 'hair-red.png']);
+
+  assert.deepEqual(composePlayerLayers({
+    baseVisual: { layer: 'human-f.png' },
+    hairVisual: { layer: 'hair-red.png' },
+    headVisual: { layer: 'iron-helm.png' },
+    hideHair: true,
+  }), ['human-f.png', 'iron-helm.png']);
+});

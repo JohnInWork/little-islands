@@ -23,3 +23,21 @@ production asset directory.
 
 Благодарим художников и проект Dungeon Crawl Stone Soup. Лицензионное уведомление
 остаётся рядом с PNG-файлами и входит в каталог ассетов production-сборки.
+
+## Active chest art: Cmski Pixel Animated Chests demo
+
+- Author: Cmski
+- Source: [Pixel Animated Chests](https://cmski.itch.io/animated-chests-pack-asset-pack-32x32)
+- Package: `Tabletop Chests - Asset Pack 1.0 - DEMO`
+- Local files: 16 integrated PNG frames in
+  `public/assets/dcss-preview/licensed/cmski-chests/`
+- License notice: `public/assets/dcss-preview/licensed/cmski-chests/LICENSE.md`
+
+The pack permits use and modification inside commercial and non-commercial
+games, but does not permit redistributing the artwork as a standalone asset
+pack. These files are deliberately isolated from the surrounding CC0 library
+so their different license remains unambiguous.
+
+Набор разрешено использовать и изменять внутри игры, но нельзя распространять
+отдельно как набор ассетов. Поэтому сундуки лежат в изолированном каталоге со
+своим лицензионным уведомлением и не считаются частью CC0-библиотеки DCSS.

@@ -16,6 +16,7 @@ import {
   findPresentation,
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
+import { CHEST_ASSET_PATHS } from '../tools/dcss-rpg-chests.js';
 
 const assetUrl = (path) =>
   new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
@@ -60,9 +61,19 @@ test('each floor deterministically places one of every first-wave find without o
     );
     for (const find of first.finds) {
       assert.equal(first.grid[find.y]?.[find.x], '.');
-      assert.equal(reserved.has(`${find.x},${find.y}`), false);
+      const matchingDormantMimic = first.monsters.find(
+        (monster) =>
+          monster.x === find.x
+          && monster.y === find.y
+          && monster.id === 'chest-mimic'
+          && monster.activationFindId === find.instanceId,
+      );
+      assert.equal(
+        reserved.has(`${find.x},${find.y}`),
+        Boolean(matchingDormantMimic),
+      );
       assert.match(find.instanceId, new RegExp(`^find-${depth}-\\d+$`));
-      assert.ok(find.rewardShards > 0);
+      assert.ok(find.rewardGold > 0);
       assert.ok(find.riskDamage >= 0);
       if (find.id === 'sealed-cache') {
         assert.match(find.cacheVariant, /^(?:unlocked|locked|trapped|cursed|mimic)$/);
@@ -78,7 +89,13 @@ test('each floor deterministically places one of every first-wave find without o
 
 test('find definitions expose bundled visuals and concise RU/EN actions', async () => {
   assert.equal(new Set(FIND_CATALOG.map(({ id }) => id)).size, FIND_CATALOG.length);
-  assert.equal(FIND_ASSET_PATHS.length, FIND_CATALOG.length);
+  assert.equal(
+    FIND_ASSET_PATHS.length,
+    new Set([
+      ...FIND_CATALOG.map(({ path }) => path),
+      ...CHEST_ASSET_PATHS,
+    ]).size,
+  );
   await Promise.all(FIND_ASSET_PATHS.map((path) => access(assetUrl(path))));
   const dungeon = generateDungeon({ seed: 77, depth: 1 });
   for (const find of dungeon.finds) {
@@ -98,12 +115,12 @@ test('find resolution is atomic, range-bound and cannot duplicate a reward', () 
     resolvedFindIds: [],
     runStatus: 'playing',
     hero: { x: find.x + 1, y: find.y, hp: 53, power: 4 },
-    shards: 7,
+    gold: 7,
   };
   const before = structuredClone(input);
   const result = resolveFindInteraction(input);
   assert.equal(result.ok, true);
-  assert.equal(result.state.shards, 7 + find.rewardShards);
+  assert.equal(result.state.gold, 7 + find.rewardGold);
   assert.equal(result.state.hero.hp, 53);
   assert.deepEqual(result.state.resolvedFindIds, [find.instanceId]);
   assert.deepEqual(input, before, 'pure command must not mutate the caller state');
@@ -126,7 +143,7 @@ test('a locked chest can use a key intact or be smashed for exactly half its loo
     resolvedFindIds: [],
     runStatus: 'playing',
     hero: { x: find.x + 1, y: find.y, hp: 60, power: 3 },
-    shards: 4,
+    gold: 4,
   };
   const opened = resolveFindInteraction({
     ...input,
@@ -135,13 +152,13 @@ test('a locked chest can use a key intact or be smashed for exactly half its loo
   });
   const smashed = resolveFindInteraction({ ...input, action: 'smash' });
   assert.equal(opened.ok, true);
-  assert.equal(opened.rewardShards, find.rewardShards);
-  assert.equal(opened.destroyedShards, 0);
+  assert.equal(opened.rewardGold, find.rewardGold);
+  assert.equal(opened.destroyedGold, 0);
   assert.deepEqual(opened.consumed, [{ id: 'iron-key', amount: 1 }]);
   assert.equal(smashed.ok, true);
-  assert.equal(smashed.rewardShards, Math.ceil(find.rewardShards / 2));
-  assert.equal(smashed.destroyedShards, Math.floor(find.rewardShards / 2));
-  assert.equal(smashed.state.shards, 4 + Math.ceil(find.rewardShards / 2));
+  assert.equal(smashed.rewardGold, Math.ceil(find.rewardGold / 2));
+  assert.equal(smashed.destroyedGold, Math.floor(find.rewardGold / 2));
+  assert.equal(smashed.state.gold, 4 + Math.ceil(find.rewardGold / 2));
   assert.equal(resolveFindInteraction({ ...input, action: 'defile' }).reason, 'action');
   assert.deepEqual(input.resolvedFindIds, []);
 });
@@ -153,7 +170,7 @@ test('the cursed grave advertises risk and refuses a lethal interaction', () => 
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
-    shards: 0,
+    gold: 0,
   };
   const unsafe = resolveFindInteraction({
     ...base,
@@ -168,7 +185,7 @@ test('the cursed grave advertises risk and refuses a lethal interaction', () => 
   assert.equal(safe.ok, true);
   assert.equal(safe.damage, find.riskDamage);
   assert.equal(safe.state.hero.hp, 7);
-  assert.equal(safe.state.shards, find.rewardShards);
+  assert.equal(safe.state.gold, find.rewardGold);
 });
 
 test('resolved finds survive v12 reload and foreign IDs are rejected during hydration', () => {

@@ -1,8 +1,8 @@
 # Dungeon Crawl Stone Soup — CC0 local library
 
-The PNG files in this directory are an unmodified local copy of the `mon`,
-`item`, `player` and `dngn` directories from the official Dungeon Crawl Stone
-Soup tile export:
+Except for the explicitly documented `licensed/` subtree, the PNG files in this
+directory are an unmodified local copy of the `mon`, `item`, `player` and `dngn`
+directories from the official Dungeon Crawl Stone Soup tile export:
 
 - Source: <https://github.com/crawl/tiles>
 - Upstream snapshot: `releases/Nov-2015`

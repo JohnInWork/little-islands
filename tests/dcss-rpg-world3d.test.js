@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  DOOR_PANEL_CROP,
   MAX_SHADOWED_WORLD_LIGHTS,
   WALL_FACE_TEXTURE_HEIGHT,
   WALL_FACE_SAMPLE_HEIGHT,
@@ -63,4 +64,16 @@ test('vertical wall faces use a dedicated pixel texture without squashed masonry
   assert.match(source, /materialFor: wallMaterialSetFor/);
   assert.match(source, /const wallFaceMaterialFor = \(path\) =>/);
   assert.match(source, /map: wallFaceTextureFor\(path, imageForPath\)/);
+});
+
+test('door leaf and frame do not duplicate the pale arch from the source sprite', async () => {
+  const source = await readFile(runtimeUrl, 'utf8');
+
+  assert.deepEqual(DOOR_PANEL_CROP, { x: 6, y: 5, width: 20, height: 25 });
+  assert.match(source, /const doorPanelTextureFor = \(path, imageForPath\) =>/);
+  assert.match(source, /framePath: wallPathAt\(frameCell\.x, frameCell\.y, '#'\)/);
+  assert.match(source, /panelMaterial: doorPanelMaterialFor\(door\.path\)/);
+  assert.match(source, /frameMaterial: wallMaterialSetFor\(door\.framePath\)/);
+  assert.doesNotMatch(source, /const cacheKey = 'door-frame'/);
+  assert.doesNotMatch(source, /const lintel = new THREE\.Mesh/);
 });

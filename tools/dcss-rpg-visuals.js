@@ -1,3 +1,5 @@
+import { dungeonThemeForDepth } from './dcss-rpg-room-plans.js';
+
 const numberedPaths = (prefix, values) => values.map((value) => `${prefix}${value}.png`);
 
 export const PIXEL_EFFECT_SCALE = 4;
@@ -140,7 +142,10 @@ export const BIOME_THEMES = Object.freeze([
 
 export function biomeThemeForDepth(depth) {
   if (!Number.isInteger(depth) || depth < 1) throw new Error('Depth must be a positive integer');
-  return BIOME_THEMES[Math.floor((depth - 1) / 2) % BIOME_THEMES.length];
+  const dungeonTheme = dungeonThemeForDepth(depth);
+  const biome = BIOME_THEMES.find(({ id }) => id === dungeonTheme.surfaceSetId);
+  if (!biome) throw new Error(`Missing biome surfaces for ${dungeonTheme.surfaceSetId}`);
+  return biome;
 }
 
 export function atmosphereThemeForDepth(depth) {

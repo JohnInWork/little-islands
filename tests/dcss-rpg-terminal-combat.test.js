@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import { awardHeroExperience } from '../tools/dcss-rpg-progression.js';
 import { createEmptyEquipment, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
 import { createSkillState } from '../tools/dcss-rpg-skills.js';
+import { createSwordRhythmState } from '../tools/dcss-rpg-swords.js';
 
 const runtimeSource = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
 
@@ -34,7 +35,7 @@ function combatRuntime() {
     projectiles: [{ targetId: 'monster-1-0', damage: 50 }],
     selected: createEmptyEquipment(),
     itemInstances: new Map(),
-    shards: 0,
+    gold: 0,
     deathTimer: 0,
     dungeon: { objective: null },
     TILE: 64,
@@ -43,13 +44,15 @@ function combatRuntime() {
     currentHeroCombat: () => ({ guard: 0 }),
     currentHeroStats: () => ({ defense: 0, maxHp: 100 }),
     currentHeroMagic: () => ({}),
+    createSwordRhythmState,
+    swordRhythmState: createSwordRhythmState(),
     resolveHeroDamage,
     resolveKillRecovery: ({ hp }) => ({ hp, healed: 0 }),
     awardHeroExperience: (options) => {
       metrics.experienceAwards += 1;
       return awardHeroExperience(options);
     },
-    shardRewardForMonster: () => 1,
+    goldRewardForMonster: () => 1,
     combatImpactProfile: () => ({ particles: 0, waveSize: 0, shake: 0, hitStop: 0, staggers: false }),
     persistRun: () => { metrics.saves += 1; },
     showRunEndScreen: (result) => { metrics.endScreens.push(result); },
@@ -58,6 +61,7 @@ function combatRuntime() {
     addCombatGlyph: () => {},
     addBloodImpact: () => {},
     beginHitStop: () => {},
+    showLevelUpCelebration: () => {},
     showLootToast: () => {},
     updateHud: () => {},
     updateBossHud: () => {},
@@ -75,14 +79,14 @@ function assertNoTerminalCombat(context, metrics) {
   const monster = targetMonster();
   const beforeMonster = structuredClone(monster);
   const beforeHero = structuredClone(context.hero);
-  const beforeRewards = { xp: metrics.experienceAwards, shards: context.shards, saves: metrics.saves };
+  const beforeRewards = { xp: metrics.experienceAwards, gold: context.gold, saves: metrics.saves };
   assert.doesNotThrow(() => context.damageMonster(monster, 50, '#ffffff', { projectile: true }));
   assert.doesNotThrow(() => context.defeatMonster(monster));
   assert.equal(context.damageHero(50, { direct: true, subtle: true }), null);
   assert.deepEqual(monster, beforeMonster);
   assert.deepEqual(structuredClone(context.hero), beforeHero);
   assert.deepEqual(context.run.floor.defeated, []);
-  assert.deepEqual({ xp: metrics.experienceAwards, shards: context.shards, saves: metrics.saves }, beforeRewards);
+  assert.deepEqual({ xp: metrics.experienceAwards, gold: context.gold, saves: metrics.saves }, beforeRewards);
 }
 
 test('lethal damage clears in-flight attacks and later hits cannot award postmortem XP or freeze the loop', () => {
@@ -127,7 +131,7 @@ test('the same runtime entry points still defeat a monster and award XP once dur
   assert.equal(context.hero.xp, 6);
   assert.equal(metrics.experienceAwards, 1);
   assert.deepEqual(context.run.floor.defeated, [monster.instanceId]);
-  assert.equal(context.shards, 1);
+  assert.equal(context.gold, 1);
   context.defeatMonster(monster);
   assert.equal(metrics.experienceAwards, 1);
   assert.equal(context.hero.xp, 6);

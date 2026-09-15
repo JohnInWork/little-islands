@@ -1,6 +1,6 @@
 const APP_ROOT = new URL('./', self.location.href);
-const CACHE_PREFIX = `little-islands-static:${APP_ROOT.pathname}:`;
-const CACHE = `${CACHE_PREFIX}dng-codex-v14-chest-interactions`;
+const CACHE_PREFIX = `dng-codex-static:${APP_ROOT.pathname}:`;
+const CACHE = `${CACHE_PREFIX}v32-project-cleanup`;
 const inScope = url => url.origin === APP_ROOT.origin && url.pathname.startsWith(APP_ROOT.pathname);
 self.addEventListener('install', event => {
   const shell = ['./', 'icon.svg', 'manifest.webmanifest', 'manifest.en.webmanifest'].map(path => new URL(path, APP_ROOT).href);

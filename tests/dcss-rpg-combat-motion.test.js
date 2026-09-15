@@ -70,13 +70,16 @@ test('weapon impacts share one readable hierarchy and heavy attacks stagger', ()
 test('pixel attack trails communicate distinct weapon silhouettes without unbounded geometry', () => {
   const blade = heroAttackTrail('blade', 0.5);
   const heavy = heroAttackTrail('heavy', 0.5);
+  const masteredAxe = heroAttackTrail('heavy', 0.5, 3);
   const spear = heroAttackTrail('spear', 0.5);
   const staff = heroAttackTrail('staff', 0.5);
   assert.equal(blade.length, 5);
   assert.equal(heavy.length, 6);
+  assert.equal(masteredAxe.length, 12);
+  assert.ok(Math.max(...masteredAxe.map(({ y }) => Math.abs(y))) > Math.max(...heavy.map(({ y }) => Math.abs(y))));
   assert.ok(Math.max(...spear.map(({ x }) => x)) > Math.max(...blade.map(({ x }) => x)));
   assert.notDeepEqual(staff, spear);
-  for (const point of [...blade, ...heavy, ...spear, ...staff]) {
+  for (const point of [...blade, ...heavy, ...masteredAxe, ...spear, ...staff]) {
     assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
     assert.ok(point.size >= 3 && point.size <= 7);
     assert.ok(point.alpha >= 0 && point.alpha <= 1);

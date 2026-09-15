@@ -121,7 +121,8 @@ test('passive positions and wander sequence survive a validated save', () => {
 test('runtime preloads, renders, moves and persists passive wildlife outside combat', () => {
   const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /\.\.\.PASSIVE_CREATURE_PATHS/);
-  assert.match(runtime, /createPassiveCreatureStates\(dungeon, TILE\)/);
+  assert.match(runtime, /createPassiveCreatures\(dungeon\)/);
+  assert.match(runtime, /createPassiveCreatureStates\(level, TILE\)\.map/);
   assert.match(runtime, /function updatePassiveCreatures\(delta\)/);
   assert.match(runtime, /run\.floor\.passives = passiveCreatures\.map/);
   assert.match(runtime, /\.\.\.passiveCreatures/);

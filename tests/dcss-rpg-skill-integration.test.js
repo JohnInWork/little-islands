@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createRun, advanceRunFloor, generateDungeon, hydrateDungeon, migrateLegacyRun, validateRun, SAVE_KEY } from '../tools/dcss-rpg-core.js';
+import { createRun, advanceRunFloor, generateDungeon, hydrateDungeon, migrateLegacyRun, validateRun, SAVE_KEY, SAVE_VERSION } from '../tools/dcss-rpg-core.js';
 import { createSkillState, learnSkill } from '../tools/dcss-rpg-skills.js';
 import { skillById } from '../tools/dcss-rpg-skill-content.js';
 import { awardHeroExperience } from '../tools/dcss-rpg-progression.js';
@@ -12,12 +12,14 @@ const materialize = (run) => run.items.map((item) => ({ ...lootById(item.id), ..
 const v9Fixture = () => {
   const run = createRun(9913);
   run.version = 9;
+  delete run.knowledge;
   run.hero.level = 4;
   run.hero.maxHp = 118;
   run.hero.hp = 79;
   run.hero.power = 4;
   delete run.hero.skills;
   delete run.floor.detectedTrapIds;
+  delete run.floor.placedTraps;
   run.difficulty = 1.75;
   run.started = true;
   const level = generateDungeon({ seed: run.seed, depth: run.depth, difficulty: run.difficulty });
@@ -34,13 +36,15 @@ test('v9 migration grants earned skill points without resetting the current floo
   const legacy = v9Fixture();
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
-  assert.equal(next.version, 14);
-  assert.equal(SAVE_KEY, 'little-islands:dcss-rpg:v14');
+  assert.equal(next.version, SAVE_VERSION);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v22');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   const previousShape = structuredClone(next);
   previousShape.version = 9;
   delete previousShape.hero.skills;
   delete previousShape.floor.detectedTrapIds;
+  delete previousShape.floor.placedTraps;
+  delete previousShape.knowledge;
   assert.deepEqual(previousShape, before);
   assert.deepEqual(legacy, before);
   assert.equal(validateRun(next), true);

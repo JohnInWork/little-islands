@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import { findGridPath } from '../tools/dcss-rpg-core.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
 import { combatDamage, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
+import { createSwordRhythmState } from '../tools/dcss-rpg-swords.js';
 import { activeDetectedTrapCells } from '../tools/dcss-rpg-traps.js';
 
 const source = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
@@ -43,6 +44,7 @@ function terminalRuntime({ victory = false } = {}) {
     dungeon: { depth: 1, exit: victory ? { x: 1, y: 1 } : { x: 8, y: 8 } },
     lastHeroCell: '1,1',
     openingDoor: null,
+    swordRhythmState: createSwordRhythmState(),
     deathTimer: 0,
     TILE: 64,
     ARTIFACT_PATH: 'artifact.png',
@@ -53,10 +55,12 @@ function terminalRuntime({ victory = false } = {}) {
     updateHeldMove: () => {},
     currentHeroCombat: () => ({ style: 'blade', attackDuration: 0.3, cooldown: 0.8, guard: 0, damageScale: 1 }),
     currentHeroStats: () => ({ maxHp: 100, attack: 4, defense: 0 }),
+    currentHeroMagic: () => ({ flight: false, invisibility: false, vampirism: false, immunity: [], healOnKill: 0 }),
     canHeroAttack: () => true, // A live enemy is deliberately in attack range.
     equippedItem: () => null,
     combatDamage,
     resolveHeroDamage,
+    createSwordRhythmState,
     artifactAvailable: () => victory,
     persistRun: () => {},
     burst: () => {},

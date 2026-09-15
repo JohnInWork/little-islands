@@ -7,6 +7,7 @@ import {
   hasLineOfSight,
   hydrateDungeon,
   migrateLegacyRun,
+  SAVE_VERSION,
   validateRun,
 } from '../tools/dcss-rpg-core.js';
 import { createSkillState, deriveSkillCapabilities, learnSkill } from '../tools/dcss-rpg-skills.js';
@@ -115,8 +116,10 @@ test('v10 migration preserves floor and earned skills, discovering only formerly
   const { seed, dungeon } = dungeonWithTraps();
   const legacy = createRun(seed, dungeon);
   legacy.version = 10;
+  delete legacy.knowledge;
   delete legacy.floor.detectedTrapIds;
   delete legacy.floor.disarmedTrapIds;
+  delete legacy.floor.placedTraps;
   legacy.hero.level = 4;
   legacy.hero.skills = { version: 1, points: 2, ranks: { 'trap-sense': 1 } };
   legacy.hero.hp = 43;
@@ -129,13 +132,15 @@ test('v10 migration preserves floor and earned skills, discovering only formerly
   legacy.floor.defeated = dungeon.monsters.slice(0, 1).map(({ instanceId }) => instanceId);
   const before = structuredClone(legacy);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 14);
+  assert.equal(migrated.version, SAVE_VERSION);
   assert.deepEqual(migrated.floor.disarmedTrapIds, []);
   assert.deepEqual(migrated.floor.detectedTrapIds, [traps[0].instanceId]);
   const restoredShape = structuredClone(migrated);
   restoredShape.version = 10;
   delete restoredShape.floor.detectedTrapIds;
   delete restoredShape.floor.disarmedTrapIds;
+  delete restoredShape.floor.placedTraps;
+  delete restoredShape.knowledge;
   assert.deepEqual(restoredShape, before);
   assert.deepEqual(legacy, before);
   assert.equal(validateRun(migrated), true);

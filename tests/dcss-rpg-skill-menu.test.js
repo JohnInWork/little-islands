@@ -23,11 +23,16 @@ const firstSkill = (model) => model.groups[0].skills[0];
 test('production menu exposes implemented trap skills, with no empty categories', () => {
   const model = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   assert.equal(model.visible, true);
-  assert.equal(model.groups.length, 1);
+  assert.equal(model.groups.length, 2);
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
     'trap-sense',
     'trap-disarming',
     'lockpicking',
+    'trap-setting',
+    'appraisal',
+    'swords',
+    'axes',
+    'shield',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
@@ -37,6 +42,64 @@ test('production menu exposes implemented trap skills, with no empty categories'
   const unsupported = skillMenuModel({ ...options(), systems: [] });
   assert.equal(unsupported.visible, false);
   assert.deepEqual(unsupported.groups, []);
+});
+
+test('production appraisal explains safe potion identification tiers in both languages', () => {
+  const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
+  const appraisal = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
+  assert.equal(appraisal.name, 'Оценка');
+  assert.match(appraisal.description, /зелья сложности I\/II\/III/);
+  assert.match(appraisal.description, /Без расхода/);
+  const en = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
+  });
+  const english = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
+  assert.match(english.description, /tier I\/II\/III potions/);
+  assert.match(english.description, /without consuming/);
+});
+
+test('production shield skill explains exact block ranks and rank III stun in both languages', () => {
+  const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
+  const shield = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'shield');
+  assert.equal(shield.name, 'Щит');
+  assert.match(shield.description, /15%\/25%\/35%/);
+  assert.match(shield.description, /III ранге.*оглушает/);
+  const en = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
+  });
+  const englishShield = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'shield');
+  assert.match(englishShield.description, /15%\/25%\/35%/);
+  assert.match(englishShield.description, /rank III.*stuns/);
+});
+
+test('production axes specialization explains both grips and all three real cleave ranks', () => {
+  const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
+  const axes = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'axes');
+  assert.equal(axes.name, 'Топоры');
+  assert.match(axes.description, /25%\/40%\/55%/);
+  assert.match(axes.description, /35%\/60%/);
+  assert.match(axes.description, /две цели по 80%/);
+  const en = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
+  });
+  const englishAxes = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'axes');
+  assert.match(englishAxes.description, /One-handed axes/);
+  assert.match(englishAxes.description, /two targets for 80% at rank III/);
+});
+
+test('production sword specialization explains cadence, bonuses and target reset in both languages', () => {
+  const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
+  const swords = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'swords');
+  assert.equal(swords.name, 'Мечи');
+  assert.match(swords.description, /4-й\/3-й\/2-й/);
+  assert.match(swords.description, /40%\/60%\/80%/);
+  assert.match(swords.description, /Смена цели сбрасывает/);
+  const en = skillMenuModel({
+    state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
+  });
+  const englishSwords = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'swords');
+  assert.match(englishSwords.description, /4th\/3rd\/2nd/);
+  assert.match(englishSwords.description, /Changing targets resets/);
 });
 
 test('ready mechanic is shown with bilingual catalog copy and matching learn decision', () => {

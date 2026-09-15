@@ -10,20 +10,24 @@ import {
 test('one bilingual context model exposes object-specific actions', () => {
   const closedDoor = contextActionModel({ target: { kind: 'door', open: false }, language: 'ru' });
   assert.equal(closedDoor.name, 'Каменная дверь');
+  assert.equal(closedDoor.description, 'Закрыта.');
+  assert.equal(closedDoor.triggerLabel, 'Взаимодействовать: Каменная дверь');
   assert.deepEqual(closedDoor.actions.map(({ id }) => id), ['inspect', 'open']);
 
   const openDoor = contextActionModel({ target: { kind: 'door', open: true }, language: 'en' });
   assert.equal(openDoor.name, 'Stone door');
+  assert.equal(openDoor.description, 'Open.');
+  assert.equal(openDoor.triggerLabel, 'Interact: Stone door');
   assert.deepEqual(openDoor.actions.map(({ id }) => id), ['inspect', 'close']);
 
   const crystal = contextActionModel({
-    target: { kind: 'find', id: 'crystal-vein', rewardShards: 7, rewardPower: 1, riskDamage: 0 },
+    target: { kind: 'find', id: 'crystal-vein', rewardGold: 7, rewardPower: 1, riskDamage: 0 },
     language: 'ru',
   });
   assert.deepEqual(crystal.actions.map(({ id }) => id), ['inspect', 'extract']);
 
   const grave = contextActionModel({
-    target: { kind: 'find', id: 'forgotten-grave', rewardShards: 12, rewardPower: 0, riskDamage: 9 },
+    target: { kind: 'find', id: 'forgotten-grave', rewardGold: 12, rewardPower: 0, riskDamage: 9 },
     language: 'en',
   });
   assert.deepEqual(grave.actions.map(({ id }) => id), ['inspect', 'defile']);
@@ -31,15 +35,16 @@ test('one bilingual context model exposes object-specific actions', () => {
 
 test('inspection reveals a hidden chest mechanism through the shared registry', () => {
   const target = {
-    kind: 'find', id: 'sealed-cache', rewardShards: 9, rewardPower: 0, riskDamage: 0,
+    kind: 'find', id: 'sealed-cache', rewardGold: 9, rewardPower: 0, riskDamage: 0,
     cacheVariant: 'trapped', lockTier: 0, trapTier: 2, hazardDamage: 11,
+    curseEffectId: null, curseDuration: 0,
   };
   const actor = { capabilities: { trapDisarmTier: 2 } };
   const hidden = contextActionModel({ target, actor, language: 'ru' });
   const inspected = contextActionModel({ target, actor, language: 'ru', inspected: true });
-  assert.doesNotMatch(hidden.description, /9◆/);
-  assert.match(inspected.description, /9◆/);
-  assert.match(inspected.description, /11/);
+  assert.equal(hidden.description, '');
+  assert.equal(inspected.description, 'Механизм II.');
+  assert.doesNotMatch(inspected.description, /9◆|11|награ|урон/i);
   assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
   assert.deepEqual(inspected.actions.map(({ id }) => id), ['inspect', 'open', 'disarm', 'smash']);
   assert.ok(inspected.actions.every(({ command }) => command === 'inspect' || command === 'find-interact'));
@@ -54,6 +59,27 @@ test('interaction registry owns target matching and stable command families', ()
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);
   assert.equal(interactionDefinitionFor({ kind: 'door', open: false }).command, 'door-transition');
   assert.equal(interactionDefinitionFor({ kind: 'find', id: 'sealed-cache' }).command, 'find-interact');
+});
+
+test('world-object descriptions identify visible state without predicting outcomes', () => {
+  const models = [
+    contextActionModel({
+      target: { kind: 'find', id: 'crystal-vein', rewardGold: 7, rewardPower: 1, riskDamage: 0 },
+      language: 'ru',
+      inspected: true,
+    }),
+    contextActionModel({
+      target: { kind: 'find', id: 'forgotten-grave', rewardGold: 12, rewardPower: 0, riskDamage: 9 },
+      language: 'ru',
+      inspected: true,
+    }),
+    contextActionModel({ target: { kind: 'door', open: false }, language: 'en' }),
+  ];
+
+  assert.equal(models[1].name, 'Древняя гробница');
+  for (const model of models) {
+    assert.doesNotMatch(model.description, /reward|treasure|danger|награ|ценност|получ|\d+◆|−\d+/i);
+  }
 });
 
 test('trap action states skill requirement without allowing an invalid command', () => {
@@ -79,6 +105,6 @@ test('malformed targets never reach the runtime action tray', () => {
   assert.throws(() => contextActionModel(), TypeError);
   assert.throws(() => contextActionModel({ target: { kind: 'door', open: 'yes' } }), TypeError);
   assert.throws(() => contextActionModel({
-    target: { kind: 'find', id: 'unknown', rewardShards: 1, rewardPower: 0, riskDamage: 0 },
+    target: { kind: 'find', id: 'unknown', rewardGold: 1, rewardPower: 0, riskDamage: 0 },
   }), TypeError);
 });

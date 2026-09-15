@@ -23,6 +23,7 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
     depthLabel: 'II',
     level: 3,
   });
+  const paused = mainMenuModel({ language: 'en', paused: true, depthLabel: 'II', level: 2 });
 
   assert.equal(fresh.title, 'DNG Codex');
   assert.equal(fresh.action, 'Начать забег');
@@ -36,6 +37,9 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
   assert.equal(continuing.labels.equippedItems, 'Equipped');
   assert.equal(terminal.action, 'Новый забег');
   assert.match(terminal.hint, /Этаж II · Уровень 3/);
+  assert.equal(paused.state, 'Paused');
+  assert.equal(paused.action, 'Continue');
+  assert.equal(paused.labels.appearance, 'Appearance');
 });
 
 test('main menu owns input until play and keeps language selection persistent', async () => {
@@ -49,6 +53,9 @@ test('main menu owns input until play and keeps language selection persistent', 
   assert.match(html, /id="main-menu"[\s\S]*role="dialog"[\s\S]*aria-modal="true"/);
   assert.equal((html.match(/data-language="(?:ru|en)"/g) ?? []).length, 2);
   assert.match(html, /id="start-game"[^>]*disabled/);
+  assert.match(html, /id="pause-game"[^>]*disabled/);
+  assert.match(html, /id="appearance-editor"[\s\S]*role="dialog"/);
+  assert.match(html, /id="new-run-confirm"[\s\S]*role="alertdialog"/);
   assert.match(css, /\[data-screen='menu'\] \.main-menu/);
   assert.match(css, /env\(safe-area-inset-top\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
@@ -59,6 +66,8 @@ test('main menu owns input until play and keeps language selection persistent', 
   assert.match(runtime, /if \(uiScreen === 'game'\) \{\s*if \(hitStop > 0\)/);
   assert.match(runtime, /updateHero\(delta\);\s*if \(hitStop === 0\) updateWorld\(delta\)/);
   assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'menu'/);
+  assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'appearance'/);
+  assert.match(runtime, /function openNewRunConfirm\(\)/);
 });
 
 test('main menu keeps one visual signature and one dominant action', async () => {

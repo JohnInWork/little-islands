@@ -1,4 +1,6 @@
 import {
+  CHEST_ASSET_PATHS,
+  CHEST_DEFAULT_PATH,
   chestResultPresentation,
   createChestProfile,
   resolveChestInteraction,
@@ -19,20 +21,20 @@ export const FIND_CATALOG = Object.freeze([
   defineFind({
     id: 'sealed-cache',
     category: 'useful',
-    path: 'item/misc/misc_box.png',
-    size: 64,
-    screenOffsetY: -7,
+    path: CHEST_DEFAULT_PATH,
+    size: 76,
+    screenOffsetY: -8,
     color: '#d9bd67',
     glyph: '+',
     copy: {
       ru: {
         name: 'Древний сундук',
-        action: 'Разобраться с древним сундуком',
+        action: 'Осмотреть древний сундук',
         result: 'Содержимое сундука получено',
       },
       en: {
         name: 'Ancient chest',
-        action: 'Deal with the ancient chest',
+        action: 'Inspect the ancient chest',
         result: 'The chest contents were recovered',
       },
     },
@@ -49,12 +51,12 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Живая кристальная жила',
-        action: 'Извлечь силу кристалла',
+        action: 'Извлечь кристалл',
         result: 'Сила героя выросла',
       },
       en: {
         name: 'Living crystal vein',
-        action: 'Draw power from the crystal',
+        action: 'Extract the crystal',
         result: 'The hero grew stronger',
       },
     },
@@ -69,14 +71,14 @@ export const FIND_CATALOG = Object.freeze([
     glyph: '!',
     copy: {
       ru: {
-        name: 'Проклятая гробница',
-        action: 'Осквернить гробницу: опасность и награда',
+        name: 'Древняя гробница',
+        action: 'Осквернить древнюю гробницу',
         unsafe: 'Слишком опасно при таком здоровье',
         result: 'Проклятие ранило героя, но тайник найден',
       },
       en: {
-        name: 'Cursed tomb',
-        action: 'Defile the tomb: danger and reward',
+        name: 'Ancient tomb',
+        action: 'Defile the ancient tomb',
         unsafe: 'Too dangerous at this health',
         result: 'The curse wounded the hero, but the cache was found',
       },
@@ -91,7 +93,10 @@ export function findById(id) {
 }
 
 export const FIND_ASSET_PATHS = Object.freeze([
-  ...new Set(FIND_CATALOG.map(({ path }) => path)),
+  ...new Set([
+    ...FIND_CATALOG.map(({ path }) => path),
+    ...CHEST_ASSET_PATHS,
+  ]),
 ]);
 
 function roomSize(room, key) {
@@ -141,16 +146,16 @@ function roomFindCells(level, room, occupied, avoided) {
 
 function outcomeFor(definition, depth, rng) {
   if (definition.id === 'crystal-vein') {
-    return { rewardShards: 2 + depth + rng.int(0, 2), rewardPower: 1, riskDamage: 0 };
+    return { rewardGold: 2 + depth + rng.int(0, 2), rewardPower: 1, riskDamage: 0 };
   }
   if (definition.id === 'forgotten-grave') {
     return {
-      rewardShards: 8 + depth * 3 + rng.int(0, 4),
+      rewardGold: 8 + depth * 3 + rng.int(0, 4),
       rewardPower: 0,
       riskDamage: 8 + depth * 4 + rng.int(0, 3),
     };
   }
-  return { rewardShards: 5 + depth * 2 + rng.int(0, 4), rewardPower: 0, riskDamage: 0 };
+  return { rewardGold: 5 + depth * 2 + rng.int(0, 4), rewardPower: 0, riskDamage: 0 };
 }
 
 export function createDungeonFinds({ level, rng, occupiedCells = [], avoidCells = [] }) {
@@ -207,7 +212,7 @@ export function createDungeonFinds({ level, rng, occupiedCells = [], avoidCells 
             seed: level.seed ?? 0,
             depth: level.depth,
             roomIndex,
-            rewardShards: outcome.rewardShards,
+            rewardGold: outcome.rewardGold,
           })
         : {}),
     });
@@ -226,7 +231,7 @@ export function findPresentation(find, language = 'ru') {
     color: definition.color,
     glyph: definition.glyph,
     riskDamage: find.riskDamage,
-    rewardShards: find.rewardShards,
+    rewardGold: find.rewardGold,
     rewardPower: find.rewardPower,
     ...(find.id === 'sealed-cache'
       ? {
@@ -246,7 +251,7 @@ export function resolveFindInteraction({
   resolvedFindIds,
   runStatus,
   hero,
-  shards,
+  gold,
   action,
   actor,
 }) {
@@ -259,7 +264,7 @@ export function resolveFindInteraction({
     !Number.isInteger(hero.y) ||
     !Number.isFinite(hero.hp) ||
     !Number.isFinite(hero.power) ||
-    !Number.isFinite(shards)
+    !Number.isFinite(gold)
   ) return rejected('invalid');
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive');
   if (resolvedFindIds.includes(find.instanceId)) return rejected('resolved');
@@ -271,7 +276,7 @@ export function resolveFindInteraction({
       resolvedFindIds,
       runStatus,
       hero,
-      shards,
+      gold,
       action: action ?? 'open',
       actor,
     });
@@ -287,14 +292,14 @@ export function resolveFindInteraction({
   if (find.riskDamage > 0 && hero.hp <= find.riskDamage) return rejected('unsafe');
 
   const damage = Math.max(0, Math.min(find.riskDamage, hero.hp - 1));
-  const rewardShards = find.rewardShards;
+  const rewardGold = find.rewardGold;
   return Object.freeze({
     ok: true,
     definition,
     action: resolvedAction,
     damage,
-    rewardShards,
-    destroyedShards: 0,
+    rewardGold,
+    destroyedGold: 0,
     rewardPower: find.rewardPower,
     state: Object.freeze({
       hero: Object.freeze({
@@ -302,7 +307,7 @@ export function resolveFindInteraction({
         hp: hero.hp - damage,
         power: hero.power + find.rewardPower,
       }),
-      shards: shards + rewardShards,
+      gold: gold + rewardGold,
       resolvedFindIds: Object.freeze([...resolvedFindIds, find.instanceId]),
     }),
   });

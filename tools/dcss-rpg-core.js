@@ -6,7 +6,12 @@ import {
   lootById,
   monsterById,
 } from './dcss-rpg-content.js';
-import { EQUIPMENT_SLOTS, allowedSlotsForItem, deriveHeroStats } from './dcss-rpg-rules.js';
+import {
+  EQUIPMENT_SLOTS,
+  allowedSlotsForItem,
+  deriveHeroStats,
+  isTwoHandedItem,
+} from './dcss-rpg-rules.js';
 import { cloneSkillState, createSkillState, validateSkillState } from './dcss-rpg-skills.js';
 import {
   trapsFromDungeon,
@@ -30,12 +35,44 @@ import {
   monsterTier,
   scalingVersionSupported,
 } from './dcss-rpg-scaling.js';
+import {
+  DEFAULT_LOOT_ABUNDANCE,
+  createBalancedLootPicks,
+  validateLootAbundance,
+} from './dcss-rpg-loot-economy.js';
+import {
+  materializeItemAffixes,
+  rollItemAffixes,
+  validateItemAffixIds,
+} from './dcss-rpg-affixes.js';
+import {
+  guaranteedArtifactDepth,
+  materializeProceduralArtifact,
+  rollFloorArtifact,
+  validateProceduralArtifactState,
+} from './dcss-rpg-artifacts.js';
 import { createDungeonFinds } from './dcss-rpg-finds.js';
+import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
+import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
+import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
+import {
+  createItemKnowledge,
+  identifiableItemIds,
+  validateItemKnowledge,
+} from './dcss-rpg-identification.js';
 
-export const SAVE_VERSION = 14;
-export const SAVE_KEY = 'little-islands:dcss-rpg:v14';
+export const SAVE_VERSION = 22;
+export const SAVE_KEY = 'dng-codex:rpg:v22';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'little-islands:dcss-rpg:v21',
+  'little-islands:dcss-rpg:v20',
+  'little-islands:dcss-rpg:v19',
+  'little-islands:dcss-rpg:v18',
+  'little-islands:dcss-rpg:v17',
+  'little-islands:dcss-rpg:v16',
+  'little-islands:dcss-rpg:v15',
+  'little-islands:dcss-rpg:v14',
   'little-islands:dcss-rpg:v13',
   'little-islands:dcss-rpg:v12',
   'little-islands:dcss-rpg:v11',
@@ -50,10 +87,12 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 4;
-export const CONTENT_VERSION = 5;
+export const GENERATOR_VERSION = 6;
+export const CONTENT_VERSION = 11;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
+
+const IDENTIFIABLE_ITEM_IDS = identifiableItemIds(LOOT_CATALOG);
 
 const DIRECTIONS = Object.freeze([
   [1, 0],
@@ -394,12 +433,13 @@ export function generateDungeon({
   height = MAP_HEIGHT,
   scalingVersion = SCALING_VERSION,
   difficulty = DEFAULT_DIFFICULTY,
+  lootAbundance = DEFAULT_LOOT_ABUNDANCE,
 }) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
   if (!Number.isInteger(depth) || depth < 1)
     throw new Error('Dungeon depth must be a positive integer');
   if (width < 24 || height < 18) throw new Error('Dungeon dimensions are too small');
-  const scaling = floorScaling(depth, scalingVersion, difficulty);
+  const scaling = floorScaling(depth, scalingVersion, difficulty, lootAbundance);
   const floorSeed = mixSeed(seed, depth);
   const rng = createRng(floorSeed);
   const grid = Array.from({ length: height }, () => Array(width).fill('#'));
@@ -587,12 +627,55 @@ export function generateDungeon({
     Math.max(0, scaling.rewards.lootCount - 1 - surpriseLootCells.length),
     occupied,
   );
-  const starterLoot = weightedPick(rng, starterLootPool);
+  const selectedLoot = createBalancedLootPicks({
+    rng: createRng(mixSeed(floorSeed, 0x4c4f4f54)),
+    pool: lootPool,
+    starterPool: starterLootPool,
+    count: 1 + lootCells.length,
+    qualityBudget: scaling.rewards.qualityBudget,
+  }).picks;
+  const floorArtifact = rollFloorArtifact({
+    seed,
+    depth,
+    items: selectedLoot,
+    guaranteed: depth === guaranteedArtifactDepth(seed, FINAL_DEPTH),
+  });
+  const equipmentSpawnState = (definition, instanceId, itemIndex) => {
+    if (!definition.slot) return {};
+    const artifactPowerId = floorArtifact?.itemIndex === itemIndex
+      ? floorArtifact.artifactPowerId
+      : null;
+    const artifactCurseId = artifactPowerId ? floorArtifact.artifactCurseId : null;
+    const affixIds = artifactPowerId
+      ? []
+      : rollItemAffixes({
+          seed: floorSeed,
+          depth,
+          instanceId,
+          item: definition,
+        });
+    return {
+      affixIds: [...affixIds],
+      artifactPowerId,
+      artifactCurseId,
+    };
+  };
   const loot = [
-    { instanceId: `loot-${depth}-0`, id: starterLoot.id, ...starterLootCell },
+    {
+      instanceId: `loot-${depth}-0`,
+      id: selectedLoot[0].id,
+      ...equipmentSpawnState(selectedLoot[0], `loot-${depth}-0`, 0),
+      ...starterLootCell,
+    },
     ...lootCells.map((position, index) => {
-      const definition = weightedPick(rng, lootPool);
-      return { instanceId: `loot-${depth}-${index + 1}`, id: definition.id, ...position };
+      const definition = selectedLoot[index + 1];
+      const instanceId = `loot-${depth}-${index + 1}`;
+      return {
+        instanceId,
+        id: definition.id,
+        ...equipmentSpawnState(definition, instanceId, index + 1),
+        ...position,
+      };
     }),
     ...surpriseLootCells.map((position, index) => ({
       instanceId: `loot-${depth}-${index + lootCells.length + 1}`,
@@ -655,6 +738,43 @@ export function generateDungeon({
     occupiedCells: occupied,
     avoidCells: route.map(({ x, y }) => `${x},${y}`),
   });
+  const roomPlans = createDungeonRoomPlans({
+    seed: floorSeed,
+    depth,
+    scaling,
+    grid,
+    rooms,
+    spawn,
+    exit,
+    sanctuary,
+    objective,
+    doors: doorPlan.doors,
+    surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
+    events,
+    monsters,
+    passiveCreatures,
+    finds,
+    loot,
+  });
+  const roomContent = materializeDungeonRoomContent({
+    seed: floorSeed,
+    depth,
+    scaling,
+    grid,
+    rooms,
+    spawn,
+    exit,
+    sanctuary,
+    objective,
+    doors: doorPlan.doors,
+    surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
+    events,
+    monsters,
+    passiveCreatures,
+    finds,
+    loot,
+    roomPlans,
+  });
   return {
     seed: floorSeed,
     depth,
@@ -669,24 +789,27 @@ export function generateDungeon({
     objective,
     doors: doorPlan.doors,
     surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
-    events,
-    monsters,
+    events: roomContent.events,
+    monsters: roomContent.monsters,
     passiveCreatures,
-    finds,
+    finds: roomContent.finds,
     loot,
+    roomPlans,
+    roomEncounters: roomContent.encounters,
   };
 }
 
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
   const items = [
-    { id: 'short-blade', uid: 'starter-blade' },
-    { id: 'wood-buckler', uid: 'starter-buckler' },
-    { id: 'heavy-leather', uid: 'starter-armour' },
-    { id: 'jackboots', uid: 'starter-boots' },
+    { id: 'short-blade', uid: 'starter-blade', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    { id: 'wood-buckler', uid: 'starter-buckler', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    { id: 'heavy-leather', uid: 'starter-armour', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    { id: 'jackboots', uid: 'starter-boots', affixIds: [], artifactPowerId: null, artifactCurseId: null },
     { id: 'healing-potion', uid: 'starter-potion', stack: 2 },
     { id: 'bread', uid: 'starter-bread', stack: 3 },
     { id: 'iron-key', uid: 'starter-key', stack: 1 },
     { id: 'lockpick-set', uid: 'starter-lockpicks', stack: 2 },
+    { id: 'hunter-trap', uid: 'starter-hunter-trap', stack: 1 },
   ];
   return {
     version: SAVE_VERSION,
@@ -694,6 +817,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     contentVersion: CONTENT_VERSION,
     scalingVersion: dungeon.scaling?.version ?? SCALING_VERSION,
     difficulty: dungeon.scaling?.difficulty ?? DEFAULT_DIFFICULTY,
+    lootAbundance: dungeon.scaling?.lootAbundance ?? DEFAULT_LOOT_ABUNDANCE,
     seed: seed >>> 0,
     depth: dungeon.depth,
     hero: {
@@ -707,9 +831,10 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       effects: createActorEffects(),
       skills: createSkillState(),
     },
-    shards: 0,
+    gold: 0,
     status: 'playing',
     started: false,
+    knowledge: createItemKnowledge(),
     items,
     equipment: {
       cloak: null,
@@ -724,7 +849,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       ring2: null,
       amulet: null,
     },
-    inventory: ['starter-potion', 'starter-bread', 'starter-key', 'starter-lockpicks'],
+    inventory: ['starter-potion', 'starter-bread', 'starter-key', 'starter-lockpicks', 'starter-hunter-trap'],
     floor: {
       revealed: [],
       defeated: [],
@@ -733,6 +858,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       resolvedFindIds: [],
       detectedTrapIds: [],
       disarmedTrapIds: [],
+      placedTraps: [],
       opened: [],
       triggered: [],
       monsters: [],
@@ -766,29 +892,131 @@ function legacySkillState(hero) {
   return cloneSkillState(hero.skills);
 }
 
+function stripLegacyItemSanctity(items) {
+  return items.map((item) => {
+    const { sanctity: _sanctity, sanctityKnown: _known, ...record } = item;
+    return record;
+  });
+}
+
+function migrateOwnedItemAffixes(items, preserve = false) {
+  return items.map((item) => {
+    const definition = lootById(item?.id);
+    if (!definition?.slot) {
+      const { affixIds: _affixIds, ...record } = item;
+      return record;
+    }
+    const affixIds = preserve && validateItemAffixIds(definition, item.affixIds)
+      ? [...item.affixIds]
+      : [];
+    return { ...item, affixIds };
+  });
+}
+
+function migrateOwnedItemArtifacts(items, preserve = false) {
+  return items.map((item) => {
+    const definition = lootById(item?.id);
+    if (!definition?.slot) {
+      const { artifactPowerId: _power, artifactCurseId: _curse, ...record } = item;
+      return record;
+    }
+    if (preserve && validateProceduralArtifactState(definition, item)) return { ...item };
+    return { ...item, artifactPowerId: null, artifactCurseId: null };
+  });
+}
+
+function migrateLegacyGold(snapshot) {
+  return snapshot.gold ?? snapshot.shards ?? 0;
+}
+
+function migrateTwoHandedEquipment(snapshot) {
+  const mainUid = snapshot.equipment?.hand1;
+  const offhandUid = snapshot.equipment?.hand2;
+  if (!mainUid || !offhandUid) return;
+  const records = new Map(snapshot.items.map((item) => [item.uid, item]));
+  const mainDefinition = lootById(records.get(mainUid)?.id);
+  if (!isTwoHandedItem(mainDefinition)) return;
+
+  if (snapshot.inventory.length < 12) {
+    snapshot.equipment.hand2 = null;
+    snapshot.inventory.push(offhandUid);
+    return;
+  }
+
+  // A full legacy backpack cannot accept the displaced off-hand item. First
+  // fill any genuinely empty equipment slot from the backpack, preserving all
+  // owned items and freeing exactly one inventory cell.
+  for (const candidateUid of snapshot.inventory) {
+    const candidate = lootById(records.get(candidateUid)?.id);
+    const target = allowedSlotsForItem(candidate).find((slot) => (
+      !['hand1', 'hand2'].includes(slot) && snapshot.equipment[slot] === null
+    ));
+    if (!target) continue;
+    snapshot.inventory = snapshot.inventory.filter((uid) => uid !== candidateUid);
+    snapshot.equipment[target] = candidateUid;
+    snapshot.equipment.hand2 = null;
+    snapshot.inventory.push(offhandUid);
+    return;
+  }
+
+  // If every wearable slot is filled, swap the two-handed weapon for a packed
+  // one-handed main-hand weapon. This keeps the old off hand active and loses
+  // neither item even at the absolute ownership cap.
+  const replacementUid = snapshot.inventory.find((candidateUid) => {
+    const candidate = lootById(records.get(candidateUid)?.id);
+    return candidate?.slot === 'hand1' && !isTwoHandedItem(candidate);
+  });
+  if (!replacementUid) throw new Error('Cannot migrate full two-handed loadout');
+  snapshot.inventory = snapshot.inventory.filter((uid) => uid !== replacementUid);
+  snapshot.inventory.push(mainUid);
+  snapshot.equipment.hand1 = replacementUid;
+}
+
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([9, 10, 11, 12, 13].includes(snapshot.version)) {
-    // v14 adds interaction tools and richer deterministic chest profiles. Old
-    // heroes keep their exact inventory; new runs receive the starter tools.
+  if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].includes(snapshot.version)) {
+    // v15 adds explicitly targeted player traps; v16 makes long weapons truly
+    // two-handed; v17 expands the sword loot family; v18 adds per-run item
+    // knowledge; v19 adds item sanctity and a persistent loot-abundance knob;
+    // v20 adds deterministic affixes; v21 replaces hidden sanctity with clear,
+    // seeded procedural artefacts; v22 renames the only currency to gold and
+    // removes the obsolete hidden sanctity fields.
+    // Old heroes keep their exact inventory and current floor;
+    // uncollected loot adopts the current content pool. Only new runs receive
+    // the starter trap.
     // Existing room geometry, actor positions, event IDs, finds and gear survive.
     const migrated = structuredClone(snapshot);
     migrated.version = SAVE_VERSION;
     migrated.generatorVersion = GENERATOR_VERSION;
     migrated.contentVersion = CONTENT_VERSION;
+    migrated.gold = migrateLegacyGold(snapshot);
+    delete migrated.shards;
+    migrated.knowledge = snapshot.version >= 18
+      ? createItemKnowledge(snapshot.knowledge)
+      : createItemKnowledge();
+    migrated.lootAbundance = snapshot.version >= 19
+      ? snapshot.lootAbundance
+      : DEFAULT_LOOT_ABUNDANCE;
+    migrated.items = migrateOwnedItemArtifacts(migrateOwnedItemAffixes(
+      stripLegacyItemSanctity(migrated.items),
+      snapshot.version >= 20,
+    ), snapshot.version >= 21);
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
     const missingDiscovery = !Object.hasOwn(migrated.floor ?? {}, 'detectedTrapIds');
     if (missingDiscovery && migrated.floor) migrated.floor.detectedTrapIds = [];
     if (migrated.floor && snapshot.version < 12) migrated.floor.resolvedFindIds = [];
     if (migrated.floor && snapshot.version < 13) migrated.floor.disarmedTrapIds = [];
+    if (migrated.floor && snapshot.version < 15) migrated.floor.placedTraps = [];
+    if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
       depth: migrated.depth,
       scalingVersion: migrated.scalingVersion,
       difficulty: migrated.difficulty,
+      lootAbundance: migrated.lootAbundance,
     });
     const traps = trapsFromDungeon(dungeon);
     if (missingDiscovery) {
@@ -819,7 +1047,8 @@ export function migrateLegacyRun(snapshot) {
     // pressure. Hero progression and owned gear survive; the current floor is
     // rebuilt so living monsters cannot retain obsolete HP and damage.
     const difficulty = DEFAULT_DIFFICULTY;
-    const dungeon = generateDungeon({ seed: snapshot.seed, depth, scalingVersion, difficulty });
+    const lootAbundance = DEFAULT_LOOT_ABUNDANCE;
+    const dungeon = generateDungeon({ seed: snapshot.seed, depth, scalingVersion, difficulty, lootAbundance });
     const migrated = {
       ...snapshot,
       version: SAVE_VERSION,
@@ -827,6 +1056,8 @@ export function migrateLegacyRun(snapshot) {
       contentVersion: CONTENT_VERSION,
       scalingVersion,
       difficulty,
+      lootAbundance,
+      gold: migrateLegacyGold(snapshot),
       depth,
       hero: crossesGeneratorBoundary
         ? {
@@ -843,7 +1074,8 @@ export function migrateLegacyRun(snapshot) {
           : 'playing'
         : snapshot.status,
       started: crossesGeneratorBoundary ? snapshot.hero?.hp === 0 : snapshot.started,
-      items: snapshot.items.map((item) => ({ ...item })),
+      knowledge: createItemKnowledge(),
+      items: migrateOwnedItemArtifacts(migrateOwnedItemAffixes(stripLegacyItemSanctity(snapshot.items))),
       equipment: normalizeEquipment(snapshot.equipment),
       inventory: [...snapshot.inventory],
       // Loot pool changes can attach an old collected ID to a different item.
@@ -857,6 +1089,7 @@ export function migrateLegacyRun(snapshot) {
             resolvedFindIds: [],
             detectedTrapIds: [],
             disarmedTrapIds: [],
+            placedTraps: [],
             opened: [],
             triggered: [],
             monsters: [],
@@ -870,12 +1103,14 @@ export function migrateLegacyRun(snapshot) {
             resolvedFindIds: [],
             detectedTrapIds: [],
             disarmedTrapIds: [],
+            placedTraps: [],
             opened: [],
             triggered: [],
             monsters: snapshot.floor.monsters.map((monster) => ({ ...monster })),
             passives: (snapshot.floor.passives ?? []).map((creature) => ({ ...creature })),
           },
     };
+    delete migrated.shards;
     if (!validateRun(migrated)) {
       throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     }
@@ -888,7 +1123,14 @@ export function migrateLegacyRun(snapshot) {
     const definition = lootById(record?.id);
     if (!definition) continue;
     const uid = uniqueLegacyUid(record.uid, used, `legacy-item-${index}`);
-    items.push({ id: definition.id, uid, ...(record.stack ? { stack: record.stack } : {}) });
+    items.push({
+      id: definition.id,
+      uid,
+      ...(record.stack ? { stack: record.stack } : {}),
+      ...(definition.slot
+        ? { affixIds: [], artifactPowerId: null, artifactCurseId: null }
+        : {}),
+    });
     inventory.push(uid);
   }
   const equipment = Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));
@@ -903,7 +1145,13 @@ export function migrateLegacyRun(snapshot) {
     const mayRestoreAppearance = !slot.startsWith('ring') && slot !== 'amulet';
     if (!uid && mayRestoreAppearance) {
       uid = uniqueLegacyUid('', used, `migrated-${slot}-${definition.id}`);
-      items.push({ id: definition.id, uid });
+      items.push({
+        id: definition.id,
+        uid,
+        affixIds: [],
+        artifactPowerId: null,
+        artifactCurseId: null,
+      });
     }
     if (!uid) continue;
     equipment[slot] = uid;
@@ -919,6 +1167,8 @@ export function migrateLegacyRun(snapshot) {
     contentVersion: CONTENT_VERSION,
     scalingVersion: SCALING_VERSION,
     difficulty: DEFAULT_DIFFICULTY,
+    lootAbundance: DEFAULT_LOOT_ABUNDANCE,
+    gold: migrateLegacyGold(snapshot),
     depth,
     hero: {
       ...snapshot.hero,
@@ -929,6 +1179,7 @@ export function migrateLegacyRun(snapshot) {
     },
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
     started: true,
+    knowledge: createItemKnowledge(),
     items,
     equipment,
     inventory,
@@ -940,12 +1191,14 @@ export function migrateLegacyRun(snapshot) {
       resolvedFindIds: [],
       detectedTrapIds: [],
       disarmedTrapIds: [],
+      placedTraps: [],
       opened: [],
       triggered: [],
       monsters: [],
       passives: [],
     },
   };
+  delete migrated.shards;
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
   return migrated;
 }
@@ -962,7 +1215,8 @@ export function validateRun(snapshot) {
     !scalingVersionSupported(snapshot.scalingVersion) ||
     !Number.isFinite(snapshot.difficulty) ||
     snapshot.difficulty < MIN_DIFFICULTY ||
-    snapshot.difficulty > MAX_DIFFICULTY
+    snapshot.difficulty > MAX_DIFFICULTY ||
+    !validateLootAbundance(snapshot.lootAbundance)
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
@@ -988,9 +1242,10 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
-  if (!isFiniteInteger(snapshot.shards, 0, Number.MAX_SAFE_INTEGER)) return false;
+  if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
+  if (!validateItemKnowledge(snapshot.knowledge, IDENTIFIABLE_ITEM_IDS)) return false;
   if ((snapshot.status === 'dead') !== (hero.hp === 0)) return false;
   if (!snapshot.equipment || typeof snapshot.equipment !== 'object') return false;
   if (!Array.isArray(snapshot.items) || snapshot.items.length > EQUIPMENT_SLOTS.length + 12) {
@@ -1004,6 +1259,12 @@ export function validateRun(snapshot) {
         typeof item.uid !== 'string' ||
         item.uid.length < 1 ||
         item.uid.length > 80 ||
+        !validateItemAffixIds(
+          lootById(item.id),
+          item.affixIds,
+          { required: Boolean(lootById(item.id)?.slot) },
+        ) ||
+        !validateProceduralArtifactState(lootById(item.id), item) ||
         (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999)),
     )
   ) return false;
@@ -1022,15 +1283,23 @@ export function validateRun(snapshot) {
     if (!allowedSlotsForItem(definition).includes(slot)) return false;
     equippedUids.push(uid);
   }
+  const mainHandRecord = itemByUid.get(snapshot.equipment.hand1);
+  if (
+    snapshot.equipment.hand2 !== null &&
+    isTwoHandedItem(lootById(mainHandRecord?.id))
+  ) return false;
   if (new Set(equippedUids).size !== equippedUids.length) return false;
   const owned = [...snapshot.inventory, ...equippedUids];
   if (new Set(owned).size !== owned.length || owned.length !== snapshot.items.length) return false;
-  const items = snapshot.items.map((record) => ({ ...lootById(record.id), ...record }));
+  const items = snapshot.items.map((record) => materializeProceduralArtifact(
+    materializeItemAffixes(lootById(record.id), record),
+    record,
+  ));
   if (hero.hp > deriveHeroStats(hero, snapshot.equipment, items).maxHp) return false;
   const floor = snapshot.floor;
   if (
     !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered', 'monsters'].every(
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters'].every(
       (key) => Array.isArray(floor[key]),
     ) ||
     (floor.passives !== undefined && !Array.isArray(floor.passives))
@@ -1071,6 +1340,7 @@ export function validateRun(snapshot) {
     || floor.disarmedTrapIds.some((id) =>
       !floor.detectedTrapIds.includes(id) || !floor.resolved.includes(id))
   ) return false;
+  if (!validatePlacedTraps(floor.placedTraps, { depth: snapshot.depth })) return false;
   if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.monsters.length > 24) return false;
@@ -1084,7 +1354,8 @@ export function validateRun(snapshot) {
         !Number.isFinite(monster.x) ||
         !Number.isFinite(monster.y) ||
         monster.x < 0 || monster.y < 0 || monster.x >= MAP_WIDTH || monster.y >= MAP_HEIGHT ||
-        !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000,
+        !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000 ||
+        !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000),
     )
   ) return false;
   const passiveStates = floor.passives ?? [];
@@ -1120,6 +1391,7 @@ export function hydrateDungeon(snapshot) {
     depth: snapshot.depth,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
+    lootAbundance: snapshot.lootAbundance,
   });
   const opened = new Set(snapshot.floor.opened);
   const triggered = new Set(snapshot.floor.triggered);
@@ -1157,6 +1429,19 @@ export function hydrateDungeon(snapshot) {
   if ([...collected].some((id) => !lootIds.has(id))) throw new Error('Unknown collected loot');
   if ([...resolved].some((id) => !eventIds.has(id))) throw new Error('Unknown resolved event');
   if ([...resolvedFindIds].some((id) => !findIds.has(id))) throw new Error('Unknown resolved find');
+  const placedTrapReservedCells = [
+    dungeon.exit,
+    dungeon.sanctuary,
+    ...dungeon.doors,
+    ...dungeon.loot.filter((item) => !collected.has(item.instanceId)),
+    ...dungeon.events.filter((event) => !resolved.has(event.instanceId)),
+    ...dungeon.finds.filter((find) => !resolvedFindIds.has(find.instanceId)),
+  ].filter(Boolean).map(({ x, y }) => `${x},${y}`);
+  if (!validatePlacedTraps(snapshot.floor.placedTraps, {
+    depth: snapshot.depth,
+    grid: dungeon.grid,
+    reservedCells: placedTrapReservedCells,
+  })) throw new Error('Invalid placed player trap');
   const savedMonsters = new Map(snapshot.floor.monsters.map((monster) => [monster.instanceId, monster]));
   for (const state of savedMonsters.values()) {
     if (!monsterIds.has(state.instanceId) || defeated.has(state.instanceId)) {
@@ -1217,10 +1502,12 @@ export function advanceRunFloor(snapshot) {
     depth,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
+    lootAbundance: snapshot.lootAbundance,
   });
   return {
     ...snapshot,
     depth,
+    knowledge: createItemKnowledge(snapshot.knowledge),
     hero: {
       ...snapshot.hero,
       x: dungeon.spawn.x,
@@ -1239,6 +1526,7 @@ export function advanceRunFloor(snapshot) {
       resolvedFindIds: [],
       detectedTrapIds: [],
       disarmedTrapIds: [],
+      placedTraps: [],
       opened: [],
       triggered: [],
       monsters: [],

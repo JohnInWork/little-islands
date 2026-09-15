@@ -6,7 +6,17 @@ import vm from 'node:vm';
 import {
   blockingActorCells, canActorsMeleeContact, constrainActorMovement, meleeApproachPoint,
 } from '../tools/dcss-rpg-actor-collision.js';
+import { chooseCrowdPressureStep } from '../tools/dcss-rpg-monster-pressure.js';
 import { attackCrossedContact, combatImpactProfile } from '../tools/dcss-rpg-combat-motion.js';
+import {
+  axeCleaveDamage, axeCleaveProfile, selectAxeCleaveTargets,
+} from '../tools/dcss-rpg-cleave.js';
+import { lootById } from '../tools/dcss-rpg-content.js';
+import { createSkillState, deriveSkillCapabilities } from '../tools/dcss-rpg-skills.js';
+import {
+  createSwordRhythmState, resolveSwordRhythmStrike, swordRhythmSource,
+} from '../tools/dcss-rpg-swords.js';
+import { resolveShieldBlock, shieldBlockRoll } from '../tools/dcss-rpg-shield.js';
 import { findGridPath, generateDungeon, hasLineOfSight } from '../tools/dcss-rpg-core.js';
 import { choosePassiveWanderTarget, createPassiveCreatureStates } from '../tools/dcss-rpg-passive.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
@@ -35,7 +45,7 @@ function monsterAt(x, y, overrides = {}) {
     dead: 0, hp: 1000, route: [], facing: -1, speed: 2, phase: 0,
     hit: 0, attackRecovery: 0, alertFlash: 0, attackCooldown: 0,
     repathCooldown: 0, alerted: 10, attackWindup: 0, pursuit: 10,
-    windup: 0.2, attackRate: 1, damage: 1,
+    windup: 0.2, attackRate: 1, damage: 1, attackSequence: 0,
     ...overrides,
   };
 }
@@ -44,22 +54,32 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
   const grid = rows.map((row) => [...row]);
   const hazards = new Set();
   const hero = {
-    x: 96, y: 96, hp: 100, dead: false, path: [], effects: {}, facing: 1, stride: 0,
+    x: 96, y: 96, hp: 100, dead: false, path: [], effects: {}, skills: createSkillState(), facing: 1, stride: 0,
     attack: 0, attackDuration: 0.3, attackCooldown: 0, hurt: 0, guardFlash: 0, pendingAttack: null,
   };
   const context = vm.createContext({
-    TILE, HERO_BASE_MOVE_SPEED, hero, monsters, passiveCreatures: [], world: grid,
+    TILE, HERO_BASE_MOVE_SPEED, hero, monsters, passiveCreatures: [], placedTraps: [], world: grid,
+    run: { seed: 1 }, dungeon: { depth: 1 },
     revealed: new Set(grid.flatMap((row, y) => row.map((_, x) => `${x},${y}`))),
     runStatus: 'playing', playerHasActed: false, openingDoor: null,
     findDefinitions: [],
     inputGesture: 1, permittedHazardCell: null, hazardInputState: createHazardInputState(),
     performance: { now: () => 0 },
     blockingActorCells, canActorsMeleeContact, constrainActorMovement, meleeApproachPoint,
+    chooseCrowdPressureStep,
     monsterCellKey, occupiedMonsterCells,
     canMonsterAdvance, canMeleeAttack, canWeaponAttack, findGridPath, hasLineOfSight,
     hazardMoveIntent, createHazardInputState, attackCrossedContact, combatDamage, combatImpactProfile,
+    axeCleaveDamage, selectAxeCleaveTargets,
+    createSwordRhythmState, resolveSwordRhythmStrike, swordRhythmSource,
+    resolveShieldBlock, shieldBlockRoll,
+    deriveSkillCapabilities,
+    swordRhythmState: createSwordRhythmState(),
     currentHeroCombat: () => weaponCombatProfile(null),
+    currentWeaponLoadout: () => ({ mode: 'unarmed', primary: null, secondary: null, shield: null }),
+    currentHeroCleave: () => axeCleaveProfile(null, {}),
     currentHeroStats: () => ({ attack: 10, moveSpeed: 1 }),
+    currentHeroMagic: () => ({ flight: false, invisibility: false, vampirism: false, immunity: [], healOnKill: 0 }),
     actorEffectModifiers: () => ({ moveSpeed: 1 }),
     equippedItem: () => null,
     rarityGlow: ['#ffffff'],
@@ -68,15 +88,17 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     updateHeroEffects: () => {}, updateHeldMove: () => {}, resolveWorldInteractions: () => {},
     warnTrapStep: () => {}, updateDoorOpening: () => {}, monsterSeesHero: () => true,
     damageHero: () => null, monsterInfliction: () => null,
+    triggerPlacedTrapForMonster: () => false,
     burst: () => {}, addImpactWave: () => {}, addCombatGlyph: () => {},
     addBloodImpact: () => {}, beginHitStop: () => {}, updateBossHud: () => {},
+    showSwordRhythmImpact: () => {},
     defeatMonster: (monster) => { monster.dead = 0.001; },
     choosePassiveWanderTarget: () => null, passiveWanderPause: () => 2,
     projectiles: [], sparks: [], bloodDrops: [], combatGlyphs: [], impactWaves: [],
     renderShake: { amount: 0 }, camera: { x: 96, y: 96 },
   });
   installRuntime(context, [
-    'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
+    'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
     'updateHero', 'canHeroAttack', 'isCurrentlyVisible', 'canActorsMelee',
     'resolvePendingHeroAttack', 'damageMonster', 'updateWorld', 'updatePassiveCreatures',
   ]);
@@ -151,6 +173,101 @@ test('held movement into an adjacent enemy stays blocked while real auto-attack 
   assert.equal(context.playerHasActed, true);
   assert.ok(enemy.hp < 980, 'repeated blocked input does not cancel the windup before contact');
   assert.ok(enemy.x - context.hero.x >= separation);
+});
+
+test('runtime contact applies an axe cleave only to the pure rule selected neighbour', () => {
+  const primary = monsterAt(2, 2, { instanceId: 'primary' });
+  const neighbour = monsterAt(2, 1, { instanceId: 'neighbour' });
+  const behindHero = monsterAt(0, 2, { instanceId: 'behind-hero' });
+  const { context } = runtime({
+    rows: ['#####', '#...#', '#...#', '#...#', '#####'],
+    monsters: [primary, neighbour, behindHero],
+  });
+  context.hero.x = 1.5 * TILE;
+  context.hero.y = 2.5 * TILE;
+  context.hero.attackDuration = 0.44;
+  context.hero.attackStyle = 'heavy';
+  context.hero.pendingAttack = {
+    targetId: primary.instanceId,
+    damage: 20,
+    color: '#ffffff',
+    combat: { style: 'heavy', range: 1, projectile: null },
+    cleave: { rank: 1, damagePercent: 35, maxTargets: 1 },
+  };
+  context.resolvePendingHeroAttack(0.3, 0.19);
+  assert.equal(primary.hp, 980);
+  assert.equal(neighbour.hp, 993);
+  assert.equal(behindHero.hp, 1000);
+  assert.equal(context.hero.pendingAttack, null);
+
+  context.runStatus = 'dead';
+  context.hero.pendingAttack = {
+    targetId: primary.instanceId,
+    damage: 20,
+    color: '#ffffff',
+    combat: { style: 'heavy', range: 1, projectile: null },
+    cleave: { rank: 3, damagePercent: 80, maxTargets: 2 },
+  };
+  context.resolvePendingHeroAttack(0.3, 0.19);
+  assert.equal(primary.hp, 980);
+  assert.equal(neighbour.hp, 993);
+});
+
+test('runtime preserves the equipped grip impact style for secondary axe targets', () => {
+  assert.match(
+    source,
+    /for \(const target of cleaveTargets\)[\s\S]*?damageMonster\(target, cleaveDamage, pending\.color, \{[\s\S]*?style: pending\.combat\.style/,
+  );
+});
+
+test('runtime resolves one bounded off-hand hit for a dual-wield attack', () => {
+  const target = monsterAt(2, 1, { instanceId: 'dual-target', hp: 100 });
+  const { context } = runtime({ monsters: [target] });
+  context.hero.attackDuration = 0.34;
+  context.hero.attackStyle = 'blade';
+  context.hero.pendingAttack = {
+    targetId: target.instanceId,
+    damage: 20,
+    color: '#ffffff',
+    combat: { style: 'blade', range: 1, projectile: null },
+    cleave: { rank: 0, damagePercent: 0, maxTargets: 0 },
+    secondary: { damage: 9, color: '#66b47a', style: 'blade' },
+  };
+
+  context.resolvePendingHeroAttack(0.25, 0.12);
+  assert.equal(target.hp, 71);
+  assert.equal(context.hero.pendingAttack, null);
+});
+
+test('runtime advances sword rhythm once per landed cycle and empowers the promised hit', () => {
+  const target = monsterAt(2, 1, { instanceId: 'sword-target', hp: 100 });
+  const { context } = runtime({ monsters: [target] });
+  const sword = { ...lootById('long-sword'), uid: 'runtime-sword' };
+  const capabilities = {
+    swordRhythmRank: 3,
+    swordRhythmHitInterval: 2,
+    swordRhythmBonusPercent: 80,
+  };
+  const pendingAttack = () => ({
+    targetId: target.instanceId,
+    damage: 10,
+    color: '#ffffff',
+    combat: { style: 'blade', range: 1, projectile: null },
+    cleave: { rank: 0, damagePercent: 0, maxTargets: 0 },
+    sword: { slot: 'primary', weapon: sword, capabilities },
+    secondary: { damage: 4, color: '#66b47a', style: 'blade' },
+  });
+
+  context.hero.attackDuration = 0.34;
+  context.hero.attackStyle = 'blade';
+  context.hero.pendingAttack = pendingAttack();
+  context.resolvePendingHeroAttack(0.25, 0.12);
+  assert.equal(target.hp, 86, 'first cycle deals 10 + one ordinary off-hand hit');
+
+  context.hero.pendingAttack = pendingAttack();
+  context.resolvePendingHeroAttack(0.25, 0.12);
+  assert.equal(target.hp, 64, 'second cycle deals empowered 18 + one ordinary off-hand hit');
+  assert.equal(context.swordRhythmState.hits, 0);
 });
 
 test('runtime paths cannot cross a corridor occupant but can route around a room occupant and its next step', () => {
@@ -294,6 +411,40 @@ test('an attack windup cannot hit a hero who has left the shared contact distanc
   context.updateWorld(0.11);
   assert.equal(enemy.attackWindup, 0);
   assert.equal(hits, 0);
+});
+
+test('a blocked room crowd keeps repositioning while the doorway fighter holds contact', () => {
+  const doorwayFighter = monsterAt(4, 3, { instanceId: 'doorway-fighter' });
+  const rearMonster = monsterAt(5, 3, { instanceId: 'rear-monster' });
+  const { context } = runtime({
+    rows: [
+      '#########',
+      '#...#...#',
+      '#...#...#',
+      '#.......#',
+      '#...#...#',
+      '#...#...#',
+      '#########',
+    ],
+    monsters: [doorwayFighter, rearMonster],
+  });
+  context.hero.x = 3.5 * TILE;
+  context.hero.y = 3.5 * TILE;
+  context.playerHasActed = true;
+  const start = { x: rearMonster.x, y: rearMonster.y };
+
+  for (let frame = 0; frame < 90; frame += 1) context.updateWorld(0.04);
+
+  assert.equal(Math.floor(doorwayFighter.x / TILE), 4);
+  assert.equal(Math.floor(doorwayFighter.y / TILE), 3);
+  assert.ok(
+    Math.hypot(rearMonster.x - start.x, rearMonster.y - start.y) > TILE * 0.25,
+    'the rear monster visibly searches for another angle instead of freezing',
+  );
+  assert.ok(
+    Math.hypot(rearMonster.x - doorwayFighter.x, rearMonster.y - doorwayFighter.y) >= separation - 0.001,
+    'pressure movement still respects the crowd collision radius',
+  );
 });
 
 test('real approach, contact, retreat and return preserve movement priority and reciprocal combat', () => {

@@ -5,6 +5,26 @@ import test from 'node:test';
 const cssUrl = new URL('../tools/dcss.css', import.meta.url);
 const htmlUrl = new URL('../tools/dcss.html', import.meta.url);
 const runtimeUrl = new URL('../tools/dcss.js', import.meta.url);
+const landingUrl = new URL('../index.html', import.meta.url);
+const manifestRuUrl = new URL('../public/manifest.webmanifest', import.meta.url);
+const manifestEnUrl = new URL('../public/manifest.en.webmanifest', import.meta.url);
+
+test('the product name is consistent across the landing page and both PWA manifests', async () => {
+  const [landing, manifestRuSource, manifestEnSource] = await Promise.all([
+    readFile(landingUrl, 'utf8'),
+    readFile(manifestRuUrl, 'utf8'),
+    readFile(manifestEnUrl, 'utf8'),
+  ]);
+  const manifestRu = JSON.parse(manifestRuSource);
+  const manifestEn = JSON.parse(manifestEnSource);
+
+  assert.match(landing, /<title>DNG Codex/);
+  assert.equal(manifestRu.name, 'DNG Codex');
+  assert.equal(manifestRu.short_name, 'DNG Codex');
+  assert.equal(manifestEn.name, 'DNG Codex');
+  assert.equal(manifestEn.short_name, 'DNG Codex');
+  assert.doesNotMatch(landing, /Little Islands|Маленькие острова/i);
+});
 
 test('the 2D RPG interface uses quiet flat pixel blocks instead of ornamental frames', async () => {
   const css = await readFile(cssUrl, 'utf8');
@@ -135,7 +155,7 @@ test('loot and inventory expose translated item identity before opening full det
   assert.match(css, /\.loot-toast\s*{[^}]*width:\s*min\(380px, calc\(100vw - 24px\)\)/s);
   assert.match(css, /\.pack-item-copy\s*{/);
   assert.match(css, /\.pack-item\.inventory-row\s*{[^}]*grid-template-columns:\s*56px minmax\(0, 1fr\) auto/s);
-  assert.match(runtime, /itemPresentation\(item, itemDetailLanguage/);
+  assert.match(runtime, /itemPresentation\(displayItem, itemDetailLanguage/);
   assert.match(runtime, /lootName\.textContent = presentation\.name/);
   assert.match(runtime, /name\.textContent = presentation\.name/);
   assert.match(runtime, /effect\.textContent = `\$\{presentation\.primaryEffect\.icon\}/);
@@ -178,6 +198,41 @@ test('backpack follows a Pathos-like grouped list with large category filters', 
   assert.match(runtime, /presentation\.primaryEffect\.text/);
   assert.match(runtime, /inventoryFilterButtons\.forEach/);
   assert.doesNotMatch(runtime, /itemDetailLanguageButton/);
+});
+
+test('inventory list only pans vertically on touch screens', async () => {
+  const css = await readFile(cssUrl, 'utf8');
+  const packGridRules = [...css.matchAll(/(?:^|\n)\.pack-grid\s*{(?<body>[^}]*)}/g)]
+    .map((match) => match.groups?.body ?? '');
+
+  assert.ok(packGridRules.length >= 1);
+  for (const rule of packGridRules) {
+    assert.match(rule, /width:\s*100%/);
+    assert.match(rule, /max-width:\s*100%/);
+    assert.match(rule, /overflow-x:\s*hidden/);
+    assert.match(rule, /overflow-y:\s*auto/);
+    assert.match(rule, /overscroll-behavior-x:\s*none/);
+    assert.match(rule, /touch-action:\s*pan-y/);
+  }
+  assert.match(css, /\.pack-item\.inventory-row\s*{[^}]*max-width:\s*100%[^}]*min-width:\s*0/s);
+});
+
+test('a thumb-reachable contextual button appears for any adjacent registered object', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+
+  assert.match(html, /id="interact-action"[\s\S]*id="interact-action-icon"/);
+  assert.match(css, /\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(92px[^}]*width:\s*72px[^}]*height:\s*72px/s);
+  assert.match(css, /\[data-screen='game'\] \.interact-action:not\(\[hidden\]\)/);
+  assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*right:\s*max\(92px/s);
+  assert.match(runtime, /function updateInteractionUi\(\)/);
+  assert.match(runtime, /const target = ready[\s\S]*\? nearbyContextTarget\(\)/);
+  assert.match(runtime, /interactActionButton\.addEventListener\('click', openNearbyContextActions\)/);
+  assert.match(runtime, /function startGameFromMenu\(\)[\s\S]*updateInteractionUi\(\)[\s\S]*startGameButton\.blur\(\)/);
+  assert.match(runtime, /if \(heroCellKey !== lastHeroCell\)[\s\S]*updateInteractionUi\(\)/);
 });
 
 test('atmosphere is rendered on a pixel grid without smooth fullscreen noise', async () => {

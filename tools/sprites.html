@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080b0c" />
+    <meta name="description" content="Визуальная мастерская DNG Codex: назначение локальных спрайтов игровым сущностям." />
+    <title>DNG Codex · Визуальная мастерская</title>
+    <link rel="icon" href="../icon.svg" />
+    <link rel="stylesheet" href="./sprites.css" />
+  </head>
+  <body>
+    <header class="workshop-header">
+      <a class="brand" href="./dcss.html" aria-label="Открыть DNG Codex">
+        <span>DNG</span>
+        <strong>CODEX</strong>
+      </a>
+      <div class="header-title">
+        <p>Визуальная мастерская</p>
+        <h1>Кто и как выглядит</h1>
+      </div>
+      <div class="header-stats" aria-label="Статистика каталога">
+        <span><b id="sprite-total">…</b> спрайтов</span>
+        <span><b id="override-total">0</b> замен</span>
+      </div>
+      <a class="game-link pixel-button" href="./dcss.html" target="_blank" rel="noopener">
+        <span aria-hidden="true">▶</span> Проверить в игре
+      </a>
+    </header>
+
+    <main class="workshop-shell">
+      <aside class="entity-panel panel" aria-labelledby="entity-title">
+        <div class="panel-heading">
+          <span class="step-mark">01</span>
+          <div>
+            <h2 id="entity-title">Выбери сущность</h2>
+            <p>Реальные предметы и существа игры</p>
+          </div>
+        </div>
+        <label class="search-field">
+          <span aria-hidden="true">⌕</span>
+          <span class="sr-only">Поиск сущности</span>
+          <input id="entity-search" type="search" placeholder="Сундук, гоблин, меч…" autocomplete="off" />
+          <kbd>/</kbd>
+        </label>
+        <nav id="entity-filters" class="filter-strip" aria-label="Категории сущностей"></nav>
+        <div id="entity-count" class="result-count" aria-live="polite"></div>
+        <div id="entity-list" class="entity-list" role="listbox" aria-label="Сущности игры"></div>
+      </aside>
+
+      <section class="preview-panel panel" aria-labelledby="preview-title">
+        <div class="panel-heading">
+          <span class="step-mark">02</span>
+          <div>
+            <h2 id="preview-title">Примерь спрайт</h2>
+            <p>Настрой размер и посадку в мире</p>
+          </div>
+        </div>
+
+        <article class="specimen-card">
+          <div class="specimen-caption">
+            <div>
+              <span id="selected-kind">НАХОДКА</span>
+              <h3 id="selected-name">Древний сундук</h3>
+            </div>
+            <b id="binding-state">ОРИГИНАЛ</b>
+          </div>
+          <div id="preview-stage" class="preview-stage">
+            <div class="stage-shadow" aria-hidden="true"></div>
+            <img id="preview-sprite" alt="" draggable="false" />
+            <span class="stage-axis axis-x" aria-hidden="true"></span>
+            <span class="stage-axis axis-y" aria-hidden="true"></span>
+          </div>
+          <p id="selected-id" class="technical-id"></p>
+        </article>
+
+        <div class="preview-controls">
+          <label class="range-control">
+            <span>Размер <output id="scale-output" for="scale-control">100%</output></span>
+            <input id="scale-control" type="range" min="50" max="250" step="5" value="100" />
+          </label>
+          <label class="range-control">
+            <span>Высота <output id="offset-output" for="offset-control">0 px</output></span>
+            <input id="offset-control" type="range" min="-40" max="40" step="1" value="0" />
+          </label>
+        </div>
+
+        <div class="path-card">
+          <span>Текущий файл</span>
+          <code id="selected-path"></code>
+          <button id="copy-path" class="icon-button" type="button" aria-label="Скопировать путь">⧉</button>
+        </div>
+
+        <div class="preview-actions">
+          <button id="reset-selected" class="pixel-button secondary" type="button">↺ Вернуть оригинал</button>
+        </div>
+      </section>
+
+      <section class="asset-panel panel" aria-labelledby="asset-title">
+        <div class="panel-heading asset-heading">
+          <span class="step-mark">03</span>
+          <div>
+            <h2 id="asset-title">Выбери замену</h2>
+            <p>Локальная библиотека Dungeon Crawl</p>
+          </div>
+        </div>
+        <div class="asset-toolbar">
+          <label class="search-field asset-search">
+            <span aria-hidden="true">⌕</span>
+            <span class="sr-only">Поиск спрайта</span>
+            <input id="asset-search" type="search" placeholder="trap, сундук, sword, altar…" autocomplete="off" />
+            <kbd>F</kbd>
+          </label>
+          <label class="compatibility-toggle">
+            <input id="compatible-only" type="checkbox" checked />
+            <span aria-hidden="true"></span>
+            Подходящие
+          </label>
+        </div>
+        <nav id="asset-filters" class="filter-strip asset-filters" aria-label="Категории спрайтов"></nav>
+        <div class="asset-result-line">
+          <span id="asset-count" class="result-count" aria-live="polite"></span>
+          <span>Нажатие сразу сохраняет выбор</span>
+        </div>
+        <div id="asset-grid" class="asset-grid" role="listbox" aria-label="Каталог спрайтов"></div>
+        <button id="load-more" class="load-more pixel-button secondary" type="button">Показать ещё</button>
+      </section>
+    </main>
+
+    <footer class="workshop-footer">
+      <div id="save-status" class="save-status" role="status" aria-live="polite">
+        <span aria-hidden="true">◆</span>
+        <strong>Все изменения хранятся только в этом браузере</strong>
+      </div>
+      <div class="footer-actions">
+        <input id="import-file" type="file" accept="application/json,.json" hidden />
+        <button id="import-bindings" class="pixel-button secondary" type="button">Импорт</button>
+        <button id="export-bindings" class="pixel-button secondary" type="button">Экспорт JSON</button>
+        <button id="reset-all" class="pixel-button danger" type="button">Сбросить всё</button>
+      </div>
+    </footer>
+
+    <template id="entity-template">
+      <button class="entity-row" type="button" role="option">
+        <span class="entity-thumb"><img alt="" draggable="false" /></span>
+        <span class="entity-copy"><strong></strong><small></small></span>
+        <span class="entity-change" aria-label="Изменено">◆</span>
+      </button>
+    </template>
+
+    <template id="asset-template">
+      <button class="asset-tile" type="button" role="option">
+        <span class="asset-image"><img alt="" loading="lazy" draggable="false" /></span>
+        <span class="asset-name"></span>
+        <small class="asset-folder"></small>
+      </button>
+    </template>
+
+    <script type="module" src="./sprites.js"></script>
+  </body>
+</html>

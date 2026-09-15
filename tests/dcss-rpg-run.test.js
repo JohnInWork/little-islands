@@ -8,26 +8,26 @@ import {
   SANCTUARY_HEAL,
   canClaimFinalArtifact,
   isTerminalRunStatus,
-  shardRewardForMonster,
+  goldRewardForMonster,
   useSanctuary,
 } from '../tools/dcss-rpg-run.js';
 
 test('three weak victories fund exactly one meaningful sanctuary heal', () => {
-  const income = Array.from({ length: 3 }, () => shardRewardForMonster({ tier: 1 }))
+  const income = Array.from({ length: 3 }, () => goldRewardForMonster({ tier: 1 }))
     .reduce((sum, reward) => sum + reward, 0);
   assert.equal(income, SANCTUARY_COST);
 
-  const result = useSanctuary({ depth: 2, hp: 40, maxHp: 100, shards: income });
+  const result = useSanctuary({ depth: 2, hp: 40, maxHp: 100, gold: income });
   assert.equal(result.ok, true);
   assert.equal(result.healed, SANCTUARY_HEAL);
-  assert.deepEqual(result.state, { depth: 2, hp: 76, maxHp: 100, shards: 0 });
+  assert.deepEqual(result.state, { depth: 2, hp: 76, maxHp: 100, gold: 0 });
 });
 
 test('sanctuary transactions reject unavailable, full-health and unaffordable use atomically', () => {
   for (const state of [
-    { depth: 1, hp: 40, maxHp: 100, shards: 9 },
-    { depth: 2, hp: 100, maxHp: 100, shards: 9 },
-    { depth: 2, hp: 40, maxHp: 100, shards: SANCTUARY_COST - 1 },
+    { depth: 1, hp: 40, maxHp: 100, gold: 9 },
+    { depth: 2, hp: 100, maxHp: 100, gold: 9 },
+    { depth: 2, hp: 40, maxHp: 100, gold: SANCTUARY_COST - 1 },
   ]) {
     const result = useSanctuary(state);
     assert.equal(result.ok, false);
@@ -36,7 +36,7 @@ test('sanctuary transactions reject unavailable, full-health and unaffordable us
 });
 
 test('boss rewards are exceptional and the artifact closes only a final run', () => {
-  assert.ok(shardRewardForMonster({ tier: 3, boss: true }) > shardRewardForMonster({ tier: 3 }));
+  assert.ok(goldRewardForMonster({ tier: 3, boss: true }) > goldRewardForMonster({ tier: 3 }));
   assert.equal(
     canClaimFinalArtifact({ depth: FINAL_DEPTH, status: 'playing', bossDefeated: true }),
     true,

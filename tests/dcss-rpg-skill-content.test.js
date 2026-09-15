@@ -53,6 +53,10 @@ test('future skill availability requires explicit runtime system support', () =>
   assert.deepEqual(skillById('trap-disarming').requiresSystems, ['trap-disarming']);
   assert.deepEqual(skillById('lockpicking').requiresSystems, ['lockpicking']);
   assert.deepEqual(skillById('trap-setting').requiresSystems, ['trap-placement']);
+  assert.deepEqual(skillById('appraisal').requiresSystems, ['item-identification']);
+  assert.deepEqual(skillById('swords').requiresSystems, ['sword-rhythm']);
+  assert.deepEqual(skillById('axes').requiresSystems, ['weapon-cleave']);
+  assert.deepEqual(skillById('shield').requiresSystems, ['shield-blocking']);
 });
 
 test('catalog is deeply immutable so consumers cannot alter global rules', () => {

@@ -1,3 +1,9 @@
+import {
+  DEFAULT_LOOT_ABUNDANCE,
+  floorLootEconomy,
+} from './dcss-rpg-loot-economy.js';
+import { FLOORS_PER_CHAPTER } from './dcss-rpg-room-plans.js';
+
 export const SCALING_VERSION = 1;
 
 // Единственный общий регулятор сложности новых забегов. Значение 1 оставлено
@@ -8,7 +14,7 @@ export const MAX_DIFFICULTY = 4;
 
 const CURVES = Object.freeze({
   1: Object.freeze({
-    floorsPerChapter: 3,
+    floorsPerChapter: FLOORS_PER_CHAPTER,
     maximumMonsterCount: 24,
     maximumMonsterTier: 9,
     maximumLootCount: 9,
@@ -60,6 +66,7 @@ export function floorScaling(
   depth,
   version = SCALING_VERSION,
   difficulty = DEFAULT_DIFFICULTY,
+  lootAbundance = DEFAULT_LOOT_ABUNDANCE,
 ) {
   assertDepth(depth);
   assertDifficulty(difficulty);
@@ -89,10 +96,18 @@ export function floorScaling(
   const difficultyDamage = difficulty;
   const difficultyTempo = 0.82 + difficulty * 0.18;
   const baseBossHp = 1.72 + Math.min(0.72, step * 0.11);
+  const baseLootCount = Math.min(curve.maximumLootCount, 4 + Math.floor(depth / 2));
+  const baseQualityBudget = round((4 + depth * 2.5) * (0.9 + difficulty * 0.1), 2);
+  const lootEconomy = floorLootEconomy({
+    baseCount: baseLootCount,
+    baseQualityBudget,
+    abundance: lootAbundance,
+  });
 
   return freezeProfile({
     version,
     difficulty,
+    lootAbundance,
     depth,
     chapter,
     floorInChapter,
@@ -130,9 +145,11 @@ export function floorScaling(
       attackRateMultiplier: 1.08,
     },
     rewards: {
-      lootCount: Math.min(curve.maximumLootCount, 4 + Math.floor(depth / 2)),
+      baseLootCount,
+      lootCount: lootEconomy.count,
+      lootAbundance,
       maximumItemDepth: depth,
-      qualityBudget: round((4 + depth * 2.5) * (0.9 + difficulty * 0.1), 2),
+      qualityBudget: lootEconomy.qualityBudget,
     },
   });
 }
@@ -153,7 +170,10 @@ export function itemPowerScore(item) {
     Math.max(0, (combat.damageScale ?? 1) - 1) * 3 +
     (combat.projectile ? 1.5 : 0) +
     new Set(item.magic?.immunity ?? []).size * 3 +
-    Math.max(0, item.magic?.healOnKill ?? 0) * 1.5;
+    Math.max(0, item.magic?.healOnKill ?? 0) * 1.5 +
+    (item.magic?.flight ? 9 : 0) +
+    (item.magic?.invisibility ? 9 : 0) +
+    (item.magic?.vampirism ? 9 : 0);
   return round(score, 2);
 }
 

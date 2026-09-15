@@ -71,7 +71,7 @@ export function heroAttackMotion(remaining, duration, style, reducedMotion = fal
   });
 }
 
-export function heroAttackTrail(style, progress) {
+export function heroAttackTrail(style, progress, cleaveRank = 0) {
   const phase = clamp01(progress);
   if (style === 'spear') {
     return Object.freeze(
@@ -98,12 +98,16 @@ export function heroAttackTrail(style, progress) {
     );
   }
   const heavy = style === 'heavy';
-  const count = heavy ? 6 : style === 'unarmed' ? 3 : 5;
-  const sweep = (heavy ? -0.64 : -0.86) + phase * (heavy ? 1.3 : 1.72);
+  const rank = heavy && Number.isInteger(cleaveRank)
+    ? Math.max(0, Math.min(3, cleaveRank))
+    : 0;
+  const count = heavy ? 6 + rank * 2 : style === 'unarmed' ? 3 : 5;
+  const sweepSize = heavy ? 1.3 + rank * 0.16 : 1.72;
+  const sweep = (heavy ? -sweepSize / 2 : -0.86) + phase * sweepSize;
   return Object.freeze(
     Array.from({ length: count }, (_, index) => {
-      const angle = sweep - index * (heavy ? 0.1 : 0.13);
-      const radius = (heavy ? 36 : 31) + index * (heavy ? 3 : 2);
+      const angle = sweep - index * (heavy ? Math.max(0.06, 0.1 - rank * 0.01) : 0.13);
+      const radius = (heavy ? 36 + rank * 2 : 31) + index * (heavy ? 2.2 : 2);
       return Object.freeze({
         x: Math.cos(angle) * radius,
         y: Math.sin(angle) * radius,

@@ -1,8 +1,8 @@
 {
   "id": "./",
   "lang": "ru",
-  "name": "Маленькие острова",
-  "short_name": "Острова",
+  "name": "DNG Codex",
+  "short_name": "DNG Codex",
   "description": "Мобильная 2D-RPG: исследуйте подземелья, собирайте добычу и создавайте собственный билд.",
   "start_url": "./",
   "scope": "./",

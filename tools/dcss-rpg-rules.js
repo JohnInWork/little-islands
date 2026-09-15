@@ -14,6 +14,26 @@ export const EQUIPMENT_STAT_KEYS = Object.freeze([
   'attackSpeed',
 ]);
 
+export const WEAPON_FAMILIES = Object.freeze([
+  'dagger',
+  'sword',
+  'axe',
+  'blunt',
+  'spear',
+  'staff',
+  'bow',
+]);
+
+export const WEAPON_LOADOUTS = Object.freeze([
+  'unarmed',
+  'one-handed',
+  'weapon-shield',
+  'dual-wield',
+  'two-handed',
+]);
+
+export const DUAL_WIELD_OFFHAND_DAMAGE_SCALE = 0.45;
+
 export const EQUIPMENT_SLOTS = Object.freeze([
   'cloak',
   'body',
@@ -32,14 +52,50 @@ export function createEmptyEquipment() {
   return Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));
 }
 
+export function isWeaponItem(item) {
+  return Boolean(
+    item?.slot === 'hand1' &&
+    WEAPON_FAMILIES.includes(item.weaponFamily) &&
+    item.combat,
+  );
+}
+
+export function isShieldItem(item) {
+  return item?.slot === 'hand2' && item.offhandKind === 'shield';
+}
+
 export function allowedSlotsForItem(item) {
   if (!item?.slot) return [];
   if (item.slot === 'ring1' || item.slot === 'ring2') return ['ring1', 'ring2'];
+  if (isWeaponItem(item) && item.hands !== 2) return ['hand1', 'hand2'];
   return [item.slot];
 }
 
 export function slotAcceptsItem(item, slot) {
   return EQUIPMENT_SLOTS.includes(slot) && allowedSlotsForItem(item).includes(slot);
+}
+
+export function isTwoHandedItem(item) {
+  return isWeaponItem(item) && item.hands === 2;
+}
+
+export function resolveWeaponLoadout(mainHand = null, offhand = null) {
+  const mainWeapon = isWeaponItem(mainHand) ? mainHand : null;
+  const offhandWeapon = isWeaponItem(offhand) ? offhand : null;
+  const primary = mainWeapon ?? offhandWeapon;
+  if (!primary) {
+    return { mode: 'unarmed', primary: null, secondary: null, shield: null };
+  }
+  if (isTwoHandedItem(primary)) {
+    return { mode: 'two-handed', primary, secondary: null, shield: null };
+  }
+  if (mainWeapon && offhandWeapon) {
+    return { mode: 'dual-wield', primary: mainWeapon, secondary: offhandWeapon, shield: null };
+  }
+  if (mainWeapon && isShieldItem(offhand)) {
+    return { mode: 'weapon-shield', primary: mainWeapon, secondary: null, shield: offhand };
+  }
+  return { mode: 'one-handed', primary, secondary: null, shield: null };
 }
 
 function itemMap(items) {
@@ -58,9 +114,12 @@ const UNARMED_COMBAT = Object.freeze({
 });
 
 export function weaponCombatProfile(weapon, offhand = null) {
-  const combat = weapon?.combat ?? UNARMED_COMBAT;
+  const loadout = resolveWeaponLoadout(weapon, offhand);
+  const combat = loadout.primary?.combat ?? UNARMED_COMBAT;
   const style = combat.style ?? UNARMED_COMBAT.style;
+  const secondaryCombat = loadout.secondary?.combat;
   return {
+    loadout: loadout.mode,
     style,
     range: combat.range ?? UNARMED_COMBAT.range,
     cooldown: combat.cooldown ?? UNARMED_COMBAT.cooldown,
@@ -68,7 +127,16 @@ export function weaponCombatProfile(weapon, offhand = null) {
     damageScale: combat.damageScale ?? UNARMED_COMBAT.damageScale,
     projectile: combat.projectile ?? null,
     projectileSpeed: combat.projectileSpeed ?? 0,
-    guard: style === 'blade' ? Math.max(0, offhand?.combat?.guard ?? 0) : 0,
+    guard: Math.max(0, loadout.shield?.combat?.guard ?? 0),
+    secondary: secondaryCombat
+      ? {
+          style: secondaryCombat.style ?? UNARMED_COMBAT.style,
+          damageScale:
+            (secondaryCombat.damageScale ?? UNARMED_COMBAT.damageScale) *
+            DUAL_WIELD_OFFHAND_DAMAGE_SCALE,
+          projectile: secondaryCombat.projectile ?? null,
+        }
+      : null,
   };
 }
 
@@ -81,7 +149,9 @@ export function combatDamage(stats, combat) {
 export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const byUid = itemMap(items);
   const bonus = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0 };
+  const mainHand = byUid.get(equipment.hand1);
   for (const slot of EQUIPMENT_SLOTS) {
+    if (slot === 'hand2' && isTwoHandedItem(mainHand)) continue;
     const uid = equipment[slot];
     if (!uid) continue;
     const item = byUid.get(uid);
@@ -119,10 +189,11 @@ export function resolveHeroDamage({ hp, amount, defense = 0, guard = 0 }) {
 }
 
 export function equipInventoryItem(state, uid, requestedSlot = null) {
-  const items = itemMap(state.items);
-  const item = items.get(uid);
+  const items = new Map(itemMap(state.items));
+  const sourceItem = items.get(uid);
   const sourceIndex = state.inventory.indexOf(uid);
-  if (!item || sourceIndex < 0) return { ok: false, reason: 'not-owned', state };
+  if (!sourceItem || sourceIndex < 0) return { ok: false, reason: 'not-owned', state };
+  const item = sourceItem;
 
   const allowed = allowedSlotsForItem(item);
   if (allowed.length === 0) return { ok: false, reason: 'not-equipment', state };
@@ -131,20 +202,39 @@ export function equipInventoryItem(state, uid, requestedSlot = null) {
     : allowed.find((candidate) => !state.equipment[candidate]) ?? allowed[0];
   if (!slotAcceptsItem(item, slot)) return { ok: false, reason: 'wrong-slot', state };
 
+  const conflictSlots = new Set([slot]);
+  if (isTwoHandedItem(item)) conflictSlots.add('hand2');
+  if (slot === 'hand2') {
+    const mainHand = items.get(state.equipment.hand1);
+    if (isTwoHandedItem(mainHand)) conflictSlots.add('hand1');
+  }
+
+  const equipment = { ...state.equipment };
+  const unequippedUids = [];
+  for (const conflictSlot of conflictSlots) {
+    const previousUid = equipment[conflictSlot];
+    if (previousUid && previousUid !== uid && !unequippedUids.includes(previousUid)) {
+      unequippedUids.push(previousUid);
+    }
+    equipment[conflictSlot] = null;
+  }
+  equipment[slot] = uid;
+
   const inventory = state.inventory.filter((candidate) => candidate !== uid);
-  const previousUid = state.equipment[slot];
-  if (previousUid && previousUid !== uid) inventory.push(previousUid);
+  inventory.push(...unequippedUids);
   if (inventory.length > 12) return { ok: false, reason: 'inventory-full', state };
+  items.set(uid, item);
 
   return {
     ok: true,
     equippedUid: uid,
-    unequippedUid: previousUid ?? null,
+    unequippedUid: unequippedUids[0] ?? null,
+    unequippedUids,
     slot,
     state: {
       items: [...items.values()],
       inventory,
-      equipment: { ...state.equipment, [slot]: uid },
+      equipment,
     },
   };
 }
@@ -153,6 +243,7 @@ export function unequipItem(state, slot) {
   if (!EQUIPMENT_SLOTS.includes(slot)) return { ok: false, reason: 'wrong-slot', state };
   const uid = state.equipment[slot];
   if (!uid) return { ok: false, reason: 'empty-slot', state };
+  const item = itemMap(state.items).get(uid);
   if (state.inventory.length >= 12) return { ok: false, reason: 'inventory-full', state };
   return {
     ok: true,
@@ -304,8 +395,14 @@ export function createMonsterStates(level, tileSize = 64) {
     return {
       ...definition,
       tier: monsterTier(definition),
-      spritePath: definition.path,
+      spritePath: spawn.spritePath ?? definition.path,
       instanceId: spawn.instanceId,
+      roomEncounterId: spawn.roomEncounterId ?? null,
+      guardingFindId: spawn.guardingFindId ?? null,
+      activationFindId: spawn.activationFindId ?? null,
+      vaultRewardGold: Number.isInteger(spawn.vaultRewardGold)
+        ? Math.max(0, spawn.vaultRewardGold)
+        : 0,
       x: ((spawn.state?.x ?? spawn.x) + 0.5) * tileSize,
       y: ((spawn.state?.y ?? spawn.y) + 0.5) * tileSize,
       hp: Math.min(maxHp, spawn.state?.hp ?? maxHp),
@@ -331,6 +428,13 @@ export function createMonsterStates(level, tileSize = 64) {
       attackTargetX: 0,
       attackTargetY: 0,
       attackRecovery: 0,
+      attackSequence: spawn.state?.attackSequence ?? 0,
+      shieldStun: 0,
+      stride: 0,
+      movePulse: 0,
+      crowdPressure: 0,
+      pressureStep: index,
+      pressurePreviousCell: null,
       alertFlash: 0,
       alerted: 0,
       facing: 1,
@@ -342,6 +446,12 @@ export function assertEquipmentCatalog(items) {
   for (const item of items) {
     if (!item.slot) continue;
     if (allowedSlotsForItem(item).length === 0) throw new Error(`Unsupported slot for ${item.id}`);
+    if (item.hands !== undefined && ![1, 2].includes(item.hands)) {
+      throw new Error(`Invalid hand count for ${item.id}`);
+    }
+    if (item.hands === 2 && item.slot !== 'hand1') {
+      throw new Error(`Two-handed item must use hand1: ${item.id}`);
+    }
     if (
       !item.stats ||
       !EQUIPMENT_STAT_KEYS.every((key) => Number.isFinite(item.stats[key] ?? 0)) ||
@@ -352,6 +462,8 @@ export function assertEquipmentCatalog(items) {
     if (item.slot === 'hand1') {
       const combat = item.combat;
       if (
+        !WEAPON_FAMILIES.includes(item.weaponFamily) ||
+        ![1, 2].includes(item.hands) ||
         !combat ||
         !['blade', 'heavy', 'spear', 'staff', 'bow'].includes(combat.style) ||
         !['range', 'cooldown', 'attackDuration', 'damageScale'].every(
@@ -360,6 +472,9 @@ export function assertEquipmentCatalog(items) {
       ) {
         throw new Error(`Missing combat profile for ${item.id}`);
       }
+    }
+    if (item.offhandKind !== undefined && !['shield', 'focus'].includes(item.offhandKind)) {
+      throw new Error(`Invalid off-hand kind for ${item.id}`);
     }
   }
   return true;

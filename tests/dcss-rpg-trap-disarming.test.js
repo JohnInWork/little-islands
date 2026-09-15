@@ -70,11 +70,12 @@ test('skill ranks and bilingual copy expose the exact trap tier', () => {
   assert.match(en.unavailable, /Trap disarming/);
 });
 
-test('v12 migration adds disarmed history and v14 hydration rejects foreign disarmed traps', () => {
+test('v12 migration adds disarmed history and v15 hydration rejects foreign disarmed traps', () => {
   const { dungeon, trap } = trapFixture();
   const legacy = createRun(dungeon.seed, dungeon);
   legacy.version = 12;
   delete legacy.floor.disarmedTrapIds;
+  delete legacy.floor.placedTraps;
   const migrated = migrateLegacyRun(legacy);
   assert.deepEqual(migrated.floor.disarmedTrapIds, []);
   assert.equal(validateRun(migrated), true);

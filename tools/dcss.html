@@ -49,10 +49,83 @@
             <button type="button" data-language="en" aria-pressed="false">EN</button>
           </div>
           <div class="main-menu-actions">
+            <p id="main-menu-state" class="main-menu-state" hidden>ПАУЗА</p>
             <button id="start-game" class="start-game" type="button" disabled>
               <span aria-hidden="true">▶</span><b id="start-game-label">Начать забег</b>
             </button>
+            <div class="main-menu-secondary">
+              <button id="edit-appearance" type="button" disabled>
+                <img id="menu-appearance-icon" src="../assets/dcss-preview/player/base/human_m.png" alt="" />
+                <b id="edit-appearance-label">Внешность</b>
+              </button>
+              <button id="new-run-from-menu" type="button" hidden>
+                <span aria-hidden="true">↻</span><b id="new-run-from-menu-label">Новый забег</b>
+              </button>
+            </div>
             <p id="main-menu-hint" class="main-menu-hint">Случайное подземелье</p>
+          </div>
+        </article>
+      </section>
+
+      <section
+        id="appearance-editor"
+        class="appearance-editor"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="appearance-editor-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="appearance-card pixel-frame">
+          <header class="appearance-header">
+            <button id="close-appearance" type="button" aria-label="Закрыть редактор">×</button>
+            <h2 id="appearance-editor-title">Внешность</h2>
+            <i aria-hidden="true"></i>
+          </header>
+          <div class="appearance-preview">
+            <canvas id="appearance-paperdoll" width="192" height="224" aria-label="Предпросмотр героя"></canvas>
+          </div>
+          <div class="appearance-options">
+            <section class="appearance-option" aria-labelledby="appearance-body-label">
+              <b id="appearance-body-label">Тело</b>
+              <div>
+                <button type="button" data-appearance-kind="body" data-appearance-step="-1" aria-label="Предыдущее тело">‹</button>
+                <output id="appearance-body-value">1/2</output>
+                <button type="button" data-appearance-kind="body" data-appearance-step="1" aria-label="Следующее тело">›</button>
+              </div>
+            </section>
+            <section class="appearance-option" aria-labelledby="appearance-hair-label">
+              <b id="appearance-hair-label">Волосы</b>
+              <div>
+                <button type="button" data-appearance-kind="hair" data-appearance-step="-1" aria-label="Предыдущая причёска">‹</button>
+                <output id="appearance-hair-value">2/9</output>
+                <button type="button" data-appearance-kind="hair" data-appearance-step="1" aria-label="Следующая причёска">›</button>
+              </div>
+            </section>
+          </div>
+          <footer class="appearance-actions">
+            <button id="save-appearance" type="button">Готово</button>
+          </footer>
+        </article>
+      </section>
+
+      <section
+        id="new-run-confirm"
+        class="new-run-confirm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="new-run-confirm-title"
+        aria-describedby="new-run-confirm-copy"
+        aria-hidden="true"
+        inert
+      >
+        <article class="new-run-confirm-card pixel-frame">
+          <span aria-hidden="true">↻</span>
+          <h2 id="new-run-confirm-title">Новый забег?</h2>
+          <p id="new-run-confirm-copy">Текущий прогресс будет потерян.</p>
+          <div>
+            <button id="cancel-new-run" type="button">Отмена</button>
+            <button id="confirm-new-run" type="button">Начать</button>
           </div>
         </article>
       </section>
@@ -78,6 +151,12 @@
         <span>III</span>
         <i aria-hidden="true"></i>
       </div>
+
+      <button id="pause-game" class="pause-game pixel-frame" type="button" aria-label="Пауза" disabled>
+        <svg viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
+          <path d="M1 1h2v5H1zM4 1h2v5H4z" />
+        </svg>
+      </button>
 
       <div
         id="move-control"
@@ -123,6 +202,22 @@
         <output id="loot-value"></output>
       </div>
 
+      <output
+        id="level-up-celebration"
+        class="level-up-celebration"
+        role="status"
+        aria-live="assertive"
+        aria-atomic="true"
+        hidden
+      >
+        <span class="level-up-mark" aria-hidden="true">
+          <small id="level-up-label">НОВЫЙ УРОВЕНЬ</small>
+          <i>↑</i>
+          <strong id="level-up-value">2</strong>
+          <b><span id="level-up-points">+1</span><em>✦</em></b>
+        </span>
+      </output>
+
       <button id="bag" class="bag-button pixel-frame" type="button" aria-label="Открыть рюкзак" disabled>
         <svg
           class="bag-glyph"
@@ -151,6 +246,17 @@
         <b>12</b>
       </button>
 
+      <button
+        id="interact-action"
+        class="interact-action pixel-frame"
+        type="button"
+        aria-label="Взаимодействовать"
+        hidden
+      >
+        <img id="interact-action-icon" alt="" />
+        <b aria-hidden="true">+</b>
+      </button>
+
       <div id="boss-hud" class="boss-hud pixel-frame" hidden aria-label="Хранитель глубин">
         <img alt="" />
         <div
@@ -169,11 +275,11 @@
         id="sanctuary-action"
         class="sanctuary-action pixel-frame"
         type="button"
-        aria-label="Исцелиться за три осколка"
+        aria-label="Исцелиться за три золота"
         hidden
       >
         <span aria-hidden="true">♥</span>
-        <b aria-hidden="true"><i>3</i>◆</b>
+        <b aria-hidden="true"><i>3</i>●</b>
       </button>
 
       <p id="door-announcement" class="screen-reader-message" role="status" aria-live="polite"></p>
@@ -201,6 +307,23 @@
           </header>
           <div id="context-action-list" class="context-action-list"></div>
         </article>
+      </section>
+
+      <section
+        id="trap-placement"
+        class="trap-placement"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trap-placement-label"
+        aria-hidden="true"
+        inert
+      >
+        <output class="trap-placement-prompt pixel-frame">
+          <img src="../assets/dcss-preview/dngn/traps/blade.png" alt="" />
+          <strong id="trap-placement-label">Выбери клетку</strong>
+        </output>
+        <div id="trap-placement-targets" class="trap-placement-targets" role="group"></div>
+        <button id="cancel-trap-placement" class="cancel-trap-placement pixel-frame" type="button" aria-label="Отменить установку">×</button>
       </section>
 
       <section
@@ -264,7 +387,7 @@
           <header class="inventory-header">
             <button id="close-inventory" type="button" aria-label="Закрыть рюкзак">×</button>
             <strong id="inventory-title">РЮКЗАК</strong>
-            <div class="currency" aria-label="Осколки: 86"><span>◆</span><b>86</b></div>
+            <div class="currency" aria-label="Золото: 86"><span>●</span><b>86</b></div>
           </header>
 
           <nav id="inventory-filters" class="inventory-filters" aria-label="Фильтр предметов">
@@ -307,7 +430,7 @@
             </button>
             <output id="inventory-count" aria-label="Предметов: 0 из 12">0/12</output>
             <button id="salvage-confirm" type="button" aria-label="Разобрать выбранные предметы">
-              <span aria-hidden="true">◆</span><strong id="salvage-confirm-label">Получить</strong><b>0</b>
+              <span aria-hidden="true">●</span><strong id="salvage-confirm-label">Получить</strong><b>0</b>
             </button>
           </footer>
         </div>
@@ -380,7 +503,7 @@
           />
           <div class="run-summary" aria-hidden="true">
             <span id="result-depth">I</span>
-            <span>◆ <b id="result-shards">0</b></span>
+            <span>● <b id="result-gold">0</b></span>
             <span>✦ <b id="result-level">1</b></span>
           </div>
           <button id="restart-run" class="restart-run pixel-frame" type="button" aria-label="Начать новый забег">
