@@ -349,6 +349,7 @@ function semanticArchetypes(level) {
       .map((_room, roomIndex) => roomIndex)
       .filter((roomIndex) => (
         roomIndex > 0
+        && !roomHasWater(level, roomIndex)
         && (
           !assigned.has(roomIndex)
           || MERCHANT_FALLBACK_ARCHETYPE_IDS.includes(assigned.get(roomIndex))
@@ -366,6 +367,18 @@ function semanticArchetypes(level) {
     if (candidates.length > 0) assigned.set(candidates[0], 'merchant-alcove');
   }
   return assigned;
+}
+
+/** A merchant never sets up shop in a flooded room. */
+function roomHasWater(level, roomIndex) {
+  const room = level.rooms?.[roomIndex];
+  if (!room || !Array.isArray(level.grid)) return false;
+  for (let y = room.y; y < room.y + room.height; y += 1) {
+    for (let x = room.x; x < room.x + room.width; x += 1) {
+      if (level.grid[y]?.[x] === '~') return true;
+    }
+  }
+  return false;
 }
 
 function roundedBudget(value) {

@@ -89,7 +89,7 @@ rng(0..2)`, статус `poison|chilled` на `4 + min(6, depth)` секунд,
 
 ## Сохранение
 
-Save v35 хранит `floor.resolvedFindIds` (до четырёх ID, включая landmark) и
+Save v36 хранит `floor.resolvedFindIds` (до четырёх ID, включая landmark) и
 `floor.chests`. Landmark не добавляет полей: старое
 сохранение после reload видит алтарь неразрешённым, а уже разрешённый алтарь
 остаётся холодным. При загрузке каждый ID

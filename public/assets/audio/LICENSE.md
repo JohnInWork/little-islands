@@ -96,14 +96,15 @@ from the site's public HQ previews.
 - Files: `sfx/drink.mp3` (inventory/bottle), `sfx/kill-1.mp3` (goblin-4),
   `sfx/kill-2.mp3` (NPC/gutteral beast/mnstr7), `sfx/kill-3.mp3` (NPC/shade/shade5)
 
-## rubberduck — 80 CC0 creature SFX, 80 CC0 RPG SFX, 100 CC0 metal and wood SFX
+## rubberduck — 80 CC0 creature SFX, 80 CC0 RPG SFX, 100 CC0 metal and wood SFX, 100 CC0 SFX
 
-- Sources: <https://opengameart.org/content/80-cc0-creture-sfx-2>,
+- Sources: <https://opengameart.org/content/80-cc0-creture-sfx-2>, <https://opengameart.org/content/100-cc0-sfx>,
   <https://opengameart.org/content/80-cc0-creature-sfx>, <https://opengameart.org/content/80-cc0-rpg-sfx>,
   <https://opengameart.org/content/100-cc0-metal-and-wood-sfx>
 - License: CC0 1.0
 - Files: `sfx/kill-4.mp3` (die_03), `sfx/eat-2.mp3` (eat_02), `sfx/chest.mp3` (lock_01),
-  `sfx/gold-2.mp3` (item_coins_01), `sfx/trap.mp3` (blade_01 mixed with metal_spring_02)
+  `sfx/gold-2.mp3` (item_coins_01), `sfx/trap.mp3` (blade_01 mixed with metal_spring_02),
+  `sfx/splash-1.mp3` and `sfx/splash-2.mp3` (100 CC0 SFX: splash_01, splash_02)
 
 ## fvcalderan — Classic Fanfare Lick
 

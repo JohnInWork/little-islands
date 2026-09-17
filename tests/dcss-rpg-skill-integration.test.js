@@ -47,7 +47,7 @@ test('v9 migration grants earned skill points and preserves difficulty across th
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
   assert.equal(next.version, SAVE_VERSION);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v35');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v36');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   assert.equal(next.difficulty, before.difficulty);
   assert.equal(next.hero.hp, before.hero.hp);

@@ -10,6 +10,9 @@ const pair = (ru, en) => Object.freeze({ ru, en });
 /** RU/EN names for anything that can end a run: monsters, fauna, effects, traps. */
 export const RUN_END_SOURCE_NAMES = Object.freeze({
   goblin: pair('Гоблин', 'Goblin'),
+  'electric-eel': pair('Электрический угорь', 'Electric eel'),
+  'merfolk-impaler': pair('Мерфолк-копейщик', 'Merfolk impaler'),
+  'spell:storm': pair('Собственная молния', 'Own lightning'),
   bat: pair('Летучая мышь', 'Bat'),
   'chest-mimic': pair('Мимик', 'Mimic'),
   'zombie-rat': pair('Зомби-крыса', 'Zombie rat'),

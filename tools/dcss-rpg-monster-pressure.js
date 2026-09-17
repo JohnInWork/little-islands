@@ -12,7 +12,7 @@ function cellKey(x, y) {
 }
 
 function isOpenCell(grid, x, y) {
-  return grid[y]?.[x] === '.';
+  return grid[y]?.[x] === '.' || grid[y]?.[x] === '~';
 }
 
 function openExitCount(grid, x, y) {

@@ -76,9 +76,9 @@ test('the summary lists floor, time, kills, gold, level and seed, plus the cause
 });
 
 test('run statistics are a strict persisted field of save v35', () => {
-  assert.equal(SAVE_VERSION, 35);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v35');
-  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v34');
+  assert.equal(SAVE_VERSION, 36);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v36');
+  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v35');
   assert.deepEqual(createRunStats(), { kills: 0, activeSeconds: 0, killerId: null });
   assert.deepEqual(createRunStats({ kills: 3, activeSeconds: 12.5, killerId: 'goblin', extra: 1 }), { kills: 3, activeSeconds: 12.5, killerId: 'goblin' });
   assert.deepEqual(createRunStats({ kills: -1, activeSeconds: 'x', killerId: 42 }), { kills: 0, activeSeconds: 0, killerId: null });
@@ -110,7 +110,7 @@ test('v34 saves gain empty statistics while keeping their merchant purses and co
   legacy.floor.merchants[0].gold = 7;
   legacy.floor.merchants[0].purchasedEntryIds = [dungeon.merchants[0].stock[0].entryId];
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 35);
+  assert.equal(migrated.version, 36);
   assert.deepEqual(migrated.stats, { kills: 0, activeSeconds: 0, killerId: null });
   assert.equal(migrated.floor.merchants[0].gold, 7, 'the persisted purse is not rebuilt');
   assert.deepEqual(migrated.floor.merchants[0].purchasedEntryIds, [dungeon.merchants[0].stock[0].entryId]);
@@ -124,7 +124,7 @@ test('v34 saves gain empty statistics while keeping their merchant purses and co
   older.floor.merchantPurchases = [];
   delete older.floor.merchants;
   const fromOlder = migrateLegacyRun(older);
-  assert.equal(fromOlder.version, 35);
+  assert.equal(fromOlder.version, 36);
   assert.deepEqual(fromOlder.stats, { kills: 0, activeSeconds: 0, killerId: null });
   assert.equal(validateRun(fromOlder), true);
 });
@@ -138,7 +138,7 @@ test('the runtime counts kills and active seconds, remembers the killer and rend
   assert.match(runtime, /run\.floor\.defeated\.push\(monster\.instanceId\);\s+run\.stats\.kills \+= 1;/);
   assert.match(runtime, /hungerAccumulator -= activeSeconds;\s+run\.stats\.activeSeconds \+= activeSeconds;/);
   assert.match(runtime, /run\.stats\.killerId = typeof source === 'string' \? source : null;/);
-  assert.match(runtime, /damageHero\(monster\.damage, \{ blocked: block\.blocked, source: monster\.id \}\)/);
+  assert.match(runtime, /damageHero\(strikeDamage, \{ blocked: block\.blocked, source: monster\.id \}\)/);
   assert.match(runtime, /damageHero\(creature\.damage, \{ blocked: block\.blocked, source: `wildlife:\$\{creature\.id\}` \}\)/);
   assert.match(runtime, /source: tick\.pulses\.burning \? 'effect:burning' : 'effect:poison'/);
   assert.match(runtime, /runSummaryModel\(\{/);

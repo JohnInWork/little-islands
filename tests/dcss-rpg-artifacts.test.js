@@ -154,8 +154,8 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
   legacyArtifactRun.hero.hp = 82;
   const artifactMigration = migrateLegacyRun(legacyArtifactRun);
   const migratedArtifact = artifactMigration.items.find(({ uid }) => uid === 'starter-sword');
-  assert.equal(SAVE_VERSION, 35);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v35');
+  assert.equal(SAVE_VERSION, 36);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v36');
   assert.equal(artifactMigration.gold, 13);
   assert.equal(Object.hasOwn(artifactMigration, 'shards'), false);
   assert.equal(migratedArtifact.artifactPowerId, 'vampirism');
@@ -186,7 +186,7 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
 
 test('runtime connects flight, invisibility and vampirism to movement, AI and combat', () => {
   const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  assert.match(runtime, /world\[y\]\[x\] === '~' && currentHeroMagic\(\)\.flight/);
+  assert.match(runtime, /world\[y\]\[x\] === '\.' \|\| world\[y\]\[x\] === '~'/, 'water is walkable for everyone; flight only skips the wet penalty');
   assert.match(runtime, /event\.id === 'blade-trap' && currentHeroMagic\(\)\.flight/);
   assert.match(runtime, /function isHeroConcealed\(\)/);
   assert.match(runtime, /hero\.invisibilityReveal = INVISIBILITY_REVEAL_SECONDS/);

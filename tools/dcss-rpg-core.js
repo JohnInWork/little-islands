@@ -78,11 +78,13 @@ import {
   createChestContainerStates,
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
+import { WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
 
-export const SAVE_VERSION = 35;
-export const SAVE_KEY = 'dng-codex:rpg:v35';
+export const SAVE_VERSION = 36;
+export const SAVE_KEY = 'dng-codex:rpg:v36';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v35',
   'dng-codex:rpg:v34',
   'dng-codex:rpg:v33',
   'dng-codex:rpg:v32',
@@ -118,7 +120,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 7;
+export const GENERATOR_VERSION = 8;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -218,7 +220,7 @@ function carveCorridor(grid, from, to, horizontalFirst) {
 
 export function isWalkableCell(grid, x, y, { allowDoors = false } = {}) {
   if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return false;
-  return grid[y][x] === '.' || (allowDoors && grid[y][x] === 'D');
+  return grid[y][x] === '.' || grid[y][x] === '~' || (allowDoors && grid[y][x] === 'D');
 }
 
 export function hasLineOfSight(grid, start, end) {
@@ -465,6 +467,7 @@ export function generateDungeon({
   scalingVersion = SCALING_VERSION,
   difficulty = DEFAULT_DIFFICULTY,
   lootAbundance = DEFAULT_LOOT_ABUNDANCE,
+  waterChance = WATER_ROOM_CHANCE,
 }) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
   if (!Number.isInteger(depth) || depth < 1)
@@ -757,6 +760,49 @@ export function generateDungeon({
       seed: mixSeed(floorSeed, 0x57494c44 + index),
     });
   }
+  // Shallow water owns its own stream too. A rare room floods after every
+  // other placement, so a flooded floor keeps the rooms, monsters, loot and
+  // fauna of the dry one; only the floor glyphs and two water creatures differ.
+  const waterRng = createRng(mixSeed(floorSeed, 0x57415452));
+  const roomHolds = (room, point) => Boolean(point)
+    && point.x >= room.x && point.x < room.x + room.width
+    && point.y >= room.y && point.y < room.y + room.height;
+  const dryRooms = new Set(
+    rooms
+      .map((room, index) => ({ room, index }))
+      .filter(({ room, index }) => index === 0
+        || room === surpriseRoom
+        || roomHolds(room, spawn)
+        || roomHolds(room, exit)
+        || roomHolds(room, sanctuary)
+        || roomHolds(room, objective?.boss))
+      .map(({ index }) => index),
+  );
+  let floodedRoomIndex = chooseFloodedRoom({ rng: waterRng, rooms, excluded: dryRooms, chance: waterChance });
+  if (floodedRoomIndex !== null) {
+    const keepCells = [...events, ...passiveCreatures].filter((entry) => roomHolds(rooms[floodedRoomIndex], entry));
+    const water = shuffle(waterRng, floodRoom(grid, rooms[floodedRoomIndex], { rng: waterRng, keepCells }));
+    if (water.length < 4) {
+      // A room that is all doorway aprons is not worth a pool: dry it again.
+      for (const { x, y } of water) grid[y][x] = '.';
+      floodedRoomIndex = null;
+    }
+  }
+  if (floodedRoomIndex !== null) {
+    const water = [];
+    const room = rooms[floodedRoomIndex];
+    for (let y = room.y; y < room.y + room.height; y += 1) {
+      for (let x = room.x; x < room.x + room.width; x += 1) if (grid[y][x] === '~') water.push({ x, y });
+    }
+    const waterSpawns = water.filter(({ x, y }) => !occupied.has(`${x},${y}`));
+    const waterMonsterIds = depth >= 3 ? ['electric-eel', 'merfolk-impaler'] : ['electric-eel'];
+    waterMonsterIds.forEach((id, index) => {
+      const cell = waterSpawns[index];
+      if (!cell) return;
+      occupied.add(`${cell.x},${cell.y}`);
+      monsters.push({ instanceId: `monster-${depth}-water-${index}`, id, x: cell.x, y: cell.y });
+    });
+  }
   // Interactive finds own an independent stream. Adding a new find or changing
   // its presentation cannot reshuffle rooms, monsters, loot, fauna or doors.
   // Landmarks (altar and later fountain/rune) use a third stream, so they never
@@ -836,6 +882,7 @@ export function generateDungeon({
     roomPlans,
     roomEncounters: roomContent.encounters,
     merchants: roomContent.merchants,
+    floodedRoomIndex,
   };
 }
 
@@ -1076,10 +1123,10 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1118,7 +1165,10 @@ export function migrateLegacyRun(snapshot) {
       delete migrated.floor.merchantPurchases;
     }
     // v35 adds whole-run statistics; an older run simply starts counting now.
+    // v36 (generator 8) floods a rare room with shallow water: the floor is
+    // regenerated from the same seed and every saved position stays walkable.
     migrated.stats = createRunStats(snapshot.stats);
+    migrated.generatorVersion = GENERATOR_VERSION;
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     return migrated;
   }

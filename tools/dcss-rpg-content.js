@@ -6,6 +6,37 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.15, vision: 5.8, windup: 0.16, pursuit: 3.6 },
   },
   {
+    // Water creatures never join the random pool (`spawn`): the generator seats
+    // them in a flooded room. The eel cannot leave water (land speed 0) and its
+    // bite shocks everyone wet within two tiles, allies included.
+    id: 'electric-eel',
+    path: 'mon/aquatic/electric_eel.png',
+    tier: 2,
+    hp: 7,
+    damage: 5,
+    speed: 1.2,
+    xp: 9,
+    spawn: 'water',
+    terrain: { water: 1.25, land: 0 },
+    shock: { radius: 2 },
+    bloodColor: '#3f6b74',
+    threat: { attackRate: 1.2, vision: 6.5, windup: 0.14, pursuit: 5 },
+  },
+  {
+    id: 'merfolk-impaler',
+    path: 'mon/merfolk_impaler.png',
+    waterPath: 'mon/merfolk_impaler_water.png',
+    tier: 2,
+    hp: 9,
+    damage: 5,
+    speed: 1.05,
+    xp: 11,
+    spawn: 'water',
+    terrain: { water: 1.35, land: 0.7 },
+    bloodColor: '#6b2f3a',
+    threat: { attackRate: 1.1, vision: 6.2, windup: 0.18, pursuit: 5.5 },
+  },
+  {
     id: 'bat',
     path: 'mon/animals/bat.png',
     tier: 1,
@@ -1178,7 +1209,7 @@ export const SANCTUARY_PATH = 'dngn/altars/generic.png';
 export const ARTIFACT_PATH = 'item/misc/misc_orb2.png';
 
 export const CONTENT_PATHS = Object.freeze([
-  ...MONSTER_CATALOG.map(({ path }) => path),
+  ...MONSTER_CATALOG.flatMap(({ path, waterPath }) => (waterPath ? [path, waterPath] : [path])),
   ...LOOT_CATALOG.map(({ icon }) => icon),
   ...EVENT_CATALOG.map(({ path }) => path),
   EXIT_PATH,

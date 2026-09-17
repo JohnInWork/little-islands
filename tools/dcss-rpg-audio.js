@@ -46,6 +46,7 @@ export const SOUND_SAMPLES = Object.freeze({
   victory: sample('sfx/victory.mp3', 0.5),
   'ui-tap': sample(['sfx/ui-tap-1.mp3', 'sfx/ui-tap-2.mp3'], 0.25),
   'ui-close': sample('sfx/ui-close.mp3', 0.22),
+  splash: sample(['sfx/splash-1.mp3', 'sfx/splash-2.mp3'], 0.35),
 });
 
 export const SOUND_IDS = Object.freeze(Object.keys(SOUND_SAMPLES));

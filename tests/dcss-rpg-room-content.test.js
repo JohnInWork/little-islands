@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { monsterById } from '../tools/dcss-rpg-content.js';
+
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { ROOM_ENCOUNTER_KINDS } from '../tools/dcss-rpg-room-content.js';
 
@@ -19,7 +21,8 @@ test('treasure room content is deterministic and consumes the existing floor bud
     assert.deepEqual(again.roomEncounters, dungeon.roomEncounters);
     assert.deepEqual(again.monsters, dungeon.monsters);
     assert.deepEqual(again.events, dungeon.events);
-    assert.ok(dungeon.monsters.length <= dungeon.scaling.encounters.monsterCount);
+    const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn);
+    assert.ok(pooled.length <= dungeon.scaling.encounters.monsterCount);
     assert.equal(new Set(dungeon.monsters.map(({ instanceId }) => instanceId)).size, dungeon.monsters.length);
     for (const encounter of dungeon.roomEncounters) {
       assert.ok(ROOM_ENCOUNTER_KINDS.includes(encounter.kind));

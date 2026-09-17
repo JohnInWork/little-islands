@@ -154,6 +154,18 @@ import {
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
+  WATER_CONDUCTION_PERCENT,
+  WATER_FIRE_MULTIPLIER,
+  WATER_WET_DURATION,
+  WATER_WET_REFRESH_BELOW,
+  actorInWater,
+  isWaterCell,
+  selectWaterConductionTargets,
+  terrainAllowsCell,
+  terrainMeleeMultiplier,
+  terrainSpeedMultiplier,
+} from './dcss-rpg-terrain.js';
+import {
   ONBOARDING_KEY,
   advanceOnboarding,
   createOnboardingState,
@@ -2072,12 +2084,59 @@ function resize() {
 }
 
 function isWalkable(x, y) {
-  return x >= 0 && y >= 0 && x < WORLD_WIDTH && y < WORLD_HEIGHT && world[y][x] === '.';
+  return x >= 0 && y >= 0 && x < WORLD_WIDTH && y < WORLD_HEIGHT && (world[y][x] === '.' || world[y][x] === '~');
 }
 
 function isHeroWalkable(x, y) {
   if (x < 0 || y < 0 || x >= (world[0]?.length ?? 0) || y >= world.length) return false;
-  return world[y][x] === '.' || (world[y][x] === '~' && currentHeroMagic().flight);
+  return world[y][x] === '.' || world[y][x] === '~';
+}
+
+function heroInWater() {
+  return isWaterCell(world, Math.floor(hero.x / TILE), Math.floor(hero.y / TILE));
+}
+
+/** Wading: in the water and not flying over it. */
+function heroWading() {
+  return heroInWater() && !currentHeroMagic().flight;
+}
+
+/** Keeps a wading hero wet and splashes on entry; leaving lets the timer run out. */
+function updateHeroTerrain() {
+  const wading = !hero.dead && heroWading();
+  if (wading && (hero.effects.wet ?? 0) < WATER_WET_REFRESH_BELOW) {
+    hero.effects = applyActorEffect(hero.effects, 'wet', WATER_WET_DURATION).effects;
+  }
+  if (wading && !hero.wading) {
+    playSound('splash');
+    burst(hero.x, hero.y + 6, '#8fd0dc', 10);
+  }
+  if (wading !== Boolean(hero.wading)) {
+    hero.wading = wading;
+    updateHud();
+  }
+}
+
+/** An electric eel's bite arcs to everyone wet nearby, its own kind included. */
+function shockWetActorsAround(source) {
+  const radius = TILE * (source.shock?.radius ?? 2);
+  let count = 0;
+  for (const candidate of monsters) {
+    if (candidate === source || candidate.dead > 0) continue;
+    if (Math.hypot(candidate.x - source.x, candidate.y - source.y) > radius) continue;
+    if (!(candidate.effects.wet > 0) && !actorInWater(world, candidate, TILE)) continue;
+    addLightningArc(source, candidate);
+    damageMonster(candidate, source.damage, '#8fdff2', {
+      style: 'staff',
+      projectile: true,
+      sourceX: source.x,
+      sourceY: source.y,
+      vampiric: false,
+    });
+    burst(candidate.x, candidate.y - 8, '#bdf7ff', 12);
+    count += 1;
+  }
+  if (count > 0) playStormCrackle(count);
 }
 
 function canActorsMelee(attacker, target) {
@@ -2115,7 +2174,7 @@ function isCurrentlyVisible(x, y) {
 function findPath(
   targetX,
   targetY,
-  { allowHidden = false, start = null, blockedCells = null, allowBlockedEnd = true, allowedHazardCell = null, heroMovement = false } = {},
+  { allowHidden = false, start = null, blockedCells = null, allowBlockedEnd = true, allowedHazardCell = null, heroMovement = false, terrain = null } = {},
 ) {
   const startCell = start ?? { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const end = { x: Math.floor(targetX), y: Math.floor(targetY) };
@@ -2124,8 +2183,9 @@ function findPath(
   let navigationGrid = allowHidden
     ? world
     : world.map((row, y) => row.map((cell, x) => (revealed.has(`${x},${y}`) ? cell : '#')));
-  if (heroMovement && currentHeroMagic().flight) {
-    navigationGrid = navigationGrid.map((row) => row.map((cell) => cell === '~' ? '.' : cell));
+  // Water-bound creatures (an eel) only ever route through water.
+  if (terrain?.land === 0) {
+    navigationGrid = navigationGrid.map((row) => row.map((cell) => (cell === '~' ? cell : '#')));
   }
   // Enemy paths still use their own occupancy rules. Only the player's known
   // traps are obstacles; hidden mechanisms must not leak through route finding.
@@ -2691,14 +2751,14 @@ function syncWorldActors3D() {
       y: hero.y + motion.dy,
       size: ACTOR_SIZE,
       facing: hero.facing,
-      screenOffsetY: (heroMagic.flight ? -23 : -13) + motion.bob,
+      screenOffsetY: (heroMagic.flight ? -23 : heroWading() ? -7 : -13) + motion.bob,
       opacity: hero.dead ? Math.max(0.2, 1 - deathProgress * 0.8) : concealed ? 0.38 : 1,
       rotation: deathProgress * hero.facing * 0.8,
       scaleX: motion.attackMotion.scaleX,
       scaleY: motion.attackMotion.scaleY,
       hit: hero.hurt > 0,
       shadowScale: heroMagic.flight ? 0.72 : 1,
-      shadowOpacity: heroMagic.flight ? 0.18 : 0.42,
+      shadowOpacity: heroMagic.flight ? 0.18 : heroWading() ? 0.12 : 0.42,
     },
     monsters: [
       ...monsters
@@ -2720,14 +2780,14 @@ function syncWorldActors3D() {
           const visualJostle = reducedMotion || !waiting ? 0 : pressureCycle * 1.25;
           return {
             id: monster.instanceId,
-            path: monster.spritePath,
+            path: monster.waterPath && actorInWater(world, monster, TILE) ? monster.waterPath : monster.spritePath,
             x: monster.x + motion.dx + visualJostle,
             y: monster.y + motion.dy,
             size:
               (monster.boss ? 100 : monster.large ? 90 : monster.flying ? 69 : 76) *
               (monster.visualScale ?? 1),
             facing: monster.facing,
-            screenOffsetY: (monster.visualOffsetY ?? -10) + bob,
+            screenOffsetY: (monster.visualOffsetY ?? -10) + bob + (actorInWater(world, monster, TILE) && !monster.flying ? 6 : 0),
             opacity: monster.dead > 0 ? Math.max(0, 1 - monster.dead / 0.72) : 1,
             scaleX: motion.scaleX * (walking && !reducedMotion ? 1 + walkCycle * 0.025 : 1),
             scaleY: motion.scaleY * (walking && !reducedMotion ? 1 - walkCycle * 0.025 : 1),
@@ -3040,6 +3100,34 @@ function drawPoisonedHero(centerX, centerY) {
   context.globalAlpha = 0.14 + (reducedMotion ? 0 : (Math.sin(time * 2.2) + 1) * 0.045);
   context.fillStyle = color;
   context.fillRect(pixelRound(centerX - 29), pixelRound(centerY + 31), 58, 6);
+  context.restore();
+}
+
+/** A ripple across the legs of everyone wading, so a sunken sprite reads as water. */
+function drawWaterlines() {
+  const waders = [
+    ...(hero.dead || !heroWading() ? [] : [{ x: hero.x, y: hero.y, size: 1 }]),
+    ...monsters
+      .filter((monster) => monster.dead === 0 && !monster.flying && actorInWater(world, monster, TILE))
+      .map((monster) => ({ x: monster.x, y: monster.y, size: monster.large || monster.boss ? 1.3 : 1 })),
+    ...passiveCreatures
+      .filter((creature) => !creature.defeated && actorInWater(world, creature, TILE))
+      .map((creature) => ({ x: creature.x, y: creature.y, size: 0.8 })),
+  ];
+  if (waders.length === 0) return;
+  context.save();
+  context.lineWidth = 1;
+  for (const wader of waders) {
+    if (!revealed.has(`${Math.floor(wader.x / TILE)},${Math.floor(wader.y / TILE)}`)) continue;
+    const position = worldToScreen(wader.x, wader.y);
+    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 3 + wader.x * 0.05) * 2;
+    context.fillStyle = 'rgba(99, 184, 202, 0.34)';
+    context.strokeStyle = 'rgba(178, 226, 236, 0.5)';
+    context.beginPath();
+    context.ellipse(position.x, position.y + 6, (18 + pulse) * wader.size, 6 * wader.size, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
   context.restore();
 }
 
@@ -3378,7 +3466,7 @@ function drawWorld() {
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
-      if (world[y][x] !== '~') continue;
+      if (world[y][x] !== '~' || !revealed.has(`${x},${y}`)) continue;
       const wave = Math.floor(elapsed * 1.5 + hash(x, y)) % waterPaths.length;
       drawSprite(waterPaths[wave], (x + 0.5) * TILE, (y + 0.5) * TILE, TILE + 1, {
         alpha: 0.58,
@@ -7438,6 +7526,12 @@ function useConsumable(item, index) {
     feedback = applyIdentifiablePotion(item);
     playSound('drink');
   } else if (item.identification?.group === 'book') {
+    if (heroWading()) {
+      // Wet pages: the book stays in the bag until the hero is on dry floor.
+      showLootToast(item, 0);
+      addCombatGlyph(hero.x, hero.y, '~', '#63b8ca', -62);
+      return;
+    }
     feedback = applyBook(item);
     if (feedback === null) {
       showLootToast(item, 0);
@@ -8613,7 +8707,8 @@ function updateHero(delta) {
           TILE *
           HERO_BASE_MOVE_SPEED *
           currentHeroStats().moveSpeed *
-          actorEffectModifiers(hero.effects).moveSpeed,
+          actorEffectModifiers(hero.effects).moveSpeed *
+          terrainSpeedMultiplier({ inWater: heroWading() }),
       );
       if (distance > 0) {
         const next = constrainActorMovement({
@@ -8664,9 +8759,10 @@ function updateHero(delta) {
     const loadout = currentWeaponLoadout();
     const weapon = loadout.primary;
     const color = rarityGlow[weapon?.rarity ?? 0];
-    const damage = combatDamage(currentHeroStats(), combat);
+    const wadingMultiplier = terrainMeleeMultiplier({ inWater: heroWading() });
+    const damage = Math.max(1, Math.round(combatDamage(currentHeroStats(), combat) * wadingMultiplier));
     const secondaryDamage = combat.secondary && loadout.secondary
-      ? combatDamage(currentHeroStats(), combat.secondary)
+      ? Math.max(1, Math.round(combatDamage(currentHeroStats(), combat.secondary) * wadingMultiplier))
       : 0;
     const swordSource = swordRhythmSource(loadout.primary, loadout.secondary);
     const swordCapabilities = swordSource
@@ -8877,6 +8973,7 @@ function updatePassiveCreatures(delta) {
 
 function updateWorld(delta) {
   updateDoorOpening(delta);
+  updateHeroTerrain();
   const cryomancyRank = typeof currentSkillCapabilities === 'function'
     ? currentSkillCapabilities().cryomancyRank ?? 0
     : 0;
@@ -8898,6 +8995,9 @@ function updateWorld(delta) {
   for (const monster of monsters) {
     const effectTick = tickActorEffects(monster.effects, delta);
     monster.effects = effectTick.effects;
+    if (actorInWater(world, monster, TILE) && (monster.effects.wet ?? 0) < WATER_WET_REFRESH_BELOW) {
+      monster.effects = applyActorEffect(monster.effects, 'wet', WATER_WET_DURATION).effects;
+    }
     monster.hit = Math.max(0, monster.hit - delta);
     monster.attackRecovery = Math.max(0, monster.attackRecovery - delta);
     monster.alertFlash = Math.max(0, monster.alertFlash - delta);
@@ -8950,7 +9050,12 @@ function updateWorld(delta) {
               attackSequence,
             }),
           });
-          const hit = damageHero(monster.damage, { blocked: block.blocked, source: monster.id });
+          const strikeDamage = Math.max(1, Math.round(monster.damage * terrainMeleeMultiplier({
+            inWater: actorInWater(world, monster, TILE),
+            terrain: monster.terrain,
+          })));
+          const hit = damageHero(strikeDamage, { blocked: block.blocked, source: monster.id });
+          if (hit && monster.shock) shockWetActorsAround(monster);
           if (block.stunSeconds > 0) {
             monster.shieldStun = Math.max(monster.shieldStun, block.stunSeconds);
             monster.attackRecovery = Math.max(monster.attackRecovery, block.stunSeconds);
@@ -9005,6 +9110,7 @@ function updateWorld(delta) {
         allowHidden: true,
         start: { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) },
         blockedCells,
+        terrain: monster.terrain,
       });
       if (monster.route.length > 0) monster.route.pop();
       if (monster.route.length === 0) {
@@ -9049,13 +9155,18 @@ function updateWorld(delta) {
       distance,
       delta * TILE * monster.speed * actorEffectModifiers(monster.effects, {
         cryomancyRank,
-      }).moveSpeed,
+      }).moveSpeed * terrainSpeedMultiplier({ inWater: actorInWater(world, monster, TILE), terrain: monster.terrain }),
     );
     if (distance > 0 && movement > 0) {
       const proposed = {
         x: monster.x + (dx / distance) * movement,
         y: monster.y + (dy / distance) * movement,
       };
+      if (!terrainAllowsCell(world, Math.floor(proposed.x / TILE), Math.floor(proposed.y / TILE), monster.terrain)) {
+        monster.route = [];
+        monster.repathCooldown = Math.min(monster.repathCooldown, 0.2);
+        continue;
+      }
       if (
         !canMonsterAdvance({
           monster,
@@ -9143,8 +9254,14 @@ function updateWorld(delta) {
           baseChillDuration: projectile.status?.duration ?? 0,
         })
       : null;
-    if (projectile.damage > 0) {
-      damageMonster(target, projectile.damage, projectile.color, {
+    // Fire fizzles against anyone standing in water: half damage and a puff of steam.
+    const targetWading = actorInWater(world, target, TILE);
+    const projectileDamage = projectile.spellId === 'ember-bolt' && targetWading
+      ? Math.max(1, Math.round(projectile.damage * WATER_FIRE_MULTIPLIER))
+      : projectile.damage;
+    if (projectile.spellId === 'ember-bolt' && targetWading) burst(target.x, target.y - 10, '#d9e6e8', 12);
+    if (projectileDamage > 0) {
+      damageMonster(target, projectileDamage, projectile.color, {
         style: projectile.style,
         projectile: true,
         sourceX: projectile.x,
@@ -9254,7 +9371,33 @@ function updateWorld(delta) {
         addImpactWave(candidate.x, candidate.y - 8, '#79cfe8', 46, 0);
         previous = candidate;
       }
-      playStormCrackle(chainTargets.length);
+      // Water conducts: everyone standing in the target's pool takes a share,
+      // the hero included. Standing in the water you strike is the mistake.
+      const conducted = selectWaterConductionTargets({
+        grid: world,
+        origin: target,
+        actors: [...monsters, hero],
+        tileSize: TILE,
+        exclude: chainTargets,
+      });
+      const conductionDamage = Math.max(1, Math.round((projectile.damage * WATER_CONDUCTION_PERCENT) / 100));
+      for (const victim of conducted) {
+        addLightningArc(target, victim);
+        if (victim === hero) {
+          damageHero(conductionDamage, { direct: true, source: 'spell:storm' });
+          addCombatGlyph(hero.x, hero.y, '⚡', '#bdf7ff', -70);
+        } else {
+          damageMonster(victim, conductionDamage, '#8fdff2', {
+            style: 'staff',
+            projectile: true,
+            sourceX: target.x,
+            sourceY: target.y,
+            vampiric: false,
+          });
+        }
+        burst(victim.x, victim.y - 8, '#bdf7ff', 12);
+      }
+      playStormCrackle(chainTargets.length + conducted.length);
       persistRun();
     }
     if (projectile.spellId === 'ember-bolt' && projectile.spread?.targets > 0) {
@@ -9355,6 +9498,7 @@ function render() {
     if (actor.kind === 'monster') drawMonster(actor.monster);
   }
   drawHeroEffects();
+  drawWaterlines();
   drawLightningArcs();
   drawHeroAttackTrail();
   drawBloodDrops();

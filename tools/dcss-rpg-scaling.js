@@ -234,5 +234,5 @@ export function lootEligibleForFloor(item, profile) {
 }
 
 export function monsterEligibleForFloor(monster, profile) {
-  return !monster?.unique && monsterTier(monster) <= profile.encounters.maxMonsterTier;
+  return !monster?.unique && !monster?.spawn && monsterTier(monster) <= profile.encounters.maxMonsterTier;
 }

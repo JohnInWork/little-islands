@@ -61,6 +61,13 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
   };
   const context = vm.createContext({
     playSound: () => false,
+    terrainSpeedMultiplier: () => 1,
+    terrainMeleeMultiplier: () => 1,
+    terrainAllowsCell: () => true,
+    actorInWater: () => false,
+    isWaterCell: () => false,
+    updateHeroTerrain: () => {},
+    heroWading: () => false,
     stopAmbient: () => {},
     startAmbient: () => {},
     setAmbientLevel: () => {},

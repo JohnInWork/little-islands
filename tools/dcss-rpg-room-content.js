@@ -4,6 +4,7 @@ import {
   MERCHANT_ICON_PATH,
   createMerchantStock,
 } from './dcss-rpg-merchant.js';
+import { monsterById } from './dcss-rpg-content.js';
 
 export const ROOM_ENCOUNTER_KINDS = Object.freeze([
   'unguarded',
@@ -99,7 +100,8 @@ function availableMonsterIndexes(level, claimed, roomIndex, salt) {
   const protectedIds = protectedMonsterIds(level);
   return level.monsters
     .map((monster, index) => ({ monster, index }))
-    .filter(({ monster }) => !claimed.has(monster.instanceId) && !protectedIds.has(monster.instanceId))
+    // Water-bound creatures stay in their pool: they never guard vaults or turn into mimics.
+    .filter(({ monster }) => !claimed.has(monster.instanceId) && !protectedIds.has(monster.instanceId) && !monsterById(monster.id)?.spawn)
     .sort((a, b) => (
       stableHash(level.seed, level.depth, roomIndex, salt ^ stringSalt(a.monster.instanceId))
       - stableHash(level.seed, level.depth, roomIndex, salt ^ stringSalt(b.monster.instanceId))

@@ -16,7 +16,8 @@ import { IDENTIFICATION_APPEARANCE_PATHS } from './dcss-rpg-identification.js';
 import { PASSIVE_CREATURE_PATHS } from './dcss-rpg-passive.js';
 import { MERCHANT_ACTOR_PATH, MERCHANT_ICON_PATH } from './dcss-rpg-merchant.js';
 
-export const WATER_PATHS = Object.freeze(['dngn/water/deep_water.png', 'dngn/water/deep_water2.png']);
+/** Shallow water: the only liquid in the dungeon, animated between two frames. */
+export const WATER_PATHS = Object.freeze(['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png']);
 
 export const EFFECT_PATHS = Object.freeze([
   ...Array.from({ length: 6 }, (_, index) => `effect/magic_dart${index}.png`),

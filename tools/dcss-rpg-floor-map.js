@@ -12,7 +12,7 @@ export const FLOOR_MAP_ZOOM = Object.freeze({
   factor: 1.25,
 });
 
-const CELL_KINDS = Object.freeze({ '#': 'wall', '.': 'floor', D: 'door' });
+const CELL_KINDS = Object.freeze({ '#': 'wall', '.': 'floor', D: 'door', '~': 'water' });
 
 const SIGHT_ONLY_KINDS = Object.freeze(['monster', 'boss', 'wildlife']);
 
@@ -37,6 +37,7 @@ export const FLOOR_MAP_MARKER_KINDS = Object.freeze([
 export const FLOOR_MAP_COLORS = Object.freeze({
   background: '#070a0c',
   floor: '#2f393c',
+  water: '#2b4f66',
   wall: '#7d8889',
   door: '#a9885a',
   'door-open': '#6f5d40',
