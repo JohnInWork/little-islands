@@ -42,23 +42,26 @@ so their different license remains unambiguous.
 отдельно как набор ассетов. Поэтому сундуки лежат в изолированном каталоге со
 своим лицензионным уведомлением и не считаются частью CC0-библиотеки DCSS.
 
-## Active audio samples: CC0 packs from OpenGameArt
+## Active audio samples: recorded CC0 sounds
 
-- Authors: Juhani Junkala / SubspaceAudio (512 retro sound effects),
-  artisticdude (RPG Sound Pack), JaggedStone (Loopable Dungeon Ambience)
-- Sources: [512 Sound Effects (8-bit style)](https://opengameart.org/content/512-sound-effects-8-bit-style),
-  [RPG Sound Pack](https://opengameart.org/content/rpg-sound-pack),
-  [Loopable Dungeon Ambience](https://opengameart.org/content/loopable-dungeon-ambience)
-- Local files: 21 short effects in `public/assets/audio/sfx/` and one ambience
-  loop in `public/assets/audio/ambience/`, converted to mono MP3
-- License: CC0 1.0 for all three packs
+- Authors: Kenney, Iwan "qubodup" Gabovitch, Vehicle (Jan Schupke), Still North
+  Media, BMacZero, Jordan Irwin (AntumDeluge), wolfwoot, thebardofblasphemy,
+  artisticdude, rubberduck, fvcalderan, Spring Spring, Joseph SARDIN
+  (BigSoundBank), LordTomorrow, JaggedStone and five Freesound contributors
+  (JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP)
+- Sources: OpenGameArt, Kenney.nl, Freesound (HQ previews), BigSoundBank — the
+  exact page for every file is listed in the local notice
+- Local files: 45 short effects in `public/assets/audio/sfx/` (several events
+  carry 2–4 variations) and one ambience loop in `public/assets/audio/ambience/`,
+  converted to mono MP3, peak −3 dBFS
+- License: CC0 1.0 for every file
 - Local notice: `public/assets/audio/LICENSE.md` (maps every local file to its
-  original)
+  original, author and source page)
 
-The samples layer on top of the synthesised voices: `tools/dcss-rpg-audio.js`
-maps sound ids to files, and a missing or undecodable file falls back to the
-synth recipe, so the game stays playable without the directory.
+Only recorded material ships: the synthesised voices were removed after
+playtesting because they sounded like beeps. `tools/dcss-rpg-audio.js` maps
+sound ids to files; a missing or undecodable file simply stays silent.
 
-Сэмплы лежат поверх синтезированных голосов: карта id → файл живёт в
-`tools/dcss-rpg-audio.js`, а отсутствующий или нечитаемый файл откатывается на
-синтез-рецепт, поэтому игра работает и без этого каталога.
+Только записанный материал: синтезированные голоса убраны после игрового теста
+(«писки»). Карта id → файлы живёт в `tools/dcss-rpg-audio.js`; отсутствующий
+или нечитаемый файл просто молчит.

@@ -169,13 +169,12 @@ import {
   AUDIO_SETTINGS_KEY,
   AUDIO_VOLUME_STEP,
   adjustAudioVolume,
-  ambientRecipe,
   ambientSample,
   audioMenuModel,
   effectiveVolume,
   parseAudioSettings,
+  pickSampleFile,
   serializeAudioSettings,
-  soundRecipe,
   soundSample,
   toggleAudioMute,
 } from './dcss-rpg-audio.js';
@@ -793,8 +792,8 @@ const lootToastQueue = [];
 let levelUpTimer = 0;
 let levelUpAudio = null;
 let audioMasterGain = null;
-let audioNoiseBuffer = null;
-let audioAmbient = { paletteId: null, nodes: [], gain: null, level: 1, sampled: false };
+let audioAmbient = { paletteId: null, file: null, nodes: [], gain: null, sampleGain: null, level: 1 };
+let audioAmbientRequest = null;
 const audioSampleRoot = new URL(AUDIO_SAMPLE_ROOT, document.baseURI);
 /** file -> AudioBuffer once decoded, null once a load failed (never retried). */
 const audioSampleBuffers = new Map();
@@ -4504,50 +4503,6 @@ function renderAudioMenu() {
   audioVolumeUpButton.disabled = !model.canRaise;
 }
 
-function noiseBuffer(audio) {
-  if (!audioNoiseBuffer || audioNoiseBuffer.sampleRate !== audio.sampleRate) {
-    const length = audio.sampleRate;
-    audioNoiseBuffer = audio.createBuffer(1, length, audio.sampleRate);
-    const data = audioNoiseBuffer.getChannelData(0);
-    let seed = 0x9e3779b1;
-    for (let index = 0; index < length; index += 1) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      data[index] = seed / 0x80000000 - 1;
-    }
-  }
-  return audioNoiseBuffer;
-}
-
-function scheduleVoice(audio, entry, start) {
-  const gain = audio.createGain();
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(entry.gain, start + entry.attack);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + entry.duration);
-  gain.connect(audioOutput(audio));
-  if (entry.type === 'noise') {
-    const source = audio.createBufferSource();
-    source.buffer = noiseBuffer(audio);
-    source.loop = true;
-    const filter = audio.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.Q.value = 0.9;
-    filter.frequency.setValueAtTime(entry.from, start);
-    filter.frequency.exponentialRampToValueAtTime(entry.to, start + entry.duration);
-    source.connect(filter);
-    filter.connect(gain);
-    source.start(start);
-    source.stop(start + entry.duration + 0.02);
-    return;
-  }
-  const oscillator = audio.createOscillator();
-  oscillator.type = entry.type;
-  oscillator.frequency.setValueAtTime(entry.from, start);
-  oscillator.frequency.exponentialRampToValueAtTime(entry.to, start + entry.duration);
-  oscillator.connect(gain);
-  oscillator.start(start);
-  oscillator.stop(start + entry.duration + 0.02);
-}
-
 function decodeAudioSample(audio, bytes) {
   return new Promise((resolve, reject) => {
     const result = audio.decodeAudioData(bytes, resolve, reject);
@@ -4590,26 +4545,26 @@ function playSampleBuffer(audio, buffer, gainValue, start) {
 }
 
 /** A loaded sample shadows the synth recipe; anything else falls back to the voices. */
-function playSound(id) {
+/** Plays one recorded variation; nothing is substituted while a file is still loading. */
+function playSound(id, { volume = 1 } = {}) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running' || effectiveVolume(audioSettings) === 0) return false;
   const sample = soundSample(id);
-  const buffer = sample ? audioSampleBuffers.get(sample.file) : null;
-  if (buffer) {
-    playSampleBuffer(audio, buffer, sample.gain, audio.currentTime);
-    return true;
+  if (!sample) return false;
+  const file = pickSampleFile(sample, Math.random());
+  const buffer = audioSampleBuffers.get(file);
+  if (!buffer) {
+    if (buffer === undefined) loadAudioSample(audio, file);
+    return false;
   }
-  if (sample && buffer === undefined) loadAudioSample(audio, sample.file);
-  const recipe = soundRecipe(id);
-  if (!recipe) return false;
-  const now = audio.currentTime;
-  for (const entry of recipe) scheduleVoice(audio, entry, now + entry.delay);
+  playSampleBuffer(audio, buffer, sample.gain * volume, audio.currentTime);
   return true;
 }
 
 function stopAmbient() {
   const fading = audioAmbient;
-  audioAmbient = { paletteId: null, nodes: [], gain: null, level: fading.level, sampled: false };
+  audioAmbientRequest = null;
+  audioAmbient = { paletteId: null, file: null, nodes: [], gain: null, sampleGain: null, level: fading.level };
   if (!fading.gain || !levelUpAudio) return;
   const now = levelUpAudio.currentTime;
   fading.gain.gain.setTargetAtTime(0.0001, now, 0.4);
@@ -4622,75 +4577,47 @@ function stopAmbient() {
   }
 }
 
+/** Loops the recorded bed of the palette; until it is decoded there is silence. */
 function startAmbient(paletteId) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running') return;
   const sample = ambientSample(paletteId);
-  const buffer = sample ? audioSampleBuffers.get(sample.file) : null;
-  if (audioAmbient.gain && audioAmbient.paletteId === paletteId && (audioAmbient.sampled || !buffer)) return;
+  const file = pickSampleFile(sample, 0);
+  audioAmbientRequest = paletteId;
+  if (audioAmbient.gain && audioAmbient.file === file) {
+    // The same recording serves another palette: only the mix level moves.
+    audioAmbient.paletteId = paletteId;
+    audioAmbient.sampleGain.gain.setTargetAtTime(sample.gain, audio.currentTime, 0.8);
+    return;
+  }
+  const buffer = audioSampleBuffers.get(file);
+  if (!buffer) {
+    if (buffer === undefined) {
+      loadAudioSample(audio, file).then((loaded) => {
+        if (loaded && audioAmbientRequest === paletteId && audioAmbient.file !== file) startAmbient(paletteId);
+      });
+    }
+    return;
+  }
   stopAmbient();
+  audioAmbientRequest = paletteId;
   const now = audio.currentTime;
   const gain = audio.createGain();
   gain.gain.setValueAtTime(0.0001, now);
   gain.gain.setTargetAtTime(Math.max(0.0001, audioAmbient.level), now, 1.2);
   gain.connect(audioOutput(audio));
-  if (buffer) {
-    // The recorded loop replaces the synth bed; the loop points sit inside the
-    // encoder padding so the seam stays silent.
-    const source = audio.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.loopStart = Math.min(0.05, buffer.duration / 4);
-    source.loopEnd = Math.max(source.loopStart + 0.1, buffer.duration - 0.05);
-    const sampleGain = audio.createGain();
-    sampleGain.gain.value = sample.gain;
-    source.connect(sampleGain);
-    sampleGain.connect(gain);
-    source.start(now);
-    audioAmbient = { paletteId, nodes: [source], gain, level: audioAmbient.level, sampled: true };
-    return;
-  }
-  if (sample && buffer === undefined) {
-    loadAudioSample(audio, sample.file).then((loaded) => {
-      if (loaded && audioAmbient.paletteId === paletteId && !audioAmbient.sampled) startAmbient(paletteId);
-    });
-  }
-  const recipe = ambientRecipe(paletteId);
-  const nodes = [];
-  for (const drone of recipe.drones) {
-    const oscillator = audio.createOscillator();
-    oscillator.type = drone.type;
-    oscillator.frequency.value = drone.frequency;
-    const droneGain = audio.createGain();
-    droneGain.gain.value = drone.gain;
-    oscillator.connect(droneGain);
-    droneGain.connect(gain);
-    oscillator.start(now);
-    nodes.push(oscillator);
-  }
-  const noise = audio.createBufferSource();
-  noise.buffer = noiseBuffer(audio);
-  noise.loop = true;
-  const filter = audio.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = recipe.noise.cutoff;
-  const noiseGain = audio.createGain();
-  noiseGain.gain.value = recipe.noise.gain;
-  noise.connect(filter);
-  filter.connect(noiseGain);
-  noiseGain.connect(gain);
-  noise.start(now);
-  nodes.push(noise);
-  const swell = audio.createOscillator();
-  swell.type = 'sine';
-  swell.frequency.value = 1 / recipe.swell.period;
-  const swellGain = audio.createGain();
-  swellGain.gain.value = recipe.noise.gain * recipe.swell.depth;
-  swell.connect(swellGain);
-  swellGain.connect(noiseGain.gain);
-  swell.start(now);
-  nodes.push(swell);
-  audioAmbient = { paletteId, nodes, gain, level: audioAmbient.level, sampled: false };
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  // Loop points sit inside the encoder padding so the seam stays silent.
+  source.loopStart = Math.min(0.05, buffer.duration / 4);
+  source.loopEnd = Math.max(source.loopStart + 0.1, buffer.duration - 0.05);
+  const sampleGain = audio.createGain();
+  sampleGain.gain.value = sample.gain;
+  source.connect(sampleGain);
+  sampleGain.connect(gain);
+  source.start(now);
+  audioAmbient = { paletteId, file, nodes: [source], gain, sampleGain, level: audioAmbient.level };
 }
 
 function setAmbientLevel(level) {
@@ -4792,75 +4719,15 @@ function skipOnboarding() {
 }
 
 function playLevelUpChime(levelsGained) {
-  const audio = levelUpAudio;
-  if (!audio || audio.state !== 'running') return;
-  const now = audio.currentTime;
-  const notes = levelsGained > 1 ? [392, 523.25, 659.25, 783.99] : [392, 523.25, 659.25];
-  for (const [index, frequency] of notes.entries()) {
-    const start = now + index * 0.075;
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    oscillator.type = 'triangle';
-    oscillator.frequency.setValueAtTime(frequency, start);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.035, start + 0.018);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
-    oscillator.connect(gain);
-    gain.connect(audioOutput(audio));
-    oscillator.start(start);
-    oscillator.stop(start + 0.25);
-  }
+  playSound('level-up', { volume: levelsGained > 1 ? 1.15 : 1 });
 }
 
 function playSwordRhythmAccent(rank) {
-  const audio = levelUpAudio;
-  if (!audio || audio.state !== 'running') return;
-  const now = audio.currentTime;
-  const strength = Math.max(1, Math.min(3, rank));
-  const voices = [
-    { type: 'square', from: 240 + strength * 36, to: 112, gain: 0.024, duration: 0.12 },
-    { type: 'triangle', from: 880 + strength * 90, to: 520, gain: 0.018, duration: 0.16 },
-  ];
-  for (const voice of voices) {
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    oscillator.type = voice.type;
-    oscillator.frequency.setValueAtTime(voice.from, now);
-    oscillator.frequency.exponentialRampToValueAtTime(voice.to, now + voice.duration);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(voice.gain, now + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + voice.duration);
-    oscillator.connect(gain);
-    gain.connect(audioOutput(audio));
-    oscillator.start(now);
-    oscillator.stop(now + voice.duration + 0.01);
-  }
+  playSound('sword-accent', { volume: 0.7 + Math.max(1, Math.min(3, rank)) * 0.1 });
 }
 
 function playStormCrackle(chainTargets = 0) {
-  const audio = levelUpAudio;
-  if (!audio || audio.state !== 'running') return;
-  const now = audio.currentTime;
-  const strength = Math.max(0, Math.min(3, chainTargets));
-  const voices = [
-    { type: 'square', from: 1240 + strength * 90, to: 260, gain: 0.018, duration: 0.11 },
-    { type: 'sawtooth', from: 610 + strength * 55, to: 130, gain: 0.012, duration: 0.16 },
-  ];
-  for (const [index, voice] of voices.entries()) {
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    const start = now + index * 0.014;
-    oscillator.type = voice.type;
-    oscillator.frequency.setValueAtTime(voice.from, start);
-    oscillator.frequency.exponentialRampToValueAtTime(voice.to, start + voice.duration);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(voice.gain, start + 0.006);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + voice.duration);
-    oscillator.connect(gain);
-    gain.connect(audioOutput(audio));
-    oscillator.start(start);
-    oscillator.stop(start + voice.duration + 0.01);
-  }
+  playSound('storm', { volume: 0.8 + Math.max(0, Math.min(3, chainTargets)) * 0.07 });
 }
 
 function clearLevelUpCelebration() {
@@ -5833,6 +5700,7 @@ function openChestContainerUi(find) {
     || runStatus !== 'playing'
     || find.consumedByMimic
   ) return false;
+  playSound('chest');
   clearMoveControl();
   hero.path = [];
   hero.pendingAttack = null;

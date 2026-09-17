@@ -370,15 +370,19 @@ capabilities трёх рангов и runtime-теста; не проверят�
 
 ## Добавить звук
 
-Контракт: [2D-AUDIO.md](2D-AUDIO.md). Файлы: рецепты в `tools/dcss-rpg-audio.js`,
-вызов `playSound()` в `dcss.js`.
+Контракт: [2D-AUDIO.md](2D-AUDIO.md). Файлы: карта сэмплов в
+`tools/dcss-rpg-audio.js`, mp3 в `public/assets/audio/`, вызов `playSound()` в
+`dcss.js`.
 
-1. Добавить запись в `SOUND_RECIPES`: тихие голоса (gain ≤ 0,06, длительность
-   ≤ 1,2 с); `soundRecipeProblems()` в тестах должен остаться пустым.
+1. Только CC0-запись (моно MP3, пик −3 dBFS, коротко), строка в
+   `public/assets/audio/LICENSE.md` и запись в `SOUND_SAMPLES` (вариации
+   массивом, `gain` ≤ 0,55); `audioSampleProblems()` и проверка файлов в тестах
+   должны пройти.
 2. Вызвать `playSound('id')` только после подтверждённого результата команды;
-   звук не влияет на правила. Новый фон — запись в `AMBIENT_RECIPES` по палитре.
-3. Не подключать аудиофайлы и второй AudioContext; runtime-тесты в `vm`
-   получают заглушки `playSound`/`startAmbient`/`stopAmbient`/`setAmbientLevel`.
+   звук не влияет на правила. Новый фон — запись в `AMBIENT_SAMPLES` по палитре.
+3. Не возвращать синтезированные голоса и не создавать второй AudioContext;
+   runtime-тесты в `vm` получают заглушки
+   `playSound`/`startAmbient`/`stopAmbient`/`setAmbientLevel`.
 
 ## Расширить карту этажа
 
