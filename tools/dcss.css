@@ -6511,3 +6511,77 @@ body {
 [data-screen='map'] .interact-action {
   display: none;
 }
+
+/* Run summary on the death / victory screen. */
+.run-end-card {
+  width: min(380px, 100%);
+  gap: 16px;
+  padding: 22px 22px 24px;
+}
+
+.run-end-title {
+  margin: 0;
+  color: var(--bone);
+  font: 900 18px/1.2 ui-monospace, 'SFMono-Regular', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+[data-result='victory'] .run-end-title {
+  color: #d5c77f;
+}
+
+.run-summary {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 16px;
+  align-items: baseline;
+  color: #96a2a0;
+  font-size: 14px;
+}
+
+.run-summary dt {
+  margin: 0;
+  color: #8d9794;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.run-summary dd {
+  margin: 0;
+  overflow: hidden;
+  color: #d5c77f;
+  font: 700 16px/1.2 ui-monospace, 'SFMono-Regular', monospace;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-summary dd[data-row='cause'] {
+  color: #d6524c;
+}
+
+@media (max-height: 600px) {
+  .run-end-card {
+    gap: 10px;
+    padding: 14px 18px 16px;
+  }
+
+  .death-rune {
+    font-size: 40px;
+  }
+
+  .victory-rune {
+    width: 56px;
+    height: 56px;
+  }
+
+  .run-summary {
+    gap: 3px 14px;
+    font-size: 13px;
+  }
+}

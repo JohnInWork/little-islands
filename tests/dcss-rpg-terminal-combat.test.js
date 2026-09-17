@@ -31,7 +31,7 @@ function combatRuntime() {
   const context = vm.createContext({
     hero,
     runStatus: 'playing',
-    run: { status: 'playing', floor: { defeated: [] } },
+    run: { status: 'playing', floor: { defeated: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
     projectiles: [{ targetId: 'monster-1-0', damage: 50 }],
     selected: createEmptyEquipment(),
     itemInstances: new Map(),

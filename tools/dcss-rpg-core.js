@@ -79,10 +79,11 @@ import {
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
 
-export const SAVE_VERSION = 34;
-export const SAVE_KEY = 'dng-codex:rpg:v34';
+export const SAVE_VERSION = 35;
+export const SAVE_KEY = 'dng-codex:rpg:v35';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v34',
   'dng-codex:rpg:v33',
   'dng-codex:rpg:v32',
   'dng-codex:rpg:v31',
@@ -838,6 +839,28 @@ export function generateDungeon({
   };
 }
 
+const RUN_END_SOURCE_ID = /^[a-z][a-z0-9:-]{0,39}$/;
+
+/** Whole-run statistics for the death/victory screen; nothing here is derivable from one floor. */
+export function createRunStats(source = null) {
+  const kills = Number.isInteger(source?.kills) && source.kills >= 0 ? source.kills : 0;
+  const activeSeconds = Number.isFinite(source?.activeSeconds) && source.activeSeconds >= 0
+    ? source.activeSeconds
+    : 0;
+  const killerId = typeof source?.killerId === 'string' && RUN_END_SOURCE_ID.test(source.killerId)
+    ? source.killerId
+    : null;
+  return { kills, activeSeconds, killerId };
+}
+
+export function validateRunStats(stats) {
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return false;
+  if (!Object.hasOwn(stats, 'killerId')) return false;
+  if (!isFiniteInteger(stats.kills, 0, 1_000_000)) return false;
+  if (!Number.isFinite(stats.activeSeconds) || stats.activeSeconds < 0 || stats.activeSeconds > 10_000_000) return false;
+  return stats.killerId === null || (typeof stats.killerId === 'string' && RUN_END_SOURCE_ID.test(stats.killerId));
+}
+
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
   const startingMagic = createStartingMagic();
   // A run starts from zero: worn clothes, a rusty sword, an empty bag and no
@@ -874,6 +897,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     status: 'playing',
     started: false,
     commandSequence: 0,
+    stats: createRunStats(),
     knowledge: createItemKnowledge(),
     items,
     equipment: {
@@ -1052,10 +1076,10 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33].includes(snapshot.version)) {
+  if ([31, 32, 33, 34].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1081,16 +1105,20 @@ export function migrateLegacyRun(snapshot) {
         resolvedFindIds: migrated.floor.resolvedFindIds,
       })];
     }
-    const legacyMerchantPurchases = migrated.floor.merchantPurchases ?? [];
-    if (!validateMerchantPurchaseIds(legacyMerchantPurchases, dungeon.merchants, migrated.depth)) {
-      throw new Error('Cannot migrate unknown merchant purchase');
+    if (snapshot.version < 34) {
+      const legacyMerchantPurchases = migrated.floor.merchantPurchases ?? [];
+      if (!validateMerchantPurchaseIds(legacyMerchantPurchases, dungeon.merchants, migrated.depth)) {
+        throw new Error('Cannot migrate unknown merchant purchase');
+      }
+      migrated.floor.merchants = [...createMerchantStates({
+        merchants: dungeon.merchants,
+        depth: migrated.depth,
+        purchasedIds: legacyMerchantPurchases,
+      })];
+      delete migrated.floor.merchantPurchases;
     }
-    migrated.floor.merchants = [...createMerchantStates({
-      merchants: dungeon.merchants,
-      depth: migrated.depth,
-      purchasedIds: legacyMerchantPurchases,
-    })];
-    delete migrated.floor.merchantPurchases;
+    // v35 adds whole-run statistics; an older run simply starts counting now.
+    migrated.stats = createRunStats(snapshot.stats);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     return migrated;
   }
@@ -1189,6 +1217,7 @@ export function migrateLegacyRun(snapshot) {
     if (snapshot.version < 16) migrateTwoHandedEquipment(migrated);
     rebaseLegacyRunForExpandedDungeon(migrated, snapshot.status);
     delete migrated.floor.merchantPurchases;
+    migrated.stats = createRunStats(migrated.stats);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1266,6 +1295,7 @@ export function migrateLegacyRun(snapshot) {
         : snapshot.status,
       started: crossesGeneratorBoundary ? snapshot.hero?.hp === 0 : snapshot.started,
       commandSequence: 0,
+      stats: createRunStats(),
       knowledge: createItemKnowledge(),
       items: migrateOwnedItemArtifacts(migrateOwnedItemAffixes(stripLegacyItemSanctity(snapshot.items))),
       equipment: normalizeEquipment(snapshot.equipment),
@@ -1384,6 +1414,7 @@ export function migrateLegacyRun(snapshot) {
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
     started: true,
     commandSequence: 0,
+    stats: createRunStats(),
     knowledge: createItemKnowledge(),
     items,
     equipment,
@@ -1462,6 +1493,7 @@ export function validateRun(snapshot) {
   if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
   if (!isFiniteInteger(snapshot.commandSequence, 0, 1_000_000_000)) return false;
+  if (!validateRunStats(snapshot.stats)) return false;
   if (!validateItemKnowledge(snapshot.knowledge, IDENTIFIABLE_ITEM_IDS)) return false;
   if ((snapshot.status === 'dead') !== (hero.hp === 0)) return false;
   if (!snapshot.equipment || typeof snapshot.equipment !== 'object') return false;

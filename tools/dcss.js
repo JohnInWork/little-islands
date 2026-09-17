@@ -151,6 +151,7 @@ import {
   panFloorMapView,
   zoomFloorMapView,
 } from './dcss-rpg-floor-map.js';
+import { runSummaryModel } from './dcss-rpg-run-summary.js';
 import {
   MERCHANT_ACTOR_PATH,
   MERCHANT_COMMANDS,
@@ -418,9 +419,8 @@ const floorMapZoomOutButton = document.querySelector('#floor-map-zoom-out');
 const pauseGameButton = document.querySelector('#pause-game');
 const runEndScreen = document.querySelector('#run-end-screen');
 const restartRunButton = document.querySelector('#restart-run');
-const resultDepth = document.querySelector('#result-depth');
-const resultGold = document.querySelector('#result-gold');
-const resultLevel = document.querySelector('#result-level');
+const runEndTitle = document.querySelector('#run-end-title');
+const runSummaryList = document.querySelector('#run-summary');
 const bossHud = document.querySelector('#boss-hud');
 const bossHealth = bossHud.querySelector('.boss-health');
 const sanctuaryAction = document.querySelector('#sanctuary-action');
@@ -7023,11 +7023,26 @@ function showRunEndScreen(result) {
   document.body.dataset.screen = uiScreen;
   runEndScreen.inert = false;
   runEndScreen.setAttribute('aria-hidden', 'false');
-  const labels = currentMainMenuModel().labels;
-  runEndScreen.setAttribute('aria-label', result === 'victory' ? labels.victory : labels.runEnded);
-  resultDepth.textContent = romanDepth(dungeon.depth);
-  resultGold.textContent = String(gold);
-  resultLevel.textContent = String(hero.level);
+  const summary = runSummaryModel({
+    status: result,
+    depthLabel: romanDepth(dungeon.depth),
+    stats: run.stats,
+    level: hero.level,
+    gold,
+    seed: run.seed,
+    language: itemDetailLanguage,
+  });
+  runEndScreen.setAttribute('aria-label', summary.ariaLabel);
+  runEndTitle.textContent = summary.title;
+  runSummaryList.replaceChildren(...summary.rows.flatMap((row) => {
+    const label = document.createElement('dt');
+    const value = document.createElement('dd');
+    label.textContent = row.label;
+    value.textContent = row.value;
+    value.dataset.row = row.id;
+    return [label, value];
+  }));
+  restartRunButton.setAttribute('aria-label', summary.restart);
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
@@ -7084,6 +7099,7 @@ function applyIdentifiablePotion(item) {
   const result = damageHero(outcome.damage, {
     direct: true,
     impactColor: '#83aa4b',
+    source: 'potion:venom',
   });
   if (!hero.dead) applyHeroStatus('poison', outcome.duration);
   return `−${result?.damage ?? outcome.damage}`;
@@ -7805,6 +7821,7 @@ function defeatMonster(monster) {
   if (monster.dead > 0 || run.floor.defeated.includes(monster.instanceId)) return;
   monster.dead = 0.01;
   run.floor.defeated.push(monster.instanceId);
+  run.stats.kills += 1;
   gainExperience(monster);
   if (monster.vaultRewardGold > 0) {
     gold += monster.vaultRewardGold;
@@ -7844,6 +7861,7 @@ function damageHero(amount, {
   impactColor = null,
   subtle = false,
   blocked = false,
+  source = null,
 } = {}) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return null;
   const combat = currentHeroCombat();
@@ -7894,6 +7912,7 @@ function damageHero(amount, {
   projectiles.length = 0;
   if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   deathTimer = 1.35;
+  run.stats.killerId = typeof source === 'string' ? source : null;
   persistRun();
   return result;
 }
@@ -7973,7 +7992,7 @@ function resolveWorldInteractions() {
       eventDefinitions.splice(index, 1);
       run.floor.resolved.push(event.instanceId);
       showLootToast({ path, rarity: 0 }, -value);
-      damageHero(value);
+      damageHero(value, { source: `trap:${event.id}` });
     } else {
       eventDefinitions.splice(index, 1);
       run.floor.resolved.push(event.instanceId);
@@ -8212,7 +8231,12 @@ function updateHeroEffects(delta) {
     const color = tick.pulses.burning
       ? ACTOR_EFFECTS.burning.color
       : ACTOR_EFFECTS.poison.color;
-    damageHero(tick.damage, { direct: true, impactColor: color, subtle: true });
+    damageHero(tick.damage, {
+      direct: true,
+      impactColor: color,
+      subtle: true,
+      source: tick.pulses.burning ? 'effect:burning' : 'effect:poison',
+    });
   }
   if ((pulsed || tick.expired.length > 0) && !hero.dead) {
     updateHud();
@@ -8226,6 +8250,7 @@ function updateHunger(delta) {
   const activeSeconds = Math.floor(hungerAccumulator);
   if (activeSeconds < 1) return;
   hungerAccumulator -= activeSeconds;
+  run.stats.activeSeconds += activeSeconds;
   const before = hero.hunger;
   hero.hunger = advanceHunger(hero.hunger, activeSeconds);
   if (hero.hunger === before) return;
@@ -8438,7 +8463,7 @@ function updatePassiveCreatures(delta) {
             attackSequence,
           }),
         });
-        damageHero(creature.damage, { blocked: block.blocked });
+        damageHero(creature.damage, { blocked: block.blocked, source: `wildlife:${creature.id}` });
       }
       occupied.add(currentKey);
       continue;
@@ -8632,7 +8657,7 @@ function updateWorld(delta) {
               attackSequence,
             }),
           });
-          const hit = damageHero(monster.damage, { blocked: block.blocked });
+          const hit = damageHero(monster.damage, { blocked: block.blocked, source: monster.id });
           if (block.stunSeconds > 0) {
             monster.shieldStun = Math.max(monster.shieldStun, block.stunSeconds);
             monster.attackRecovery = Math.max(monster.attackRecovery, block.stunSeconds);

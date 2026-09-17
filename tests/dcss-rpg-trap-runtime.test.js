@@ -32,7 +32,7 @@ function terminalRuntime({ victory = false } = {}) {
   const context = vm.createContext({
     hero,
     runStatus: 'playing',
-    run: { status: 'playing', floor: { resolved: [] } },
+    run: { status: 'playing', floor: { resolved: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
     eventDefinitions: victory ? [] : [{
       id: 'blade-trap', instanceId: 'event-1-0', x: 96, y: 96,
       definition: { effect: 'damage', value: 14, path: 'dngn/traps/blade.png' },
@@ -180,7 +180,7 @@ test('runtime navigation avoids discovered traps without revealing hidden traps 
     revealed: new Set(grid.flatMap((row, y) => row.map((_, x) => `${x},${y}`))),
     trapDefinitions: [trap],
     detectedTrapIds: new Set(),
-    run: { floor: { resolved: [] } },
+    run: { floor: { resolved: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
     activeDetectedTrapCells,
     findGridPath,
     heroBlockingCells: () => new Set(),

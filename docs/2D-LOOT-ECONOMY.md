@@ -58,4 +58,4 @@
 4. полный рюкзак, save/reload, спуск и старый save;
 5. обычная, магическая и артефактная карточки на RU/EN.
 
-Текущий save-контракт — v34, generator — v7, content — v19.
+Текущий save-контракт — v35, generator — v7, content — v19.

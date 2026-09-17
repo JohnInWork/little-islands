@@ -406,7 +406,7 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   legacy.floor.merchantPurchases = [];
   delete legacy.floor.merchants;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 34);
+  assert.equal(migrated.version, 35);
   const restored = hydrateDungeon(migrated);
   const altar = restored.finds.find(({ id }) => id === 'ancient-altar');
   assert.ok(altar);
