@@ -153,6 +153,17 @@ import {
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
 import {
+  ONBOARDING_KEY,
+  advanceOnboarding,
+  createOnboardingState,
+  dismissOnboarding,
+  markOnboardingSeen,
+  onboardingComplete,
+  onboardingHintCopy,
+  parseOnboardingState,
+  serializeOnboardingState,
+} from './dcss-rpg-onboarding.js';
+import {
   AUDIO_SAMPLE_FILES,
   AUDIO_SAMPLE_ROOT,
   AUDIO_SETTINGS_KEY,
@@ -415,6 +426,12 @@ const inventoryCount = document.querySelector('#inventory-count');
 const currency = document.querySelector('.currency');
 const currencyValue = currency.querySelector('b');
 const lootToast = document.querySelector('#loot-toast');
+const onboardingHint = document.querySelector('#onboarding-hint');
+const onboardingGlyph = document.querySelector('#onboarding-glyph');
+const onboardingTitle = document.querySelector('#onboarding-title');
+const onboardingText = document.querySelector('#onboarding-text');
+const onboardingDismissButton = document.querySelector('#onboarding-dismiss');
+const onboardingSkipButton = document.querySelector('#onboarding-skip');
 const lootName = document.querySelector('#loot-name');
 const lootRarity = document.querySelector('#loot-rarity');
 const lootSlot = document.querySelector('#loot-slot');
@@ -800,6 +817,16 @@ let gold = run.gold;
 let deathTimer = 0;
 let runStatus = run.status;
 let playerHasActed = run.started;
+let onboardingState = (() => {
+  try {
+    return parseOnboardingState(localStorage.getItem(ONBOARDING_KEY));
+  } catch {
+    return createOnboardingState();
+  }
+})();
+let onboardingHintId = null;
+let onboardingInteracted = false;
+let onboardingCheckedAt = Number.NEGATIVE_INFINITY;
 let openingDoor = null;
 let contextTarget = null;
 let contextInspected = false;
@@ -1025,6 +1052,7 @@ function setInterfaceLanguage(language) {
   if (toastVisible && activeLootToastEntry) renderLootToast(activeLootToastEntry);
   if (uiScreen === 'merchant') renderMerchantShop();
   if (uiScreen === 'chest') renderChestContainer();
+  renderOnboardingHint();
   updateHud();
 }
 
@@ -4672,6 +4700,97 @@ function setAmbientLevel(level) {
   }
 }
 
+/** Booleans the onboarding module needs; nothing here mutates game state. */
+function currentOnboardingSignals() {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const gridOf = (actor) => ({ x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) });
+  const inSight = (actor) => {
+    const cell = gridOf(actor);
+    return Math.hypot(cell.x - heroCell.x, cell.y - heroCell.y) <= 4.5 && hasLineOfSight(world, heroCell, cell);
+  };
+  const liveMonsters = monsters.filter((monster) => !(monster.dead > 0));
+  return {
+    depth: dungeon.depth,
+    inGame: runStatus === 'playing' && !hero.dead,
+    moved: playerHasActed,
+    enemyVisible: liveMonsters.some(inSight),
+    engaged: run.stats.kills > 0
+      || liveMonsters.some((monster) => Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * 1.6),
+    lootVisible: lootDefinitions.some(inSight),
+    pickedUp: run.floor.collected.length > 0,
+    interactAvailable: !interactActionButton.hidden,
+    interacted: onboardingInteracted || run.floor.opened.length > 0 || run.floor.resolved.length > 0,
+    exitRevealed: revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`),
+    descended: dungeon.depth > 1,
+  };
+}
+
+function persistOnboardingState() {
+  try {
+    localStorage.setItem(ONBOARDING_KEY, serializeOnboardingState(onboardingState));
+  } catch {
+    // Storage may be unavailable; the hint still behaves for this session.
+  }
+}
+
+function renderOnboardingHint() {
+  const copy = onboardingHintId ? onboardingHintCopy(onboardingHintId, itemDetailLanguage) : null;
+  if (!copy) {
+    onboardingHint.hidden = true;
+    delete onboardingHint.dataset.hint;
+    return;
+  }
+  onboardingHint.dataset.hint = copy.id;
+  onboardingGlyph.textContent = copy.glyph;
+  onboardingTitle.textContent = copy.title;
+  onboardingText.textContent = copy.text;
+  onboardingDismissButton.textContent = copy.dismiss;
+  onboardingSkipButton.textContent = copy.skip;
+  onboardingHint.setAttribute('aria-label', copy.ariaLabel);
+  onboardingHint.hidden = false;
+}
+
+/** Runs a few times a second on the game screen; the pure module decides what is due. */
+function updateOnboarding(time) {
+  if (!ready || uiScreen !== 'game' || runStatus !== 'playing') return;
+  if (onboardingComplete(onboardingState)) {
+    if (onboardingHintId) {
+      onboardingHintId = null;
+      renderOnboardingHint();
+    }
+    return;
+  }
+  if (time - onboardingCheckedAt < 250) return;
+  onboardingCheckedAt = time;
+  const result = advanceOnboarding(onboardingState, currentOnboardingSignals());
+  if (result.changed) {
+    onboardingState = result.state;
+    persistOnboardingState();
+  }
+  if (result.hintId !== onboardingHintId) {
+    onboardingHintId = result.hintId;
+    renderOnboardingHint();
+  }
+}
+
+function dismissOnboardingHint() {
+  if (!onboardingHintId) return;
+  onboardingState = markOnboardingSeen(onboardingState, onboardingHintId);
+  persistOnboardingState();
+  onboardingHintId = null;
+  onboardingCheckedAt = Number.NEGATIVE_INFINITY;
+  renderOnboardingHint();
+  playSound('ui-tap');
+}
+
+function skipOnboarding() {
+  onboardingState = dismissOnboarding(onboardingState);
+  persistOnboardingState();
+  onboardingHintId = null;
+  renderOnboardingHint();
+  playSound('ui-close');
+}
+
 function playLevelUpChime(levelsGained) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running') return;
@@ -5293,6 +5412,7 @@ function openContextActions(nextTarget) {
   hero.pendingAttack = null;
   contextTarget = nextTarget;
   contextInspected = false;
+  onboardingInteracted = true;
   playSound('ui-tap');
   uiScreen = 'context';
   document.body.dataset.screen = uiScreen;
@@ -8495,6 +8615,10 @@ function descendFloor() {
 function restartRun() {
   clearMoveControl();
   clearLevelUpCelebration();
+  onboardingInteracted = false;
+  onboardingHintId = null;
+  onboardingCheckedAt = Number.NEGATIVE_INFINITY;
+  renderOnboardingHint();
   run = createRun(fixedPreviewSeed ?? createSeed());
   motes = createAtmosphereMotes(run.seed);
   gold = run.gold;
@@ -9397,6 +9521,7 @@ function animate(time) {
         updateHero(delta);
         if (hitStop === 0) updateWorld(delta);
       }
+      updateOnboarding(time);
     }
     render();
   }
@@ -9854,6 +9979,8 @@ confirmNewRunButton.addEventListener('click', confirmNewRun);
 characterSheetButton.addEventListener('click', openCharacterSheet);
 closeCharacterSheetButton.addEventListener('click', closeCharacterSheet);
 depthBadge.addEventListener('click', openFloorMap);
+onboardingDismissButton.addEventListener('click', dismissOnboardingHint);
+onboardingSkipButton.addEventListener('click', skipOnboarding);
 audioMuteButton.addEventListener('click', () => {
   unlockLevelUpAudio();
   audioSettings = toggleAudioMute(audioSettings);
