@@ -30,6 +30,10 @@ function terminalRuntime({ victory = false } = {}) {
     pendingAttack: null,
   };
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     hero,
     runStatus: 'playing',
     run: { status: 'playing', floor: { resolved: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
@@ -114,6 +118,10 @@ function warningState() {
 
 function movementRuntime() {
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     hero: { x: 96, y: 160, attack: 0, path: [], pendingAttack: null },
     hazardInputState: warningState(),
     permittedHazardCell: '2,2',
@@ -174,6 +182,10 @@ test('runtime navigation avoids discovered traps without revealing hidden traps 
   const grid = ['#######', '#.....#', '#.....#', '#.....#', '#######'].map((row) => [...row]);
   const trap = { instanceId: 'event-1-0', eventId: 'event-1-0', x: 3, y: 2, kind: 'blade', tier: 1 };
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     TILE: 64,
     hero: { x: 96, y: 160 },
     world: grid,

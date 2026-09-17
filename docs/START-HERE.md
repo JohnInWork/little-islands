@@ -40,6 +40,8 @@
   охота → мясо → костёр.
 - [COMMAND-EVENT-FOUNDATION.md](COMMAND-EVENT-FOUNDATION.md) — формат новых
   чистых команд и событий без ложного обещания готового сетевого движка.
+- [2D-AUDIO.md](2D-AUDIO.md) — синтезированные звуки по рецептам, фон по главам
+  и настройки громкости без аудиофайлов.
 - [2D-VISUAL-WORKSHOP.md](2D-VISUAL-WORKSHOP.md) — локальный выбор спрайтов для
   предметов, существ и интерактивных объектов без изменения игровых ID.
 - [2D-RPG-PLAN.md](2D-RPG-PLAN.md) — долгосрочное направление, не список готового.
@@ -85,6 +87,9 @@
 `floor.revealed`, отдельного состояния у карты нет.
 Смерть и победа открывают экран итогов: этаж, время активной игры, убитые враги,
 золото, уровень, seed и причина смерти; статистика лежит в `run.stats` save v35.
+Звук синтезируется из рецептов: удары, подбор, двери, магия, интерфейс, смерть,
+победа и тихий фон по палитре главы; громкость и mute живут в главном меню и в
+localStorage отдельно от save. Контракт: [2D-AUDIO.md](2D-AUDIO.md).
 
 UI крупный и пиксельный, RU/EN. Мало слов в HUD, точные объяснения — в меню.
 Главное меню становится меню паузы после начала забега: из него можно продолжить,
@@ -209,6 +214,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Общая панель действий | `tools/dcss-rpg-context-actions.js`; связывание в `dcss.js` |
 | Карта этажа | `tools/dcss-rpg-floor-map.js`; canvas, жесты и связывание в `dcss.js` |
 | Экран итогов забега | `tools/dcss-rpg-run-summary.js`; `run.stats` в `dcss-rpg-core.js`; связывание в `dcss.js` |
+| Звук и фон | `tools/dcss-rpg-audio.js`; WebAudio-адаптер в `dcss.js`, [контракт](2D-AUDIO.md) |
 | Декор/палитра/свет | `tools/dcss-rpg-environment.js`, `dcss-rpg-visuals.js`, `dcss-rpg-world3d.js` |
 | Выбор и замена спрайтов | `tools/sprites.html`, `sprites.js`, `dcss-rpg-visual-overrides.js`, [контракт](2D-VISUAL-WORKSHOP.md) |
 | Браузерный ввод и связывание | `tools/dcss.js`, `dcss-rpg-input.js` |

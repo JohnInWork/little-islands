@@ -153,6 +153,18 @@ import {
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
 import {
+  AUDIO_SETTINGS_KEY,
+  AUDIO_VOLUME_STEP,
+  adjustAudioVolume,
+  ambientRecipe,
+  audioMenuModel,
+  effectiveVolume,
+  parseAudioSettings,
+  serializeAudioSettings,
+  soundRecipe,
+  toggleAudioMute,
+} from './dcss-rpg-audio.js';
+import {
   MERCHANT_ACTOR_PATH,
   MERCHANT_COMMANDS,
   MERCHANT_ICON_PATH,
@@ -304,6 +316,12 @@ const mainMenu = document.querySelector('#main-menu');
 const mainMenuTitle = document.querySelector('#main-menu-title');
 const mainMenuLanguages = document.querySelector('#main-menu-languages');
 const mainMenuLanguageButtons = [...mainMenuLanguages.querySelectorAll('[data-language]')];
+const mainMenuAudio = document.querySelector('#main-menu-audio');
+const audioMuteButton = document.querySelector('#audio-mute');
+const audioVolumeDownButton = document.querySelector('#audio-volume-down');
+const audioVolumeUpButton = document.querySelector('#audio-volume-up');
+const audioVolumeValue = document.querySelector('#audio-volume-value');
+const audioMenuButtons = [audioMuteButton, audioVolumeDownButton, audioVolumeUpButton];
 const startGameButton = document.querySelector('#start-game');
 const startGameLabel = document.querySelector('#start-game-label');
 const mainMenuHint = document.querySelector('#main-menu-hint');
@@ -753,6 +771,16 @@ let activeLootToastEntry = null;
 const lootToastQueue = [];
 let levelUpTimer = 0;
 let levelUpAudio = null;
+let audioMasterGain = null;
+let audioNoiseBuffer = null;
+let audioAmbient = { paletteId: null, nodes: [], gain: null, level: 1 };
+let audioSettings = (() => {
+  try {
+    return parseAudioSettings(localStorage.getItem(AUDIO_SETTINGS_KEY));
+  } catch {
+    return parseAudioSettings(null);
+  }
+})();
 let itemDetailLanguage = loadItemDetailLanguage();
 let playerAppearance = loadPlayerAppearance();
 let appearanceDraft = playerAppearance;
@@ -927,6 +955,7 @@ function renderMainMenu() {
       button.dataset.language === 'ru' ? labels.russian : labels.english,
     );
   });
+  renderAudioMenu();
   canvas.setAttribute('aria-label', labels.dungeon);
   hud.setAttribute(
     'aria-label',
@@ -4392,8 +4421,174 @@ function unlockLevelUpAudio() {
   if (!levelUpAudio || levelUpAudio.state === 'closed') {
     levelUpAudio = new AudioContextConstructor();
   }
-  if (levelUpAudio.state === 'suspended') levelUpAudio.resume().catch(() => {});
+  const begin = () => startAmbient(biomeThemeForDepth(dungeon.depth).palette);
+  if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
+  else begin();
   return levelUpAudio;
+}
+
+/** Every voice, old or new, mixes through one master gain that the menu controls. */
+function audioOutput(audio) {
+  if (!audioMasterGain || audioMasterGain.context !== audio) {
+    audioMasterGain = audio.createGain();
+    audioMasterGain.gain.value = effectiveVolume(audioSettings);
+    audioMasterGain.connect(audio.destination);
+  }
+  return audioMasterGain;
+}
+
+function applyAudioSettings() {
+  if (levelUpAudio && audioMasterGain) {
+    audioMasterGain.gain.setTargetAtTime(
+      effectiveVolume(audioSettings),
+      levelUpAudio.currentTime,
+      0.02,
+    );
+  }
+  try {
+    localStorage.setItem(AUDIO_SETTINGS_KEY, serializeAudioSettings(audioSettings));
+  } catch {
+    // Storage may be unavailable; the setting still applies to this session.
+  }
+  renderAudioMenu();
+}
+
+function renderAudioMenu() {
+  const model = audioMenuModel(audioSettings, itemDetailLanguage);
+  mainMenuAudio.setAttribute('aria-label', model.groupLabel);
+  audioMuteButton.setAttribute('aria-pressed', String(model.muted));
+  audioMuteButton.setAttribute('aria-label', model.muteLabel);
+  audioMuteButton.title = model.muteLabel;
+  audioMuteButton.textContent = model.muteGlyph;
+  audioVolumeValue.textContent = model.volumeText;
+  audioVolumeDownButton.setAttribute('aria-label', model.quieterLabel);
+  audioVolumeUpButton.setAttribute('aria-label', model.louderLabel);
+  audioVolumeDownButton.disabled = !model.canLower;
+  audioVolumeUpButton.disabled = !model.canRaise;
+}
+
+function noiseBuffer(audio) {
+  if (!audioNoiseBuffer || audioNoiseBuffer.sampleRate !== audio.sampleRate) {
+    const length = audio.sampleRate;
+    audioNoiseBuffer = audio.createBuffer(1, length, audio.sampleRate);
+    const data = audioNoiseBuffer.getChannelData(0);
+    let seed = 0x9e3779b1;
+    for (let index = 0; index < length; index += 1) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      data[index] = seed / 0x80000000 - 1;
+    }
+  }
+  return audioNoiseBuffer;
+}
+
+function scheduleVoice(audio, entry, start) {
+  const gain = audio.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(entry.gain, start + entry.attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + entry.duration);
+  gain.connect(audioOutput(audio));
+  if (entry.type === 'noise') {
+    const source = audio.createBufferSource();
+    source.buffer = noiseBuffer(audio);
+    source.loop = true;
+    const filter = audio.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.9;
+    filter.frequency.setValueAtTime(entry.from, start);
+    filter.frequency.exponentialRampToValueAtTime(entry.to, start + entry.duration);
+    source.connect(filter);
+    filter.connect(gain);
+    source.start(start);
+    source.stop(start + entry.duration + 0.02);
+    return;
+  }
+  const oscillator = audio.createOscillator();
+  oscillator.type = entry.type;
+  oscillator.frequency.setValueAtTime(entry.from, start);
+  oscillator.frequency.exponentialRampToValueAtTime(entry.to, start + entry.duration);
+  oscillator.connect(gain);
+  oscillator.start(start);
+  oscillator.stop(start + entry.duration + 0.02);
+}
+
+function playSound(id) {
+  const audio = levelUpAudio;
+  if (!audio || audio.state !== 'running' || effectiveVolume(audioSettings) === 0) return false;
+  const recipe = soundRecipe(id);
+  if (!recipe) return false;
+  const now = audio.currentTime;
+  for (const entry of recipe) scheduleVoice(audio, entry, now + entry.delay);
+  return true;
+}
+
+function stopAmbient() {
+  const fading = audioAmbient;
+  audioAmbient = { paletteId: null, nodes: [], gain: null, level: fading.level };
+  if (!fading.gain || !levelUpAudio) return;
+  const now = levelUpAudio.currentTime;
+  fading.gain.gain.setTargetAtTime(0.0001, now, 0.4);
+  for (const node of fading.nodes) {
+    try {
+      node.stop(now + 2);
+    } catch {
+      // The node may already be stopped.
+    }
+  }
+}
+
+function startAmbient(paletteId) {
+  const audio = levelUpAudio;
+  if (!audio || audio.state !== 'running') return;
+  if (audioAmbient.gain && audioAmbient.paletteId === paletteId) return;
+  stopAmbient();
+  const recipe = ambientRecipe(paletteId);
+  const now = audio.currentTime;
+  const gain = audio.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.setTargetAtTime(Math.max(0.0001, audioAmbient.level), now, 1.2);
+  gain.connect(audioOutput(audio));
+  const nodes = [];
+  for (const drone of recipe.drones) {
+    const oscillator = audio.createOscillator();
+    oscillator.type = drone.type;
+    oscillator.frequency.value = drone.frequency;
+    const droneGain = audio.createGain();
+    droneGain.gain.value = drone.gain;
+    oscillator.connect(droneGain);
+    droneGain.connect(gain);
+    oscillator.start(now);
+    nodes.push(oscillator);
+  }
+  const noise = audio.createBufferSource();
+  noise.buffer = noiseBuffer(audio);
+  noise.loop = true;
+  const filter = audio.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = recipe.noise.cutoff;
+  const noiseGain = audio.createGain();
+  noiseGain.gain.value = recipe.noise.gain;
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(gain);
+  noise.start(now);
+  nodes.push(noise);
+  const swell = audio.createOscillator();
+  swell.type = 'sine';
+  swell.frequency.value = 1 / recipe.swell.period;
+  const swellGain = audio.createGain();
+  swellGain.gain.value = recipe.noise.gain * recipe.swell.depth;
+  swell.connect(swellGain);
+  swellGain.connect(noiseGain.gain);
+  swell.start(now);
+  nodes.push(swell);
+  audioAmbient = { paletteId, nodes, gain, level: audioAmbient.level };
+}
+
+function setAmbientLevel(level) {
+  audioAmbient.level = level;
+  if (audioAmbient.gain && levelUpAudio) {
+    audioAmbient.gain.gain.setTargetAtTime(Math.max(0.0001, level), levelUpAudio.currentTime, 0.5);
+  }
 }
 
 function playLevelUpChime(levelsGained) {
@@ -4411,7 +4606,7 @@ function playLevelUpChime(levelsGained) {
     gain.gain.exponentialRampToValueAtTime(0.035, start + 0.018);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
     oscillator.connect(gain);
-    gain.connect(audio.destination);
+    gain.connect(audioOutput(audio));
     oscillator.start(start);
     oscillator.stop(start + 0.25);
   }
@@ -4436,7 +4631,7 @@ function playSwordRhythmAccent(rank) {
     gain.gain.exponentialRampToValueAtTime(voice.gain, now + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + voice.duration);
     oscillator.connect(gain);
-    gain.connect(audio.destination);
+    gain.connect(audioOutput(audio));
     oscillator.start(now);
     oscillator.stop(now + voice.duration + 0.01);
   }
@@ -4462,7 +4657,7 @@ function playStormCrackle(chainTargets = 0) {
     gain.gain.exponentialRampToValueAtTime(voice.gain, start + 0.006);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + voice.duration);
     oscillator.connect(gain);
-    gain.connect(audio.destination);
+    gain.connect(audioOutput(audio));
     oscillator.start(start);
     oscillator.stop(start + voice.duration + 0.01);
   }
@@ -5017,6 +5212,7 @@ function openContextActions(nextTarget) {
   hero.pendingAttack = null;
   contextTarget = nextTarget;
   contextInspected = false;
+  playSound('ui-tap');
   uiScreen = 'context';
   document.body.dataset.screen = uiScreen;
   contextActions.inert = false;
@@ -5817,6 +6013,7 @@ function beginDoorTransition(door, targetOpen) {
     return false;
   }
   hero.path = [];
+  playSound('door');
   hazardInputState = createHazardInputState();
   permittedHazardCell = null;
   playerHasActed = true;
@@ -5983,6 +6180,8 @@ function openMainMenu() {
   hero.path = [];
   menuMode = 'pause';
   uiScreen = 'menu';
+  playSound('ui-close');
+  setAmbientLevel(0.35);
   document.body.dataset.screen = uiScreen;
   mainMenu.inert = false;
   mainMenu.setAttribute('aria-hidden', 'false');
@@ -6018,6 +6217,7 @@ function startGameFromMenu() {
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
   updateInteractionUi();
+  setAmbientLevel(1);
   startGameButton.blur();
   return true;
 }
@@ -6212,6 +6412,7 @@ function openFloorMap() {
   floorMapGesture = null;
   floorMapModel = buildFloorMapModel();
   refreshFloorMapCopy();
+  playSound('ui-tap');
   requestAnimationFrame(() => {
     if (uiScreen !== 'map') return;
     floorMapView = fitFloorMapView({ bounds: floorMapModel.bounds, viewport: floorMapViewport() });
@@ -6406,6 +6607,7 @@ function closeCharacterSheet() {
 
 function openInventory() {
   if (isTerminalRunStatus(runStatus)) return;
+  playSound('ui-tap');
   clearMoveControl();
   moveControl.inert = true;
   moveControl.setAttribute('aria-hidden', 'true');
@@ -7173,12 +7375,14 @@ function useConsumable(item, index) {
   }
   if (item.identification?.group === 'potion') {
     feedback = applyIdentifiablePotion(item);
+    playSound('drink');
   } else if (item.identification?.group === 'book') {
     feedback = applyBook(item);
     if (feedback === null) {
       showLootToast(item, 0);
       return;
     }
+    playSound('read');
   } else if (item.useEffect?.type === 'heal') {
     feedback = Math.min(item.useEffect.amount, maxHp - hero.hp);
     if (feedback === 0) {
@@ -7186,6 +7390,7 @@ function useConsumable(item, index) {
       return;
     }
     hero.hp += feedback;
+    playSound('drink');
   } else if (item.useEffect?.type === 'food') {
     const result = consumeFood({
       hunger: hero.hunger,
@@ -7199,6 +7404,7 @@ function useConsumable(item, index) {
       return;
     }
     hero.hunger = result.state.hunger;
+    playSound('eat');
     hero.hp = result.state.hp;
     currentHungerStageId = hungerStage(hero.hunger).id;
     hungerAutosaveElapsed = 0;
@@ -7469,6 +7675,7 @@ function damageMonster(
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
   const dealt = Math.min(monster.hp, damage);
   monster.hit = 0.19;
+  playSound(projectile ? 'hit-projectile' : style === 'heavy' ? 'hit-heavy' : 'hit-blade');
   monster.hp -= damage;
   const lethal = monster.hp <= 0;
   burst(monster.x, monster.y - 8, color, profile.particles);
@@ -7590,6 +7797,12 @@ function rejectSpellUse(slotIndex, reason) {
   addCombatGlyph(hero.x, hero.y, glyph, '#b9aaa0', -62);
 }
 
+const SPELL_CAST_SOUNDS = Object.freeze({
+  'ember-bolt': 'spell-fire',
+  'frost-lance': 'spell-ice',
+  'storm-bolt': 'spell-ice',
+});
+
 function castPreparedSpell(slotIndex, explicitTarget = null) {
   if (!ready || uiScreen !== 'game' || hero.dead || openingDoor || runStatus !== 'playing') return false;
   const spellId = hero.spells.preparedSpellIds[slotIndex];
@@ -7629,6 +7842,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.spells = toggled.state;
     spellCooldowns[usedSpell.id] = usedSpell.cooldown;
     if (usedSpell.id === 'invisibility' && toggled.active) hero.invisibilityReveal = 0;
+    playSound('spell-toggle');
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, toggled.active ? 58 : 34, 0);
     addCombatGlyph(hero.x, hero.y, toggled.active ? '◆' : '◇', usedSpell.color, -62);
@@ -7644,10 +7858,12 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     );
     hero.hp += amount;
     spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
     addCombatGlyph(hero.x, hero.y, `+${amount}`, usedSpell.color, -62);
   } else {
+    playSound(SPELL_CAST_SOUNDS[usedSpell.id] ?? 'spell-fire');
     hero.path = [];
     hero.attack = Math.max(hero.attack, 0.32);
     hero.attackDuration = 0.32;
@@ -7822,6 +8038,7 @@ function defeatMonster(monster) {
   monster.dead = 0.01;
   run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
+  playSound('kill');
   gainExperience(monster);
   if (monster.vaultRewardGold > 0) {
     gold += monster.vaultRewardGold;
@@ -7883,6 +8100,7 @@ function damageHero(amount, {
       });
   hero.hp = result.hp;
   hero.hurt = fullyBlocked ? 0 : subtle ? 0.12 : 0.24;
+  if (!subtle) playSound(fullyBlocked ? 'block' : 'hero-hurt');
   hero.guardFlash = fullyBlocked ? 0.32 : !direct && combat.guard > 0 ? 0.22 : 0;
   const color = impactColor ?? (combat.guard > 0 ? '#84b9b8' : '#c25a4f');
   burst(hero.x, hero.y - 8, color, fullyBlocked ? 16 : subtle ? 5 : 10);
@@ -7913,6 +8131,8 @@ function damageHero(amount, {
   if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   deathTimer = 1.35;
   run.stats.killerId = typeof source === 'string' ? source : null;
+  playSound('death');
+  stopAmbient();
   persistRun();
   return result;
 }
@@ -7937,6 +8157,7 @@ function resolveWorldInteractions() {
       lootDefinitions.splice(index, 1);
       run.floor.collected.push(loot.instanceId);
       gold += reward;
+      playSound('gold');
       burst(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 16);
       addImpactWave(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 52, 1);
       showLootToast(loot.definition, reward);
@@ -7953,6 +8174,7 @@ function resolveWorldInteractions() {
     }
     fullInventoryWarnings.delete(loot.instanceId);
     lootDefinitions.splice(index, 1);
+    playSound('pickup');
     run.floor.collected.push(loot.instanceId);
     const displayItem = presentedItem(loot.definition);
     burst(loot.x, loot.y - 8, rarityGlow[displayItem.rarity], 8 + displayItem.rarity * 4);
@@ -7992,6 +8214,7 @@ function resolveWorldInteractions() {
       eventDefinitions.splice(index, 1);
       run.floor.resolved.push(event.instanceId);
       showLootToast({ path, rarity: 0 }, -value);
+      playSound('trap');
       damageHero(value, { source: `trap:${event.id}` });
     } else {
       eventDefinitions.splice(index, 1);
@@ -8033,6 +8256,8 @@ function completeVictory() {
   projectiles.length = 0;
   if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   burst(hero.x, hero.y - 10, '#d83e82', 42);
+  playSound('victory');
+  stopAmbient();
   showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');
@@ -8052,6 +8277,7 @@ function healAtSanctuary() {
   hero.hp = result.state.hp;
   gold = result.state.gold;
   burst(hero.x, hero.y - 8, '#d4c27e', 22);
+  playSound('spell-heal');
   showLootToast({ path: SANCTUARY_PATH, rarity: 2 }, result.healed);
   updateHud();
   persistRun();
@@ -8066,6 +8292,7 @@ function replaceFloor(nextDepth) {
     lootAbundance: run.lootAbundance,
   });
   world = dungeon.grid;
+  startAmbient(biomeThemeForDepth(dungeon.depth).palette);
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
   const generatedChestIds = dungeon.finds
@@ -8180,6 +8407,7 @@ function descendFloor() {
   hero.hp = run.hero.hp;
   hero.hunger = run.hero.hunger;
   replaceFloor(run.depth);
+  playSound('descend');
   showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
 }
 
@@ -9325,6 +9553,7 @@ window.addEventListener('keydown', (event) => {
       editAppearanceButton,
       ...(!newRunFromMenuButton.hidden ? [newRunFromMenuButton] : []),
       ...mainMenuLanguageButtons,
+      ...audioMenuButtons,
     ].filter((control) => !control.disabled);
     const currentIndex = controls.indexOf(document.activeElement);
     const direction = event.shiftKey ? -1 : 1;
@@ -9544,6 +9773,24 @@ confirmNewRunButton.addEventListener('click', confirmNewRun);
 characterSheetButton.addEventListener('click', openCharacterSheet);
 closeCharacterSheetButton.addEventListener('click', closeCharacterSheet);
 depthBadge.addEventListener('click', openFloorMap);
+audioMuteButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = toggleAudioMute(audioSettings);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
+audioVolumeDownButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = adjustAudioVolume(audioSettings, -AUDIO_VOLUME_STEP);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
+audioVolumeUpButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = adjustAudioVolume(audioSettings, AUDIO_VOLUME_STEP);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
 closeFloorMapButton.addEventListener('click', () => closeFloorMap());
 floorMapCenterButton.addEventListener('click', centerFloorMapOnHero);
 floorMapZoomInButton.addEventListener('click', () => zoomFloorMapBy(FLOOR_MAP_ZOOM.factor));

@@ -29,6 +29,10 @@ function combatRuntime() {
     pendingAttack: { targetId: 'monster-1-0', damage: 50 }, targetAngle: 0,
   };
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     hero,
     runStatus: 'playing',
     run: { status: 'playing', floor: { defeated: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },

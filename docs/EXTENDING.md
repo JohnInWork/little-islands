@@ -368,6 +368,18 @@ capabilities трёх рангов и runtime-теста; не проверят�
 проверять localStorage в игровом цикле. После добавления ассетов выполнить
 `npm run sprites:manifest`.
 
+## Добавить звук
+
+Контракт: [2D-AUDIO.md](2D-AUDIO.md). Файлы: рецепты в `tools/dcss-rpg-audio.js`,
+вызов `playSound()` в `dcss.js`.
+
+1. Добавить запись в `SOUND_RECIPES`: тихие голоса (gain ≤ 0,06, длительность
+   ≤ 1,2 с); `soundRecipeProblems()` в тестах должен остаться пустым.
+2. Вызвать `playSound('id')` только после подтверждённого результата команды;
+   звук не влияет на правила. Новый фон — запись в `AMBIENT_RECIPES` по палитре.
+3. Не подключать аудиофайлы и второй AudioContext; runtime-тесты в `vm`
+   получают заглушки `playSound`/`startAmbient`/`stopAmbient`/`setAmbientLevel`.
+
 ## Расширить карту этажа
 
 Файлы: чистая модель `tools/dcss-rpg-floor-map.js`, canvas и жесты в `dcss.js`.

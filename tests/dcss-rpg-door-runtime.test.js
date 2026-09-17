@@ -18,6 +18,10 @@ function fixture({ open = false } = {}) {
   const door = { instanceId: 'door-1-0', x: 2, y: 2, axis: 'x', surpriseId: 'surprise-1-0' };
   const records = { saves: 0, feedback: [], progress: [], rebuilds: 0 };
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     ready: true, uiScreen: 'game', runStatus: 'playing', reducedMotion: false,
     TILE: 64, hero: { x: 96, y: 160, hp: 100, dead: false, path: [] },
     monsters: [], passiveCreatures: [], openingDoor: null,

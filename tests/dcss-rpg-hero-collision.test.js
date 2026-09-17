@@ -60,6 +60,10 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     attack: 0, attackDuration: 0.3, attackCooldown: 0, hurt: 0, guardFlash: 0, pendingAttack: null,
   };
   const context = vm.createContext({
+    playSound: () => false,
+    stopAmbient: () => {},
+    startAmbient: () => {},
+    setAmbientLevel: () => {},
     TILE, HERO_BASE_MOVE_SPEED, hero, monsters, passiveCreatures: [], placedTraps: [], world: grid,
     run: { seed: 1 }, dungeon: { depth: 1 },
     revealed: new Set(grid.flatMap((row, y) => row.map((_, x) => `${x},${y}`))),
