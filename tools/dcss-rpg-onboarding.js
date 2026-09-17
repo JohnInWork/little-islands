@@ -57,7 +57,7 @@ const HINT_COPY = Object.freeze({
       text: 'Спуск ведёт на следующий этаж, назад пути нет. Плитка глубины наверху открывает карту.',
     }),
     dismiss: 'Понятно',
-    skip: 'Больше не показывать',
+    skip: 'Не показывать',
     group: 'Подсказка',
   }),
   en: Object.freeze({
@@ -82,7 +82,7 @@ const HINT_COPY = Object.freeze({
       text: 'The descent leads to the next floor with no way back. The depth tile up top opens the map.',
     }),
     dismiss: 'Got it',
-    skip: "Don't show again",
+    skip: 'Hide hints',
     group: 'Hint',
   }),
 });

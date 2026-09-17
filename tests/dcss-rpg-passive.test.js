@@ -124,7 +124,9 @@ test('passive positions and wander sequence survive a validated save', () => {
 
 test('runtime preloads, renders, moves and persists passive wildlife outside combat', () => {
   const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  assert.match(runtime, /\.\.\.PASSIVE_CREATURE_PATHS/);
+  const requiredAssets = readFileSync(new URL('../tools/dcss-rpg-required-assets.js', import.meta.url), 'utf8');
+  assert.match(requiredAssets, /\.\.\.PASSIVE_CREATURE_PATHS/);
+  assert.match(runtime, /const requiredPaths = requiredAssetPaths\(visualOverridePaths\(visualOverrides\)\);/);
   assert.match(runtime, /createPassiveCreatures\(dungeon\)/);
   assert.match(runtime, /createPassiveCreatureStates\(level, TILE\)\.map/);
   assert.match(runtime, /function updatePassiveCreatures\(delta\)/);

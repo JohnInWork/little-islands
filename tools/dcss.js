@@ -152,6 +152,7 @@ import {
   zoomFloorMapView,
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
+import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   ONBOARDING_KEY,
   advanceOnboarding,
@@ -339,6 +340,8 @@ const audioMenuButtons = [audioMuteButton, audioVolumeDownButton, audioVolumeUpB
 const startGameButton = document.querySelector('#start-game');
 const startGameLabel = document.querySelector('#start-game-label');
 const mainMenuHint = document.querySelector('#main-menu-hint');
+const appVersionLabel = document.querySelector('#app-version');
+const feedbackLink = document.querySelector('#feedback-link');
 const mainMenuState = document.querySelector('#main-menu-state');
 const editAppearanceButton = document.querySelector('#edit-appearance');
 const editAppearanceLabel = document.querySelector('#edit-appearance-label');
@@ -519,6 +522,8 @@ const itemDetailEffectsRegion = itemDetail.querySelector('.item-detail-effects')
 const itemDetailEffectsTitle = itemDetail.querySelector('.item-detail-effects h3');
 const itemDetailAction = document.querySelector('#item-detail-action');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Injected by Vite from package.json; the dev server and tests fall back to a placeholder. */
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
 const assetRoot = new URL('../assets/dcss-preview/', document.baseURI);
 const assetUrl = (path) => new URL(path, assetRoot).href;
 const visualOverrides = loadVisualOverrides();
@@ -551,7 +556,7 @@ const combatGlyph = Object.freeze({
   bow: '➶',
 });
 
-const waterPaths = ['dngn/water/deep_water.png', 'dngn/water/deep_water2.png'];
+const waterPaths = WATER_PATHS;
 
 const sanctuaryVisual = runtimeVisual('system', 'sanctuary', 'world', SANCTUARY_PATH, 1, -5);
 const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
@@ -564,31 +569,8 @@ const doorPanelVisual = runtimeVisual(
   'system', 'door-panel', 'world', 'dngn/doors/closed_door.png', 1, 0,
 );
 
-const effectPaths = [
-  ...Array.from({ length: 6 }, (_, index) => `effect/magic_dart${index}.png`),
-  'effect/orb_glow0.png',
-  'effect/orb_glow1.png',
-  ...Array.from({ length: 4 }, (_, index) => `effect/cloud_magic_trail${index}.png`),
-];
-const requiredPaths = [
-  ...waterPaths,
-  ...allBiomeAssetPaths(),
-  'dngn/doors/closed_door.png',
-  'dngn/doors/open_door.png',
-  DISARMED_TRAP_PATH,
-  ...allPlayerFoundationAssetPaths(),
-  ...allPlayerAppearanceAssetPaths(),
-  ...allEquipmentVisualAssetPaths(),
-  ...CONTENT_PATHS,
-  ...IDENTIFICATION_APPEARANCE_PATHS,
-  ...allEnvironmentAssetPaths(),
-  ...FIND_ASSET_PATHS,
-  ...effectPaths,
-  ...PASSIVE_CREATURE_PATHS,
-  MERCHANT_ACTOR_PATH,
-  MERCHANT_ICON_PATH,
-  ...visualOverridePaths(visualOverrides),
-];
+const effectPaths = EFFECT_PATHS;
+const requiredPaths = requiredAssetPaths(visualOverridePaths(visualOverrides));
 
 const images = new Map();
 const floorLootSpritePaths = new Set([
@@ -816,6 +798,12 @@ let gold = run.gold;
 let deathTimer = 0;
 let runStatus = run.status;
 let playerHasActed = run.started;
+/** Screens where the world keeps moving; every other screen gets one frame on entry. */
+const LIVE_WORLD_SCREENS = new Set(['game', 'context', 'trap-placement', 'ability-targeting', 'chest', 'merchant']);
+const RENDER_INTERVAL_MS = 15.5;
+let lastRenderAt = Number.NEGATIVE_INFINITY;
+let renderedScreen = null;
+
 let onboardingState = (() => {
   try {
     return parseOnboardingState(localStorage.getItem(ONBOARDING_KEY));
@@ -972,6 +960,9 @@ function renderMainMenu() {
   startGameLabel.textContent = model.action;
   startGameButton.setAttribute('aria-label', model.action);
   mainMenuHint.textContent = model.hint;
+  appVersionLabel.textContent = `${labels.version} ${APP_VERSION}`;
+  feedbackLink.textContent = labels.feedback;
+  feedbackLink.setAttribute('aria-label', labels.feedback);
   editAppearanceLabel.textContent = labels.appearance;
   editAppearanceButton.setAttribute('aria-label', labels.openAppearance);
   menuAppearanceIcon.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
@@ -2060,6 +2051,7 @@ function activeBoss() {
 }
 
 function resize() {
+  renderedScreen = null;
   viewportWidth = innerWidth;
   viewportHeight = innerHeight;
   deviceScale = Math.min(devicePixelRatio || 1, 2);
@@ -9391,7 +9383,14 @@ function animate(time) {
       }
       updateOnboarding(time);
     }
-    render();
+    // Static overlays (bag, map, menu…) keep the last frame; live screens render
+    // at most ~60 Hz so 120 Hz phones do not double the GPU work.
+    const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen);
+    if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
+      render();
+      lastRenderAt = time;
+      renderedScreen = uiScreen;
+    }
   }
   frameId = requestAnimationFrame(animate);
 }
@@ -9529,7 +9528,7 @@ async function loadImage(path) {
   }
 }
 
-async function loadImageQueue(paths, concurrency = 12) {
+async function loadImageQueue(paths, concurrency = 48) {
   let nextIndex = 0;
   const worker = async () => {
     while (nextIndex < paths.length) {

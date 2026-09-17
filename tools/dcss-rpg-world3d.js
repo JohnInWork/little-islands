@@ -231,6 +231,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
       depthTest: true,
       depthWrite: false,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       toneMapped: false,
     });
     const beam = new THREE.Mesh(
@@ -248,6 +249,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
       depthTest: true,
       depthWrite: false,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       toneMapped: false,
     });
     const pool = new THREE.Mesh(new THREE.CircleGeometry(1, 12), poolMaterial);
@@ -505,6 +507,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
       colorWrite: false,
       depthWrite: false,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
     });
     const caster = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), casterMaterial);
     caster.castShadow = true;

@@ -135,4 +135,4 @@ from the site's public HQ previews.
 
 - Source: <https://opengameart.org/content/loopable-dungeon-ambience>
 - License: CC0 1.0
-- Files: `ambience/dungeon-loop.mp3` (dungeon_ambient_1, 94 s loop)
+- Files: `ambience/dungeon-loop.mp3` (dungeon_ambient_1, 38 s loop cut from the original with a 2 s crossfade at the seam to keep decoded memory small)

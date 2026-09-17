@@ -29,7 +29,7 @@ test('the catalog is five ordered first-floor hints with valid signals and short
     assert.ok(ru.title && ru.text && en.title && en.text, id);
     assert.notEqual(ru.text, en.text, id);
     assert.equal(ru.dismiss, 'Понятно');
-    assert.equal(en.skip, "Don't show again");
+    assert.equal(en.skip, 'Hide hints');
     assert.match(ru.ariaLabel, /^Подсказка: /);
     assert.ok(Object.isFrozen(ru));
   }

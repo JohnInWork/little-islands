@@ -44,6 +44,8 @@
   по главам и настройки громкости.
 - [2D-ONBOARDING.md](2D-ONBOARDING.md) — пять подсказок первого этажа по
   сигналам, один раз, RU/EN, состояние в localStorage.
+- [RELEASE.md](RELEASE.md) — сборка архива для itch.io, настройки страницы,
+  тексты RU/EN и чеклист перед публикацией.
 - [2D-VISUAL-WORKSHOP.md](2D-VISUAL-WORKSHOP.md) — локальный выбор спрайтов для
   предметов, существ и интерактивных объектов без изменения игровых ID.
 - [2D-RPG-PLAN.md](2D-RPG-PLAN.md) — долгосрочное направление, не список готового.
@@ -95,7 +97,7 @@
 save. Контракт: [2D-AUDIO.md](2D-AUDIO.md).
 Первый этаж встречает пятью подсказками (движение, враг, добыча,
 взаимодействие, лестница): каждая один раз, по событию, закрывается сама или
-кнопкой; «Больше не показывать» выключает все. Контракт:
+кнопкой; «Не показывать» выключает все. Контракт:
 [2D-ONBOARDING.md](2D-ONBOARDING.md).
 
 UI крупный и пиксельный, RU/EN. Мало слов в HUD, точные объяснения — в меню.
@@ -223,6 +225,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Экран итогов забега | `tools/dcss-rpg-run-summary.js`; `run.stats` в `dcss-rpg-core.js`; связывание в `dcss.js` |
 | Звук и фон | `tools/dcss-rpg-audio.js`; WebAudio-адаптер в `dcss.js`, [контракт](2D-AUDIO.md) |
 | Обучение первых минут | `tools/dcss-rpg-onboarding.js`; сигналы и панель в `dcss.js`, [контракт](2D-ONBOARDING.md) |
+| Список нужных спрайтов и упаковка | `tools/dcss-rpg-required-assets.js`; `scripts/package-itch.mjs`, [выпуск](RELEASE.md) |
 | Декор/палитра/свет | `tools/dcss-rpg-environment.js`, `dcss-rpg-visuals.js`, `dcss-rpg-world3d.js` |
 | Выбор и замена спрайтов | `tools/sprites.html`, `sprites.js`, `dcss-rpg-visual-overrides.js`, [контракт](2D-VISUAL-WORKSHOP.md) |
 | Браузерный ввод и связывание | `tools/dcss.js`, `dcss-rpg-input.js` |
