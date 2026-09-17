@@ -72,7 +72,7 @@ import {
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
 import { createBookStudy, validateBookStudy } from './dcss-rpg-books.js';
-import { createStartingMagic } from './dcss-rpg-build-presets.js';
+import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
 import {
   createChestContainerStates,
@@ -643,7 +643,8 @@ export function generateDungeon({
   }
 
   const lootPool = LOOT_CATALOG.filter((item) => lootEligibleForFloor(item, scaling));
-  const starterIds = new Set(['short-blade', 'wood-buckler', 'heavy-leather', 'jackboots']);
+  // The guaranteed first drop must not duplicate what the hero already wears.
+  const starterIds = new Set(['rusty-sword', 'worn-tunic']);
   const starterLootPool = lootPool.filter((item) => item.slot && !starterIds.has(item.id));
   const desiredSurpriseLootCount = doorPlan.surprise?.type === 'treasure'
     ? Math.min(3, scaling.rewards.lootCount - 1)
@@ -839,16 +840,11 @@ export function generateDungeon({
 
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
   const startingMagic = createStartingMagic();
+  // A run starts from zero: worn clothes, a rusty sword, an empty bag and no
+  // spells. Everything else — armour, tools, food, books — is found below.
   const items = [
-    { id: 'short-blade', uid: 'starter-blade', affixIds: [], artifactPowerId: null, artifactCurseId: null },
-    { id: 'wood-buckler', uid: 'starter-buckler', affixIds: [], artifactPowerId: null, artifactCurseId: null },
-    { id: 'heavy-leather', uid: 'starter-armour', affixIds: [], artifactPowerId: null, artifactCurseId: null },
-    { id: 'jackboots', uid: 'starter-boots', affixIds: [], artifactPowerId: null, artifactCurseId: null },
-    { id: 'healing-potion', uid: 'starter-potion', stack: 2 },
-    { id: 'bread', uid: 'starter-bread', stack: 3 },
-    { id: 'iron-key', uid: 'starter-key', stack: 1 },
-    { id: 'lockpick-set', uid: 'starter-lockpicks', stack: 2 },
-    { id: 'hunter-trap', uid: 'starter-hunter-trap', stack: 1 },
+    { id: 'rusty-sword', uid: 'starter-sword', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    { id: 'worn-tunic', uid: 'starter-tunic', affixIds: [], artifactPowerId: null, artifactCurseId: null },
   ];
   return {
     version: SAVE_VERSION,
@@ -882,18 +878,18 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     items,
     equipment: {
       cloak: null,
-      body: 'starter-armour',
+      body: 'starter-tunic',
       head: null,
-      hand1: 'starter-blade',
-      hand2: 'starter-buckler',
+      hand1: 'starter-sword',
+      hand2: null,
       gloves: null,
       belt: null,
-      boots: 'starter-boots',
+      boots: null,
       ring1: null,
       ring2: null,
       amulet: null,
     },
-    inventory: ['starter-potion', 'starter-bread', 'starter-key', 'starter-lockpicks', 'starter-hunter-trap'],
+    inventory: [],
     floor: createEmptyFloorState(dungeon),
   };
 }
@@ -1157,7 +1153,9 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.skillStudy = snapshot.version >= 26
       ? createBookStudy(snapshot.hero.skillStudy)
       : createBookStudy();
-    const startingMagic = createStartingMagic();
+    // Saves that predate manual magic keep the historical wanderer kit; only
+    // brand-new runs start without spells.
+    const startingMagic = createStartingMagic(LEGACY_BUILD_PRESET_ID);
     migrated.hero.intelligence = snapshot.version >= 27
       ? snapshot.hero.intelligence
       : startingMagic.intelligence;
@@ -1249,8 +1247,8 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
-            intelligence: createStartingMagic().intelligence,
-            spells: createStartingMagic().spells,
+            intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            spells: createStartingMagic(LEGACY_BUILD_PRESET_ID).spells,
           }
         : {
             ...snapshot.hero,
@@ -1258,8 +1256,8 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
-            intelligence: createStartingMagic().intelligence,
-            spells: createStartingMagic().spells,
+            intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            spells: createStartingMagic(LEGACY_BUILD_PRESET_ID).spells,
           },
       status: crossesGeneratorBoundary
         ? snapshot.hero?.hp === 0

@@ -119,6 +119,9 @@ test('save v15 persists placed traps and migrates v14 without inventing a trap i
   const run = createRun(71, dungeon);
   assert.equal(SAVE_VERSION, 34);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
+  // Runs start without tools now; this hero found one trap on the floor.
+  run.items.push({ id: PLAYER_TRAP_ITEM_ID, uid: 'starter-hunter-trap', stack: 1 });
+  run.inventory.push('starter-hunter-trap');
   assert.equal(run.items.some(({ id }) => id === PLAYER_TRAP_ITEM_ID), true);
 
   const legacy = structuredClone(run);

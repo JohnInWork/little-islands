@@ -61,6 +61,10 @@ const RUSSIAN_NAMES = Object.freeze({
   'unidentified-potion': 'Неизвестное зелье',
   'blink-scroll': 'Свиток скачка',
   'book-of-frost': 'Книга мороза',
+  'book-of-embers': 'Книга углей',
+  'book-of-mending': 'Книга врачевания',
+  'rusty-sword': 'Ржавый меч',
+  'worn-tunic': 'Поношенная рубаха',
   'bone-wand': 'Костяной жезл',
   'tide-wand': 'Жезл прилива',
   'practice-manual': 'Учебник мастерства',
@@ -91,6 +95,10 @@ const ENGLISH_NAMES = Object.freeze({
   'book-of-flight': 'Book of Flight',
   'book-of-invisibility': 'Book of Invisibility',
   'book-of-frost': 'Book of Frost',
+  'book-of-embers': 'Book of Embers',
+  'book-of-mending': 'Book of Mending',
+  'rusty-sword': 'Rusty sword',
+  'worn-tunic': 'Worn tunic',
   'tide-wand': 'Tide Wand',
 });
 

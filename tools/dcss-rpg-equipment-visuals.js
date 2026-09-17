@@ -15,6 +15,17 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     layer: 'player/hand1/short_sword_slant.png',
     offhandLayer: 'player/hand2/misc/dagger.png',
   }),
+  'rusty-sword': Object.freeze({
+    icon: 'item/weapon/short_sword3.png',
+    layer: 'player/hand1/short_sword_slant3.png',
+    offhandLayer: 'player/hand2/misc/short_sword_slant2.png',
+  }),
+  // A body item may add `legsLayer`: trousers drawn under the shirt and boots.
+  'worn-tunic': Object.freeze({
+    icon: 'item/armour/robe1.png',
+    layer: 'player/body/shirt_white1.png',
+    legsLayer: 'player/legs/pants_brown.png',
+  }),
   'long-sword': Object.freeze({
     icon: 'item/weapon/long_sword1.png',
     layer: 'player/hand1/long_sword_slant2.png',
@@ -193,5 +204,6 @@ export function allEquipmentVisualAssetPaths() {
     visual.icon,
     visual.layer,
     visual.offhandLayer,
+    visual.legsLayer,
   ]).filter(Boolean))].sort();
 }

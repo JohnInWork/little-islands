@@ -113,14 +113,17 @@ test('an owned axe rank survives JSON reload and floor descent without transient
 
 test('a saved one-handed axe keeps its off-hand item through reload and floor descent', () => {
   const run = createRun(0xa8e6);
-  run.items.find(({ uid }) => uid === 'starter-blade').id = 'war-axe';
+  run.items.find(({ uid }) => uid === 'starter-sword').id = 'war-axe';
+  // A run starts without a shield; give this hero a found buckler to keep.
+  run.items.push({ id: 'wood-buckler', uid: 'found-buckler', affixIds: [], artifactPowerId: null, artifactCurseId: null });
+  run.equipment.hand2 = 'found-buckler';
   assert.equal(validateRun(run), true);
   const reloaded = JSON.parse(JSON.stringify(run));
   assert.doesNotThrow(() => hydrateDungeon(reloaded));
-  assert.equal(reloaded.equipment.hand1, 'starter-blade');
-  assert.equal(reloaded.equipment.hand2, 'starter-buckler');
+  assert.equal(reloaded.equipment.hand1, 'starter-sword');
+  assert.equal(reloaded.equipment.hand2, 'found-buckler');
   const next = advanceRunFloor(reloaded);
-  assert.equal(next.equipment.hand1, 'starter-blade');
-  assert.equal(next.equipment.hand2, 'starter-buckler');
-  assert.equal(next.items.find(({ uid }) => uid === 'starter-blade').id, 'war-axe');
+  assert.equal(next.equipment.hand1, 'starter-sword');
+  assert.equal(next.equipment.hand2, 'found-buckler');
+  assert.equal(next.items.find(({ uid }) => uid === 'starter-sword').id, 'war-axe');
 });

@@ -139,7 +139,7 @@ test('v19 migration preserves tuning and gear power without inventing affixes', 
 
 test('affix IDs survive the strict save contract and runtime adapter', () => {
   const run = createRun(2020);
-  const blade = run.items.find(({ uid }) => uid === 'starter-blade');
+  const blade = run.items.find(({ uid }) => uid === 'starter-sword');
   blade.affixIds = ['forceful'];
   const restored = JSON.parse(JSON.stringify(run));
   assert.equal(validateRun(restored), true);

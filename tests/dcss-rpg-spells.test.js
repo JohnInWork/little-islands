@@ -22,8 +22,13 @@ import {
 import { createStartingMagic } from '../tools/dcss-rpg-build-presets.js';
 
 test('spell state owns exactly three unique prepared slots and validates strictly', () => {
-  const starting = createStartingMagic();
+  const outcast = createStartingMagic();
   assert.equal(SPELL_SLOT_COUNT, 3);
+  assert.equal(outcast.intelligence, 3, 'a new run starts below the healing threshold');
+  assert.deepEqual(outcast.spells.knownSpellIds, []);
+  assert.deepEqual(outcast.spells.preparedSpellIds, [null, null, null]);
+  assert.equal(validateSpellState(outcast.spells), true);
+  const starting = createStartingMagic('wanderer');
   assert.equal(starting.intelligence, 4);
   assert.deepEqual(starting.spells.preparedSpellIds, ['ember-bolt', 'mending-light', null]);
   assert.equal(validateSpellState(starting.spells), true);
@@ -67,7 +72,8 @@ test('flight and invisibility are binary sustained powers that occupy prepared s
 });
 
 test('manual cast availability handles targets, healing, cooldown and intelligence', () => {
-  const state = createStartingMagic().spells;
+  const state = createStartingMagic('wanderer').spells;
+  assert.equal(spellUseAvailability({ state: createStartingMagic().spells, slotIndex: 0, intelligence: 4, hasTarget: true }).reason, 'empty-slot');
   assert.equal(spellUseAvailability({ state, slotIndex: 0, intelligence: 4, hasTarget: false }).reason, 'no-target');
   assert.equal(spellUseAvailability({ state, slotIndex: 0, intelligence: 4, hasTarget: true }).ok, true);
   assert.equal(spellUseAvailability({ state, slotIndex: 0, intelligence: 4, cooldown: 1 }).reason, 'cooldown');
@@ -117,7 +123,9 @@ test('runtime wires Cryomancy ranks into frost damage, freeze, shatter and monst
 
 test('the spell catalog and both UI models are bilingual and data driven', () => {
   assert.equal(new Set(SPELL_CATALOG.map(({ id }) => id)).size, SPELL_CATALOG.length);
-  const magic = createStartingMagic();
+  const empty = spellBarModel({ state: createStartingMagic().spells, intelligence: 3, language: 'ru' });
+  assert.ok(empty.slots.every((slot) => slot.empty), 'a new run prepares nothing');
+  const magic = createStartingMagic('wanderer');
   const bar = spellBarModel({ state: magic.spells, intelligence: magic.intelligence, language: 'ru' });
   assert.equal(bar.slots.length, 3);
   assert.equal(bar.slots[0].name, 'Огненная стрела');

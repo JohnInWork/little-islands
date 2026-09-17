@@ -148,12 +148,12 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
   legacyArtifactRun.version = 21;
   legacyArtifactRun.shards = 13;
   delete legacyArtifactRun.gold;
-  const blade = legacyArtifactRun.items.find(({ uid }) => uid === 'starter-blade');
+  const blade = legacyArtifactRun.items.find(({ uid }) => uid === 'starter-sword');
   blade.artifactPowerId = 'vampirism';
   blade.artifactCurseId = 'frailty';
   legacyArtifactRun.hero.hp = 82;
   const artifactMigration = migrateLegacyRun(legacyArtifactRun);
-  const migratedArtifact = artifactMigration.items.find(({ uid }) => uid === 'starter-blade');
+  const migratedArtifact = artifactMigration.items.find(({ uid }) => uid === 'starter-sword');
   assert.equal(SAVE_VERSION, 34);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v34');
   assert.equal(artifactMigration.gold, 13);
@@ -170,12 +170,12 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
     delete item.artifactPowerId;
     delete item.artifactCurseId;
   }
-  const oldBlade = legacy.items.find(({ uid }) => uid === 'starter-blade');
+  const oldBlade = legacy.items.find(({ uid }) => uid === 'starter-sword');
   oldBlade.affixIds = ['forceful'];
   oldBlade.sanctity = 'cursed';
   oldBlade.sanctityKnown = false;
   const migrated = migrateLegacyRun(legacy);
-  const migratedBlade = migrated.items.find(({ uid }) => uid === 'starter-blade');
+  const migratedBlade = migrated.items.find(({ uid }) => uid === 'starter-sword');
   assert.deepEqual(migratedBlade.affixIds, ['forceful']);
   assert.equal(Object.hasOwn(migratedBlade, 'sanctity'), false);
   assert.equal(Object.hasOwn(migratedBlade, 'sanctityKnown'), false);

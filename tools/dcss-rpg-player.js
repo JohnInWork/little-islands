@@ -17,6 +17,8 @@ export function composePlayerLayers({
   return [
     cloakVisual?.layer,
     baseVisual?.layer ?? BASE_PLAYER_LAYER,
+    // Trousers belong to the body item and sit under belt, boots and shirt.
+    bodyVisual?.legsLayer,
     beltVisual?.layer,
     bootsVisual?.layer,
     bodyVisual?.layer,

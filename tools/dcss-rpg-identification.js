@@ -53,6 +53,8 @@ export const WAND_APPEARANCES = Object.freeze([
 
 export const BOOK_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'cloth', icon: 'item/book/cloth.png', name: Object.freeze({ ru: 'Книга в тканевом переплёте', en: 'Clothbound book' }) }),
+  Object.freeze({ id: 'dark-green', icon: 'item/book/dark_green.png', name: Object.freeze({ ru: 'Тёмно-зелёная книга', en: 'Dark green book' }) }),
+  Object.freeze({ id: 'parchment', icon: 'item/book/parchment.png', name: Object.freeze({ ru: 'Книга в пергаменте', en: 'Parchment book' }) }),
   Object.freeze({ id: 'dark-blue', icon: 'item/book/dark_blue.png', name: Object.freeze({ ru: 'Тёмно-синяя книга', en: 'Dark blue book' }) }),
   Object.freeze({ id: 'leather', icon: 'item/book/leather.png', name: Object.freeze({ ru: 'Книга в кожаном переплёте', en: 'Leatherbound book' }) }),
   Object.freeze({ id: 'metal', icon: 'item/book/metal_cyan.png', name: Object.freeze({ ru: 'Книга в металлическом переплёте', en: 'Metalbound book' }) }),

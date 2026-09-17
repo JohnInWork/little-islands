@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
+import test from 'node:test';
+
+import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
+import {
+  createRun,
+  generateDungeon,
+  hydrateDungeon,
+  validateRun,
+} from '../tools/dcss-rpg-core.js';
+import {
+  BUILD_PRESETS,
+  DEFAULT_BUILD_PRESET_ID,
+  LEGACY_BUILD_PRESET_ID,
+  createStartingMagic,
+} from '../tools/dcss-rpg-build-presets.js';
+import {
+  allEquipmentVisualAssetPaths,
+  equipmentVisualForItem,
+  equipmentVisualProblems,
+} from '../tools/dcss-rpg-equipment-visuals.js';
+import { BOOK_APPEARANCES, itemAppearanceFor } from '../tools/dcss-rpg-identification.js';
+import { itemDetails } from '../tools/dcss-rpg-item-details.js';
+import { createMerchantStock } from '../tools/dcss-rpg-merchant.js';
+import { composePlayerLayers } from '../tools/dcss-rpg-player.js';
+import { lootEligibleForFloor, floorScaling } from '../tools/dcss-rpg-scaling.js';
+import { spellBarModel } from '../tools/dcss-rpg-spells.js';
+
+const assetUrl = (path) => new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
+const STARTER_IDS = ['rusty-sword', 'worn-tunic'];
+
+test('a new run starts with worn clothes, a rusty sword, an empty bag and no spells', () => {
+  const run = createRun(4242);
+  assert.deepEqual(run.items.map(({ id }) => id), STARTER_IDS);
+  assert.deepEqual(run.inventory, []);
+  assert.equal(run.equipment.hand1, 'starter-sword');
+  assert.equal(run.equipment.body, 'starter-tunic');
+  for (const slot of ['cloak', 'head', 'hand2', 'gloves', 'belt', 'boots', 'ring1', 'ring2', 'amulet']) {
+    assert.equal(run.equipment[slot], null, `${slot} starts empty`);
+  }
+  assert.equal(run.hero.intelligence, 3);
+  assert.deepEqual(run.hero.spells.knownSpellIds, []);
+  assert.deepEqual(run.hero.spells.preparedSpellIds, [null, null, null]);
+  assert.equal(validateRun(run), true);
+  assert.doesNotThrow(() => hydrateDungeon(run));
+  const bar = spellBarModel({ state: run.hero.spells, intelligence: run.hero.intelligence, language: 'ru' });
+  assert.ok(bar.slots.every((slot) => slot.empty), 'the HUD column has nothing to show');
+});
+
+test('the bare preset is the default while the wanderer kit only serves old saves', () => {
+  assert.equal(DEFAULT_BUILD_PRESET_ID, 'outcast');
+  assert.equal(LEGACY_BUILD_PRESET_ID, 'wanderer');
+  assert.deepEqual(BUILD_PRESETS.outcast.knownSpellIds, []);
+  assert.equal(createStartingMagic().intelligence, 3);
+  assert.deepEqual(createStartingMagic(LEGACY_BUILD_PRESET_ID).spells.knownSpellIds, ['ember-bolt', 'mending-light']);
+});
+
+test('starter gear is weaker than any drop and never appears as loot or stock', () => {
+  const sword = lootById('rusty-sword');
+  const tunic = lootById('worn-tunic');
+  const dagger = lootById('short-blade');
+  assert.equal(sword.weaponFamily, 'sword');
+  assert.ok(sword.stats.attack < dagger.stats.attack);
+  assert.ok(sword.combat.damageScale < dagger.combat.damageScale);
+  assert.ok(sword.combat.cooldown > dagger.combat.cooldown);
+  assert.equal(tunic.slot, 'body');
+  assert.ok(tunic.stats.defense < lootById('heavy-leather').stats.defense);
+  for (const item of [sword, tunic]) {
+    assert.equal(item.randomDrop, false);
+    assert.equal(item.merchantStock, false);
+    assert.equal(lootEligibleForFloor(item, floorScaling(9)), false);
+  }
+  for (let seed = 1; seed <= 200; seed += 1) {
+    const depth = 1 + (seed % 9);
+    const dungeon = generateDungeon({ seed, depth });
+    assert.ok(dungeon.loot.every(({ id }) => !STARTER_IDS.includes(id)), `seed ${seed} floor loot`);
+    if (depth % 3 === 0) {
+      for (const variantId of ['armourer', 'relic-dealer', 'provisioner']) {
+        const stock = createMerchantStock({ seed, depth, roomIndex: 1, variantId });
+        assert.ok(stock.every(({ itemId, id }) => !STARTER_IDS.includes(itemId ?? id)), `seed ${seed} ${variantId}`);
+      }
+    }
+  }
+});
+
+test('the former starting spells are ordinary unknown books with enough authored looks', () => {
+  const embers = lootById('book-of-embers');
+  const mending = lootById('book-of-mending');
+  assert.deepEqual(embers.bookEffect, { type: 'learn-spell', spellId: 'ember-bolt' });
+  assert.deepEqual(mending.bookEffect, { type: 'learn-spell', spellId: 'mending-light' });
+  assert.equal(embers.identification.tier, 1);
+  assert.equal(mending.identification.tier, 1);
+  assert.equal(lootEligibleForFloor(embers, floorScaling(1)), true);
+  assert.equal(lootEligibleForFloor(mending, floorScaling(1)), true);
+  const bookIds = LOOT_CATALOG.filter((item) => item.identification?.group === 'book').map(({ id }) => id);
+  assert.ok(bookIds.length <= BOOK_APPEARANCES.length, 'every book type needs its own look');
+  assert.equal(new Set(BOOK_APPEARANCES.map(({ icon }) => icon)).size, BOOK_APPEARANCES.length);
+  for (let seed = 1; seed <= 50; seed += 1) {
+    const looks = bookIds.map((id) => itemAppearanceFor(seed, 'book', id, bookIds).id);
+    assert.equal(new Set(looks).size, bookIds.length, `seed ${seed} keeps looks one-to-one`);
+  }
+  let seen = 0;
+  for (let seed = 1; seed <= 400; seed += 1) {
+    const dungeon = generateDungeon({ seed, depth: 1 + (seed % 3) });
+    if (dungeon.loot.some(({ id }) => id === 'book-of-embers' || id === 'book-of-mending')) seen += 1;
+  }
+  assert.ok(seen >= 40, `basic spell books must actually drop early (${seen} of 400 floors)`);
+});
+
+test('worn clothes draw a shirt over trousers on the hero and every layer ships locally', async () => {
+  const tunic = lootById('worn-tunic');
+  const visual = equipmentVisualForItem(tunic);
+  assert.equal(visual.layer, 'player/body/shirt_white1.png');
+  assert.equal(visual.legsLayer, 'player/legs/pants_brown.png');
+  const layers = composePlayerLayers({ bodyVisual: visual, bootsVisual: { layer: 'boots' } });
+  assert.ok(layers.indexOf(visual.legsLayer) < layers.indexOf('boots'));
+  assert.ok(layers.indexOf('boots') < layers.indexOf(visual.layer));
+  assert.ok(allEquipmentVisualAssetPaths().includes(visual.legsLayer));
+  assert.deepEqual(equipmentVisualProblems(LOOT_CATALOG), []);
+  const sword = equipmentVisualForItem(lootById('rusty-sword'));
+  assert.equal(sword.layer, 'player/hand1/short_sword_slant3.png');
+  await Promise.all([
+    visual.layer, visual.legsLayer, visual.icon, sword.layer, sword.offhandLayer, sword.icon,
+  ].map((path) => access(assetUrl(path))));
+});
+
+test('the new items read naturally in both languages', () => {
+  assert.equal(itemDetails(lootById('rusty-sword'), 'ru').name, 'Ржавый меч');
+  assert.equal(itemDetails(lootById('rusty-sword'), 'en').name, 'Rusty sword');
+  assert.equal(itemDetails(lootById('worn-tunic'), 'ru').name, 'Поношенная рубаха');
+  assert.equal(itemDetails(lootById('worn-tunic'), 'en').name, 'Worn tunic');
+  assert.equal(itemDetails(lootById('book-of-embers'), 'ru').name, 'Книга углей');
+  assert.equal(itemDetails(lootById('book-of-mending'), 'en').name, 'Book of Mending');
+});

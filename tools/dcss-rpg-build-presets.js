@@ -1,10 +1,19 @@
 import { createSpellState } from './dcss-rpg-spells.js';
 
-export const DEFAULT_BUILD_PRESET_ID = 'wanderer';
+// New runs start from zero: no spells, low Intelligence, magic comes from books.
+export const DEFAULT_BUILD_PRESET_ID = 'outcast';
+// Saves created before manual magic existed keep the historical wanderer kit.
+export const LEGACY_BUILD_PRESET_ID = 'wanderer';
 
 // Presets only define the beginning of a run. They never restrict equipment,
 // skills or spells after character creation.
 export const BUILD_PRESETS = Object.freeze({
+  outcast: Object.freeze({
+    id: 'outcast',
+    baseIntelligence: 3,
+    knownSpellIds: Object.freeze([]),
+    preparedSpellIds: Object.freeze([null, null, null]),
+  }),
   wanderer: Object.freeze({
     id: 'wanderer',
     baseIntelligence: 4,

@@ -48,17 +48,21 @@ test('all equipment has real combat stats and starter HUD values use the same de
     ...lootById(item.id),
     ...item,
   })));
+  // Worn tunic and rusty sword only: the run really starts from zero.
   assert.deepEqual(stats, {
-    attack: 4,
-    defense: 5,
+    attack: 3,
+    defense: 1,
     maxHp: 100,
-    moveSpeed: 1.08,
-    attackSpeed: 1.05,
-    intelligence: 4,
+    moveSpeed: 1,
+    attackSpeed: 1,
+    intelligence: 3,
   });
+  assert.deepEqual(run.inventory, []);
+  assert.deepEqual(run.items.map(({ id }) => id), ['rusty-sword', 'worn-tunic']);
   assert.equal(HERO_BASE_MOVE_SPEED, 2.85);
   assert.equal(HERO_LEVEL_HP_GAIN, 6);
-  assert.equal(mitigateDamage(5, stats.defense), 3);
+  assert.equal(mitigateDamage(5, stats.defense), 5, 'worn clothes barely mitigate anything');
+  assert.equal(mitigateDamage(5, 5), 3);
 });
 
 test('equipment exposes bounded movement and attack tempo modifiers', () => {
@@ -78,6 +82,9 @@ test('equipment exposes bounded movement and attack tempo modifiers', () => {
 
 test('hunger composes with the one derived-stat source without ever dealing damage', () => {
   const run = createRun(1924);
+  // A bare start has one point of defense; wear found leather so penalties stay visible.
+  run.items.push({ id: 'heavy-leather', uid: 'found-leather', affixIds: [], artifactPowerId: null, artifactCurseId: null });
+  run.equipment.body = 'found-leather';
   const items = run.items.map((item) => ({ ...lootById(item.id), ...item }));
   const fed = deriveHeroStats({ ...run.hero, hunger: HUNGER_MAX }, run.equipment, items);
   const strong = deriveHeroStats({ ...run.hero, hunger: HUNGER_TUNING.strongAt }, run.equipment, items);
@@ -175,15 +182,18 @@ test('cloak, gloves and belt are real equipment families with visible variants',
 test('equipment has one owner and swapping or salvaging is atomic', () => {
   const run = createRun(23);
   const found = { id: 'long-sword', uid: 'found-sword', ...lootById('long-sword') };
+  // With an empty off-hand a second one-hander would dual-wield; hold a shield
+  // so the found sword has to replace the rusty starter in the main hand.
+  const buckler = { id: 'wood-buckler', uid: 'found-buckler', affixIds: [], ...lootById('wood-buckler') };
   const state = {
-    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), found],
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), buckler, found],
     inventory: [...run.inventory, found.uid],
-    equipment: { ...run.equipment },
+    equipment: { ...run.equipment, hand2: buckler.uid },
   };
   const equipped = equipInventoryItem(state, found.uid);
   assert.equal(equipped.ok, true);
   assert.equal(equipped.state.equipment.hand1, found.uid);
-  assert.ok(equipped.state.inventory.includes('starter-blade'));
+  assert.ok(equipped.state.inventory.includes('starter-sword'));
   assert.ok(!equipped.state.inventory.includes(found.uid));
 
   const forbidden = salvageInventoryItems(equipped.state, [found.uid]);
@@ -203,10 +213,11 @@ test('equipment has one owner and swapping or salvaging is atomic', () => {
 test('two-handed weapons atomically clear both hands and off-hand gear swaps them out', () => {
   const run = createRun(2301);
   const axe = { id: 'executioner-axe', uid: 'test-two-handed', ...lootById('executioner-axe') };
+  const buckler = { id: 'wood-buckler', uid: 'found-buckler', affixIds: [], ...lootById('wood-buckler') };
   const state = {
-    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), axe],
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), buckler, axe],
     inventory: [...run.inventory, axe.uid],
-    equipment: { ...run.equipment },
+    equipment: { ...run.equipment, hand2: buckler.uid },
   };
 
   assert.equal(isTwoHandedItem(axe), true);
@@ -214,14 +225,14 @@ test('two-handed weapons atomically clear both hands and off-hand gear swaps the
   assert.equal(equipped.ok, true);
   assert.equal(equipped.state.equipment.hand1, axe.uid);
   assert.equal(equipped.state.equipment.hand2, null);
-  assert.deepEqual(equipped.unequippedUids, ['starter-blade', 'starter-buckler']);
-  assert.ok(equipped.state.inventory.includes('starter-blade'));
-  assert.ok(equipped.state.inventory.includes('starter-buckler'));
+  assert.deepEqual(equipped.unequippedUids, ['starter-sword', 'found-buckler']);
+  assert.ok(equipped.state.inventory.includes('starter-sword'));
+  assert.ok(equipped.state.inventory.includes('found-buckler'));
 
-  const shielded = equipInventoryItem(equipped.state, 'starter-buckler');
+  const shielded = equipInventoryItem(equipped.state, 'found-buckler');
   assert.equal(shielded.ok, true);
   assert.equal(shielded.state.equipment.hand1, null);
-  assert.equal(shielded.state.equipment.hand2, 'starter-buckler');
+  assert.equal(shielded.state.equipment.hand2, 'found-buckler');
   assert.ok(shielded.state.inventory.includes(axe.uid));
 });
 
@@ -233,13 +244,12 @@ test('one-handed weapons can occupy both hand slots without duplicating one item
     inventory: [...run.inventory, sword.uid],
     equipment: { ...run.equipment },
   };
-  const withoutShield = unequipItem(state, 'hand2');
-  assert.equal(withoutShield.ok, true);
-  const equipped = equipInventoryItem(withoutShield.state, sword.uid);
+  assert.equal(state.equipment.hand2, null, 'a fresh run has no shield');
+  const equipped = equipInventoryItem(state, sword.uid);
 
   assert.equal(equipped.ok, true);
   assert.equal(equipped.slot, 'hand2');
-  assert.equal(equipped.state.equipment.hand1, 'starter-blade');
+  assert.equal(equipped.state.equipment.hand1, 'starter-sword');
   assert.equal(equipped.state.equipment.hand2, sword.uid);
   assert.equal(
     Object.values(equipped.state.equipment).filter((uid) => uid === sword.uid).length,
@@ -249,34 +259,33 @@ test('one-handed weapons can occupy both hand slots without duplicating one item
 
 test('a dual-wield loadout survives the existing save contract without a schema fork', () => {
   const run = createRun(2305);
-  const previousOffhand = run.equipment.hand2;
   run.items.push({
     id: 'long-sword',
     uid: 'saved-offhand-sword',
     affixIds: [],
   });
-  run.inventory.push(previousOffhand);
   run.equipment.hand2 = 'saved-offhand-sword';
 
   assert.equal(validateRun(run), true);
   const restored = structuredClone(run);
   assert.equal(validateRun(restored), true);
-  assert.equal(restored.equipment.hand1, 'starter-blade');
+  assert.equal(restored.equipment.hand1, 'starter-sword');
   assert.equal(restored.equipment.hand2, 'saved-offhand-sword');
 });
 
 test('a two-handed swap fails without mutating state when two displaced items overflow the backpack', () => {
   const run = createRun(2302);
   const axe = { id: 'executioner-axe', uid: 'packed-two-handed', ...lootById('executioner-axe') };
-  const fillers = Array.from({ length: 6 }, (_, index) => ({
+  const buckler = { id: 'wood-buckler', uid: 'packed-buckler', affixIds: [], ...lootById('wood-buckler') };
+  const fillers = Array.from({ length: 11 }, (_, index) => ({
     id: 'mystery-potion',
     uid: `two-hand-filler-${index}`,
     ...lootById('mystery-potion'),
   }));
   const state = {
-    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), axe, ...fillers],
+    items: [...run.items.map((item) => ({ ...lootById(item.id), ...item })), buckler, axe, ...fillers],
     inventory: [...run.inventory, axe.uid, ...fillers.map(({ uid }) => uid)],
-    equipment: { ...run.equipment },
+    equipment: { ...run.equipment, hand2: buckler.uid },
   };
   assert.equal(state.inventory.length, 12);
   const before = structuredClone(state);

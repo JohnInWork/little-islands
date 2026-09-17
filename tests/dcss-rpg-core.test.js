@@ -149,7 +149,7 @@ test('descending advances the deterministic floor while preserving persistent pr
     affixIds: [],
   });
   run.equipment.hand1 = 'test-sword';
-  run.items = run.items.filter((item) => item.uid !== 'starter-blade');
+  run.items = run.items.filter((item) => item.uid !== 'starter-sword');
   run.floor.revealed.push('1,1');
 
   const next = advanceRunFloor(run);
@@ -186,7 +186,7 @@ test('starter encounter is visible and reserved cells never overlap across 1000 
     assert.ok(visible.has(`${dungeon.monsters[0].x},${dungeon.monsters[0].y}`));
     assert.ok(visible.has(`${dungeon.loot[0].x},${dungeon.loot[0].y}`));
     assert.ok(lootById(dungeon.loot[0].id).slot);
-    assert.ok(!['short-blade', 'wood-buckler', 'heavy-leather', 'jackboots'].includes(dungeon.loot[0].id));
+    assert.ok(!['rusty-sword', 'worn-tunic'].includes(dungeon.loot[0].id), 'the first drop never duplicates the bare start');
 
     const occupied = [
       dungeon.spawn,
@@ -289,7 +289,8 @@ test('version 26 saves gain magic while the expanded-run boundary rebuilds only 
   delete legacy.hero.intelligence;
   delete legacy.hero.spells;
   const migrated = migrateLegacyRun(legacy);
-  const startingMagic = createStartingMagic();
+  // Pre-magic saves keep the historical wanderer kit rather than the new bare start.
+  const startingMagic = createStartingMagic('wanderer');
   const dungeon = generateDungeon({ seed: migrated.seed, depth: migrated.depth });
   assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.hero.intelligence, startingMagic.intelligence);
@@ -382,7 +383,9 @@ test('v15 loadouts migrate two-handed weapons without losing their off-hand item
   legacy.version = 15;
   legacy.contentVersion = 6;
   legacy.items.push({ id: 'executioner-axe', uid: 'legacy-two-handed' });
-  legacy.inventory.push('starter-blade');
+  legacy.items.push({ id: 'wood-buckler', uid: 'starter-buckler' });
+  legacy.equipment.hand2 = 'starter-buckler';
+  legacy.inventory.push('starter-sword');
   legacy.equipment.hand1 = 'legacy-two-handed';
 
   const migrated = migrateLegacyRun(legacy);
@@ -527,6 +530,8 @@ test('version 8 saves keep hero progression and gear while adopting the harder v
 test('all eleven equipment slots can coexist with a full twelve-item backpack', () => {
   const run = createRun(778);
   const equipped = [
+    ['hand2', 'wood-buckler'],
+    ['boots', 'jackboots'],
     ['cloak', 'travel-cloak'],
     ['gloves', 'leather-gloves'],
     ['belt', 'iron-belt'],
@@ -540,7 +545,7 @@ test('all eleven equipment slots can coexist with a full twelve-item backpack', 
     run.items.push({ id, uid, affixIds: [] });
     run.equipment[slot] = uid;
   }
-  for (let index = 0; index < 7; index += 1) {
+  for (let index = 0; index < 12; index += 1) {
     const uid = `full-pack-${index}`;
     run.items.push({ id: 'mystery-potion', uid });
     run.inventory.push(uid);
