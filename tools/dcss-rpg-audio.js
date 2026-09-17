@@ -1,8 +1,8 @@
 /**
- * Audio: every sound is synthesised from a small data recipe (oscillator and
- * noise voices with short envelopes), so the game ships no audio files and
- * nothing here depends on a licence. This module owns the recipes, the
- * persisted settings and the menu model; `dcss.js` only schedules voices.
+ * Audio: every sound has a small synth recipe (oscillator and noise voices
+ * with short envelopes) and, optionally, a CC0 sample that shadows it once the
+ * file loads. This module owns the recipes, the sample map, the persisted
+ * settings and the menu model; `dcss.js` only loads files and schedules voices.
  */
 
 export const AUDIO_SETTINGS_KEY = 'dng-codex:audio:v1';
@@ -156,6 +156,77 @@ export const AMBIENT_RECIPES = Object.freeze({
     swell: Object.freeze({ period: 5, depth: 0.5 }),
   }),
 });
+
+/**
+ * Optional sample layer: CC0 recordings that replace a synthesised voice when
+ * the file loads. Every entry maps an id that already has a recipe, so a
+ * missing directory or a failed decode always has a fallback. Gains keep the
+ * peak-normalised (−3 dBFS) files near the level of the synth layer.
+ */
+export const AUDIO_SAMPLE_ROOT = '../assets/audio/';
+
+const sample = (file, gain) => Object.freeze({ file, gain });
+
+export const SOUND_SAMPLES = Object.freeze({
+  'hit-blade': sample('sfx/hit-blade.mp3', 0.22),
+  'hit-heavy': sample('sfx/hit-heavy.mp3', 0.24),
+  'hit-projectile': sample('sfx/hit-projectile.mp3', 0.2),
+  'hero-hurt': sample('sfx/hero-hurt.mp3', 0.24),
+  block: sample('sfx/block.mp3', 0.16),
+  kill: sample('sfx/kill.mp3', 0.2),
+  pickup: sample('sfx/pickup.mp3', 0.18),
+  gold: sample('sfx/gold.mp3', 0.18),
+  door: sample('sfx/door.mp3', 0.2),
+  descend: sample('sfx/descend.mp3', 0.22),
+  'spell-fire': sample('sfx/spell-fire.mp3', 0.2),
+  'spell-heal': sample('sfx/spell-heal.mp3', 0.18),
+  'spell-ice': sample('sfx/spell-ice.mp3', 0.2),
+  'spell-toggle': sample('sfx/spell-toggle.mp3', 0.14),
+  drink: sample('sfx/drink.mp3', 0.18),
+  read: sample('sfx/read.mp3', 0.16),
+  trap: sample('sfx/trap.mp3', 0.26),
+  death: sample('sfx/death.mp3', 0.3),
+  victory: sample('sfx/victory.mp3', 0.28),
+  'ui-tap': sample('sfx/ui-tap.mp3', 0.08),
+  'ui-close': sample('sfx/ui-close.mp3', 0.07),
+});
+
+/** One shared dungeon loop for now; the gain differs a little per palette. */
+export const AMBIENT_SAMPLES = Object.freeze({
+  slate: sample('ambience/dungeon-loop.mp3', 0.14),
+  ochre: sample('ambience/dungeon-loop.mp3', 0.12),
+  ice: sample('ambience/dungeon-loop.mp3', 0.1),
+  ember: sample('ambience/dungeon-loop.mp3', 0.16),
+});
+
+export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([
+  ...Object.values(SOUND_SAMPLES).map(({ file }) => file),
+  ...Object.values(AMBIENT_SAMPLES).map(({ file }) => file),
+])]);
+
+export function soundSample(id) {
+  return SOUND_SAMPLES[id] ?? null;
+}
+
+export function ambientSample(paletteId) {
+  return AMBIENT_SAMPLES[paletteId] ?? null;
+}
+
+const SAMPLE_FILE_PATTERN = /^(sfx|ambience)\/[a-z0-9-]+\.mp3$/;
+
+/** Every sample must shadow an existing recipe and stay inside the mix bounds. */
+export function audioSampleProblems() {
+  const problems = [];
+  const check = (where, entry, catalog, id) => {
+    if (!(id in catalog)) problems.push(`${where}:no-fallback`);
+    if (typeof entry?.file !== 'string' || !SAMPLE_FILE_PATTERN.test(entry.file)) problems.push(`${where}:file`);
+    if (!Number.isFinite(entry?.gain) || entry.gain <= 0 || entry.gain > 0.5) problems.push(`${where}:gain`);
+  };
+  for (const [id, entry] of Object.entries(SOUND_SAMPLES)) check(`sample:${id}`, entry, SOUND_RECIPES, id);
+  for (const [id, entry] of Object.entries(AMBIENT_SAMPLES)) check(`ambient:${id}`, entry, AMBIENT_RECIPES, id);
+  return problems;
+}
+
 
 export function soundRecipe(id) {
   return SOUND_RECIPES[id] ?? null;

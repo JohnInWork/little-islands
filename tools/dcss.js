@@ -153,15 +153,19 @@ import {
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
 import {
+  AUDIO_SAMPLE_FILES,
+  AUDIO_SAMPLE_ROOT,
   AUDIO_SETTINGS_KEY,
   AUDIO_VOLUME_STEP,
   adjustAudioVolume,
   ambientRecipe,
+  ambientSample,
   audioMenuModel,
   effectiveVolume,
   parseAudioSettings,
   serializeAudioSettings,
   soundRecipe,
+  soundSample,
   toggleAudioMute,
 } from './dcss-rpg-audio.js';
 import {
@@ -773,7 +777,11 @@ let levelUpTimer = 0;
 let levelUpAudio = null;
 let audioMasterGain = null;
 let audioNoiseBuffer = null;
-let audioAmbient = { paletteId: null, nodes: [], gain: null, level: 1 };
+let audioAmbient = { paletteId: null, nodes: [], gain: null, level: 1, sampled: false };
+const audioSampleRoot = new URL(AUDIO_SAMPLE_ROOT, document.baseURI);
+/** file -> AudioBuffer once decoded, null once a load failed (never retried). */
+const audioSampleBuffers = new Map();
+const audioSamplePromises = new Map();
 let audioSettings = (() => {
   try {
     return parseAudioSettings(localStorage.getItem(AUDIO_SETTINGS_KEY));
@@ -4420,6 +4428,7 @@ function unlockLevelUpAudio() {
   if (!AudioContextConstructor) return null;
   if (!levelUpAudio || levelUpAudio.state === 'closed') {
     levelUpAudio = new AudioContextConstructor();
+    preloadAudioSamples(levelUpAudio);
   }
   const begin = () => startAmbient(biomeThemeForDepth(dungeon.depth).palette);
   if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
@@ -4511,9 +4520,58 @@ function scheduleVoice(audio, entry, start) {
   oscillator.stop(start + entry.duration + 0.02);
 }
 
+function decodeAudioSample(audio, bytes) {
+  return new Promise((resolve, reject) => {
+    const result = audio.decodeAudioData(bytes, resolve, reject);
+    if (result && typeof result.then === 'function') result.then(resolve, reject);
+  });
+}
+
+/** Fetches and decodes one sample once; a failure leaves the synth voice in charge. */
+function loadAudioSample(audio, file) {
+  if (audioSampleBuffers.has(file)) return Promise.resolve(audioSampleBuffers.get(file));
+  if (!audioSamplePromises.has(file)) {
+    const promise = fetch(new URL(file, audioSampleRoot).href)
+      .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(String(response.status)))))
+      .then((bytes) => decodeAudioSample(audio, bytes))
+      .catch(() => null)
+      .then((buffer) => {
+        audioSampleBuffers.set(file, buffer);
+        audioSamplePromises.delete(file);
+        return buffer;
+      });
+    audioSamplePromises.set(file, promise);
+  }
+  return audioSamplePromises.get(file);
+}
+
+function preloadAudioSamples(audio) {
+  if (typeof fetch !== 'function') return;
+  for (const file of AUDIO_SAMPLE_FILES) loadAudioSample(audio, file);
+}
+
+function playSampleBuffer(audio, buffer, gainValue, start) {
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  const gain = audio.createGain();
+  gain.gain.value = gainValue;
+  source.connect(gain);
+  gain.connect(audioOutput(audio));
+  source.start(start);
+  return source;
+}
+
+/** A loaded sample shadows the synth recipe; anything else falls back to the voices. */
 function playSound(id) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running' || effectiveVolume(audioSettings) === 0) return false;
+  const sample = soundSample(id);
+  const buffer = sample ? audioSampleBuffers.get(sample.file) : null;
+  if (buffer) {
+    playSampleBuffer(audio, buffer, sample.gain, audio.currentTime);
+    return true;
+  }
+  if (sample && buffer === undefined) loadAudioSample(audio, sample.file);
   const recipe = soundRecipe(id);
   if (!recipe) return false;
   const now = audio.currentTime;
@@ -4523,7 +4581,7 @@ function playSound(id) {
 
 function stopAmbient() {
   const fading = audioAmbient;
-  audioAmbient = { paletteId: null, nodes: [], gain: null, level: fading.level };
+  audioAmbient = { paletteId: null, nodes: [], gain: null, level: fading.level, sampled: false };
   if (!fading.gain || !levelUpAudio) return;
   const now = levelUpAudio.currentTime;
   fading.gain.gain.setTargetAtTime(0.0001, now, 0.4);
@@ -4539,14 +4597,37 @@ function stopAmbient() {
 function startAmbient(paletteId) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running') return;
-  if (audioAmbient.gain && audioAmbient.paletteId === paletteId) return;
+  const sample = ambientSample(paletteId);
+  const buffer = sample ? audioSampleBuffers.get(sample.file) : null;
+  if (audioAmbient.gain && audioAmbient.paletteId === paletteId && (audioAmbient.sampled || !buffer)) return;
   stopAmbient();
-  const recipe = ambientRecipe(paletteId);
   const now = audio.currentTime;
   const gain = audio.createGain();
   gain.gain.setValueAtTime(0.0001, now);
   gain.gain.setTargetAtTime(Math.max(0.0001, audioAmbient.level), now, 1.2);
   gain.connect(audioOutput(audio));
+  if (buffer) {
+    // The recorded loop replaces the synth bed; the loop points sit inside the
+    // encoder padding so the seam stays silent.
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.loopStart = Math.min(0.05, buffer.duration / 4);
+    source.loopEnd = Math.max(source.loopStart + 0.1, buffer.duration - 0.05);
+    const sampleGain = audio.createGain();
+    sampleGain.gain.value = sample.gain;
+    source.connect(sampleGain);
+    sampleGain.connect(gain);
+    source.start(now);
+    audioAmbient = { paletteId, nodes: [source], gain, level: audioAmbient.level, sampled: true };
+    return;
+  }
+  if (sample && buffer === undefined) {
+    loadAudioSample(audio, sample.file).then((loaded) => {
+      if (loaded && audioAmbient.paletteId === paletteId && !audioAmbient.sampled) startAmbient(paletteId);
+    });
+  }
+  const recipe = ambientRecipe(paletteId);
   const nodes = [];
   for (const drone of recipe.drones) {
     const oscillator = audio.createOscillator();
@@ -4581,7 +4662,7 @@ function startAmbient(paletteId) {
   swellGain.connect(noiseGain.gain);
   swell.start(now);
   nodes.push(swell);
-  audioAmbient = { paletteId, nodes, gain, level: audioAmbient.level };
+  audioAmbient = { paletteId, nodes, gain, level: audioAmbient.level, sampled: false };
 }
 
 function setAmbientLevel(level) {

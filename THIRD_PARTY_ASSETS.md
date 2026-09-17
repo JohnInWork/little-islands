@@ -41,3 +41,24 @@ so their different license remains unambiguous.
 Набор разрешено использовать и изменять внутри игры, но нельзя распространять
 отдельно как набор ассетов. Поэтому сундуки лежат в изолированном каталоге со
 своим лицензионным уведомлением и не считаются частью CC0-библиотеки DCSS.
+
+## Active audio samples: CC0 packs from OpenGameArt
+
+- Authors: Juhani Junkala / SubspaceAudio (512 retro sound effects),
+  artisticdude (RPG Sound Pack), JaggedStone (Loopable Dungeon Ambience)
+- Sources: [512 Sound Effects (8-bit style)](https://opengameart.org/content/512-sound-effects-8-bit-style),
+  [RPG Sound Pack](https://opengameart.org/content/rpg-sound-pack),
+  [Loopable Dungeon Ambience](https://opengameart.org/content/loopable-dungeon-ambience)
+- Local files: 21 short effects in `public/assets/audio/sfx/` and one ambience
+  loop in `public/assets/audio/ambience/`, converted to mono MP3
+- License: CC0 1.0 for all three packs
+- Local notice: `public/assets/audio/LICENSE.md` (maps every local file to its
+  original)
+
+The samples layer on top of the synthesised voices: `tools/dcss-rpg-audio.js`
+maps sound ids to files, and a missing or undecodable file falls back to the
+synth recipe, so the game stays playable without the directory.
+
+Сэмплы лежат поверх синтезированных голосов: карта id → файл живёт в
+`tools/dcss-rpg-audio.js`, а отсутствующий или нечитаемый файл откатывается на
+синтез-рецепт, поэтому игра работает и без этого каталога.

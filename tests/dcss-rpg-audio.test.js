@@ -1,22 +1,28 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
   AMBIENT_RECIPES,
   AUDIO_DEFAULTS,
+  AUDIO_SAMPLE_FILES,
+  AUDIO_SAMPLE_ROOT,
   AUDIO_SETTINGS_KEY,
   SOUND_IDS,
   SOUND_RECIPES,
+  SOUND_SAMPLES,
   adjustAudioVolume,
   ambientRecipe,
+  ambientSample,
   audioMenuModel,
+  audioSampleProblems,
   createAudioSettings,
   effectiveVolume,
   parseAudioSettings,
   serializeAudioSettings,
   soundRecipe,
   soundRecipeProblems,
+  soundSample,
   toggleAudioMute,
 } from '../tools/dcss-rpg-audio.js';
 import { DUNGEON_THEME_CATALOG } from '../tools/dcss-rpg-room-plans.js';
@@ -114,4 +120,50 @@ test('the runtime routes every voice through one master gain and hooks the game 
   }
   assert.match(html, /id="main-menu-audio"[\s\S]*id="audio-mute"[\s\S]*id="audio-volume-down"[\s\S]*id="audio-volume-value"[\s\S]*id="audio-volume-up"/);
   assert.match(css, /\.main-menu-audio\s*{/);
+});
+
+test('every sample shadows a synthesised recipe, ships on disk and carries its CC0 notice', async () => {
+  assert.deepEqual(audioSampleProblems(), []);
+  assert.equal(AUDIO_SAMPLE_ROOT, '../assets/audio/');
+  for (const id of ['hit-blade', 'hit-heavy', 'hero-hurt', 'kill', 'gold', 'door', 'descend', 'death', 'victory', 'ui-tap']) {
+    assert.ok(SOUND_SAMPLES[id], id);
+    assert.ok(SOUND_RECIPES[id], `${id} keeps a synth fallback`);
+  }
+  assert.equal(SOUND_SAMPLES.eat, undefined, 'eating stays synthesised');
+  assert.equal(soundSample('hit-blade').file, 'sfx/hit-blade.mp3');
+  assert.equal(soundSample('nope'), null);
+  for (const paletteId of Object.keys(AMBIENT_RECIPES)) {
+    assert.ok(ambientSample(paletteId), `ambient sample for ${paletteId}`);
+  }
+  assert.equal(ambientSample('unknown'), null);
+  assert.ok(Object.isFrozen(SOUND_SAMPLES) && Object.isFrozen(soundSample('gold')));
+  assert.equal(new Set(AUDIO_SAMPLE_FILES).size, AUDIO_SAMPLE_FILES.length);
+  const root = new URL('../public/assets/audio/', import.meta.url);
+  for (const file of AUDIO_SAMPLE_FILES) {
+    const size = (await stat(new URL(file, root))).size;
+    assert.ok(size > 500, `${file} is not empty`);
+    assert.ok(size < (file.startsWith('ambience/') ? 1_000_000 : 40_000), `${file} stays small`);
+    assert.match(await readFile(new URL('LICENSE.md', root), 'utf8'), new RegExp(`\`${file.replace('.', '\\.')}\``), `${file} is listed in the notice`);
+  }
+  const notice = await readFile(new URL('LICENSE.md', root), 'utf8');
+  const thirdParty = await readFile(new URL('../THIRD_PARTY_ASSETS.md', import.meta.url), 'utf8');
+  for (const author of ['Juhani Junkala', 'artisticdude', 'JaggedStone']) {
+    assert.ok(notice.includes(author), `${author} in the notice`);
+    assert.ok(thirdParty.includes(author), `${author} in THIRD_PARTY_ASSETS`);
+  }
+  assert.match(notice, /CC0 1\.0/);
+  assert.match(thirdParty, /public\/assets\/audio\/LICENSE\.md/);
+});
+
+test('the runtime preloads samples after the unlock gesture and falls back to the synth voices', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /const audioSampleRoot = new URL\(AUDIO_SAMPLE_ROOT, document\.baseURI\);/);
+  assert.match(runtime, /levelUpAudio = new AudioContextConstructor\(\);\s+preloadAudioSamples\(levelUpAudio\);/);
+  assert.match(runtime, /function loadAudioSample\(audio, file\)/);
+  assert.match(runtime, /audio\.decodeAudioData\(bytes, resolve, reject\)/);
+  assert.match(runtime, /\.catch\(\(\) => null\)/, 'a failed load is remembered as null');
+  assert.match(runtime, /const sample = soundSample\(id\);[\s\S]*if \(buffer\) \{\s+playSampleBuffer\(audio, buffer, sample\.gain, audio\.currentTime\);[\s\S]*const recipe = soundRecipe\(id\);/);
+  assert.match(runtime, /const sample = ambientSample\(paletteId\);[\s\S]*source\.loop = true;[\s\S]*sampled: true/);
+  assert.match(runtime, /sampleGain\.connect\(gain\);/, 'the ambient sample goes through the ambient gain, so pause and mute still apply');
+  assert.doesNotMatch(runtime, /new Audio\(/, 'no HTMLAudioElement side channel');
 });
