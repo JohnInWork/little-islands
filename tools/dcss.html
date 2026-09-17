@@ -149,10 +149,10 @@
         ><b id="skill-points-badge" class="skill-points-badge" aria-hidden="true" hidden></b></button>
       </header>
 
-      <div class="depth pixel-frame" role="img" aria-label="Глубина 3">
-        <span>III</span>
+      <button id="floor-map-button" class="depth pixel-frame" type="button" aria-label="Открыть карту этажа I">
+        <span>I</span>
         <i aria-hidden="true"></i>
-      </div>
+      </button>
 
       <button id="pause-game" class="pause-game pixel-frame" type="button" aria-label="Пауза" disabled>
         <svg viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
@@ -429,6 +429,30 @@
         </output>
         <div id="ability-targeting-targets" class="ability-targeting-targets" role="group"></div>
         <button id="cancel-ability-targeting" class="cancel-ability-targeting pixel-frame" type="button" aria-label="Отменить выбор цели">×</button>
+      </section>
+
+      <section
+        id="floor-map"
+        class="floor-map"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="floor-map-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="floor-map-card pixel-frame">
+          <header class="floor-map-header">
+            <h2 id="floor-map-title">Карта этажа I</h2>
+            <p id="floor-map-hint">Тап по клетке: идти. Щипок или колесо: масштаб.</p>
+          </header>
+          <canvas id="floor-map-canvas" class="floor-map-canvas" aria-label="Разведанная часть этажа"></canvas>
+          <footer class="floor-map-actions">
+            <button id="close-floor-map" type="button" aria-label="Закрыть карту">×</button>
+            <button id="floor-map-center" type="button" aria-label="К герою">◎</button>
+            <button id="floor-map-zoom-out" type="button" aria-label="Отдалить">−</button>
+            <button id="floor-map-zoom-in" type="button" aria-label="Приблизить">+</button>
+          </footer>
+        </article>
       </section>
 
       <section

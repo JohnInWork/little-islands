@@ -295,6 +295,7 @@ test('three manual spell buttons and every modal close action live in the thumb 
     ['merchant-shop-footer', 'close-merchant-shop'],
     ['chest-container-footer', 'close-chest-container'],
     ['character-sheet-actions', 'close-character-sheet'],
+    ['floor-map-actions', 'close-floor-map'],
     ['inventory-actions', 'close-inventory'],
     ['item-detail-actions', 'close-item-detail'],
   ]) {

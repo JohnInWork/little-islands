@@ -139,6 +139,19 @@ import {
 } from './dcss-rpg-finds.js';
 import { contextActionModel } from './dcss-rpg-context-actions.js';
 import {
+  FLOOR_MAP_COLORS,
+  FLOOR_MAP_MARKER_SHAPES,
+  FLOOR_MAP_ZOOM,
+  centerFloorMapView,
+  createFloorMapModel,
+  fitFloorMapView,
+  floorMapCellAt,
+  floorMapCopy,
+  floorMapTapAction,
+  panFloorMapView,
+  zoomFloorMapView,
+} from './dcss-rpg-floor-map.js';
+import {
   MERCHANT_ACTOR_PATH,
   MERCHANT_COMMANDS,
   MERCHANT_ICON_PATH,
@@ -394,6 +407,14 @@ const hungerFill = document.querySelector('#hunger-fill');
 const combatIndicators = [...document.querySelectorAll('.ailments i')];
 const heroEffectsHud = document.querySelector('#hero-effects');
 const depthBadge = document.querySelector('.depth');
+const floorMap = document.querySelector('#floor-map');
+const floorMapCanvas = document.querySelector('#floor-map-canvas');
+const floorMapTitle = document.querySelector('#floor-map-title');
+const floorMapHint = document.querySelector('#floor-map-hint');
+const closeFloorMapButton = document.querySelector('#close-floor-map');
+const floorMapCenterButton = document.querySelector('#floor-map-center');
+const floorMapZoomInButton = document.querySelector('#floor-map-zoom-in');
+const floorMapZoomOutButton = document.querySelector('#floor-map-zoom-out');
 const pauseGameButton = document.querySelector('#pause-game');
 const runEndScreen = document.querySelector('#run-end-screen');
 const restartRunButton = document.querySelector('#restart-run');
@@ -4557,10 +4578,7 @@ function updateHud() {
   combatIndicators[0].textContent = combatGlyph[combat.style] ?? '·';
   combatIndicators[1].textContent = combat.guard > 0 ? '▣' : String(combat.range);
   depthBadge.querySelector('span').textContent = romanDepth(dungeon.depth);
-  depthBadge.setAttribute(
-    'aria-label',
-    `${currentMainMenuModel().labels.depth} ${dungeon.depth}`,
-  );
+  refreshFloorMapCopy();
   bagButton.querySelector('b').textContent = String(
     backpackItems.filter(Boolean).length,
   );
@@ -6002,6 +6020,353 @@ function startGameFromMenu() {
   updateInteractionUi();
   startGameButton.blur();
   return true;
+}
+
+// --- Floor map: pure model in dcss-rpg-floor-map.js, canvas and gestures here ---
+let floorMapModel = null;
+let floorMapView = null;
+const floorMapPointers = new Map();
+let floorMapGesture = null;
+
+function floorMapViewport() {
+  const rect = floorMapCanvas.getBoundingClientRect();
+  return { width: Math.max(1, Math.round(rect.width)), height: Math.max(1, Math.round(rect.height)) };
+}
+
+function floorMapPoint(event) {
+  const rect = floorMapCanvas.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
+
+const FLOOR_MAP_FIND_KINDS = Object.freeze({
+  'sealed-cache': 'chest',
+  'crystal-vein': 'crystal',
+  'forgotten-grave': 'grave',
+  'ancient-altar': 'altar',
+});
+
+function currentFloorMapMarkers() {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const gridOf = (actor) => ({ x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) });
+  // Creatures are remembered nowhere: they appear only while the hero sees them.
+  const inSight = (x, y) => Math.hypot(x - heroCell.x, y - heroCell.y) <= 4.5
+    && hasLineOfSight(world, heroCell, { x, y });
+  const sighted = (actor, kind) => {
+    const cell = gridOf(actor);
+    return { kind, ...cell, visible: inSight(cell.x, cell.y) };
+  };
+  return [
+    { kind: 'exit', x: dungeon.exit.x, y: dungeon.exit.y },
+    ...(dungeon.sanctuary ? [{ kind: 'sanctuary', x: dungeon.sanctuary.x, y: dungeon.sanctuary.y }] : []),
+    ...doorDefinitions.map((door) => ({
+      kind: run.floor.opened.includes(door.instanceId) ? 'door-open' : 'door',
+      x: door.x,
+      y: door.y,
+    })),
+    ...findDefinitions.map((find) => ({
+      kind: FLOOR_MAP_FIND_KINDS[find.id] ?? 'chest',
+      ...gridOf(find),
+      muted: find.resolved === true,
+    })),
+    ...merchantDefinitions.map((merchant) => ({ kind: 'merchant', x: merchant.x, y: merchant.y })),
+    ...dungeonEnvironment.props
+      .filter(({ interactionId }) => interactionId === 'campfire')
+      .map((prop) => ({ kind: 'campfire', x: prop.gridX, y: prop.gridY })),
+    ...trapDefinitions
+      .filter((trap) => detectedTrapIds.has(trap.instanceId) && !run.floor.resolved.includes(trap.eventId))
+      .map((trap) => ({ kind: 'trap', x: trap.x, y: trap.y })),
+    ...lootDefinitions.map((loot) => ({ kind: 'loot', ...gridOf(loot) })),
+    ...passiveCreatures.filter((creature) => !creature.defeated).map((creature) => sighted(creature, 'wildlife')),
+    ...monsters.filter((monster) => !(monster.dead > 0)).map((monster) => sighted(monster, monster.boss ? 'boss' : 'monster')),
+  ];
+}
+
+function buildFloorMapModel() {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return createFloorMapModel({
+    grid: world,
+    revealed,
+    hero: heroCell,
+    markers: currentFloorMapMarkers(),
+  });
+}
+
+function refreshFloorMapCopy() {
+  const copy = floorMapCopy(itemDetailLanguage);
+  const label = romanDepth(dungeon.depth);
+  floorMapTitle.textContent = copy.title(label);
+  floorMapHint.textContent = floorMapModel && floorMapModel.cells.length === 0 ? copy.empty : copy.hint;
+  floorMapCanvas.setAttribute('aria-label', copy.canvas);
+  closeFloorMapButton.setAttribute('aria-label', copy.close);
+  floorMapCenterButton.setAttribute('aria-label', copy.center);
+  floorMapZoomInButton.setAttribute('aria-label', copy.zoomIn);
+  floorMapZoomOutButton.setAttribute('aria-label', copy.zoomOut);
+  depthBadge.setAttribute('aria-label', copy.open(label));
+  depthBadge.title = copy.open(label);
+}
+
+function drawFloorMapMarker(context, marker, zoom, pan) {
+  const left = pan.x + marker.x * zoom;
+  const top = pan.y + marker.y * zoom;
+  const center = { x: left + zoom / 2, y: top + zoom / 2 };
+  const color = FLOOR_MAP_COLORS[marker.kind];
+  const shape = FLOOR_MAP_MARKER_SHAPES[marker.kind] ?? 'diamond';
+  const inset = Math.max(1, Math.round(zoom * 0.18));
+  context.globalAlpha = marker.muted ? 0.45 : 1;
+  context.fillStyle = color;
+  context.strokeStyle = '#05080a';
+  context.lineWidth = Math.max(1, Math.round(zoom / 8));
+  if (shape === 'hero') {
+    context.fillRect(left + inset, top + inset, zoom - inset * 2, zoom - inset * 2);
+    context.strokeRect(left + inset, top + inset, zoom - inset * 2, zoom - inset * 2);
+  } else if (shape === 'dot') {
+    context.beginPath();
+    context.arc(center.x, center.y, Math.max(1.5, zoom * 0.34), 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  } else if (shape === 'small') {
+    const size = Math.max(2, zoom * 0.4);
+    context.fillRect(center.x - size / 2, center.y - size / 2, size, size);
+  } else if (shape === 'cross') {
+    context.strokeStyle = color;
+    context.lineWidth = Math.max(1, Math.round(zoom / 6));
+    context.beginPath();
+    context.moveTo(left + inset, top + inset);
+    context.lineTo(left + zoom - inset, top + zoom - inset);
+    context.moveTo(left + zoom - inset, top + inset);
+    context.lineTo(left + inset, top + zoom - inset);
+    context.stroke();
+  } else if (shape === 'stairs') {
+    context.fillRect(left, top, zoom, zoom);
+    context.fillStyle = '#05080a';
+    const step = Math.max(1, Math.round(zoom / 5));
+    for (let index = 1; index <= 3; index += 1) {
+      context.fillRect(left + step, top + index * step + Math.round(step / 2), zoom - step * 2, Math.max(1, Math.round(step / 3)));
+    }
+  } else if (shape === 'door') {
+    const size = Math.max(2, Math.round(zoom * 0.6));
+    context.fillRect(center.x - size / 2, center.y - size / 2, size, size);
+  } else if (shape === 'ring') {
+    context.strokeStyle = color;
+    context.lineWidth = Math.max(1.5, zoom / 6);
+    context.beginPath();
+    context.arc(center.x, center.y, Math.max(2, zoom * 0.32), 0, Math.PI * 2);
+    context.stroke();
+  } else {
+    const radius = Math.max(2, zoom * 0.42);
+    context.beginPath();
+    context.moveTo(center.x, center.y - radius);
+    context.lineTo(center.x + radius, center.y);
+    context.lineTo(center.x, center.y + radius);
+    context.lineTo(center.x - radius, center.y);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
+  context.globalAlpha = 1;
+}
+
+function drawFloorMap() {
+  if (!floorMapModel || !floorMapView) return;
+  const viewport = floorMapViewport();
+  const scale = Math.min(3, window.devicePixelRatio || 1);
+  const width = Math.round(viewport.width * scale);
+  const height = Math.round(viewport.height * scale);
+  if (floorMapCanvas.width !== width || floorMapCanvas.height !== height) {
+    floorMapCanvas.width = width;
+    floorMapCanvas.height = height;
+  }
+  const context = floorMapCanvas.getContext('2d');
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  context.imageSmoothingEnabled = false;
+  context.fillStyle = FLOOR_MAP_COLORS.background;
+  context.fillRect(0, 0, viewport.width, viewport.height);
+  const { zoom, pan } = floorMapView;
+  const gap = zoom >= 8 ? 1 : 0;
+  for (const cell of floorMapModel.cells) {
+    context.fillStyle = FLOOR_MAP_COLORS[cell.kind];
+    context.fillRect(pan.x + cell.x * zoom, pan.y + cell.y * zoom, zoom - gap, zoom - gap);
+  }
+  for (const marker of floorMapModel.markers) drawFloorMapMarker(context, marker, zoom, pan);
+}
+
+function openFloorMap() {
+  if (!ready || uiScreen !== 'game' || isTerminalRunStatus(runStatus) || openingDoor) return false;
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
+  uiScreen = 'map';
+  document.body.dataset.screen = uiScreen;
+  floorMap.inert = false;
+  floorMap.setAttribute('aria-hidden', 'false');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  pauseGameButton.disabled = true;
+  depthBadge.disabled = true;
+  interactActionButton.hidden = true;
+  floorMapPointers.clear();
+  floorMapGesture = null;
+  floorMapModel = buildFloorMapModel();
+  refreshFloorMapCopy();
+  requestAnimationFrame(() => {
+    if (uiScreen !== 'map') return;
+    floorMapView = fitFloorMapView({ bounds: floorMapModel.bounds, viewport: floorMapViewport() });
+    drawFloorMap();
+    closeFloorMapButton.focus();
+  });
+  return true;
+}
+
+function closeFloorMap({ restoreFocus = true } = {}) {
+  if (uiScreen !== 'map') return false;
+  uiScreen = 'game';
+  document.body.dataset.screen = uiScreen;
+  floorMap.inert = true;
+  floorMap.setAttribute('aria-hidden', 'true');
+  moveControl.inert = false;
+  moveControl.removeAttribute('aria-hidden');
+  spellBar.inert = false;
+  spellBar.removeAttribute('aria-hidden');
+  bagButton.disabled = false;
+  characterSheetButton.disabled = false;
+  pauseGameButton.disabled = false;
+  depthBadge.disabled = false;
+  floorMapPointers.clear();
+  floorMapGesture = null;
+  updateInteractionUi();
+  if (restoreFocus) requestAnimationFrame(() => depthBadge.focus());
+  return true;
+}
+
+function toggleFloorMap() {
+  return uiScreen === 'map' ? closeFloorMap() : openFloorMap();
+}
+
+function centerFloorMapOnHero() {
+  if (!floorMapModel || !floorMapView) return;
+  floorMapView = centerFloorMapView({
+    view: floorMapView,
+    cell: floorMapModel.hero,
+    viewport: floorMapViewport(),
+    bounds: floorMapModel.bounds,
+  });
+  drawFloorMap();
+}
+
+function zoomFloorMapBy(factor, anchor = null) {
+  if (!floorMapModel || !floorMapView) return;
+  floorMapView = zoomFloorMapView({
+    view: floorMapView,
+    factor,
+    anchor,
+    viewport: floorMapViewport(),
+    bounds: floorMapModel.bounds,
+  });
+  drawFloorMap();
+}
+
+function travelFromFloorMap(point) {
+  if (!floorMapModel || !floorMapView) return false;
+  const cell = floorMapCellAt({ view: floorMapView, point });
+  if (floorMapTapAction({ model: floorMapModel, cell }) === 'travel') {
+    closeFloorMap({ restoreFocus: false });
+    inputGesture += 1;
+    return requestHeroMove(cell.x + 0.5, cell.y + 0.5);
+  }
+  return false;
+}
+
+function floorMapPointerDown(event) {
+  if (uiScreen !== 'map' || !floorMapView) return;
+  event.preventDefault();
+  floorMapCanvas.setPointerCapture?.(event.pointerId);
+  const point = floorMapPoint(event);
+  floorMapPointers.set(event.pointerId, { ...point, startX: point.x, startY: point.y });
+  if (floorMapPointers.size === 2) {
+    const [a, b] = [...floorMapPointers.values()];
+    floorMapGesture = {
+      kind: 'pinch',
+      startDistance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      startMidpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      startView: floorMapView,
+    };
+  } else if (floorMapPointers.size === 1) {
+    floorMapGesture = { kind: 'press', moved: false };
+  }
+}
+
+function floorMapPointerMove(event) {
+  const pointer = floorMapPointers.get(event.pointerId);
+  if (!pointer || !floorMapView || !floorMapModel) return;
+  const point = floorMapPoint(event);
+  const previous = { x: pointer.x, y: pointer.y };
+  pointer.x = point.x;
+  pointer.y = point.y;
+  const viewport = floorMapViewport();
+  if (floorMapGesture?.kind === 'pinch' && floorMapPointers.size >= 2) {
+    const [a, b] = [...floorMapPointers.values()];
+    const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const zoomed = zoomFloorMapView({
+      view: floorMapGesture.startView,
+      factor: distance / floorMapGesture.startDistance,
+      anchor: floorMapGesture.startMidpoint,
+      viewport,
+      bounds: floorMapModel.bounds,
+    });
+    floorMapView = panFloorMapView({
+      view: zoomed,
+      dx: midpoint.x - floorMapGesture.startMidpoint.x,
+      dy: midpoint.y - floorMapGesture.startMidpoint.y,
+      viewport,
+      bounds: floorMapModel.bounds,
+    });
+    drawFloorMap();
+    return;
+  }
+  if (floorMapGesture?.kind !== 'press') return;
+  if (!floorMapGesture.moved) {
+    if (Math.hypot(point.x - pointer.startX, point.y - pointer.startY) < 8) return;
+    floorMapGesture.moved = true;
+    previous.x = pointer.startX;
+    previous.y = pointer.startY;
+  }
+  floorMapView = panFloorMapView({
+    view: floorMapView,
+    dx: point.x - previous.x,
+    dy: point.y - previous.y,
+    viewport,
+    bounds: floorMapModel.bounds,
+  });
+  drawFloorMap();
+}
+
+function floorMapPointerUp(event) {
+  const pointer = floorMapPointers.get(event.pointerId);
+  if (!pointer) return;
+  floorMapPointers.delete(event.pointerId);
+  if (floorMapCanvas.hasPointerCapture?.(event.pointerId)) floorMapCanvas.releasePointerCapture(event.pointerId);
+  const tapped = floorMapGesture?.kind === 'press' && !floorMapGesture.moved && floorMapPointers.size === 0
+    && event.type === 'pointerup';
+  if (floorMapPointers.size === 1) {
+    const [remaining] = [...floorMapPointers.values()];
+    remaining.startX = remaining.x;
+    remaining.startY = remaining.y;
+    floorMapGesture = { kind: 'press', moved: true };
+  } else if (floorMapPointers.size === 0) {
+    floorMapGesture = null;
+  }
+  if (tapped) travelFromFloorMap(floorMapPoint(event));
+}
+
+function floorMapWheel(event) {
+  if (uiScreen !== 'map') return;
+  event.preventDefault();
+  zoomFloorMapBy(event.deltaY < 0 ? FLOOR_MAP_ZOOM.factor : 1 / FLOOR_MAP_ZOOM.factor, floorMapPoint(event));
 }
 
 function openCharacterSheet() {
@@ -8909,6 +9274,11 @@ cancelAbilityTargetingButton.addEventListener('click', () => closeAbilityTargeti
 window.addEventListener('resize', resize);
 window.addEventListener('blur', () => clearMoveControl());
 window.addEventListener('keydown', (event) => {
+  if (event.code === 'KeyM' && !event.repeat && (uiScreen === 'game' || uiScreen === 'map')) {
+    event.preventDefault();
+    toggleFloorMap();
+    return;
+  }
   const spellHotkeys = { Digit1: 0, Digit2: 1, Digit3: 2 };
   if (uiScreen === 'game' && Object.hasOwn(spellHotkeys, event.code)) {
     event.preventDefault();
@@ -9053,6 +9423,11 @@ window.addEventListener('keydown', (event) => {
     closeCharacterSheet();
     return;
   }
+  if (event.code === 'Escape' && uiScreen === 'map') {
+    event.preventDefault();
+    closeFloorMap();
+    return;
+  }
   if (event.code === 'Escape' && uiScreen === 'context') {
     event.preventDefault();
     closeContextActions();
@@ -9143,6 +9518,19 @@ cancelNewRunButton.addEventListener('click', closeNewRunConfirm);
 confirmNewRunButton.addEventListener('click', confirmNewRun);
 characterSheetButton.addEventListener('click', openCharacterSheet);
 closeCharacterSheetButton.addEventListener('click', closeCharacterSheet);
+depthBadge.addEventListener('click', openFloorMap);
+closeFloorMapButton.addEventListener('click', () => closeFloorMap());
+floorMapCenterButton.addEventListener('click', centerFloorMapOnHero);
+floorMapZoomInButton.addEventListener('click', () => zoomFloorMapBy(FLOOR_MAP_ZOOM.factor));
+floorMapZoomOutButton.addEventListener('click', () => zoomFloorMapBy(1 / FLOOR_MAP_ZOOM.factor));
+floorMapCanvas.addEventListener('pointerdown', floorMapPointerDown);
+floorMapCanvas.addEventListener('pointermove', floorMapPointerMove);
+floorMapCanvas.addEventListener('pointerup', floorMapPointerUp);
+floorMapCanvas.addEventListener('pointercancel', floorMapPointerUp);
+floorMapCanvas.addEventListener('wheel', floorMapWheel, { passive: false });
+window.addEventListener('resize', () => {
+  if (uiScreen === 'map') drawFloorMap();
+});
 characterSheet.addEventListener('pointerdown', (event) => {
   if (event.target === characterSheet) closeCharacterSheet();
 });
