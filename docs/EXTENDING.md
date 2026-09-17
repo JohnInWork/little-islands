@@ -275,6 +275,27 @@ capabilities трёх рангов и runtime-теста; не проверят�
 героя не должен оставаться в `run.items`, а содержимое нельзя перебрасывать при
 каждом открытии.
 
+### Добавить landmark данными
+
+Образец — древний алтарь в `tools/dcss-rpg-finds.js`; общая запись `landmark`
+уже есть в `INTERACTION_REGISTRY`, отдельный обработчик команд не нужен.
+
+1. Добавить в `FIND_CATALOG` запись `wave: 'landmark'`: локальный спрайт, `skins`
+   по темам глав, `light` при необходимости, `outcomes: [{ id, roll(depth, rng) }]`
+   и RU/EN-копию с `inspected`, `unsafe`, `nothingToHeal`, `goldRequired` и
+   `results[actionId]`. `roll` возвращает только ключи `LANDMARK_OUTCOME_KEYS`.
+2. Новые глаголы добавить в `ACTION_COPY`/`GLYPHS` контекстных действий; цвет
+   опасного глифа — одной строкой в `dcss.css`.
+3. Добавить архетип с `content.findId` в `ROOM_ARCHETYPE_CATALOG` и его окружение
+   в `ENVIRONMENT_ROOM_THEMES`. Не трогать `semanticArchetypes()` — карта
+   `findId → archetypeId` строится из каталога.
+4. Нужен новый вид последствия — одна запись в `LANDMARK_OUTCOME_KEYS`, проверка
+   в `validLandmarkOutcome()`, ветка в резолвере и строка в
+   `landmarkResultSummary()`. Не добавлять `if (find.id === ...)` в runtime.
+5. Проверить генерацию по seed-sweep (своя комната, обход торговца, путь к
+   выходу), доступность до нажатия, атомарность и отказы, RU/EN, save/reload,
+   затем оба мобильных размера через `?preview=<ключ>` по образцу `altar`.
+
 ## Расширить торговца
 
 Контракт: [2D-MERCHANTS.md](2D-MERCHANTS.md). Файлы: правила и ассортимент в

@@ -1,4 +1,5 @@
 import { chestContextPresentation } from './dcss-rpg-chests.js';
+import { isLandmarkFind, landmarkContextPresentation } from './dcss-rpg-finds.js';
 
 const ACTION_COPY = Object.freeze({
   ru: Object.freeze({
@@ -16,6 +17,9 @@ const ACTION_COPY = Object.freeze({
     trade: 'Торговать',
     hunt: 'Охотиться',
     cook: 'Приготовить',
+    pray: 'Молиться',
+    offer: 'Пожертвовать',
+    plunder: 'Ограбить',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -32,6 +36,9 @@ const ACTION_COPY = Object.freeze({
     trade: 'Trade',
     hunt: 'Hunt',
     cook: 'Cook',
+    pray: 'Pray',
+    offer: 'Offer',
+    plunder: 'Plunder',
   }),
 });
 
@@ -50,6 +57,9 @@ const GLYPHS = Object.freeze({
   trade: '●',
   hunt: '⚔',
   cook: '♨',
+  pray: '✚',
+  offer: '◆',
+  plunder: '!',
 });
 
 const COPY = Object.freeze({
@@ -222,6 +232,19 @@ export const INTERACTION_REGISTRY = Object.freeze([
       accent: '#b45c58',
       actions: [{ id: 'inspect' }, { id: 'defile' }],
     }),
+  }),
+  // One generic entry serves every landmark (altar now, fountain/rune later):
+  // names, availability and hints come from the find catalog and its rolled
+  // outcomes, so a new landmark is a catalog entry plus action vocabulary.
+  defineInteraction({
+    id: 'landmark',
+    command: 'find-interact',
+    matches: (target) => target?.kind === 'find' && isLandmarkFind(target),
+    present: ({ target, actor, inspected, language }) => {
+      const landmark = landmarkContextPresentation({ find: target, actor, inspected, language });
+      if (!landmark) throw new TypeError('Invalid landmark target');
+      return landmark;
+    },
   }),
 ]);
 

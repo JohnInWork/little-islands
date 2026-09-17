@@ -77,6 +77,22 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
   }),
   roomTheme({
+    // Room of the interactive altar: statues and candle braziers only, so the
+    // decorative altar of the ashen shrine never stands next to the real one.
+    id: 'altar-niche',
+    features: [
+      prop('dngn/statues/statue_angel.png', { size: 74 }),
+      prop('dngn/statues/statue_orb.png', { size: 72 }),
+      prop('dngn/statues/statue_triangle.png', { size: 72 }),
+    ],
+    details: [
+      emberBrazier,
+      prop('dngn/statues/crumbled_column_2.png', { size: 68 }),
+      prop('dngn/statues/crumbled_column_4.png', { size: 68 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
+  }),
+  roomTheme({
     id: 'drowned-chapel',
     features: [
       prop(blueFountainFrames[0], {

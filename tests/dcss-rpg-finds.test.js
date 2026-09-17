@@ -11,8 +11,11 @@ import {
   validateRun,
 } from '../tools/dcss-rpg-core.js';
 import {
+  CORE_FIND_CATALOG,
   FIND_ASSET_PATHS,
   FIND_CATALOG,
+  LANDMARK_CATALOG,
+  MAX_FINDS_PER_FLOOR,
   findPresentation,
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
@@ -36,11 +39,14 @@ test('each floor deterministically places one of every first-wave find without o
     const first = generateDungeon({ seed, depth });
     const second = generateDungeon({ seed, depth });
     assert.deepEqual(first.finds, second.finds);
-    assert.equal(first.finds.length, 3);
-    assert.deepEqual(
-      [...first.finds.map(({ id }) => id)].sort(),
-      [...FIND_CATALOG.map(({ id }) => id)].sort(),
-    );
+    const coreIds = first.finds.slice(0, CORE_FIND_CATALOG.length).map(({ id }) => id);
+    assert.deepEqual([...coreIds].sort(), [...CORE_FIND_CATALOG.map(({ id }) => id)].sort());
+    const landmarkIds = first.finds.slice(CORE_FIND_CATALOG.length).map(({ id }) => id);
+    assert.ok(first.finds.length <= MAX_FINDS_PER_FLOOR);
+    assert.ok(landmarkIds.every((id) => LANDMARK_CATALOG.some((entry) => entry.id === id)));
+    // Only a chapter-end floor without a spare alcove lets the merchant reclaim
+    // the landmark room; every other floor keeps its landmark.
+    if (landmarkIds.length === 0) assert.equal(first.merchants.length, 1);
     assert.equal(new Set(first.finds.map(({ roomIndex }) => roomIndex)).size, first.finds.length);
 
     const reserved = new Set(
@@ -73,7 +79,12 @@ test('each floor deterministically places one of every first-wave find without o
         Boolean(matchingDormantMimic),
       );
       assert.match(find.instanceId, new RegExp(`^find-${depth}-\\d+$`));
-      assert.ok(find.rewardGold > 0);
+      if (LANDMARK_CATALOG.some((entry) => entry.id === find.id)) {
+        assert.equal(find.rewardGold, 0);
+        assert.ok(find.outcomes && typeof find.outcomes === 'object');
+      } else {
+        assert.ok(find.rewardGold > 0);
+      }
       assert.ok(find.riskDamage >= 0);
       if (find.id === 'sealed-cache') {
         assert.match(find.cacheVariant, /^(?:unlocked|locked|trapped|cursed|mimic)$/);
@@ -92,7 +103,7 @@ test('find definitions expose bundled visuals and concise RU/EN actions', async 
   assert.equal(
     FIND_ASSET_PATHS.length,
     new Set([
-      ...FIND_CATALOG.map(({ path }) => path),
+      ...FIND_CATALOG.flatMap(({ path, skins }) => [path, ...Object.values(skins ?? {})]),
       ...CHEST_ASSET_PATHS,
     ]).size,
   );

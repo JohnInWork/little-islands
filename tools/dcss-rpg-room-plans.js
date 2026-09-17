@@ -152,6 +152,21 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
     rewardMultiplier: 1.1,
   }),
   defineRoomArchetype({
+    id: 'altar-niche',
+    role: 'discovery',
+    weight: 0,
+    environmentThemeIds: {
+      'ashen-vault': 'altar-niche',
+      'buried-sanctum': 'altar-niche',
+      'frozen-depths': 'altar-niche',
+      'infernal-core': 'altar-niche',
+    },
+    content: { findId: 'ancient-altar' },
+    variants: ['candlelit', 'silent'],
+    dangerMultiplier: 0.9,
+    rewardMultiplier: 1.3,
+  }),
+  defineRoomArchetype({
     id: 'ambush-chamber',
     role: 'encounter',
     environmentThemeIds: COMMON_ENVIRONMENT,
@@ -230,6 +245,20 @@ const DUNGEON_THEMES_BY_ID = new Map(
 const ROOM_ARCHETYPES_BY_ID = new Map(
   ROOM_ARCHETYPE_CATALOG.map((archetype) => [archetype.id, archetype]),
 );
+// A find declares its room through `content.findId`; the planner never checks
+// find IDs by hand, so a new landmark only needs its archetype entry.
+const ARCHETYPE_ID_BY_FIND_ID = new Map(
+  ROOM_ARCHETYPE_CATALOG
+    .filter((archetype) => archetype.implemented && typeof archetype.content.findId === 'string')
+    .map((archetype) => [archetype.content.findId, archetype.id]),
+);
+// Rooms the merchant may reclaim when a floor has no free alcove, in order of
+// preference. The altar yields before the older discoveries.
+const MERCHANT_FALLBACK_ARCHETYPE_IDS = Object.freeze(['altar-niche', 'forgotten-crypt', 'crystal-grotto']);
+
+export function roomArchetypeIdForFind(findId) {
+  return ARCHETYPE_ID_BY_FIND_ID.get(findId) ?? null;
+}
 
 export function dungeonThemeById(id) {
   return DUNGEON_THEMES_BY_ID.get(id) ?? null;
@@ -296,9 +325,8 @@ function semanticArchetypes(level) {
 
   for (const find of level.finds ?? []) {
     if (!Number.isInteger(find.roomIndex) || assigned.has(find.roomIndex)) continue;
-    if (find.id === 'sealed-cache') assigned.set(find.roomIndex, 'treasure-vault');
-    if (find.id === 'forgotten-grave') assigned.set(find.roomIndex, 'forgotten-crypt');
-    if (find.id === 'crystal-vein') assigned.set(find.roomIndex, 'crystal-grotto');
+    const archetypeId = roomArchetypeIdForFind(find.id);
+    if (archetypeId) assigned.set(find.roomIndex, archetypeId);
   }
 
   for (const surprise of level.surprises ?? []) {
@@ -312,14 +340,22 @@ function semanticArchetypes(level) {
   // One service stop per chapter. It prefers a real door room and then the
   // calmest free alcove, so a rare map topology never loses its merchant.
   if (level.depth % FLOORS_PER_CHAPTER === 0) {
+    const fallbackRank = (roomIndex) => (
+      assigned.has(roomIndex)
+        ? 1 + MERCHANT_FALLBACK_ARCHETYPE_IDS.indexOf(assigned.get(roomIndex))
+        : 0
+    );
     const candidates = level.rooms
       .map((_room, roomIndex) => roomIndex)
       .filter((roomIndex) => (
         roomIndex > 0
-        && [undefined, 'forgotten-crypt', 'crystal-grotto'].includes(assigned.get(roomIndex))
+        && (
+          !assigned.has(roomIndex)
+          || MERCHANT_FALLBACK_ARCHETYPE_IDS.includes(assigned.get(roomIndex))
+        )
       ))
       .sort((a, b) => (
-        Number(assigned.has(a)) - Number(assigned.has(b))
+        fallbackRank(a) - fallbackRank(b)
         ||
         Number(!(level.doors ?? []).some((door) => door.roomIndex === a))
           - Number(!(level.doors ?? []).some((door) => door.roomIndex === b))

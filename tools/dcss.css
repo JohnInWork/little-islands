@@ -962,8 +962,8 @@ body {
 .bag-button {
   position: fixed;
   z-index: 6;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(12px, env(safe-area-inset-bottom));
   width: 66px;
   height: 66px;
   padding: 0;
@@ -1052,8 +1052,8 @@ body {
   --context-accent: var(--gold);
   position: fixed;
   z-index: 7;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(164px, calc(env(safe-area-inset-bottom) + 164px));
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
   width: 72px;
   height: 72px;
   padding: 4px;
@@ -1115,7 +1115,8 @@ body {
   position: fixed;
   z-index: 5;
   left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
+  /* Below the HUD and the guardian bar, never inside the thumb dock. */
+  top: max(158px, calc(env(safe-area-inset-top) + 150px));
   width: min(380px, calc(100vw - 24px));
   min-height: 84px;
   padding: 8px 10px;
@@ -1127,7 +1128,7 @@ body {
   border-color: var(--rarity);
   background: rgb(12 18 20 / 96%);
   opacity: 0;
-  transform: translate(-50%, 12px);
+  transform: translate(-50%, -12px);
   pointer-events: none;
   transition:
     opacity 80ms steps(2, end),
@@ -1395,18 +1396,28 @@ body {
     border-color 80ms steps(2, end);
 }
 
+/*
+ * Thumb dock: three fixed tracks that never overlap on 320–430px phones or in
+ * landscape. Left column = sanctuary / interact / bag, centre = joystick,
+ * right column = three prepared spells. Feedback (toasts) lives at the top.
+ */
 .spell-bar {
   position: fixed;
   z-index: 9;
-  right: max(10px, env(safe-area-inset-right));
+  right: max(12px, env(safe-area-inset-right));
   bottom: max(12px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 56px);
   gap: 6px;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition: opacity 80ms steps(2, end);
+}
+
+/* No known spell yet: the empty column would only clutter the thumb zone. */
+.spell-bar[data-empty='true'] {
+  display: none;
 }
 
 [data-screen='game'] .spell-bar {
@@ -3363,8 +3374,8 @@ body {
 .sanctuary-action {
   position: fixed;
   z-index: 7;
-  left: max(15px, env(safe-area-inset-left));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(170px, calc(env(safe-area-inset-bottom) + 170px));
   display: grid;
   grid-template-columns: 34px auto;
   place-items: center;
@@ -4048,8 +4059,13 @@ body {
 }
 
 .context-action-button[data-action='smash'] > b,
-.context-action-button[data-action='defile'] > b {
+.context-action-button[data-action='defile'] > b,
+.context-action-button[data-action='plunder'] > b {
   color: #cf7068;
+}
+
+.context-action-button[data-action='pray'] > b {
+  color: #8fd08c;
 }
 
 .context-action-button:disabled {
@@ -4537,13 +4553,9 @@ body {
 }
 
 @media (max-width: 360px) {
-  .move-control {
-    left: max(6px, env(safe-area-inset-left));
-  }
-
   .spell-bar {
-    right: max(6px, env(safe-area-inset-right));
-    grid-template-columns: repeat(3, 48px);
+    right: max(8px, env(safe-area-inset-right));
+    grid-template-rows: repeat(3, 48px);
     gap: 4px;
   }
 
@@ -4612,18 +4624,9 @@ body {
   }
 }
 
-@media (max-width: 900px) and (orientation: portrait) {
-  .spell-bar {
-    right: 50%;
-    bottom: max(174px, calc(env(safe-area-inset-bottom) + 174px));
-    transform: translateX(50%);
-  }
-
-  .loot-toast,
-  .sanctuary-action {
-    bottom: max(244px, calc(env(safe-area-inset-bottom) + 242px));
-  }
-}
+/* Portrait spell row above the joystick was removed: it collided with the
+   interact button on 320–360px phones. The thumb dock at the end of this file
+   owns every bottom-zone position now. */
 
 @media (orientation: landscape) and (max-height: 520px) {
   .move-control {
@@ -5157,20 +5160,13 @@ body {
 
 @media (orientation: landscape) and (max-height: 520px) {
   .interact-action {
-    right: max(14px, env(safe-area-inset-right));
-    bottom: max(92px, calc(env(safe-area-inset-bottom) + 92px));
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(86px, calc(env(safe-area-inset-bottom) + 86px));
   }
-
 
   .spell-bar {
-    right: max(92px, calc(env(safe-area-inset-right) + 92px));
-  }
-}
-
-@media (max-width: 900px) and (orientation: portrait) {
-  .loot-toast,
-  .sanctuary-action {
-    bottom: max(176px, calc(env(safe-area-inset-bottom) + 174px));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
   }
 }
 
@@ -5393,18 +5389,9 @@ body {
     transform: none;
   }
 
-  .loot-toast {
-    bottom: max(12px, env(safe-area-inset-bottom));
-  }
-
   .boss-hud {
     top: max(14px, env(safe-area-inset-top));
     width: min(228px, 34vw);
-  }
-
-  .sanctuary-action {
-    left: max(176px, calc(env(safe-area-inset-left) + 174px));
-    bottom: max(14px, env(safe-area-inset-bottom));
   }
 
   .inventory-shell {
@@ -6309,5 +6296,96 @@ body {
     height: 100%;
     display: grid;
     grid-template-columns: repeat(4, minmax(48px, 1fr));
+  }
+}
+
+/*
+ * Thumb dock — final responsive authority for the game screen's bottom zone.
+ * Tracks (portrait and landscape alike):
+ *   left   : sanctuary heal / interact / bag, stacked from the bottom
+ *   centre : joystick, 152px, always centred
+ *   right  : three prepared spells, one column
+ * Sizes are chosen so a 320px-wide viewport keeps ≥16px between tracks.
+ * Toasts sit under the HUD at the top instead of above the joystick.
+ */
+@media (max-width: 900px) {
+  .bag-button {
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .interact-action {
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
+  }
+
+  .sanctuary-action {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(170px, calc(env(safe-area-inset-bottom) + 170px));
+  }
+
+  .spell-bar {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    transform: none;
+  }
+
+  .loot-toast {
+    top: max(158px, calc(env(safe-area-inset-top) + 150px));
+    bottom: auto;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .bag-button {
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .interact-action {
+    bottom: max(86px, calc(env(safe-area-inset-bottom) + 86px));
+  }
+
+  .sanctuary-action {
+    bottom: max(168px, calc(env(safe-area-inset-bottom) + 168px));
+    min-height: 66px;
+  }
+
+  .spell-bar {
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .loot-toast {
+    /* Clear of the 68px HUD and the low guardian bar in landscape. */
+    top: max(92px, calc(env(safe-area-inset-top) + 84px));
+  }
+}
+
+@media (max-width: 344px) {
+  .bag-button,
+  .interact-action {
+    width: 60px;
+    height: 60px;
+  }
+
+  .bag-button {
+    left: max(8px, env(safe-area-inset-left));
+  }
+
+  .interact-action {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: max(82px, calc(env(safe-area-inset-bottom) + 82px));
+  }
+
+  .interact-action > img {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sanctuary-action {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: max(152px, calc(env(safe-area-inset-bottom) + 152px));
+    min-width: 88px;
   }
 }

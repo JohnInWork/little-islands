@@ -94,6 +94,26 @@ test('the touch joystick stays transparent at rest and gains contrast only while
   assert.match(finalResponsive, /@media \(max-width: 900px\)[\s\S]*?\.move-control\s*{[^}]*left:\s*50%[^}]*transform:\s*translateX\(-50%\)/s);
 });
 
+test('the thumb dock keeps spells, movement and object actions in three separate tracks', async () => {
+  const css = await readFile(cssUrl, 'utf8');
+  const dock = css.slice(css.indexOf('Thumb dock — final responsive authority'));
+  assert.ok(dock.length > 0, 'the dock block must close the stylesheet');
+  // Left track: bag at the bottom, interact above it, sanctuary heal above both.
+  assert.match(dock, /\.bag-button\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(12px/s);
+  assert.match(dock, /\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(88px/s);
+  assert.match(dock, /\.sanctuary-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(170px/s);
+  // Right track: one spell column; centre track stays the centred joystick.
+  assert.match(dock, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*max\(12px[^}]*transform:\s*none/s);
+  assert.doesNotMatch(css, /\.spell-bar\s*{[^}]*right:\s*50%/s);
+  assert.doesNotMatch(css, /\.spell-bar\s*{[^}]*grid-template-columns:\s*repeat\(3/s);
+  // Feedback leaves the thumb zone: toasts sit under the HUD at the top.
+  assert.match(css, /\.loot-toast\s*{[^}]*top:\s*max\(158px/s);
+  assert.doesNotMatch(css, /\.loot-toast\s*{[^}]*bottom:\s*max\(1\dpx/s);
+  // Narrow phones shrink the side buttons instead of letting tracks touch.
+  assert.match(dock, /@media \(max-width: 344px\)[\s\S]*\.bag-button,\s*\.interact-action\s*{[^}]*width:\s*60px/s);
+  assert.match(dock, /@media \(orientation: landscape\) and \(max-height: 520px\)[\s\S]*\.spell-bar\s*{[^}]*bottom:\s*max\(10px/s);
+});
+
 test('the dungeon background uses a real WebGL layer instead of painted wall extrusion', async () => {
   const [html, css, runtime] = await Promise.all([
     readFile(htmlUrl, 'utf8'),
@@ -244,9 +264,9 @@ test('a thumb-reachable contextual button appears for any adjacent registered ob
   ]);
 
   assert.match(html, /id="interact-action"[\s\S]*id="interact-action-icon"/);
-  assert.match(css, /\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(164px[^}]*width:\s*72px[^}]*height:\s*72px/s);
+  assert.match(css, /\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(88px[^}]*width:\s*72px[^}]*height:\s*72px/s);
   assert.match(css, /\[data-screen='game'\] \.interact-action:not\(\[hidden\]\)/);
-  assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*right:\s*max\(14px[^}]*bottom:\s*max\(92px/s);
+  assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(86px/s);
   assert.match(runtime, /function updateInteractionUi\(\)/);
   assert.match(runtime, /const target = ready[\s\S]*\? nearbyContextTarget\(\)/);
   assert.match(runtime, /interactActionButton\.addEventListener\('click', openNearbyContextActions\)/);
@@ -263,7 +283,10 @@ test('three manual spell buttons and every modal close action live in the thumb 
 
   assert.equal((html.match(/data-spell-slot="[0-2]"/g) ?? []).length, 3);
   assert.match(html, /id="spell-bar"[\s\S]*data-spell-slot="0"[\s\S]*data-spell-slot="1"[\s\S]*data-spell-slot="2"/);
-  assert.match(css, /\.spell-bar\s*{[^}]*bottom:\s*max\(12px/s);
+  assert.match(html, /id="spell-bar"[^>]*data-empty="true"/);
+  assert.match(css, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*max\(12px[^}]*grid-template-rows:\s*repeat\(3, 56px\)/s);
+  assert.match(css, /\.spell-bar\[data-empty='true'\]\s*{[^}]*display:\s*none/s);
+  assert.match(runtime, /spellBar\.dataset\.empty = String\(model\.slots\.every\(\(slot\) => slot\.empty\)\)/);
   assert.match(runtime, /button\.addEventListener\('click', \(\) => castPreparedSpell/);
 
   for (const [footerClass, closeId] of [

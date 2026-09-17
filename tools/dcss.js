@@ -134,6 +134,7 @@ import {
   findById,
   findPresentation,
   findResultPresentation,
+  findSkinPath,
   resolveFindInteraction,
 } from './dcss-rpg-finds.js';
 import { contextActionModel } from './dcss-rpg-context-actions.js';
@@ -538,7 +539,12 @@ const floorLootSpritePaths = new Set([
 ]);
 const floorLootSpriteBounds = new Map();
 const requestedSeedValue = new URL(document.location.href).searchParams.get('seed');
-const previewChestNearSpawn = new URL(document.location.href).searchParams.get('preview') === 'chest';
+// QA-only: `?preview=chest|altar` moves that find next to the spawn cell.
+const previewFindIdNearSpawn = {
+  chest: 'sealed-cache',
+  altar: 'ancient-altar',
+}[new URL(document.location.href).searchParams.get('preview')] ?? null;
+const previewChestNearSpawn = previewFindIdNearSpawn === 'sealed-cache';
 const previewHuntNearSpawn = new URL(document.location.href).searchParams.get('preview') === 'hunt';
 const requestedSeed = requestedSeedValue != null && /^\d+$/.test(requestedSeedValue)
   ? Number(requestedSeedValue)
@@ -1065,7 +1071,7 @@ function createEventDefinitions(level) {
 }
 
 function previewChestCell(level, chest) {
-  if (!previewChestNearSpawn || chest.id !== 'sealed-cache') return chest;
+  if (!previewFindIdNearSpawn || chest.id !== previewFindIdNearSpawn) return chest;
   const occupied = new Set([
     ...level.monsters,
     ...level.loot,
@@ -1090,7 +1096,7 @@ function createFindDefinitions(level) {
     const find = previewChestCell(level, sourceFind);
     const definition = findById(find.id);
     const visual = runtimeVisual(
-      'find', find.id, 'world', definition.path, 1, definition.screenOffsetY,
+      'find', find.id, 'world', findSkinPath(find) ?? definition.path, 1, definition.screenOffsetY,
     );
     const roomPlan = level.roomPlans?.find((plan) => plan.roomIndex === find.roomIndex);
     const animationFrames = find.id === 'sealed-cache' && visual.path === definition.path
@@ -1440,6 +1446,12 @@ function currentInteractionActor() {
       rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
     },
     capabilities: currentSkillCapabilities(),
+    gold,
+    vitals: {
+      hp: hero.hp,
+      maxHp: currentHeroStats().maxHp,
+      effects: createActorEffects(hero.effects),
+    },
   };
 }
 
@@ -1715,6 +1727,8 @@ function renderSpellBar() {
     language: itemDetailLanguage,
   });
   spellBar.setAttribute('aria-label', model.label);
+  // Hide the whole column until the hero prepares a first spell.
+  spellBar.dataset.empty = String(model.slots.every((slot) => slot.empty));
   for (const slot of model.slots) {
     const button = spellActionButtons[slot.index];
     const icon = button.querySelector('img');
@@ -4626,7 +4640,9 @@ function interactNearbyFind(preferredFind = null, action = null) {
       x: Math.floor(hero.x / TILE),
       y: Math.floor(hero.y / TILE),
       hp: hero.hp,
+      maxHp: hero.maxHp,
       power: hero.power,
+      effects: createActorEffects(hero.effects),
     },
     gold,
     action,
@@ -4648,8 +4664,16 @@ function interactNearbyFind(preferredFind = null, action = null) {
   hero.path = [];
   hero.pendingAttack = null;
   hero.attack = 0;
+  const landmarkResult = result.definition?.wave === 'landmark';
   hero.hp = result.state.hero.hp;
   hero.power = result.state.hero.power;
+  if (landmarkResult) {
+    // The pure command already capped hp at the effective maximum plus the
+    // permanent bonus; only mirror its snapshot back into the runtime hero.
+    hero.maxHp = result.state.hero.maxHp;
+    hero.effects = createActorEffects(result.state.hero.effects);
+    hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
+  }
   if (find.id !== 'sealed-cache') gold = result.state.gold;
   run.floor.resolvedFindIds = [...result.state.resolvedFindIds];
   find.resolved = true;
@@ -4702,6 +4726,38 @@ function interactNearbyFind(preferredFind = null, action = null) {
     updateHud();
     persistRun();
     if (!consumedByMimic) openChestContainerUi(find);
+    return true;
+  }
+  if (landmarkResult) {
+    const restored = result.heal > 0 || result.cleansed.length > 0;
+    if (restored) {
+      burst(hero.x, hero.y - 8, result.cleansed.length > 0 ? '#87cad0' : '#7fbd86', 16);
+      addImpactWave(hero.x, hero.y - 8, '#7fbd86', 48, 0);
+      if (result.heal > 0) addCombatGlyph(hero.x, hero.y, `+${result.heal}`, '#8fd08c', -62);
+    }
+    if (result.rewardMaxHp > 0) {
+      burst(hero.x, hero.y - 8, '#e0c778', 18);
+      addImpactWave(hero.x, hero.y - 8, '#e0c778', 54, 1);
+      addCombatGlyph(hero.x, hero.y, `+${result.rewardMaxHp} ♥`, '#e0c778', -74);
+    }
+    burst(find.x, find.y - 10, result.damage > 0 ? '#b45c58' : presentation.color, 20);
+    addImpactWave(find.x, find.y, presentation.color, 54, 1);
+    if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
+    showLootToast(
+      { path: presentation.path, rarity: result.damage > 0 ? 2 : 1 },
+      result.rewardGold > 0
+        ? result.rewardGold
+        : result.rewardMaxHp > 0
+          ? `+${result.rewardMaxHp} ♥`
+          : result.heal > 0
+            ? result.heal
+            : '✓',
+    );
+    findAnnouncement.textContent = resultPresentation?.summary
+      ? `${resultPresentation.message}. ${resultPresentation.summary}`
+      : resultPresentation?.message ?? presentation.result;
+    updateHud();
+    persistRun();
     return true;
   }
   const damagedLoot = ['smash', 'attack'].includes(result.action);
@@ -4819,6 +4875,7 @@ function contextModelTarget(entry = contextTarget) {
       mimicMonsterId: entry.value.mimicMonsterId ?? null,
       containerOpened: entry.value.containerOpened === true,
       containerDestroyed: entry.value.containerDestroyed === true,
+      ...(entry.value.outcomes ? { outcomes: entry.value.outcomes, themeId: entry.value.themeId } : {}),
     };
   }
   const availability = trapDisarmState(entry.value);

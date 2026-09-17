@@ -55,7 +55,7 @@ import {
   rollFloorArtifact,
   validateProceduralArtifactState,
 } from './dcss-rpg-artifacts.js';
-import { createDungeonFinds } from './dcss-rpg-finds.js';
+import { MAX_FINDS_PER_FLOOR, createDungeonFinds } from './dcss-rpg-finds.js';
 import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
 import {
@@ -757,7 +757,10 @@ export function generateDungeon({
   }
   // Interactive finds own an independent stream. Adding a new find or changing
   // its presentation cannot reshuffle rooms, monsters, loot, fauna or doors.
+  // Landmarks (altar and later fountain/rune) use a third stream, so they never
+  // move the three core finds of an already saved floor.
   const findRng = createRng(mixSeed(floorSeed, 0x46494e44));
+  const landmarkRng = createRng(mixSeed(floorSeed, 0x4c414e44));
   const finds = createDungeonFinds({
     level: {
       seed: floorSeed,
@@ -768,6 +771,7 @@ export function generateDungeon({
       surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
     },
     rng: findRng,
+    landmarkRng,
     occupiedCells: occupied,
     avoidCells: route.map(({ x, y }) => `${x},${y}`),
   });
@@ -1564,7 +1568,7 @@ export function validateRun(snapshot) {
   if (floor.collected.some((id) => !new RegExp(`^loot-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (floor.resolved.some((id) => !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id))) return false;
   if (
-    floor.resolvedFindIds.length > 3 ||
+    floor.resolvedFindIds.length > MAX_FINDS_PER_FLOOR ||
     floor.resolvedFindIds.some(
       (id) => typeof id !== 'string' || !new RegExp(`^find-${snapshot.depth}-\\d+$`).test(id),
     )
