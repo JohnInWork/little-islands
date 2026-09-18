@@ -1,4 +1,5 @@
 import { validateArmourBlock } from './dcss-rpg-armour.js';
+import { validateItemForm } from './dcss-rpg-materials.js';
 import { mealStatModifiers } from './dcss-rpg-cooking.js';
 import { lootById, monsterById } from './dcss-rpg-content.js';
 import { floorScaling, monsterTier } from './dcss-rpg-scaling.js';
@@ -518,6 +519,11 @@ export function assertEquipmentCatalog(items) {
     // Armour traits belong to armour: a weapon's character lives in its family.
     if (!validateArmourBlock(item.armour) || (item.armour && item.slot === 'hand1')) {
       throw new Error(`Invalid armour traits for ${item.id}`);
+    }
+    // A form is the noun an item is named by, so it must decline: an adjective
+    // has to agree with it. No form means a named thing, which is also fine.
+    if (item.form !== undefined && !validateItemForm(item.form)) {
+      throw new Error(`Invalid item form for ${item.id}`);
     }
   }
   return true;

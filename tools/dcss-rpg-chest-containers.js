@@ -1,4 +1,5 @@
 import { rollCacheArtifact } from './dcss-rpg-artifacts.js';
+import { rollMaterial } from './dcss-rpg-materials.js';
 import { LOOT_CATALOG, lootById } from './dcss-rpg-content.js';
 import {
   materializeItemAffixes,
@@ -83,7 +84,8 @@ function itemRecord({ seed, depth, find, definition, index, artifact = null }) {
       stack: 1 + (stableHash(seed, depth, find.instanceId, index, definition.id) % maximum),
     });
   }
-  // An artefact carries its own power instead of ordinary affixes.
+  // An artefact is a named thing: it keeps its own name and its own look, so it
+  // is never made of anything.
   if (artifact?.artifactPowerId) {
     return Object.freeze({
       id: definition.id,
@@ -93,6 +95,7 @@ function itemRecord({ seed, depth, find, definition, index, artifact = null }) {
       artifactCurseId: artifact.artifactCurseId ?? null,
     });
   }
+  const materialId = rollMaterial({ seed, depth, instanceId: uid, item: definition });
   return Object.freeze({
     id: definition.id,
     uid,
@@ -102,6 +105,7 @@ function itemRecord({ seed, depth, find, definition, index, artifact = null }) {
       instanceId: uid,
       item: definition,
     })]),
+    ...(materialId ? { materialId } : {}),
     artifactPowerId: null,
     artifactCurseId: null,
   });

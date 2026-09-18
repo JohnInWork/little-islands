@@ -72,6 +72,7 @@ import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
 import { validateReforgeState } from './dcss-rpg-smithing.js';
+import { rollMaterial, validateItemMaterial } from './dcss-rpg-materials.js';
 import { createCoatingState, validateCoatingState } from './dcss-rpg-poisoncraft.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
@@ -767,6 +768,7 @@ export function generateDungeon({
   // is `rollCacheArtifact`.
   const equipmentSpawnState = (definition, instanceId) => {
     if (!definition.slot) return {};
+    const materialId = rollMaterial({ seed, depth, instanceId, item: definition });
     return {
       affixIds: [...rollItemAffixes({
         seed: floorSeed,
@@ -774,6 +776,7 @@ export function generateDungeon({
         instanceId,
         item: definition,
       })],
+      ...(materialId ? { materialId } : {}),
       artifactPowerId: null,
       artifactCurseId: null,
     };
@@ -1881,6 +1884,7 @@ export function validateRun(snapshot) {
         ) ||
         !validateProceduralArtifactState(lootById(item.id), item) ||
         !validateReforgeState(lootById(item.id), item) ||
+        !validateItemMaterial(lootById(item.id), item) ||
         (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999)),
     )
   ) return false;
@@ -1956,6 +1960,7 @@ export function validateRun(snapshot) {
       )
       || !validateProceduralArtifactState(lootById(item.id), item)
       || !validateReforgeState(lootById(item.id), item)
+      || !validateItemMaterial(lootById(item.id), item)
       || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
     ))
   ) return false;

@@ -1,3 +1,5 @@
+import { applyMaterialStats } from './dcss-rpg-materials.js';
+
 export const ITEM_AFFIX_VERSION = 1;
 export const DEFAULT_AFFIX_RATE = 1;
 export const MIN_AFFIX_RATE = 0;
@@ -234,7 +236,9 @@ export function materializeItemAffixes(definition, record = {}) {
   if (!validateItemAffixIds(definition, affixIds)) {
     throw new TypeError(`Invalid affixes on ${definition.id}`);
   }
-  const stats = { ...(definition.stats ?? {}) };
+  // What the thing is made of shapes what it already does, before anything is
+  // enchanted onto it: an affix improves a bronze sword, not an abstract one.
+  const stats = applyMaterialStats(definition.stats ?? {}, record.materialId ?? null);
   const immunities = new Set(definition.magic?.immunity ?? []);
   let healOnKill = definition.magic?.healOnKill ?? 0;
   for (const id of affixIds) {

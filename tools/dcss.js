@@ -184,6 +184,7 @@ import {
   selectPiercedTargets,
 } from './dcss-rpg-marksmanship.js';
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
+import { materialFilter } from './dcss-rpg-materials.js';
 import {
   armourProfile,
   focusedCooldown,
@@ -1887,6 +1888,26 @@ function equippedItem(slot) {
   return uid ? itemInstances.get(uid) ?? null : null;
 }
 
+/**
+ * What an item is made of is shown by recolouring its own sprite, never by a
+ * different sprite: the silhouette has to stay readable, or the icon stops
+ * telling the player what the thing is.
+ */
+function materialSpriteFilter(item) {
+  return materialFilter(item?.materialId ?? null);
+}
+
+/**
+ * DOM icons carry the material as a custom property rather than as `filter`, so
+ * the drop-shadow the stylesheet gives them survives the recolouring.
+ */
+function paintMaterial(icon, item) {
+  if (!icon) return;
+  const filter = materialSpriteFilter(item);
+  if (filter) icon.style.setProperty('--material-filter', filter);
+  else icon.style.removeProperty('--material-filter');
+}
+
 function presentedItem(item) {
   const identificationGroup = item?.identification?.group;
   const presentation = itemIdentificationView({
@@ -2822,6 +2843,7 @@ function renderItemDetail(item) {
   itemDetailRarity.textContent = `${presentation.rarity} ${presentation.rarityMarks}`;
   itemDetailSlot.textContent = presentation.slot;
   itemDetailIcon.src = assetUrl(displayItem.icon);
+  paintMaterial(itemDetailIcon, displayItem);
   itemDetailDescription.textContent = presentation.description;
   itemDetailComparison.hidden = presentation.comparison.length === 0;
   itemDetailComparisonTitle.textContent = selection?.source === 'equipment'
@@ -4875,8 +4897,10 @@ function drawLoot() {
     context.restore();
     const isBelt = displayItem.slot === 'belt';
     if (isBelt) drawGroundBelt(position, rarity, pulse);
+    const material = materialSpriteFilter(displayItem);
     drawSprite(displayItem.icon, x, y, (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1), {
       offsetY: (displayItem.visualOffsetY ?? -7) + pulse,
+      ...(material ? { filter: `${VISIBILITY_TUNING.spriteFilter} ${material}` } : {}),
       trim: true,
     });
   }
@@ -5680,6 +5704,7 @@ function renderEquippedPreview() {
     const presentation = itemPresentation(displayItem, itemDetailLanguage);
     button.dataset.rarity = String(displayItem.rarity);
     icon.src = assetUrl(displayItem.icon);
+    paintMaterial(icon, displayItem);
     button.title = presentation.name;
     button.setAttribute('aria-label', `${slotLabel}: ${presentation.name}`);
     button.onclick = () => {
@@ -5767,6 +5792,7 @@ function renderPack() {
 
       const icon = document.createElement('img');
       icon.src = assetUrl(displayItem.icon);
+      paintMaterial(icon, displayItem);
       icon.alt = '';
       const copy = document.createElement('span');
       const name = document.createElement('strong');

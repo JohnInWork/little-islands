@@ -1,3 +1,4 @@
+import { rollMaterial } from './dcss-rpg-materials.js';
 import { LOOT_CATALOG, lootById } from './dcss-rpg-content.js';
 import {
   materializeItemAffixes,
@@ -163,12 +164,15 @@ export function merchantStartingGold(merchant, depth, economy = MERCHANT_ECONOMY
 
 function merchantItemRecord({ seed, depth, roomIndex, item, index }) {
   const uid = `merchant-${depth}-${roomIndex}-${index}`;
+  const materialId = rollMaterial({ seed, depth, instanceId: uid, item });
   return Object.freeze({
     id: item.id,
     uid,
     ...(item.slot
       ? {
           affixIds: [...rollItemAffixes({ seed, depth, instanceId: uid, item })],
+          // A trader stocks made things too, so the shelf is never two of the same.
+          ...(materialId ? { materialId } : {}),
           artifactPowerId: null,
           artifactCurseId: null,
         }

@@ -1,3 +1,4 @@
+import { itemTakesMaterial, materialItemName } from './dcss-rpg-materials.js';
 import {
   generatedItemDescription,
   itemDescriptionLanguages,
@@ -217,6 +218,12 @@ function localizedItemName(item, language) {
       ?? (language === 'ru' ? 'Неизвестный предмет' : 'Unknown item');
   }
   if (item.name?.[language]) return item.name[language];
+  // A made thing is named by what it is and what it is made of, in that order
+  // of importance: the noun is the form, the adjective is the material. A named
+  // thing has no form and keeps the name that was written for it.
+  if (itemTakesMaterial(item) && !item.artifactPowerId) {
+    return materialItemName(item, item.materialId ?? null, language);
+  }
   return language === 'ru'
     ? RUSSIAN_NAMES[item.id] ?? titleFromId(item.id)
     : ENGLISH_NAMES[item.id] ?? titleFromId(item.id);
