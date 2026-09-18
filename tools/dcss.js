@@ -3148,7 +3148,9 @@ function renderCharacterSpells() {
     const name = document.createElement('strong');
     name.textContent = slot.empty ? (ru ? 'Пусто' : 'Empty') : slot.name;
     const kind = document.createElement('small');
-    kind.textContent = slot.empty ? (ru ? 'Выбери заклинание' : 'Choose a spell') : slot.status;
+    // A slot is 56px wide on a 320px phone: «Выбери заклинание» was cut in half
+    // there. One word says the same thing and fits.
+    kind.textContent = slot.empty ? (ru ? 'Выбрать' : 'Choose') : slot.status;
     copy.append(name, kind);
     button.append(number, icon, copy);
     button.addEventListener('click', () => {
