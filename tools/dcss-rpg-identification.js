@@ -31,6 +31,61 @@ export const POTION_APPEARANCES = Object.freeze([
     icon: 'item/potion/effervescent.png',
     name: Object.freeze({ ru: 'Шипучее зелье', en: 'Effervescent potion' }),
   }),
+  Object.freeze({
+    id: 'black',
+    icon: 'item/potion/black.png',
+    name: Object.freeze({ ru: 'Чёрное зелье', en: 'Black potion' }),
+  }),
+  Object.freeze({
+    id: 'brilliant-blue',
+    icon: 'item/potion/brilliant_blue.png',
+    name: Object.freeze({ ru: 'Ярко-синее зелье', en: 'Brilliant blue potion' }),
+  }),
+  Object.freeze({
+    id: 'brown',
+    icon: 'item/potion/brown.png',
+    name: Object.freeze({ ru: 'Бурое зелье', en: 'Brown potion' }),
+  }),
+  Object.freeze({
+    id: 'bubbly',
+    icon: 'item/potion/bubbly.png',
+    name: Object.freeze({ ru: 'Пузырящееся зелье', en: 'Bubbly potion' }),
+  }),
+  Object.freeze({
+    id: 'fizzy',
+    icon: 'item/potion/fizzy.png',
+    name: Object.freeze({ ru: 'Шипучее зелье', en: 'Fizzy potion' }),
+  }),
+  Object.freeze({
+    id: 'magenta',
+    icon: 'item/potion/magenta.png',
+    name: Object.freeze({ ru: 'Пурпурное зелье', en: 'Magenta potion' }),
+  }),
+  Object.freeze({
+    id: 'orange',
+    icon: 'item/potion/orange.png',
+    name: Object.freeze({ ru: 'Оранжевое зелье', en: 'Orange potion' }),
+  }),
+  Object.freeze({
+    id: 'puce',
+    icon: 'item/potion/puce.png',
+    name: Object.freeze({ ru: 'Блошиное зелье', en: 'Puce potion' }),
+  }),
+  Object.freeze({
+    id: 'sky-blue',
+    icon: 'item/potion/sky_blue.png',
+    name: Object.freeze({ ru: 'Небесное зелье', en: 'Sky blue potion' }),
+  }),
+  Object.freeze({
+    id: 'white',
+    icon: 'item/potion/white.png',
+    name: Object.freeze({ ru: 'Белое зелье', en: 'White potion' }),
+  }),
+  Object.freeze({
+    id: 'yellow',
+    icon: 'item/potion/yellow.png',
+    name: Object.freeze({ ru: 'Жёлтое зелье', en: 'Yellow potion' }),
+  }),
 ]);
 
 export const POTION_APPEARANCE_PATHS = Object.freeze(
@@ -44,6 +99,21 @@ export const SCROLL_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'purple-runes', icon: 'item/scroll/scroll-purple.png', name: Object.freeze({ ru: 'Свиток с лиловыми рунами', en: 'Purple-rune scroll' }) }),
   Object.freeze({ id: 'red-runes', icon: 'item/scroll/scroll-red.png', name: Object.freeze({ ru: 'Свиток с алыми рунами', en: 'Red-rune scroll' }) }),
   Object.freeze({ id: 'cyan-runes', icon: 'item/scroll/scroll-cyan.png', name: Object.freeze({ ru: 'Свиток с бирюзовыми рунами', en: 'Cyan-rune scroll' }) }),
+  Object.freeze({
+    id: 'grey-scroll',
+    icon: 'item/scroll/scroll-grey.png',
+    name: Object.freeze({ ru: 'Серый свиток', en: 'Grey scroll' }),
+  }),
+  Object.freeze({
+    id: 'yellow-scroll',
+    icon: 'item/scroll/scroll-yellow.png',
+    name: Object.freeze({ ru: 'Жёлтый свиток', en: 'Yellow scroll' }),
+  }),
+  Object.freeze({
+    id: 'plain-scroll',
+    icon: 'item/scroll/scroll.png',
+    name: Object.freeze({ ru: 'Простой свиток', en: 'Plain scroll' }),
+  }),
 ]);
 
 export const WAND_APPEARANCES = Object.freeze([
@@ -51,6 +121,41 @@ export const WAND_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'glass', icon: 'item/wand/gem_glass.png', name: Object.freeze({ ru: 'Стеклянный жезл', en: 'Glass wand' }) }),
   Object.freeze({ id: 'ivory', icon: 'item/wand/gem_ivory.png', name: Object.freeze({ ru: 'Костяной жезл', en: 'Ivory wand' }) }),
   Object.freeze({ id: 'silver', icon: 'item/wand/gem_silver.png', name: Object.freeze({ ru: 'Серебряный жезл', en: 'Silver wand' }) }),
+  Object.freeze({
+    id: 'bone-gem',
+    icon: 'item/wand/gem_bone.png',
+    name: Object.freeze({ ru: 'Жезл с костяным камнем', en: 'Bone-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'bronze-gem',
+    icon: 'item/wand/gem_bronze.png',
+    name: Object.freeze({ ru: 'Жезл с бронзовым камнем', en: 'Bronze-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'copper-gem',
+    icon: 'item/wand/gem_copper.png',
+    name: Object.freeze({ ru: 'Жезл с медным камнем', en: 'Copper-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'gold-gem',
+    icon: 'item/wand/gem_gold.png',
+    name: Object.freeze({ ru: 'Жезл с золотым камнем', en: 'Gold-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'iron-gem',
+    icon: 'item/wand/gem_iron.png',
+    name: Object.freeze({ ru: 'Жезл с железным камнем', en: 'Iron-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'lead-gem',
+    icon: 'item/wand/gem_lead.png',
+    name: Object.freeze({ ru: 'Жезл со свинцовым камнем', en: 'Lead-gem wand' }),
+  }),
+  Object.freeze({
+    id: 'wood-gem',
+    icon: 'item/wand/gem_wood.png',
+    name: Object.freeze({ ru: 'Жезл с деревянным камнем', en: 'Wood-gem wand' }),
+  }),
 ]);
 
 export const BOOK_APPEARANCES = Object.freeze([

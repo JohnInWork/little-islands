@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { materializeItemAffixes } from '../tools/dcss-rpg-affixes.js';
 import { assertEquipmentCatalog } from '../tools/dcss-rpg-rules.js';
 import { itemDetailLanguages, itemDetails } from '../tools/dcss-rpg-item-details.js';
+import { IDENTIFICATION_APPEARANCE_PATHS } from '../tools/dcss-rpg-identification.js';
 import {
   EQUIPMENT_VISUALS,
   allEquipmentVisualAssetPaths,
@@ -185,6 +187,19 @@ test('a form can be forged by more than one hand, and no two items share a shape
   // And every one of them ships: a silhouette the packer does not know is a hole.
   const shipped = new Set(allEquipmentVisualAssetPaths());
   for (const path of paths) assert.ok(shipped.has(path), `${path} is never packed`);
+});
+
+test('every sprite the game names actually exists on disk', () => {
+  // A typo in a path is invisible until the game runs and draws nothing.
+  const root = new URL('../public/assets/dcss-preview/', import.meta.url);
+  const referenced = [...new Set([
+    ...allEquipmentVisualAssetPaths(),
+    ...IDENTIFICATION_APPEARANCE_PATHS,
+  ])];
+  assert.ok(referenced.length > 250, `only ${referenced.length} sprites are referenced`);
+  for (const path of referenced) {
+    assert.ok(existsSync(new URL(path, root)), `${path} is named but not shipped`);
+  }
 });
 
 test('two of the same thing are drawn differently, and the same one twice the same', () => {

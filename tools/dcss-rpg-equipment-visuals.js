@@ -69,6 +69,46 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     layer: 'player/hand1/bow_two.png',
     iconVariants: Object.freeze(['item/weapon/ranged/shortbow2.png', 'item/weapon/ranged/shortbow3.png']),
   }),
+  'scimitar': Object.freeze({
+    icon: 'item/weapon/scimitar1.png',
+    layer: 'player/hand1/scimitar.png',
+    iconVariants: Object.freeze(['item/weapon/scimitar3.png']),
+  }),
+  'double-sword': Object.freeze({
+    icon: 'item/weapon/double_sword.png',
+    layer: 'player/hand1/double_sword.png',
+    iconVariants: Object.freeze(['item/weapon/double_sword2.png', 'item/weapon/double_sword3.png']),
+  }),
+  'triple-sword': Object.freeze({
+    icon: 'item/weapon/triple_sword.png',
+    layer: 'player/hand1/triple_sword.png',
+    iconVariants: Object.freeze(['item/weapon/triple_sword2.png', 'item/weapon/triple_sword3.png']),
+  }),
+  'war-scythe': Object.freeze({
+    icon: 'item/weapon/scythe1.png',
+    layer: 'player/hand1/scythe.png',
+    iconVariants: Object.freeze(['item/weapon/scythe2.png', 'item/weapon/scythe3.png']),
+  }),
+  'iron-flail': Object.freeze({
+    icon: 'item/weapon/flail1.png',
+    layer: 'player/hand1/flail_ball.png',
+    iconVariants: Object.freeze(['item/weapon/flail2.png', 'item/weapon/flail3.png']),
+  }),
+  'eveningstar': Object.freeze({
+    icon: 'item/weapon/eveningstar1.png',
+    layer: 'player/hand1/eveningstar.png',
+    iconVariants: Object.freeze(['item/weapon/eveningstar2.png', 'item/weapon/eveningstar3.png']),
+  }),
+  'dire-flail': Object.freeze({
+    icon: 'item/weapon/dire_flail1.png',
+    layer: 'player/hand1/flail_great.png',
+    iconVariants: Object.freeze(['item/weapon/dire_flail2.png', 'item/weapon/dire_flail3.png']),
+  }),
+  'spiked-club': Object.freeze({
+    icon: 'item/weapon/giant_spiked_club.png',
+    layer: 'player/hand1/giant_club_spike.png',
+    iconVariants: Object.freeze(['item/weapon/giant_spiked_club2.png', 'item/weapon/giant_spiked_club3.png']),
+  }),
   'light-crossbow': Object.freeze({
     icon: 'item/weapon/ranged/hand_crossbow.png',
     layer: 'player/hand1/hand_crossbow.png',
