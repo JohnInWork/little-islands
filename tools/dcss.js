@@ -623,6 +623,7 @@ const openRecordsLabel = document.querySelector('#open-records-label');
 const closeRecordsButton = document.querySelector('#close-records');
 const recordsTitle = document.querySelector('#records-title');
 const recordsDaily = document.querySelector('#records-daily');
+const playDailyButton = document.querySelector('#play-daily');
 const recordsBest = document.querySelector('#records-best');
 const recordsEmpty = document.querySelector('#records-empty');
 const recordsTotals = document.querySelector('#records-totals');
@@ -8702,6 +8703,8 @@ function renderRecords() {
   closeRecordsButton.setAttribute('aria-label', model.close);
   recordsScreen.setAttribute('aria-label', model.title);
   recordsDaily.textContent = model.daily;
+  playDailyButton.textContent = model.playDaily;
+  playDailyButton.setAttribute('aria-label', `${model.playDaily}: ${model.dailySeed}`);
   recordsEmpty.textContent = model.empty;
   recordsEmpty.hidden = model.empty === '';
   recordsBest.replaceChildren(...model.best.map((entry) => {
@@ -10485,14 +10488,14 @@ function climbFloor() {
   showLootToast({ path: ASCENT_PATH, rarity: 2 }, romanDepth(run.depth));
 }
 
-function restartRun() {
+function restartRun(seed = null) {
   clearMoveControl();
   clearLevelUpCelebration();
   onboardingInteracted = false;
   onboardingHintId = null;
   onboardingCheckedAt = Number.NEGATIVE_INFINITY;
   renderOnboardingHint();
-  run = createRun(fixedPreviewSeed ?? createSeed());
+  run = createRun(Number.isInteger(seed) ? seed : fixedPreviewSeed ?? createSeed());
   motes = createAtmosphereMotes(run.seed);
   gold = run.gold;
   itemInstances = new Map(run.items.map((record) => [record.uid, materializeInventoryItem(record)]));
@@ -12169,7 +12172,15 @@ salvageConfirm.addEventListener('click', () => {
   );
   persistRun();
 });
-restartRunButton.addEventListener('click', restartRun);
+restartRunButton.addEventListener('click', () => restartRun());
+/** The seed of the day is the same dungeon for everyone until midnight UTC. */
+playDailyButton.addEventListener('click', () => {
+  const seed = metaModel(metaState, itemDetailLanguage).dailySeed;
+  closeRecords();
+  if (uiScreen === 'menu') startGameFromMenu();
+  restartRun(seed);
+  showLootToast({ path: EXIT_PATH, rarity: 2 }, String(seed));
+});
 openRecordsButton.addEventListener('click', openRecords);
 closeRecordsButton.addEventListener('click', closeRecords);
 sanctuaryAction.addEventListener('click', healAtSanctuary);

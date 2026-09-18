@@ -498,13 +498,35 @@ body {
   cursor: pointer;
 }
 
+.records-daily-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 8px;
+  border-bottom: 4px solid #1d2628;
+}
+
+#play-daily {
+  min-height: 36px;
+  padding: 6px 10px;
+  color: #d6c79c;
+  background: #1d2a24;
+  border: 3px solid #4f6b58;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .records-daily {
   margin: 0;
   padding: 6px 10px;
   font-size: 10px;
   letter-spacing: 0.06em;
   color: #8fa7a0;
-  border-bottom: 4px solid #1d2628;
 }
 
 .records-body {

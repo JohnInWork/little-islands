@@ -110,6 +110,8 @@ test('the records screen model is complete in both languages', () => {
     assert.equal(model.best.length, 1);
     assert.equal(model.best[0].place, 1);
     assert.equal(model.totals.length, 6);
+    assert.ok(model.playDaily.length > 0, 'the seed of the day can be played');
+    assert.ok(Number.isInteger(model.dailySeed));
     assert.equal(model.milestones.length, MILESTONES.length);
     assert.ok(model.milestones.every(({ label, hint }) => label.length > 0 && hint.length > 0));
     assert.ok(model.milestones.some(({ earned }) => earned === true));
@@ -125,6 +127,8 @@ test('the runtime keeps the history beside the save, not inside it', async () =>
   uses('localStorage.setItem(META_KEY, serializeMeta(metaState))');
   uses('const outcome = recordFinishedRun(result);');
   uses('function openRecords(');
+  uses('playDailyButton.addEventListener');
+  uses('restartRun(seed)');
   const markup = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
   assert.ok(markup.includes('id="records-screen"'));
   assert.ok(markup.includes('id="open-records"'));

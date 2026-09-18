@@ -210,6 +210,7 @@ const COPY = Object.freeze({
     victories: 'Побед в забеге',
     time: 'В подземелье',
     daily: (key) => `Сид дня: ${key}`,
+    playDaily: 'Играть сид дня',
     record: 'Новый рекорд',
     floor: (depth) => `Этаж ${depth}`,
     victory: 'Победа',
@@ -229,6 +230,7 @@ const COPY = Object.freeze({
     victories: 'Victories',
     time: 'In the dungeon',
     daily: (key) => `Seed of the day: ${key}`,
+    playDaily: 'Play the daily seed',
     record: 'New record',
     floor: (depth) => `Floor ${depth}`,
     victory: 'Victory',
@@ -255,6 +257,7 @@ export function metaModel(meta, language = 'ru', date = new Date()) {
     close: copy.close,
     empty: state.best.length === 0 ? copy.empty : '',
     daily: copy.daily(dailyKey(date)),
+    playDaily: copy.playDaily,
     dailySeed: dailySeed(date),
     best: Object.freeze(state.best.map((record, index) => Object.freeze({
       place: index + 1,
