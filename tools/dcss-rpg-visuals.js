@@ -45,6 +45,16 @@ export const ATMOSPHERE_THEMES = Object.freeze({
     drip: '#7fceda',
     ray: '#b8e7e4',
   }),
+  // The city is the only lit place in the run: lanterns, not torch-and-dark.
+  town: atmosphere({
+    darkness: '#0a0c12',
+    heroLight: '#f0d79a',
+    localLight: '#e0a44f',
+    fog: '#7d8898',
+    dust: '#d8cdb2',
+    drip: '#8a9099',
+    ray: '#f2dda6',
+  }),
   ember: atmosphere({
     darkness: '#0d0303',
     heroLight: '#ef9a55',
@@ -67,6 +77,7 @@ export const CHAPTER_WEATHER = Object.freeze({
   ochre: weather({ id: 'sand', driftX: 1.6, driftY: 0.06, sway: 8, alpha: 1.15 }),
   ice: weather({ id: 'snow', driftX: 0.22, driftY: 0.9, sway: 26, size: 1, alpha: 1.4 }),
   ember: weather({ id: 'sparks', driftX: 0.3, driftY: -0.7, sway: 14, alpha: 1.5 }),
+  town: weather({ id: 'smoke', driftX: 0.45, driftY: -0.3, sway: 16, alpha: 0.85 }),
 });
 
 export function chapterWeather(paletteId) {
@@ -155,6 +166,25 @@ export const BIOME_THEMES = Object.freeze([
       keyLight: '#ef9c5b',
     }),
   }),
+  Object.freeze({
+    id: 'gate-town',
+    palette: 'town',
+    floors: numberedPaths('dngn/floor/pebble_brown', [0, 1, 2, 3, 4, 5, 6, 7, 8]),
+    walls: numberedPaths('dngn/wall/brick_brown', [0, 1, 2, 3, 4, 5, 6, 7]),
+    accentWalls: numberedPaths('dngn/wall/church', [0, 1, 2, 3, 4]),
+    accentModulo: 13,
+    bloodModulo: 0,
+    world3d: Object.freeze({
+      floorTint: '#fff4e4',
+      wallTint: '#fff1de',
+      actorTint: '#f4ece0',
+      background: '#080b12',
+      fog: '#0b1018',
+      fogDensity: 0.012,
+      ambient: '#9aa6b4',
+      keyLight: '#f4d79a',
+    }),
+  }),
 ]);
 
 export function biomeThemeForDepth(depth) {
@@ -206,12 +236,14 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
     value = Math.imul(value ^ (value >>> 15), 0x85ebca6b);
     return ((value ^ (value >>> 13)) >>> 0) / 0xffffffff;
   };
+  // Rooms carry width/height; reading w/h left every anchor at NaN, so the
+  // mist has never actually been drawn.
   const spawnRoom = rooms.find(
     (room) =>
       spawn.x >= room.x &&
-      spawn.x < room.x + room.w &&
+      spawn.x < room.x + room.width &&
       spawn.y >= room.y &&
-      spawn.y < room.y + room.h,
+      spawn.y < room.y + room.height,
   );
   const orderedRooms = spawnRoom
     ? [spawnRoom, ...rooms.filter((room) => room !== spawnRoom)]
@@ -221,8 +253,8 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
     const room = orderedRooms[roomIndex];
     const copies = roomIndex === 0 ? 4 : 1;
     const inset = 0.82;
-    const innerWidth = Math.max(0.4, room.w - inset * 2);
-    const innerHeight = Math.max(0.4, room.h - inset * 2);
+    const innerWidth = Math.max(0.4, room.width - inset * 2);
+    const innerHeight = Math.max(0.4, room.height - inset * 2);
     for (let copy = 0; copy < copies; copy += 1) {
       const index = roomIndex * 7 + copy;
       anchors.push(

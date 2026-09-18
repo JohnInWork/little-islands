@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { LOOT_CATALOG, MONSTER_CATALOG, monsterById } from '../tools/dcss-rpg-content.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -147,6 +149,8 @@ test('generated floors expose the same profile used for monsters and loot', () =
     for (let seed = 1; seed <= 80; seed += 1) {
       const dungeon = generateDungeon({ seed, depth });
       assert.deepEqual(dungeon.scaling, profile);
+      // The city shares the floor profile but not the dungeon's budgets.
+      if (isCityDepth(depth)) continue;
       const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
       assert.ok(pooled.length <= profile.encounters.monsterCount);
       assert.ok(

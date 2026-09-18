@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import test from 'node:test';
 
+import { generateDungeon } from '../tools/dcss-rpg-core.js';
+
 import {
   ATMOSPHERE_THEMES,
   BIOME_THEMES,
@@ -17,8 +19,10 @@ import {
 
 test('the complete nine-floor run uses three coherent three-floor biome chapters', () => {
   const ash = biomeThemeForDepth(1);
-  const buried = biomeThemeForDepth(4);
+  // Depth 4 is the city and keeps its own surfaces; the chapter runs 5-6.
+  const buried = biomeThemeForDepth(5);
   const frozen = biomeThemeForDepth(7);
+  assert.equal(biomeThemeForDepth(4).id, 'gate-town');
   assert.equal(biomeThemeForDepth(2), ash);
   assert.equal(biomeThemeForDepth(3), ash);
   assert.equal(biomeThemeForDepth(6), buried);
@@ -81,9 +85,10 @@ test('ambient motes are seeded, bounded and distributed across three depth layer
 });
 
 test('fog anchors belong to dungeon rooms instead of following the hero', () => {
+  // Real rooms carry width/height; the old w/h fixture hid a NaN for months.
   const rooms = [
-    { x: 2, y: 3, w: 7, h: 6 },
-    { x: 12, y: 8, w: 5, h: 5 },
+    { x: 2, y: 3, width: 7, height: 6 },
+    { x: 12, y: 8, width: 5, height: 5 },
   ];
   const options = { seed: 731923, spawn: { x: 4, y: 5 }, rooms, tileSize: 64 };
   const first = fogAnchorsForDungeon(options);
@@ -94,13 +99,22 @@ test('fog anchors belong to dungeon rooms instead of following the hero', () => 
   assert.ok(
     first.slice(0, 4).every(({ x, y }) =>
       x > rooms[0].x * 64 &&
-      x < (rooms[0].x + rooms[0].w) * 64 &&
+      x < (rooms[0].x + rooms[0].width) * 64 &&
       y > rooms[0].y * 64 &&
-      y < (rooms[0].y + rooms[0].h) * 64,
+      y < (rooms[0].y + rooms[0].height) * 64,
     ),
   );
   assert.notDeepEqual(
     first,
     fogAnchorsForDungeon({ ...options, seed: options.seed + 1 }),
   );
+  // And the rooms a real floor produces must give real coordinates.
+  const level = generateDungeon({ seed: 5, depth: 1 });
+  const live = fogAnchorsForDungeon({
+    seed: level.seed,
+    spawn: level.spawn,
+    rooms: level.rooms,
+    tileSize: 64,
+  });
+  assert.ok(live.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y)), 'mist needs a place to be');
 });

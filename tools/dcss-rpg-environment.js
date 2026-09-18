@@ -1,4 +1,5 @@
 import { createRng, mixSeed } from './dcss-rpg-core.js';
+import { createCityEnvironment, isCityDepth } from './dcss-rpg-city.js';
 
 const numberedPaths = (prefix, values) => values.map((value) => `${prefix}${value}.png`);
 
@@ -321,6 +322,8 @@ function themeForRoom(level, roomIndex, offset, stride) {
 }
 
 export function createDungeonEnvironment(level) {
+  // A city furnishes itself: streets, stalls and lamps, not braziers and bones.
+  if (isCityDepth(level.depth)) return createCityEnvironment(level);
   if (
     !level ||
     !Number.isInteger(level.seed) ||

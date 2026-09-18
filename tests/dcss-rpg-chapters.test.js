@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { MONSTER_CATALOG, monsterById } from '../tools/dcss-rpg-content.js';
 import { generateDungeon, isWalkableCell } from '../tools/dcss-rpg-core.js';
 import { FLOORS_PER_CHAPTER, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
@@ -44,6 +46,8 @@ test('a signature creature belongs to its chapter alone and never joins the shar
   }
   const seen = new Map();
   for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+    // The city is not a chapter floor: no signature creature lives there.
+    if (isCityDepth(depth)) continue;
     for (let seed = 1; seed <= 40; seed += 1) {
       const level = generateDungeon({ seed, depth });
       const placed = level.monsters.filter(({ id }) => Number.isInteger(monsterById(id).chapter));
@@ -64,7 +68,7 @@ test('a signature creature belongs to its chapter alone and never joins the shar
       assert.deepEqual(generateDungeon({ seed, depth }).monsters, level.monsters, 'placement is deterministic');
     }
   }
-  assert.ok(seen.get('2:tomb-revenant') > 100, `the revenant showed up ${seen.get('2:tomb-revenant') ?? 0} times`);
+  assert.ok(seen.get('2:tomb-revenant') > 60, `the revenant showed up ${seen.get('2:tomb-revenant') ?? 0} times`);
   assert.ok(seen.get('3:siren') > 20, `the siren showed up ${seen.get('3:siren') ?? 0} times`);
   assert.equal(seen.size, 2);
 });
@@ -73,7 +77,7 @@ test('each chapter breathes its own air', () => {
   for (const theme of DUNGEON_THEME_CATALOG) {
     assert.ok(CHAPTER_WEATHER[theme.atmosphereId], `weather for ${theme.atmosphereId}`);
   }
-  const chapters = [1, 4, 7].map((depth) => chapterWeather(dungeonThemeForDepth(depth).atmosphereId));
+  const chapters = [1, 5, 7].map((depth) => chapterWeather(dungeonThemeForDepth(depth).atmosphereId));
   assert.deepEqual(chapters.map(({ id }) => id), ['ash', 'sand', 'snow']);
   assert.equal(new Set(chapters.map(({ driftX, driftY }) => `${driftX}:${driftY}`)).size, 3, 'three different winds');
   assert.ok(chapters[1].driftX > chapters[0].driftX, 'sand races sideways');

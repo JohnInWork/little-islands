@@ -178,7 +178,7 @@ test('water creatures live only in flooded rooms and have names for the death sc
   assert.ok(SOUND_SAMPLES.splash.files.length === 2);
 });
 
-test('the floor map paints water and save v37 regenerates older floors with generator 9', () => {
+test('the floor map paints water and save v37 regenerates older floors with the current generator', () => {
   assert.equal(FLOOR_MAP_COLORS.water, '#2b4f66');
   const grid = [['#', '#', '#'], ['#', '~', '#'], ['#', '#', '#']];
   const model = createFloorMapModel({ grid, revealed: new Set(['1,1']), hero: { x: 1, y: 1 }, markers: [] });
@@ -186,7 +186,7 @@ test('the floor map paints water and save v37 regenerates older floors with gene
   assert.equal(SAVE_VERSION, 40);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v40');
   assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v39');
-  assert.equal(GENERATOR_VERSION, 9);
+  assert.equal(GENERATOR_VERSION, 10);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
   const legacy = structuredClone(run);
@@ -195,7 +195,7 @@ test('the floor map paints water and save v37 regenerates older floors with gene
   assert.equal(validateRun(legacy), false);
   const migrated = migrateLegacyRun(legacy);
   assert.equal(migrated.version, 40);
-  assert.equal(migrated.generatorVersion, 9);
+  assert.equal(migrated.generatorVersion, GENERATOR_VERSION);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));
 });

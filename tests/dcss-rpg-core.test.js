@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import {
   EVENT_CATALOG,
   LOOT_CATALOG,
@@ -53,12 +55,14 @@ const EMPTY_FLOOR = Object.freeze({
   camp: null,
 });
 
-function assertFreshFloor(floor) {
+function assertFreshFloor(floor, { depth = 1 } = {}) {
   const { chests, merchants, ...rest } = floor;
   assert.deepEqual(rest, EMPTY_FLOOR);
-  assert.ok(Array.isArray(chests) && chests.length > 0);
+  // A city has traders instead of chests, and more than one of them.
+  const city = isCityDepth(depth);
+  assert.ok(Array.isArray(chests) && (city ? chests.length === 0 : chests.length > 0));
   assert.ok(chests.every((container) => !container.opened && !container.destroyed));
-  assert.ok(Array.isArray(merchants) && merchants.length <= 1);
+  assert.ok(Array.isArray(merchants) && merchants.length <= (city ? 4 : 1));
   assert.ok(merchants.every((merchant) => (
     merchant.gold > 0
     && merchant.purchasedEntryIds.length === 0
@@ -93,6 +97,7 @@ test('the nine-floor run introduces one readable monster tier per depth', () => 
   const tiersByDepth = Array.from({ length: FINAL_DEPTH }, (_, index) => index + 1).map((depth) => {
     const seen = new Set();
     for (let seed = 1; seed <= 250; seed += 1) {
+      if (isCityDepth(depth)) continue;
       for (const spawn of generateDungeon({ seed, depth }).monsters) {
         const definition = monsterById(spawn.id);
         // Water and chapter creatures are seated by their own streams, not the pool.
@@ -106,7 +111,10 @@ test('the nine-floor run introduces one readable monster tier per depth', () => 
   assert.deepEqual(
     tiersByDepth,
     Array.from({ length: FINAL_DEPTH }, (_, index) => (
-      Array.from({ length: index + 1 }, (_value, tierIndex) => tierIndex + 1)
+      // The city floor meets no pool monster, so its tier list stays empty.
+      isCityDepth(index + 1)
+        ? []
+        : Array.from({ length: index + 1 }, (_value, tierIndex) => tierIndex + 1)
     )),
   );
 });
@@ -184,7 +192,10 @@ test('content catalogs already expose a broad first production set with stable u
 
 test('starter encounter is visible and reserved cells never overlap across 1000 seeds', () => {
   for (let seed = 1; seed <= 1000; seed += 1) {
-    const dungeon = generateDungeon({ seed, depth: 1 + (seed % 12) });
+    const depth = 1 + (seed % 12);
+    // A city greets the hero with streets, not with a starter fight and a drop.
+    if (isCityDepth(depth)) continue;
+    const dungeon = generateDungeon({ seed, depth });
     const visible = new Set();
     revealAround(visible, dungeon.grid, dungeon.spawn, 4);
     assert.ok(visible.has(`${dungeon.monsters[0].x},${dungeon.monsters[0].y}`));
@@ -695,7 +706,7 @@ test('a completed v30 prologue continues on floor four instead of becoming a fal
   assert.equal(migrated.depth, 4);
   assert.equal(migrated.status, 'playing');
   assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, fourthFloor.spawn);
-  assertFreshFloor(migrated.floor);
+  assertFreshFloor(migrated.floor, { depth: migrated.depth });
   assert.equal(validateRun(migrated), true);
 });
 

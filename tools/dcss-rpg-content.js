@@ -113,6 +113,18 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1, vision: 6, windup: 0.2, pursuit: 4.2 },
   },
   {
+    // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
+    // `neutral` means they mind their own business until the hero starts something.
+    id: 'city-guard', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.95, vision: 7, windup: 0.22, pursuit: 6 },
+  },
+  {
+    id: 'city-captain', path: 'mon/vault_warden.png', tier: 4, hp: 22, damage: 12, speed: 1, xp: 28,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.85, vision: 7.6, windup: 0.26, pursuit: 7 },
+  },
+  {
     id: 'orc', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
     threat: { attackRate: 0.92, vision: 5.8, windup: 0.22, pursuit: 4 },
   },

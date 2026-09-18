@@ -259,12 +259,15 @@ export function createMerchantStates({ merchants, depth, purchasedIds = [] } = {
   }));
 }
 
+/** A dungeon floor holds one trader; the city holds a street of them. */
+export const MAX_MERCHANTS_PER_FLOOR = 4;
+
 export function validateMerchantStateShape(states, depth) {
   if (
     !Array.isArray(states)
     || !Number.isInteger(depth)
     || depth < 1
-    || states.length > 1
+    || states.length > MAX_MERCHANTS_PER_FLOOR
   ) return false;
   const merchantIds = states.map(({ merchantId } = {}) => merchantId);
   if (new Set(merchantIds).size !== merchantIds.length) return false;

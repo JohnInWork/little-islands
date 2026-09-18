@@ -417,6 +417,9 @@ export function createMonsterStates(level, tileSize = 64) {
       tier: monsterTier(definition),
       spritePath: spawn.spritePath ?? definition.path,
       instanceId: spawn.instanceId,
+      // A city guard walks a beat around the post it was placed on.
+      post: spawn.post ? { x: spawn.post.x, y: spawn.post.y } : null,
+      provoked: false,
       roomEncounterId: spawn.roomEncounterId ?? null,
       guardingFindId: spawn.guardingFindId ?? null,
       activationFindId: spawn.activationFindId ?? null,

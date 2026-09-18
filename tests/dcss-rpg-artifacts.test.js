@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { lootById } from '../tools/dcss-rpg-content.js';
 import {
   PROCEDURAL_ARTIFACT_CURSES,
@@ -79,6 +81,8 @@ test('a floor creates at most one artifact and every complete nine-floor run gua
     assert.ok(scheduledDepth >= 2 && scheduledDepth <= FINAL_DEPTH);
     let runArtifacts = 0;
     for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+      // The city sells; it does not scatter artifacts on the street.
+      if (isCityDepth(depth)) continue;
       const dungeon = generateDungeon({ seed, depth });
       const artifacts = dungeon.loot.filter(({ artifactPowerId }) => artifactPowerId);
       assert.ok(artifacts.length <= 1, `seed ${seed}, floor ${depth}`);

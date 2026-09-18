@@ -1,4 +1,5 @@
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
+import { isCityDepth } from './dcss-rpg-city.js';
 
 export { FLOORS_PER_CHAPTER };
 
@@ -267,8 +268,21 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
 ]);
 
+/**
+ * The city is not a chapter, so its theme stays out of the rotation and is
+ * reached only through the depth it belongs to. Its room archetypes are empty:
+ * a city plans its own blocks and never asks the dungeon planner for rooms.
+ */
+export const CITY_DUNGEON_THEME = defineDungeonTheme({
+  id: 'gate-town',
+  surfaceSetId: 'gate-town',
+  atmosphereId: 'town',
+  chestSkinIds: ['wooden'],
+  roomArchetypeIds: [],
+});
+
 const DUNGEON_THEMES_BY_ID = new Map(
-  DUNGEON_THEME_CATALOG.map((theme) => [theme.id, theme]),
+  [...DUNGEON_THEME_CATALOG, CITY_DUNGEON_THEME].map((theme) => [theme.id, theme]),
 );
 const ROOM_ARCHETYPES_BY_ID = new Map(
   ROOM_ARCHETYPE_CATALOG.map((archetype) => [archetype.id, archetype]),
@@ -306,6 +320,7 @@ export function dungeonThemeForDepth(depth) {
   if (!Number.isInteger(depth) || depth < 1) {
     throw new TypeError('Dungeon theme depth must be a positive integer');
   }
+  if (isCityDepth(depth)) return CITY_DUNGEON_THEME;
   const chapterIndex = Math.floor((depth - 1) / FLOORS_PER_CHAPTER);
   return DUNGEON_THEME_CATALOG[chapterIndex % DUNGEON_THEME_CATALOG.length];
 }

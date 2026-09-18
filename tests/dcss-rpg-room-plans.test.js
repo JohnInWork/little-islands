@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { chestFramesForSkin, chestVisualFrames } from '../tools/dcss-rpg-chests.js';
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { createDungeonEnvironment } from '../tools/dcss-rpg-environment.js';
 import {
@@ -33,6 +34,12 @@ test('dungeon themes own compatible surfaces, chests and room families', () => {
 
 test('visual theme and difficulty chapter advance on the same depth boundary', () => {
   for (let depth = 1; depth <= 32; depth += 1) {
+    // The city keeps its own surfaces and belongs to no chapter rotation.
+    if (isCityDepth(depth)) {
+      assert.equal(dungeonThemeForDepth(depth).id, 'gate-town');
+      assert.equal(biomeThemeForDepth(depth).id, 'gate-town');
+      continue;
+    }
     const scaling = floorScaling(depth);
     const theme = dungeonThemeForDepth(depth);
     assert.equal(
@@ -47,6 +54,7 @@ test('visual theme and difficulty chapter advance on the same depth boundary', (
 test('room plans are deterministic, semantic and schedule one merchant per chapter', () => {
   for (let seed = 1; seed <= 250; seed += 1) {
     const depth = 1 + (seed % 8);
+    if (isCityDepth(depth)) continue;
     const dungeon = generateDungeon({ seed, depth });
     const again = createDungeonRoomPlans(dungeon);
     const theme = dungeonThemeForDepth(depth);
@@ -95,8 +103,16 @@ test('room plans are deterministic, semantic and schedule one merchant per chapt
 
 test('environment consumes the room plan instead of inventing another theme layer', () => {
   for (let seed = 501; seed <= 560; seed += 1) {
-    const dungeon = generateDungeon({ seed, depth: 1 + (seed % 5) });
+    const depth = 1 + (seed % 5);
+    const dungeon = generateDungeon({ seed, depth });
     const environment = createDungeonEnvironment(dungeon);
+    if (isCityDepth(depth)) {
+      // A city furnishes itself: one theme per block, no dungeon room plans.
+      assert.equal(dungeon.roomPlans.length, 0);
+      assert.equal(environment.roomThemes.length, dungeon.rooms.length);
+      assert.ok(environment.props.some(({ interactionId }) => interactionId === 'campfire'));
+      continue;
+    }
     assert.deepEqual(
       environment.roomThemes,
       dungeon.roomPlans.map(({ environmentThemeId }) => environmentThemeId),

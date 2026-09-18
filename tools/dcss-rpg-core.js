@@ -60,11 +60,15 @@ import { MAX_FINDS_PER_FLOOR, createDungeonFinds } from './dcss-rpg-finds.js';
 import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
 import {
+  MERCHANT_ACTOR_PATH,
+  MERCHANT_ICON_PATH,
   createMerchantStates,
+  createMerchantStock,
   validateMerchantPurchaseIds,
   validateMerchantStateShape,
   validateMerchantStates,
 } from './dcss-rpg-merchant.js';
+import { buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
@@ -128,7 +132,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 9;
+export const GENERATOR_VERSION = 10;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -467,6 +471,53 @@ function pickSpawnCells(rng, grid, spawn, count, occupied) {
   return picked;
 }
 
+/**
+ * A city floor: streets and blocks instead of rooms and corridors, traders
+ * instead of loot, the watch instead of monsters. Its own seed stream means
+ * the city can grow new features without moving anything in the dungeon.
+ */
+function generateCityDungeon({ floorSeed, depth, width, height, scaling }) {
+  const rng = createRng(mixSeed(floorSeed, 0x43495459));
+  const plan = generateCityPlan({ rng: () => rng.next(), width, height });
+  const city = buildCityFloor({ plan, depth, seed: floorSeed, width, height, scaling, rng });
+  const merchants = city.merchants.map(({ roomIndex, variantId, x, y }) => Object.freeze({
+    instanceId: `merchant-${depth}-${roomIndex}`,
+    id: 'merchant',
+    roomIndex,
+    variantId,
+    actorPath: MERCHANT_ACTOR_PATH,
+    iconPath: MERCHANT_ICON_PATH,
+    x,
+    y,
+    stock: createMerchantStock({ seed: floorSeed, depth, roomIndex, variantId }),
+  }));
+  return {
+    seed: floorSeed,
+    depth,
+    scaling,
+    width,
+    height,
+    grid: city.grid,
+    rooms: city.rooms,
+    city: city.city,
+    spawn: city.spawn,
+    exit: city.exit,
+    sanctuary: city.sanctuary,
+    objective: null,
+    doors: city.doors,
+    surprises: [],
+    events: [],
+    monsters: city.monsters,
+    passiveCreatures: [],
+    finds: [],
+    loot: [],
+    roomPlans: [],
+    roomEncounters: [],
+    merchants: Object.freeze(merchants),
+    floodedRoomIndex: null,
+  };
+}
+
 export function generateDungeon({
   seed,
   depth = 1,
@@ -483,6 +534,9 @@ export function generateDungeon({
   if (width < 24 || height < 18) throw new Error('Dungeon dimensions are too small');
   const scaling = floorScaling(depth, scalingVersion, difficulty, lootAbundance);
   const floorSeed = mixSeed(seed, depth);
+  // The city is a floor of a different kind, built by its own plan. It returns
+  // the same shape every other floor returns, so nothing downstream cares.
+  if (isCityDepth(depth)) return generateCityDungeon({ floorSeed, depth, width, height, scaling });
   const rng = createRng(floorSeed);
   const grid = Array.from({ length: height }, () => Array(width).fill('#'));
   const rooms = [];

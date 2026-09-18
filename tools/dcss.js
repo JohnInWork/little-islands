@@ -195,6 +195,11 @@ import {
   resolveBandage,
 } from './dcss-rpg-field-medicine.js';
 import {
+  CITY_LIGHT_MULTIPLIER,
+  CITY_REVEAL_RADIUS,
+  isCityDepth,
+} from './dcss-rpg-city.js';
+import {
   CAMP_BEDROLL_PATH,
   CAMP_CHEST_PATH,
   CAMP_FIRE_FRAMES,
@@ -2465,7 +2470,70 @@ function canActorsMelee(attacker, target) {
   return canActorsMeleeContact(world, attacker, target, TILE);
 }
 
+/** How far from its post the watch will wander while the city is quiet. */
+const PATROL_RADIUS = 6;
+
+function patrolRoll(monster) {
+  let value = (monster.phase * 1000) >>> 0;
+  value ^= Math.imul((monster.patrolStep ?? 0) + 1, 0x9e3779b1);
+  value = Math.imul(value ^ (value >>> 15), 0x85ebca6b);
+  return ((value ^ (value >>> 13)) >>> 0) / 0xffffffff;
+}
+
+function patrolTargetCell(monster) {
+  const candidates = [];
+  for (let dy = -PATROL_RADIUS; dy <= PATROL_RADIUS; dy += 1) {
+    for (let dx = -PATROL_RADIUS; dx <= PATROL_RADIUS; dx += 1) {
+      if (Math.abs(dx) + Math.abs(dy) > PATROL_RADIUS) continue;
+      const x = monster.post.x + dx;
+      const y = monster.post.y + dy;
+      if (!isWalkable(x, y)) continue;
+      candidates.push({ x, y });
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(patrolRoll(monster) * candidates.length)];
+}
+
+/**
+ * Gives an unalerted guard somewhere to walk. Returns true when it has a route,
+ * so the ordinary movement code below carries it there.
+ */
+function patrolMonster(monster, delta, blockedCells) {
+  if (!monster.neutral || monster.provoked || !monster.post) return false;
+  if (monster.route.length > 0) return true;
+  monster.patrolPause = Math.max(0, (monster.patrolPause ?? 0) - delta);
+  if (monster.patrolPause > 0) return false;
+  monster.patrolStep = (monster.patrolStep ?? 0) + 1;
+  monster.patrolPause = 0.9 + (monster.phase % 1.4);
+  const target = patrolTargetCell(monster);
+  if (!target) return false;
+  monster.route = findPath(target.x + 0.5, target.y + 0.5, {
+    allowHidden: true,
+    start: { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) },
+    blockedCells,
+    terrain: monster.terrain,
+  });
+  return monster.route.length > 0;
+}
+
+/** Hitting one guard puts the whole street on the hero. */
+function provokeCityWatch(target) {
+  for (const monster of monsters) {
+    if (!monster.neutral || monster.dead > 0) continue;
+    const distance = Math.hypot(monster.x - target.x, monster.y - target.y);
+    if (monster !== target && distance > TILE * 9) continue;
+    if (monster.provoked) continue;
+    monster.provoked = true;
+    monster.alerted = monster.pursuit;
+    monster.alertFlash = 0.5;
+    addCombatGlyph(monster.x, monster.y, '!', '#e0603f', -68);
+  }
+}
+
 function monsterSeesHero(monster, distanceToHero) {
+  // A neutral guard notices the hero only once the hero has given it a reason.
+  if (monster.neutral && !monster.provoked) return false;
   if (isHeroConcealed()) return false;
   if (distanceToHero > TILE * stealthVisionRadius(monster.vision, currentStealthProfile())) return false;
   const from = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
@@ -4477,19 +4545,27 @@ function carveLight(origin, screenPosition, radius, strength) {
   atmosphereContext.restore();
 }
 
+/** How far the hero uncovers the map: darkvision below, daylight in town. */
+function currentRevealRadius() {
+  const base = heroRevealRadius(currentDarkvisionProfile());
+  return isCityDepth(dungeon.depth) ? Math.max(base, CITY_REVEAL_RADIUS) : base;
+}
+
 function drawLighting() {
   const theme = atmosphereThemeForDepth(dungeon.depth);
   const heroPosition = worldToScreen(hero.x, hero.y);
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const sources = atmosphereLightSources();
   const reveal = revealProgress();
-  const heroRadius =
+  const daylight = isCityDepth(dungeon.depth) ? CITY_LIGHT_MULTIPLIER : 1;
+  const heroRadius = daylight * (
     VISIBILITY_TUNING.heroBaseRadius +
     reveal *
       Math.max(
         VISIBILITY_TUNING.heroRevealRadius,
         Math.min(viewportWidth, viewportHeight) * VISIBILITY_TUNING.heroViewportRatio,
-      );
+      )
+  );
 
   resetAtmosphereBuffer();
   atmosphereContext.save();
@@ -5561,6 +5637,13 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
+  if (entry.kind === 'guard') {
+    return {
+      kind: 'guard',
+      id: entry.value.id,
+      icon: entry.value.spritePath,
+    };
+  }
   if (entry.kind === 'wildlife') {
     return {
       kind: 'wildlife',
@@ -5609,7 +5692,7 @@ function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const propTarget = PROP_INTERACTION_KINDS.has(entry.kind);
-  const pixelActor = entry.kind === 'find' || entry.kind === 'wildlife';
+  const pixelActor = entry.kind === 'find' || entry.kind === 'wildlife' || entry.kind === 'guard';
   const x = propTarget
     ? entry.value.gridX
     : pixelActor
@@ -5629,6 +5712,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'find') return distance <= 1 && findIsInteractable(entry.value);
   if (entry.kind === 'merchant') return distance <= 1;
   if (propTarget) return distance <= 1;
+  if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
@@ -6431,6 +6515,19 @@ function cookAtCampfire(site) {
   return true;
 }
 
+/** The nearest guard still keeping the peace; a provoked one is just an enemy. */
+function nearbyGuard() {
+  if (runStatus !== 'playing' || hero.dead) return null;
+  // The same neighbourhood the panel checks, so the button never lies.
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return monsters.find((monster) => (
+    monster.neutral
+    && !monster.provoked
+    && monster.dead === 0
+    && Math.abs(cell.x - Math.floor(monster.x / TILE)) + Math.abs(cell.y - Math.floor(monster.y / TILE)) <= 1
+  )) ?? null;
+}
+
 function nearbyContextTarget() {
   const merchant = nearbyMerchant();
   if (merchant) return { kind: 'merchant', value: merchant };
@@ -6446,6 +6543,8 @@ function nearbyContextTarget() {
   if (bedroll) return { kind: 'camp-rest', value: bedroll };
   const campChest = nearbyCampProp('camp-stash');
   if (campChest) return { kind: 'camp-stash', value: campChest };
+  const guard = nearbyGuard();
+  if (guard) return { kind: 'guard', value: guard };
   const wildlife = nearbyWildlife();
   if (wildlife) return { kind: 'wildlife', value: wildlife };
   if (campfire) return { kind: 'campfire', value: campfire };
@@ -6481,6 +6580,13 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     const merchant = target.value;
     closeContextActions();
     return openMerchantShop(merchant);
+  },
+  'provoke-guard'({ target }) {
+    closeContextActions();
+    if (!target?.value || !target.value.neutral || target.value.provoked) return false;
+    provokeCityWatch(target.value);
+    playSound('ui-tap');
+    return true;
   },
   'hunt-wildlife'({ target }) {
     const creature = target.value;
@@ -7675,7 +7781,7 @@ function performBlinkTarget(target) {
   hero.path = [];
   camera.x = hero.x;
   camera.y = hero.y;
-  revealAround(revealed, world, result.hero, heroRevealRadius(currentDarkvisionProfile()));
+  revealAround(revealed, world, result.hero, currentRevealRadius());
   lastHeroCell = `${result.hero.x},${result.hero.y}`;
   playerHasActed = true;
   closeAbilityTargeting({ returnToSource: false });
@@ -8348,6 +8454,7 @@ function damageMonster(
   }
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (!monster || monster.dead > 0) return;
+  if (monster.neutral && !monster.provoked) provokeCityWatch(monster);
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
   // Broken armour amplifies every later source, not just the mace that made it.
   const amplified = Math.max(1, Math.round(damage * armorBreakMultiplier(monster.armorBreak)));
@@ -8856,7 +8963,7 @@ function resolveWorldInteractions() {
   const heroCellKey = `${heroCell.x},${heroCell.y}`;
   if (heroCellKey !== lastHeroCell) {
     lastHeroCell = heroCellKey;
-    if (revealAround(revealed, world, heroCell, heroRevealRadius(currentDarkvisionProfile()))) persistRun();
+    if (revealAround(revealed, world, heroCell, currentRevealRadius())) persistRun();
     discoverNearbyTraps();
     updateSanctuaryUi();
     updateInteractionUi();
@@ -9083,7 +9190,7 @@ function replaceFloor(nextDepth) {
   activeChestFindId = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);
   revealed.clear();
-  revealAround(revealed, world, dungeon.spawn, 4);
+  revealAround(revealed, world, dungeon.spawn, currentRevealRadius());
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
   hero.y = (dungeon.spawn.y + 0.5) * TILE;
   hero.path = [];
@@ -9317,6 +9424,8 @@ function updateHero(delta) {
     ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
   ]) {
     if (monster.actorKind !== 'wildlife' && monster.dead > 0) continue;
+    // Standing next to the watch is not an attack: a guard is struck on purpose.
+    if (monster.neutral && !monster.provoked) continue;
     if (!canHeroAttack(monster, combat)) continue;
     const distance = Math.hypot(monster.x - hero.x, monster.y - hero.y);
     if (distance < nearestDistance) {
@@ -9672,8 +9781,13 @@ function updateWorld(delta) {
       }
       monster.alerted = monster.pursuit;
     }
-    if (monster.alerted === 0) continue;
-    if (canActorsMelee(monster, hero)) {
+    const patrolling = monster.alerted === 0;
+    if (patrolling) {
+      const patrolBlocked = new Set([...occupiedCells, ...reservedCells]);
+      patrolBlocked.delete(monsterCellKey(monster, TILE));
+      if (!patrolMonster(monster, delta, patrolBlocked)) continue;
+    }
+    if (!patrolling && canActorsMelee(monster, hero)) {
       monster.route = [];
       monster.crowdPressure = 0;
       if (monster.attackCooldown === 0) {
@@ -9686,7 +9800,7 @@ function updateWorld(delta) {
       }
       continue;
     }
-    if (monster.repathCooldown === 0) {
+    if (!patrolling && monster.repathCooldown === 0) {
       monster.repathCooldown = Math.max(0.14, 0.3 - monster.speed * 0.045) + (monster.phase % 0.06);
       const blockedCells = new Set([...occupiedCells, ...reservedCells]);
       blockedCells.delete(monsterCellKey(monster, TILE));

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
 import {
   createRng,
@@ -93,8 +95,12 @@ test('the altar is a landmark: catalog, themed skins and bundled assets', async 
 
 test('every floor places at most one landmark in its own quiet room without blocking the route', () => {
   let placed = 0;
+  let dungeonFloors = 0;
   for (let seed = 1; seed <= 600; seed += 1) {
     const depth = 1 + (seed % 9);
+    // The city has no rooms for a landmark to sit in.
+    if (isCityDepth(depth)) continue;
+    dungeonFloors += 1;
     const dungeon = generateDungeon({ seed, depth });
     const again = generateDungeon({ seed, depth });
     assert.deepEqual(again.finds, dungeon.finds);
@@ -142,7 +148,7 @@ test('every floor places at most one landmark in its own quiet room without bloc
       assert.ok(['poison', 'chilled'].includes(plunder.status.id));
     }
   }
-  assert.ok(placed >= 590, `landmark placed on ${placed} of 600 floors`);
+  assert.ok(placed >= dungeonFloors - 10, `landmark placed on ${placed} of ${dungeonFloors} dungeon floors`);
 });
 
 test('the landmark stream never moves the three core finds', () => {
@@ -277,7 +283,7 @@ test('an offering costs gold up front and permanently raises maximum health', ()
 });
 
 test('plundering pays gold but wounds, curses and alerts, and it is never lethal', () => {
-  const { find } = altarFixture(23, 4);
+  const { find } = altarFixture(23, 5);
   const { rewardGold, damage, status, noise } = find.outcomes.plunder;
   const base = {
     find,

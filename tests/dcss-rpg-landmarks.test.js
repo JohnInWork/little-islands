@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { ENVIRONMENT_ROOM_THEMES } from '../tools/dcss-rpg-environment.js';
@@ -25,7 +27,7 @@ const THEME_IDS = ['ashen-vault', 'buried-sanctum', 'frozen-depths', 'infernal-c
 const assetUrl = (path) => new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
 
 /** One landmark per floor: scan forward until the wanted one shows up. */
-function landmarkFixture(id, seed = 3, depth = 4) {
+function landmarkFixture(id, seed = 3, depth = 5) {
   for (let attempt = 0; attempt < 400; attempt += 1) {
     const dungeon = generateDungeon({ seed: seed + attempt, depth });
     const find = dungeon.finds.find((candidate) => candidate.id === id);
@@ -126,6 +128,8 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
   let fountainWithPool = 0;
   for (let seed = 1; seed <= 400; seed += 1) {
     const depth = 1 + (seed % 9);
+    // The city has no rooms for a landmark to sit in.
+    if (isCityDepth(depth)) continue;
     const level = generateDungeon({ seed, depth });
     const landmarks = level.finds.filter((find) => isLandmarkFind(find));
     assert.ok(landmarks.length <= 1, 'never two landmarks on one floor');

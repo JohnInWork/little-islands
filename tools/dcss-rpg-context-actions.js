@@ -120,6 +120,8 @@ const COPY = Object.freeze({
     campStashClosed: '',
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
+    guardDescription: 'Следит за порядком. Удар по нему делает героя преступником.',
+    guards: Object.freeze({ 'city-guard': 'Городской стражник', 'city-captain': 'Капитан стражи' }),
   }),
   en: Object.freeze({
     doorName: 'Stone door',
@@ -150,6 +152,8 @@ const COPY = Object.freeze({
     campStashClosed: '',
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
+    guardDescription: 'Keeps the peace. Striking one makes the hero a criminal.',
+    guards: Object.freeze({ 'city-guard': 'City guard', 'city-captain': 'Watch captain' }),
   }),
 });
 
@@ -221,6 +225,20 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: 'licensed/cmski-chests/wooden/4.png',
       accent: '#c2a36a',
       actions: [{ id: 'stash' }],
+    }),
+  }),
+  defineInteraction({
+    id: 'guard',
+    command: 'provoke-guard',
+    matches: (target) => target?.kind === 'guard'
+      && typeof target.id === 'string'
+      && typeof target.icon === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.guards[target.id] ?? target.id,
+      description: copy.guardDescription,
+      icon: target.icon,
+      accent: '#c9a45f',
+      actions: [{ id: 'attack' }],
     }),
   }),
   defineInteraction({

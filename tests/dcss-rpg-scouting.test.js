@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -77,8 +79,12 @@ test('a hidden stash exists on almost every floor and only a searcher sees it', 
   assert.equal(isSecretFind({ id: 'ancient-altar' }), false);
   assert.equal(findById('buried-stash').wave, 'secret');
   let placed = 0;
+  let dungeonFloors = 0;
   for (let seed = 1; seed <= 200; seed += 1) {
     const depth = 1 + (seed % 9);
+    // A city has no earth to bury anything under.
+    if (isCityDepth(depth)) continue;
+    dungeonFloors += 1;
     const level = generateDungeon({ seed, depth });
     const stashes = level.finds.filter(({ id }) => id === 'buried-stash');
     assert.ok(stashes.length <= SECRETS_PER_FLOOR);
@@ -91,7 +97,7 @@ test('a hidden stash exists on almost every floor and only a searcher sees it', 
     assert.equal(level.finds.filter(({ roomIndex }) => roomIndex === stash.roomIndex).length, 1);
     assert.deepEqual(generateDungeon({ seed, depth }).finds, level.finds);
   }
-  assert.ok(placed > 170, `stash placed on ${placed} of 200 floors`);
+  assert.ok(placed > dungeonFloors * 0.85, `stash placed on ${placed} of ${dungeonFloors} dungeon floors`);
 });
 
 test('the search radius decides what is noticed, nearest first', () => {
@@ -115,9 +121,9 @@ test('the search radius decides what is noticed, nearest first', () => {
 });
 
 test('digging a stash pays gold without a scratch, and only the dig action works', () => {
-  const level = generateDungeon({ seed: 3, depth: 4 });
+  const level = generateDungeon({ seed: 3, depth: 5 });
   const stash = level.finds.find(({ id }) => id === 'buried-stash');
-  assert.ok(stash, 'seed 3 depth 4 carries a stash');
+  assert.ok(stash, 'seed 3 depth 5 carries a stash');
   const hero = { x: stash.x + 1, y: stash.y, hp: 20, maxHp: 40, power: 3, effects: {} };
   const dug = resolveFindInteraction({
     find: stash,
@@ -164,7 +170,7 @@ test('the runtime hides a stash until it is noticed and feeds the new radii ever
   ]) {
     assert.match(runtime, gate, String(gate));
   }
-  assert.match(runtime, /revealAround\(revealed, world, heroCell, heroRevealRadius\(currentDarkvisionProfile\(\)\)\)/);
+  assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*heroRevealRadius\(currentDarkvisionProfile\(\)\)[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
   assert.match(runtime, /<= heroSightRadius\(currentDarkvisionProfile\(\)\)/);
   assert.match(runtime, /distanceToHero > TILE \* stealthVisionRadius\(monster\.vision, currentStealthProfile\(\)\)/);
   assert.match(runtime, /const heard = stealthNoiseRadius\(radiusInTiles, currentStealthProfile\(\)\);/);

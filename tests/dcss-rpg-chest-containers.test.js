@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { isCityDepth } from '../tools/dcss-rpg-city.js';
+
 import { createGameCommand } from '../tools/dcss-rpg-game-commands.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -22,6 +24,8 @@ const command = (type, targetId, sequence = 1) => createGameCommand({
 
 test('every floor chest receives deterministic depth-scaled item contents and gold', () => {
   for (let depth = 1; depth <= 9; depth += 1) {
+    // A city has traders instead of buried chests.
+    if (isCityDepth(depth)) continue;
     const dungeon = generateDungeon({ seed: 1234, depth });
     const first = createChestContainerStates({
       seed: 1234,

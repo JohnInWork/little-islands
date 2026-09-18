@@ -24,6 +24,8 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'orc-priest': pair('Орк-жрец', 'Orc priest'),
   wolf: pair('Волк', 'Wolf'),
   'orc-warrior': pair('Орк-воин', 'Orc warrior'),
+  'city-guard': pair('Городской стражник', 'City guard'),
+  'city-captain': pair('Капитан стражи', 'Watch captain'),
   ghost: pair('Призрак', 'Ghost'),
   'zombie-hound': pair('Зомби-пёс', 'Zombie hound'),
   ogre: pair('Огр', 'Ogre'),
