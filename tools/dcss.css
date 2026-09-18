@@ -3449,12 +3449,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   background: #151d20;
   border-top: 4px solid #313d40;
 }
 
-#item-detail-variant {
+#item-detail-variant,
+#item-detail-craft {
   min-width: 120px;
   min-height: 48px;
   padding: 8px 12px;
@@ -3468,9 +3470,22 @@ body {
   cursor: pointer;
 }
 
-#item-detail-variant:focus-visible {
+#item-detail-variant:focus-visible,
+#item-detail-craft:focus-visible {
   outline: 4px solid var(--bone);
   outline-offset: 2px;
+}
+
+#item-detail-craft {
+  color: #d8c3a4;
+  background: #2b2318;
+  border-color: #8a7350;
+}
+
+#item-detail-variant:disabled,
+#item-detail-craft:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 
 #item-detail-action {

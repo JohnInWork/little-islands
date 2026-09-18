@@ -72,6 +72,7 @@ import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcs
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
+import { validateReforgeState } from './dcss-rpg-smithing.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
@@ -91,10 +92,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 45;
-export const SAVE_KEY = 'dng-codex:rpg:v45';
+export const SAVE_VERSION = 46;
+export const SAVE_KEY = 'dng-codex:rpg:v46';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v45',
   'dng-codex:rpg:v44',
   'dng-codex:rpg:v43',
   'dng-codex:rpg:v42',
@@ -1249,10 +1251,10 @@ function normalizedFloorArchive(source, currentDepth) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1861,6 +1863,7 @@ export function validateRun(snapshot) {
           { required: Boolean(lootById(item.id)?.slot) },
         ) ||
         !validateProceduralArtifactState(lootById(item.id), item) ||
+        !validateReforgeState(lootById(item.id), item) ||
         (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999)),
     )
   ) return false;
@@ -1935,6 +1938,7 @@ export function validateRun(snapshot) {
         { required: Boolean(lootById(item.id)?.slot) },
       )
       || !validateProceduralArtifactState(lootById(item.id), item)
+      || !validateReforgeState(lootById(item.id), item)
       || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
     ))
   ) return false;

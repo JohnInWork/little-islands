@@ -264,6 +264,17 @@ import {
   recipeLabel,
 } from './dcss-rpg-alchemy.js';
 import {
+  applyReforge,
+  armorSmithProfile,
+  canReforge,
+  nextReforge,
+  reforgeItem,
+  reforgeLabel,
+  smithingCopy,
+  smithingRefusalText,
+  weaponSmithProfile,
+} from './dcss-rpg-smithing.js';
+import {
   ESSENCE_ITEM_ID,
   canEnchant,
   craftingCopy,
@@ -710,6 +721,7 @@ const itemDetailEffectsRegion = itemDetail.querySelector('.item-detail-effects')
 const itemDetailEffectsTitle = itemDetail.querySelector('.item-detail-effects h3');
 const itemDetailAction = document.querySelector('#item-detail-action');
 const itemDetailVariant = document.querySelector('#item-detail-variant');
+const itemDetailCraft = document.querySelector('#item-detail-craft');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Injected by Vite from package.json; the dev server and tests fall back to a placeholder. */
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
@@ -1288,7 +1300,10 @@ function materializeInventoryItem(record) {
     ...record,
     stack: record.stack ?? definition.stack,
   };
-  return materializeProceduralArtifact(materializeItemAffixes(definition, persisted), persisted);
+  return applyReforge(
+    materializeProceduralArtifact(materializeItemAffixes(definition, persisted), persisted),
+    persisted,
+  );
 }
 
 function createRuntimeMonsters(level, spawns) {
@@ -1960,6 +1975,70 @@ function enchantSelectedItem(item) {
   const enchanted = itemInstances.get(item.uid);
   if (enchanted) renderItemDetail(enchanted);
   showLootToast(enchanted ?? item, craftingRefusalText('enchanted', itemDetailLanguage));
+  persistRun();
+  return true;
+}
+
+/** The shape a smith would give this piece next, and what it would cost. */
+function reforgeActionFor(item) {
+  if (!item) return null;
+  const capabilities = currentSkillCapabilities();
+  const weapon = weaponSmithProfile(capabilities);
+  const armor = armorSmithProfile(capabilities);
+  const shape = nextReforge({ item, weapon, armor });
+  if (!shape) return null;
+  const decision = canReforge({
+    item,
+    kind: shape.id,
+    essence: interactionResourceCount(ESSENCE_ITEM_ID),
+    weapon,
+    armor,
+  });
+  const copy = smithingCopy(itemDetailLanguage);
+  return {
+    kind: shape.id,
+    label: copy.shape(reforgeLabel(shape.id, itemDetailLanguage), decision.cost ?? 0),
+    enabled: decision.ok,
+    hint: decision.ok ? '' : smithingRefusalText(decision.reason, itemDetailLanguage),
+  };
+}
+
+/** Hammering one piece into its other shape, paid for in essence. */
+function reforgeSelectedItem(item) {
+  const action = reforgeActionFor(item);
+  if (!action?.enabled) return false;
+  const capabilities = currentSkillCapabilities();
+  const result = reforgeItem({
+    item,
+    kind: action.kind,
+    essence: interactionResourceCount(ESSENCE_ITEM_ID),
+    weapon: weaponSmithProfile(capabilities),
+    armor: armorSmithProfile(capabilities),
+  });
+  if (!result.ok) return false;
+  if (!consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])) return false;
+  const state = currentItemState();
+  applyItemState({
+    ...state,
+    items: state.items.map((entry) => (entry.uid === item.uid
+      ? {
+          id: entry.id,
+          uid: entry.uid,
+          ...(entry.affixIds ? { affixIds: [...entry.affixIds] } : {}),
+          artifactPowerId: entry.artifactPowerId ?? null,
+          artifactCurseId: entry.artifactCurseId ?? null,
+          // Plain steel keeps no shape at all, so the field goes away with it.
+          ...(result.reforge ? { reforge: { ...result.reforge } } : {}),
+        }
+      : entry)),
+  });
+  playerHasActed = true;
+  playSound('hit-heavy');
+  updateGearUi();
+  renderPack();
+  const reforged = itemInstances.get(item.uid);
+  if (reforged) renderItemDetail(reforged);
+  showLootToast(reforged ?? item, smithingRefusalText('reforged', itemDetailLanguage));
   persistRun();
   return true;
 }
@@ -2730,6 +2809,16 @@ function renderItemDetail(item) {
     itemDetailVariant.setAttribute(
       'aria-label',
       `${prefix}: ${secondary.label}${secondary.hint ? `. ${secondary.hint}` : ''}`,
+    );
+  }
+  const craft = selection && selection.item.uid === item.uid ? reforgeActionFor(item) : null;
+  itemDetailCraft.hidden = !craft;
+  if (craft) {
+    itemDetailCraft.textContent = craft.label;
+    itemDetailCraft.disabled = !craft.enabled;
+    itemDetailCraft.setAttribute(
+      'aria-label',
+      `${smithingCopy(itemDetailLanguage).reforge}: ${craft.label}${craft.hint ? `. ${craft.hint}` : ''}`,
     );
   }
   const action = selectedActionModel(selection);
@@ -12318,7 +12407,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Tab' && uiScreen === 'inventory' && itemDetailIsOpen()) {
     event.preventDefault();
-    const controls = [closeItemDetailButton, itemDetailVariant, itemDetailAction].filter(
+    const controls = [closeItemDetailButton, itemDetailVariant, itemDetailCraft, itemDetailAction].filter(
       (control) => !control.disabled && !control.hidden,
     );
     const currentIndex = controls.indexOf(document.activeElement);
@@ -12570,6 +12659,10 @@ inventory.addEventListener('pointerdown', (event) => {
 });
 itemDetailAction.addEventListener('click', () => performSelectedItemAction({ fromDetail: true }));
 itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, secondary: true }));
+itemDetailCraft.addEventListener('click', () => {
+  const selection = selectedUiItem();
+  if (selection) reforgeSelectedItem(selection.item);
+});
 salvageButton.addEventListener('click', () => {
   salvageMode = !salvageMode;
   if (salvageMode && inventoryFilter === 'equipped') {
