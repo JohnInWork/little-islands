@@ -71,6 +71,8 @@
   временным усилением, Полевая медицина с бинтами, Выносливость.
 - [2D-NECROMANCY.md](2D-NECROMANCY.md) — призывы как занятые слоты: слуга ходит
   с героем, заслоняет его и сам поднимается после гибели.
+- [2D-BONES.md](2D-BONES.md) — призрак прошлого забега там, где он погиб: в том
+  же снаряжении, спит, пока не заберёшь находку у его ног.
 - [2D-FLOOR-MEMORY.md](2D-FLOOR-MEMORY.md) — память покинутых этажей и
   лестница наверх: забег больше не дорога в один конец.
 - [2D-CITY.md](2D-CITY.md) — город на IV этаже: кварталы, лавки, стража, дом с
@@ -267,6 +269,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Лагерь | `tools/dcss-rpg-camp.js`; `placeCamp` и предметы лагеря в `dcss.js`, [контракт](2D-CAMP.md) |
 | Выживание | `tools/dcss-rpg-{cooking,field-medicine,endurance}.js`; `hero.meal` в `dcss-rpg-core.js`, [контракт](2D-SURVIVAL-SKILLS.md) |
 | Некромантия и слуги | `tools/dcss-rpg-minions.js`; `updateAllies` и `damageAlly` в `dcss.js`, [контракт](2D-NECROMANCY.md) |
+| Призрак прошлого забега | `tools/dcss-rpg-bones.js`; `rollBonesReward` в `dcss-rpg-core.js`, `placeFloorGhost` в `dcss.js`, [контракт](2D-BONES.md) |
 | Память этажей и лестницы | `moveRunToFloor`, `retreatRunFloor`, `validateFloorShape` в `dcss-rpg-core.js`; `climbFloor` в `dcss.js`, [контракт](2D-FLOOR-MEMORY.md) |
 | Город | `tools/dcss-rpg-city.js`; ветка в `generateDungeon`, патруль и панель стражи в `dcss.js`, [контракт](2D-CITY.md) |
 | Дом и камень | `tools/dcss-rpg-house.js`; `run.house` и `travelRunToDepth` в `dcss-rpg-core.js`, [контракт](2D-CITY.md) |

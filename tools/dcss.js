@@ -25,6 +25,7 @@ import {
   hydrateDungeon,
   migrateLegacyRun,
   revealAround,
+  rollBonesReward,
   validateRun,
 } from './dcss-rpg-core.js';
 import {
@@ -169,6 +170,8 @@ import {
   metaCopy,
   metaModel,
   parseMeta,
+  forgetBones,
+  recordBones,
   recordRunResult,
   serializeMeta,
 } from './dcss-rpg-meta.js';
@@ -189,6 +192,7 @@ import {
 } from './dcss-rpg-marksmanship.js';
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
 import { materialFilter } from './dcss-rpg-materials.js';
+import { bonesCopy, bonesForDepth, bonesKey, bonesPlacement, ghostStats } from './dcss-rpg-bones.js';
 import {
   armourProfile,
   focusedCooldown,
@@ -894,6 +898,8 @@ let permittedHazardCell = null;
 let inputGesture = 0;
 let doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
 let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
+// The body a past run left on this floor, placed once when the floor is built.
+let floorGhost = null;
 
 const hero = {
   x: (run.hero.x + 0.5) * TILE,
@@ -1477,7 +1483,7 @@ function fetchTargetFor(ally) {
   if (profile.fetchRange === 0) return null;
   const reach = TILE * profile.fetchRange;
   return lootDefinitions
-    .filter((loot) => Math.hypot(loot.x - hero.x, loot.y - hero.y) <= reach)
+    .filter((loot) => !loot.bones && Math.hypot(loot.x - hero.x, loot.y - hero.y) <= reach)
     .sort((left, right) => (
       Math.hypot(left.x - ally.x, left.y - ally.y) - Math.hypot(right.x - ally.x, right.y - ally.y)
     ))[0] ?? null;
@@ -1486,7 +1492,7 @@ function fetchTargetFor(ally) {
 /** The beast brings what it stood on straight into the hero's bag. */
 function companionFetch(ally) {
   const index = lootDefinitions.findIndex(
-    (loot) => Math.hypot(loot.x - ally.x, loot.y - ally.y) <= TILE * 0.6,
+    (loot) => !loot.bones && Math.hypot(loot.x - ally.x, loot.y - ally.y) <= TILE * 0.6,
   );
   if (index < 0) return false;
   const loot = lootDefinitions[index];
@@ -1838,7 +1844,7 @@ function captureRun() {
     })),
   }));
   run.floor.monsters = monsters
-    .filter((monster) => monster.dead === 0)
+    .filter((monster) => monster.dead === 0 && !monster.ghost)
     .map((monster) => ({
       instanceId: monster.instanceId,
       x: monster.x / TILE - 0.5,
@@ -4045,6 +4051,43 @@ function playerLayers(profile = playerAppearance) {
   });
 }
 
+/**
+ * The dead run's own silhouette: its body, its hair, the gear it fell in. Built
+ * by the same stack the hero is built from, because it is the hero.
+ */
+function ghostLayers(bones) {
+  const worn = new Map(bones.gear.map((piece) => [piece.slot, piece]));
+  const definitionFor = (slot) => {
+    const piece = worn.get(slot);
+    if (!piece) return null;
+    const definition = lootById(piece.id);
+    return definition ? { ...definition, materialId: piece.materialId ?? null } : null;
+  };
+  const visualFor = (slot, renderedSlot = slot) => {
+    const definition = definitionFor(slot);
+    return definition ? visualForItem(definition, renderedSlot) : null;
+  };
+  const loadout = resolveWeaponLoadout(definitionFor('hand1'), definitionFor('hand2'));
+  const appearance = resolvePlayerAppearance({
+    bodyId: bones.appearance.bodyId,
+    hairId: bones.appearance.hairId,
+  });
+  return composePlayerLayerStack({
+    baseVisual: appearance.body,
+    hairVisual: appearance.hair,
+    cloakVisual: visualFor('cloak'),
+    bodyVisual: visualFor('body'),
+    beltVisual: visualFor('belt'),
+    bootsVisual: visualFor('boots'),
+    glovesVisual: visualFor('gloves'),
+    headVisual: visualFor('head'),
+    hand1Visual: visualFor('hand1'),
+    hand2Visual: visualFor('hand2', 'hand2'),
+    twoHanded: loadout.mode === 'two-handed',
+    hideHair: worn.has('head'),
+  });
+}
+
 function playerMotion() {
   const position = worldToScreen(hero.x, hero.y);
   const walking = hero.path.length > 0;
@@ -4074,6 +4117,44 @@ function monsterMotion(monster) {
   });
 }
 
+/**
+ * The ghost rides its own billboard because it is the only actor besides the
+ * hero built out of layers instead of a single sprite. Sleeping it is barely
+ * there; woken, it is nearly solid.
+ */
+function ghostActor3D() {
+  const ghost = floorGhost;
+  if (!ghost || ghost.dead > 0.72) return null;
+  if (!revealed.has(`${Math.floor(ghost.x / TILE)},${Math.floor(ghost.y / TILE)}`)) return null;
+  // This is the one place that already knows the ghost has been seen, so it is
+  // where the floor says so — once, the first time it comes into the light.
+  if (!ghost.announced) {
+    ghost.announced = true;
+    showLootToast({ path: ghost.spritePath, rarity: 2 }, bonesCopy(itemDetailLanguage).resting);
+  }
+  const motion = monsterMotion(ghost);
+  const bob = reducedMotion ? 0 : Math.sin(elapsed * 1.9 + ghost.phase) * 2.6;
+  const fading = ghost.dead > 0 ? Math.max(0, 1 - ghost.dead / 0.72) : 1;
+  return {
+    layers: ghost.layers,
+    x: ghost.x + motion.dx,
+    y: ghost.y + motion.dy,
+    size: ACTOR_SIZE,
+    facing: ghost.facing,
+    screenOffsetY: -15 + bob,
+    // Washed out and lit from nowhere: a hero's silhouette that the room's own
+    // darkness does not touch. Waking brings the colour part of the way back.
+    filter: ghost.provoked
+      ? 'saturate(0.55) brightness(1.2)'
+      : 'saturate(0.2) brightness(1.5)',
+    opacity: (ghost.provoked ? 0.82 : 0.58) * fading,
+    scaleX: motion.scaleX,
+    scaleY: motion.scaleY,
+    hit: ghost.hit > 0,
+    shadowOpacity: 0.16,
+  };
+}
+
 function syncWorldActors3D() {
   const motion = playerMotion();
   const deathProgress = hero.dead ? 1 - Math.max(0, deathTimer) / 1.35 : 0;
@@ -4095,10 +4176,12 @@ function syncWorldActors3D() {
       shadowScale: heroMagic.flight ? 0.72 : 1,
       shadowOpacity: heroMagic.flight ? 0.18 : heroWading() ? 0.12 : 0.42,
     },
+    ghost: ghostActor3D(),
     monsters: [
       ...monsters
         .filter(
           (monster) =>
+            !monster.ghost &&
             monster.dead <= 0.72 &&
             revealed.has(`${Math.floor(monster.x / TILE)},${Math.floor(monster.y / TILE)}`),
         )
@@ -6841,7 +6924,7 @@ function contextTargetIsAdjacent(entry) {
   if (propTarget) return distance <= 1;
   if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
-  if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.provoked;
+  if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
@@ -7823,6 +7906,7 @@ function nearbyGuard() {
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return monsters.find((monster) => (
     monster.neutral
+    && !monster.ghost
     && !monster.provoked
     && monster.dead === 0
     && Math.abs(cell.x - Math.floor(monster.x / TILE)) + Math.abs(cell.y - Math.floor(monster.y / TILE)) <= 1
@@ -8226,6 +8310,7 @@ function startGameFromMenu() {
   // A loaded save can already own a camp or a house; their things belong on
   // the floor before the first frame, not only after the next descent.
   applyCampProps();
+  placeFloorGhost();
   updateInteractionUi();
   setAmbientLevel(1);
   startGameButton.blur();
@@ -9267,6 +9352,25 @@ function persistMetaState() {
 }
 
 /** One finished run enters the history: totals, best runs and milestones. */
+/**
+ * What the hero was wearing when they fell, in the shape the bones keep: enough
+ * to draw the ghost and to hand the gear back if the player earns it.
+ */
+function heroGearForBones() {
+  return EQUIPMENT_SLOTS
+    .map((slot) => {
+      const item = equippedItem(slot);
+      if (!item) return null;
+      return {
+        slot,
+        id: item.id,
+        materialId: item.materialId ?? null,
+        affixIds: [...(item.affixIds ?? [])],
+      };
+    })
+    .filter(Boolean);
+}
+
 function recordFinishedRun(result) {
   const outcome = recordRunResult(metaState, {
     depth: dungeon.depth,
@@ -9283,6 +9387,23 @@ function recordFinishedRun(result) {
   });
   if (!outcome.ok) return null;
   metaState = outcome.meta;
+  // A victory walks out; only a death leaves a body for the next run to meet.
+  if (result === 'dead') {
+    metaState = recordBones(metaState, {
+      depth: dungeon.depth,
+      x: Math.floor(hero.x / TILE),
+      y: Math.floor(hero.y / TILE),
+      level: hero.level,
+      killerId: run.stats.killerId,
+      seed: run.seed,
+      at: new Date().toISOString().slice(0, 10),
+      appearance: {
+        bodyId: playerAppearance.bodyId,
+        hairId: playerAppearance.hairId,
+      },
+      gear: heroGearForBones(),
+    });
+  }
   persistMetaState();
   renderRecords();
   return outcome;
@@ -10081,7 +10202,10 @@ function damageMonster(
   }
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (!monster || monster.dead > 0) return;
-  if (monster.neutral && !monster.provoked) provokeCityWatch(monster);
+  if (monster.neutral && !monster.provoked) {
+    if (monster.ghost) wakeFloorGhost();
+    else provokeCityWatch(monster);
+  }
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
   // Broken armour amplifies every later source, not just the mace that made it.
   const amplified = Math.max(1, Math.round(damage * armorBreakMultiplier(monster.armorBreak)));
@@ -10640,9 +10764,12 @@ function defeatMonster(monster) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (monster.dead > 0 || run.floor.defeated.includes(monster.instanceId)) return;
   monster.dead = 0.01;
-  run.floor.defeated.push(monster.instanceId);
+  // The ghost is not one of the floor's monsters, and `floor.defeated` may only
+  // ever hold ids the floor itself generated.
+  if (monster.ghost) claimFloorBones();
+  else run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
-  if (monster.neutral) noteCrime('killed-guard');
+  if (monster.neutral && !monster.ghost) noteCrime('killed-guard');
   playSound('kill');
   if (monster.burst) burstEffectAround(monster);
   gainExperience(monster);
@@ -10815,7 +10942,10 @@ function resolveWorldInteractions() {
     fullInventoryWarnings.delete(loot.instanceId);
     lootDefinitions.splice(index, 1);
     playSound('pickup');
-    run.floor.collected.push(loot.instanceId);
+    // What a ghost was guarding is remembered by the bones, not by the floor:
+    // the floor's own loot ids are the only ones `collected` may hold.
+    if (loot.bones) wakeFloorGhost();
+    else run.floor.collected.push(loot.instanceId);
     const displayItem = presentedItem(loot.definition);
     burst(loot.x, loot.y - 8, rarityGlow[displayItem.rarity], 8 + displayItem.rarity * 4);
     addImpactWave(
@@ -10939,6 +11069,93 @@ function healAtSanctuary() {
  * that floor is — freshly built or remembered from an earlier visit — so this
  * hydrates the same way loading a save does, and never invents a new floor.
  */
+/**
+ * The body a past run left on this floor, if there is one. It is never the
+ * current run's own death — a run that ended is over — and it only appears on
+ * the depth it fell on.
+ */
+function placeFloorGhost() {
+  // Both the descent and the first frame of a loaded save call this, so it has
+  // to be able to run twice on the same floor without leaving two ghosts.
+  monsters = monsters.filter((monster) => !monster.ghost);
+  lootDefinitions = lootDefinitions.filter((loot) => !loot.bones);
+  floorGhost = null;
+  if (isCityDepth(dungeon.depth)) return;
+  const bones = bonesForDepth(metaState.bones, dungeon.depth, { excludeSeed: run.seed });
+  if (!bones) return;
+  const spawnCell = { x: Math.floor(dungeon.spawn.x), y: Math.floor(dungeon.spawn.y) };
+  const busy = new Set([
+    `${spawnCell.x},${spawnCell.y}`,
+    ...lootDefinitions.map((loot) => `${Math.floor(loot.x / TILE)},${Math.floor(loot.y / TILE)}`),
+    ...findDefinitions.map((find) => `${find.x},${find.y}`),
+    ...monsters.map((monster) => `${Math.floor(monster.x / TILE)},${Math.floor(monster.y / TILE)}`),
+  ]);
+  const isFree = (x, y) => isWalkable(x, y) && !busy.has(`${x},${y}`);
+  const spot = bonesPlacement({ bones, isFree });
+  if (!spot) return;
+  // The find lies where the run fell; the ghost stands beside it, so the hero
+  // can always reach what it guards without going through it first.
+  const stand = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]
+    .map(([dx, dy]) => ({ x: spot.x + dx, y: spot.y + dy }))
+    .find((cell) => isFree(cell.x, cell.y));
+  if (!stand) return;
+  const stats = ghostStats(bones);
+  const [ghost] = createRuntimeMonsters(dungeon, [{
+    instanceId: `ghost-${dungeon.depth}`,
+    id: 'player-ghost',
+    x: stand.x,
+    y: stand.y,
+  }]);
+  if (!ghost) return;
+  ghost.ghost = true;
+  ghost.bones = bones;
+  ghost.layers = ghostLayers(bones);
+  ghost.maxHp = stats.hp;
+  ghost.hp = stats.hp;
+  ghost.damage = stats.damage;
+  ghost.vision = stats.vision;
+  ghost.xp = 6 + bones.level * 5;
+  monsters = [...monsters, ghost];
+  floorGhost = ghost;
+  const reward = rollBonesReward({
+    // The dead run's own seed, carried on the bones: the same body always holds
+    // the same thing, whichever run walks in on it.
+    seed: bones.seed,
+    depth: dungeon.depth,
+    key: bonesKey(bones),
+    scaling: dungeon.scaling,
+  });
+  if (!reward) return;
+  const [entry] = createLootDefinitions({ loot: [{ ...reward, x: spot.x, y: spot.y }] });
+  if (!entry) return;
+  lootDefinitions = [...lootDefinitions, { ...entry, bones: true }];
+}
+
+/**
+ * Taking what the ghost was standing over is the only thing that wakes it, and
+ * it spends the bones: one body, one visit. Nothing about either is written to
+ * the floor — the bones live in meta, where deaths already live.
+ */
+function claimFloorBones() {
+  if (!floorGhost?.bones) return;
+  const depth = floorGhost.bones.depth;
+  if (!bonesForDepth(metaState.bones, depth, { excludeSeed: run.seed })) return;
+  metaState = forgetBones(metaState, depth);
+  persistMetaState();
+}
+
+function wakeFloorGhost() {
+  const ghost = floorGhost;
+  if (!ghost || ghost.provoked || ghost.dead > 0) return;
+  ghost.provoked = true;
+  ghost.alerted = ghost.pursuit;
+  claimFloorBones();
+  burst(ghost.x, ghost.y - 10, '#9fc7d8', 22);
+  addImpactWave(ghost.x, ghost.y - 6, '#9fc7d8', 58, 0);
+  showLootToast({ path: ghost.spritePath, rarity: 2 }, bonesCopy(itemDetailLanguage).woken);
+  playSound('spell-toggle');
+}
+
 function replaceFloor(nextDepth, arrival = null) {
   run.depth = nextDepth;
   dungeon = hydrateDungeon(run);
@@ -10966,6 +11183,7 @@ function replaceFloor(nextDepth, arrival = null) {
   // After the dungeon's own props, never before: the hero's camp and house
   // are added on top of the environment the floor just built.
   applyCampProps();
+  placeFloorGhost();
   revealed.clear();
   for (const cell of run.floor.revealed) revealed.add(cell);
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
@@ -11148,7 +11366,7 @@ function payWatchFine() {
   run.crime = result.crime;
   gold = result.gold;
   for (const monster of monsters) {
-    if (monster.neutral) monster.provoked = false;
+    if (monster.neutral && !monster.ghost) monster.provoked = false;
   }
   playSound('gold');
   showLootToast({ path: CRIME_TOAST_ICON, rarity: 2 }, crimeRefusalText('paid', itemDetailLanguage));

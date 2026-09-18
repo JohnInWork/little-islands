@@ -190,7 +190,6 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
   let viewportHeight = 1;
   let cameraCenterX = 0;
   let cameraCenterY = 0;
-  let heroLayerKey = '';
   const actorTint = new THREE.Color('#eeeae1');
   const actorHitTint = new THREE.Color('#ffe0c4');
 
@@ -336,16 +335,52 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     }
   };
 
-  const heroCanvas = document.createElement('canvas');
-  heroCanvas.width = 32;
-  heroCanvas.height = 32;
-  const heroContext = heroCanvas.getContext('2d', { alpha: true });
-  heroContext.imageSmoothingEnabled = false;
-  const heroTexture = new THREE.CanvasTexture(heroCanvas);
-  heroTexture.colorSpace = THREE.SRGBColorSpace;
-  heroTexture.magFilter = THREE.NearestFilter;
-  heroTexture.minFilter = THREE.NearestFilter;
-  heroTexture.generateMipmaps = false;
+  /**
+   * A figure drawn out of equipment layers rather than from one sprite. The
+   * hero has always been one; the ghost of a past run is the same hero wearing
+   * what it died in, so it needs its own canvas and its own cache key.
+   */
+  const createLayeredFigure = () => {
+    const figureCanvas = document.createElement('canvas');
+    figureCanvas.width = 32;
+    figureCanvas.height = 32;
+    const figureContext = figureCanvas.getContext('2d', { alpha: true });
+    figureContext.imageSmoothingEnabled = false;
+    const figureTexture = new THREE.CanvasTexture(figureCanvas);
+    figureTexture.colorSpace = THREE.SRGBColorSpace;
+    figureTexture.magFilter = THREE.NearestFilter;
+    figureTexture.minFilter = THREE.NearestFilter;
+    figureTexture.generateMipmaps = false;
+    let key = '';
+    const compose = (layers, imageForPath, filter) => {
+      // Each layer carries the recolouring of the item it came from, so the key
+      // has to include it: two figures in the same gear of different materials
+      // are not the same texture.
+      const nextKey = `${filter}:${layers.map(({ path, filter: own }) => `${path}#${own ?? ''}`).join('|')}`;
+      if (nextKey === key) return;
+      key = nextKey;
+      figureContext.clearRect(0, 0, figureCanvas.width, figureCanvas.height);
+      for (const { path, filter: own } of layers) {
+        const mirrored = path.startsWith('mirror:');
+        const source = imageForPath(mirrored ? path.slice('mirror:'.length) : path);
+        if (!source) continue;
+        figureContext.save();
+        figureContext.filter = own ? `${filter} ${own}` : filter;
+        if (mirrored) {
+          figureContext.translate(figureCanvas.width, 0);
+          figureContext.scale(-1, 1);
+        }
+        figureContext.drawImage(source, 0, 0, figureCanvas.width, figureCanvas.height);
+        figureContext.restore();
+      }
+      figureContext.filter = 'none';
+      figureTexture.needsUpdate = true;
+    };
+    return { texture: figureTexture, compose };
+  };
+
+  const heroFigure = createLayeredFigure();
+  const ghostFigure = createLayeredFigure();
 
   const textureFor = (path, imageForPath) => {
     if (textureCache.has(path)) return textureCache.get(path);
@@ -482,31 +517,6 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     return texture;
   };
 
-  const composeHeroTexture = (layers, imageForPath, filter) => {
-    // Each layer carries the recolouring of the item it came from, so the key
-    // has to include it: two heroes in the same gear of different materials are
-    // not the same texture.
-    const nextLayerKey = `${filter}:${layers.map(({ path, filter: own }) => `${path}#${own ?? ''}`).join('|')}`;
-    if (nextLayerKey === heroLayerKey) return;
-    heroLayerKey = nextLayerKey;
-    heroContext.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
-    for (const { path, filter: own } of layers) {
-      const mirrored = path.startsWith('mirror:');
-      const source = imageForPath(mirrored ? path.slice('mirror:'.length) : path);
-      if (!source) continue;
-      heroContext.save();
-      heroContext.filter = own ? `${filter} ${own}` : filter;
-      if (mirrored) {
-        heroContext.translate(heroCanvas.width, 0);
-        heroContext.scale(-1, 1);
-      }
-      heroContext.drawImage(source, 0, 0, heroCanvas.width, heroCanvas.height);
-      heroContext.restore();
-    }
-    heroContext.filter = 'none';
-    heroTexture.needsUpdate = true;
-  };
-
   const createActorEntry = (map) => {
     const material = new THREE.SpriteMaterial({
       map,
@@ -610,15 +620,32 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     entry.shadow.visible = actor.opacity > 0.04 && (actor.shadowOpacity ?? 0.42) > 0;
   };
 
-  const syncActors = ({ hero, monsters, decorations = [], imageForPath, spriteFilter }) => {
-    composeHeroTexture(hero.layers, imageForPath, spriteFilter);
+  const syncActors = ({ hero, ghost = null, monsters, decorations = [], imageForPath, spriteFilter }) => {
+    heroFigure.compose(hero.layers, imageForPath, spriteFilter);
     const activeKeys = new Set(['hero']);
     let heroEntry = actorEntries.get('hero');
     if (!heroEntry) {
-      heroEntry = createActorEntry(heroTexture);
+      heroEntry = createActorEntry(heroFigure.texture);
       actorEntries.set('hero', heroEntry);
     }
     placeActor(heroEntry, hero);
+
+    // The ghost is built the same way the hero is, because it is the hero — it
+    // only wears the room's light differently, which is what `filter` is for.
+    if (ghost) {
+      ghostFigure.compose(
+        ghost.layers,
+        imageForPath,
+        ghost.filter ? `${spriteFilter} ${ghost.filter}` : spriteFilter,
+      );
+      activeKeys.add('ghost');
+      let ghostEntry = actorEntries.get('ghost');
+      if (!ghostEntry) {
+        ghostEntry = createActorEntry(ghostFigure.texture);
+        actorEntries.set('ghost', ghostEntry);
+      }
+      placeActor(ghostEntry, ghost);
+    }
 
     for (const monster of monsters) {
       const key = `monster:${monster.id}`;
@@ -875,7 +902,8 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     for (const material of materialCache.values()) material.dispose();
     for (const texture of textureCache.values()) texture.dispose();
     for (const texture of actorTextureCache.values()) texture.dispose();
-    heroTexture.dispose();
+    heroFigure.texture.dispose();
+    ghostFigure.texture.dispose();
     materialCache.clear();
     textureCache.clear();
     actorTextureCache.clear();

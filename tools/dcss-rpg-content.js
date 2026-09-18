@@ -145,6 +145,16 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },
   },
   {
+    // The hero that did not come back. `spawn: 'summon'` keeps it out of every
+    // pool — the bones place it, not the floor — and `neutral` is what makes it
+    // a memory instead of an ambush: it stands still until something is taken.
+    // Its sprite is only a fallback; a placed ghost is drawn in its own gear.
+    id: 'player-ghost', path: 'mon/undead/ghost.png',
+    tier: 3, hp: 40, damage: 8, speed: 0.98, xp: 0, bloodColor: '#9fc7d8',
+    spawn: 'summon', neutral: true,
+    threat: { attackRate: 0.9, vision: 5, windup: 0.26, pursuit: 7 },
+  },
+  {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
     id: 'city-guard', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,

@@ -28,6 +28,7 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'raised-skeleton': pair('Поднятый скелет', 'Raised skeleton'),
   'raised-ghoul': pair('Поднятый упырь', 'Raised ghoul'),
   'raised-warden': pair('Поднятый страж', 'Raised warden'),
+  'player-ghost': pair('Призрак героя', "Hero's ghost"),
   'tamed-sheep': pair('Прирученная овца', 'Tamed sheep'),
   'tamed-hog': pair('Прирученный кабан', 'Tamed hog'),
   'tamed-yak': pair('Прирученный як', 'Tamed yak'),

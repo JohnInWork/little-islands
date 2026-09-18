@@ -7,6 +7,13 @@
  * generator or a cleared save never erase the history.
  */
 
+import {
+  BONES_LIMIT,
+  createBonesState,
+  rememberBones,
+  validateBonesRecord,
+} from './dcss-rpg-bones.js';
+
 export const META_KEY = 'dng-codex:meta:v1';
 export const META_VERSION = 1;
 export const BEST_RUN_LIMIT = 5;
@@ -86,7 +93,25 @@ export function createMetaState(source = null) {
     },
     best: normalizedBest(source?.best),
     milestones: MILESTONE_IDS.filter((id) => Array.isArray(source?.milestones) && source.milestones.includes(id)),
+    // Where past runs ended, so a later one can meet its own ghost. An older
+    // store simply has none, which is a dungeon that has not killed anybody yet.
+    bones: createBonesState(source?.bones),
   };
+}
+
+/** Remembers where this run fell. Victory leaves no body. */
+/** The bones are spent once their ghost has been answered: one body, one visit. */
+export function forgetBones(meta, depth) {
+  const state = createMetaState(meta);
+  return Object.freeze({
+    ...state,
+    bones: state.bones.filter((record) => record.depth !== depth),
+  });
+}
+
+export function recordBones(meta, record) {
+  const state = createMetaState(meta);
+  return Object.freeze({ ...state, bones: rememberBones(state.bones, record) });
 }
 
 function normalizedRecord(record) {
@@ -130,6 +155,12 @@ export function validateMetaState(meta) {
   if (!meta.totals || typeof meta.totals !== 'object') return false;
   if (!Array.isArray(meta.best) || meta.best.length > BEST_RUN_LIMIT) return false;
   if (!Array.isArray(meta.milestones)) return false;
+  // Bones are optional: a store written before the dungeon started remembering
+  // deaths is still a valid store.
+  if (meta.bones !== undefined) {
+    if (!Array.isArray(meta.bones) || meta.bones.length > BONES_LIMIT) return false;
+    if (!meta.bones.every((record) => validateBonesRecord(record))) return false;
+  }
   return meta.milestones.every((id) => MILESTONE_IDS.includes(id));
 }
 
@@ -172,6 +203,7 @@ export function recordRunResult(meta, result) {
       totals,
       best,
       milestones: MILESTONE_IDS.filter((id) => state.milestones.includes(id) || earned.includes(id)),
+      bones: state.bones,
     },
   });
 }

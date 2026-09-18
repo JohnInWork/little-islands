@@ -226,7 +226,11 @@ test('the runtime walks the watch and turns it on the hero who starts something'
   );
   assert.match(runtime, /function patrolMonster\(monster, delta, blockedCells\)[\s\S]*monster\.route = findPath\(/);
   assert.match(runtime, /function provokeCityWatch\(target\)[\s\S]*monster\.provoked = true;/);
-  assert.match(runtime, /if \(monster\.neutral && !monster\.provoked\) provokeCityWatch\(monster\);/);
+  assert.match(
+    runtime,
+    /if \(monster\.neutral && !monster\.provoked\) \{[\s\S]{0,160}?else provokeCityWatch\(monster\);/,
+    'striking a guard turns the watch; the dungeon ghost is the only other neutral',
+  );
   assert.match(runtime, /const patrolling = monster\.alerted === 0;/);
 });
 

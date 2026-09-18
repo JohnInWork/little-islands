@@ -166,6 +166,48 @@ const DIRECTIONS = Object.freeze([
   [0, -1],
 ]);
 
+/**
+ * What the ghost is standing over.
+ *
+ * The dead run's own kit is deliberately NOT the prize. Handing back gear the
+ * hero may still be wearing duplicates it, and a dungeon that keeps returning
+ * the same sword stops feeling generated. So the bones hold one ordinary drop
+ * of this depth — rolled from the pool the floor itself rolls from, but with a
+ * whole floor's quality spent on a single piece. That is what makes it worth
+ * waking the thing that guards it.
+ */
+export function rollBonesReward({ seed, depth, key = '', scaling } = {}) {
+  if (!Number.isInteger(depth) || depth < 1) return null;
+  const floor = scaling ?? floorScaling(depth);
+  const pool = LOOT_CATALOG.filter((item) => lootEligibleForFloor(item, floor));
+  const equipment = pool.filter((item) => item.slot);
+  if (equipment.length === 0) return null;
+  const instanceId = `bones-${depth}`;
+  const rng = createRng(mixSeed(mixSeed(seed, depth), `BONES:${key}`));
+  const [picked] = createBalancedLootPicks({
+    rng,
+    pool: equipment,
+    starterPool: equipment,
+    count: 1,
+    qualityBudget: Math.max(1, floor.rewards.qualityBudget),
+  }).picks;
+  if (!picked) return null;
+  const materialId = rollMaterial({ seed, depth, instanceId: `${instanceId}:${key}`, item: picked });
+  return Object.freeze({
+    instanceId,
+    id: picked.id,
+    affixIds: Object.freeze([...rollItemAffixes({
+      seed: mixSeed(seed, `BONES:${key}`),
+      depth,
+      instanceId,
+      item: picked,
+    })]),
+    ...(materialId ? { materialId } : {}),
+    artifactPowerId: null,
+    artifactCurseId: null,
+  });
+}
+
 export function mixSeed(seed, salt) {
   let value = (seed ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0;
   value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
