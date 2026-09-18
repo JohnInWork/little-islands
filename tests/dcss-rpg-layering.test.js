@@ -58,3 +58,26 @@ test('invisibility is shown by the air, not by a box', async () => {
   // The hero themself is what fades; the motes only say why.
   assert.match(runtime, /concealed \? 0\.38 : 1/);
 });
+
+/**
+ * «Мне не нравятся линии в эффектах — они всегда неправильно работают».
+ *
+ * They did. Every ring in the game was `rotate(45°)` plus `strokeRect`: a
+ * hairline the canvas anti-aliases into grey mush, landing between pixels, with
+ * four diagonal spikes where the corners are. Next to a 32×32 sprite it read as
+ * something borrowed from another drawing. Effects in the world are drawn in
+ * pixels now — studs on the effect grid — and this keeps it that way.
+ */
+test('effects in the world are drawn in pixels, not in lines', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(runtime, /function drawPixelRing/, 'the pixel ring is where the rule lives');
+  // The floor map is a diagram on a panel, not a picture of the world, and a
+  // stroke belongs there. Everything before it is the world.
+  const mapStart = runtime.indexOf('function drawFloorMapMarker');
+  assert.ok(mapStart > 0, 'the floor map moved; this split no longer separates world from panel');
+  const world = runtime.slice(0, mapStart);
+  for (const line of ['strokeRect', 'context.ellipse', 'context.stroke()', 'context.lineTo']) {
+    assert.ok(!world.includes(`  ${line}`), `${line} is back in the world drawing`);
+  }
+  assert.ok(!world.includes('rotate(Math.PI / 4)'), 'a tilted square is a hairline diamond again');
+});

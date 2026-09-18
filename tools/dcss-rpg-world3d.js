@@ -898,6 +898,13 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     };
   };
 
+  /**
+   * The canvas the hero is composed onto. The overlay needs it to rub its own
+   * paint back off him — see `eraseWashAboveWaterline` in the adapter — and a
+   * composed figure has no single sprite path to look up.
+   */
+  const heroSilhouette = () => heroFigure.texture.image;
+
   const unprojectGround = (clientX, clientY) => {
     const pointer = new THREE.Vector2(
       (clientX / viewportWidth) * 2 - 1,
@@ -942,5 +949,6 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     syncActors,
     syncLights,
     unprojectGround,
+    heroSilhouette,
   });
 }

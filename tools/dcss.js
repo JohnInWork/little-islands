@@ -4541,7 +4541,10 @@ function drawPlayer() {
     } else if (hero.attackStyle === 'staff') {
       context.translate(27, 0);
       context.rotate(attackProgress * Math.PI * 0.75);
-      context.strokeRect(-8, -8, 16, 16);
+      // Four studs at the corners: the spin stays visible, the hairline goes.
+      for (const [studX, studY] of [[-8, -8], [8, -8], [8, 8], [-8, 8]]) {
+        context.fillRect(studX - 2, studY - 2, 4, 4);
+      }
       context.fillRect(-3, -3, 6, 6);
     } else if (hero.attackStyle === 'bow') {
       context.fillRect(15, -2, 34, 4);
@@ -4566,18 +4569,38 @@ function drawPlayer() {
   if (hero.guardFlash > 0) {
     const guardProgress = hero.guardFlash / 0.32;
     context.save();
-    context.translate(position.x, position.y - 4);
-    context.rotate(Math.PI / 4);
     context.globalAlpha = Math.min(1, guardProgress) * 0.8;
-    context.strokeStyle = '#9ed2d0';
-    context.lineWidth = 5;
-    context.strokeRect(-22, -22, 44, 44);
+    context.fillStyle = '#9ed2d0';
+    drawPixelRing(position.x, position.y - 4, 26, { stud: 6 });
     context.restore();
   }
 }
 
 function pixelRound(value, unit = 2) {
   return Math.round(value / unit) * unit;
+}
+
+/**
+ * A ring of pixels, because in a pixel game there are no lines.
+ *
+ * Every ring in the effects used to be `rotate(45°)` plus `strokeRect`: a
+ * hairline the canvas anti-aliases into grey mush, landing between pixels, with
+ * four diagonal spikes where the corners are. It never looked like it belonged
+ * to the same picture as the sprites. Studs stepped around a circle and snapped
+ * to the effect grid read as the same ring and do belong — it is the idiom the
+ * melee arc, the halo and the motes here already use.
+ */
+function drawPixelRing(x, y, radius, { squash = 1, stud = 4, gap = 1.2 } = {}) {
+  const steps = Math.max(8, Math.round((Math.PI * 2 * radius) / (stud * gap)));
+  for (let index = 0; index < steps; index += 1) {
+    const angle = (index / steps) * Math.PI * 2;
+    context.fillRect(
+      pixelRound(x + Math.cos(angle) * radius - stud / 2),
+      pixelRound(y + Math.sin(angle) * radius * squash - stud / 2),
+      stud,
+      stud,
+    );
+  }
 }
 
 function drawPixelHalo(x, y, color, strength = 1) {
@@ -4659,14 +4682,12 @@ function drawWetHero(centerX, centerY) {
   const ripple = (time * 0.62) % 1;
   const rippleWidth = pixelRound(18 + ripple * 42, 4);
   context.globalAlpha = (1 - ripple) * 0.56;
-  context.strokeStyle = '#78cad4';
-  context.lineWidth = 2;
-  context.strokeRect(
-    pixelRound(centerX - rippleWidth / 2),
-    pixelRound(centerY + 34 - ripple * 2),
-    rippleWidth,
-    6,
-  );
+  context.fillStyle = '#78cad4';
+  // Two bars, not the outline of a rectangle: a 2px stroke on an integer edge
+  // straddles the pixel boundary and comes out half-lit on both sides.
+  const rippleY = pixelRound(centerY + 34 - ripple * 2);
+  context.fillRect(pixelRound(centerX - rippleWidth / 2), rippleY, rippleWidth, 2);
+  context.fillRect(pixelRound(centerX - rippleWidth / 2), rippleY + 4, rippleWidth, 2);
   context.restore();
 }
 
@@ -4717,8 +4738,14 @@ function drawPoisonedHero(centerX, centerY) {
     const y = centerY + 30 - phase * 70;
     const size = index % 3 === 0 ? 6 : 4;
     context.globalAlpha = (1 - phase) * 0.62;
-    context.strokeRect(pixelRound(x), pixelRound(y), size, size);
-    if (phase < 0.42) context.fillRect(pixelRound(x + 2), pixelRound(y + 2), 2, 2);
+    // A hollow square drawn as four filled edges keeps its corners square.
+    const bubbleX = pixelRound(x);
+    const bubbleY = pixelRound(y);
+    context.fillRect(bubbleX, bubbleY, size, 2);
+    context.fillRect(bubbleX, bubbleY + size - 2, size, 2);
+    context.fillRect(bubbleX, bubbleY, 2, size);
+    context.fillRect(bubbleX + size - 2, bubbleY, 2, size);
+    if (phase < 0.42) context.fillRect(bubbleX + 2, bubbleY + 2, 2, 2);
   }
   context.globalAlpha = 0.14 + (reducedMotion ? 0 : (Math.sin(time * 2.2) + 1) * 0.045);
   context.fillStyle = color;
@@ -4727,31 +4754,117 @@ function drawPoisonedHero(centerX, centerY) {
 }
 
 /**
- * Standing in water is not a blue wash over the whole figure. What is under the
- * surface is not visible at all, so the water of the place is drawn again over
- * the legs of everyone wading — opaque, following the body rather than the
- * cell, so it does not step from tile to tile while somebody walks — and the
- * ripple is drawn on top of it as the line where the two meet.
+ * Standing in water is not a blue wash over the whole figure.
+ *
+ * The animated surface is painted on the overlay, which is above every actor,
+ * so it used to wash whatever was standing in it from head to foot. Water does
+ * not work that way: above the line you are simply out of it, below the line
+ * you are simply not visible. So the surface is drawn **around** a wading
+ * figure rather than over it, and then the water of the place is drawn back
+ * over the legs — opaque, following the body rather than the cell, so it does
+ * not step from tile to tile while somebody walks. The ripple goes on top as
+ * the line where the two meet.
  */
 /** Where the surface cuts a standing figure, in screen pixels below its anchor. */
 const WADE_SURFACE_Y = 4;
 /** How far below that line water is painted — far enough to reach past the boots. */
 const WADE_SKIRT = 32;
+/** How far above the anchor a standing figure can reach; the part kept dry. */
+const WADE_HEAD_ROOM = 58;
+
+/**
+ * Everyone standing in water, hero included; flying does not count as wading.
+ * Each one carries how to paint its own silhouette, because the overlay has to
+ * rub its paint back off them and the hero has no single sprite path — he is
+ * composed layer by layer onto a canvas of his own.
+ */
+function wadingActors() {
+  const motion = playerMotion();
+  return [
+    ...(hero.dead || !heroWading() ? [] : [{
+      x: hero.x + motion.dx,
+      y: hero.y + motion.dy,
+      size: 1,
+      paint: () => {
+        const silhouette = dungeonWorld3D.heroSilhouette();
+        if (!silhouette) return;
+        const position = worldToScreen(hero.x + motion.dx, hero.y + motion.dy);
+        context.save();
+        context.translate(Math.round(position.x), Math.round(position.y - 13 + motion.bob));
+        context.scale(hero.facing < 0 ? -1 : 1, 1);
+        context.drawImage(silhouette, -ACTOR_SIZE / 2, -ACTOR_SIZE / 2, ACTOR_SIZE, ACTOR_SIZE);
+        context.restore();
+      },
+    }]),
+    ...monsters
+      .filter((monster) => monster.dead === 0 && !monster.flying && actorInWater(world, monster, TILE))
+      .map((monster) => {
+        const size = (monster.boss ? 100 : monster.large ? 90 : 76) * (monster.visualScale ?? 1);
+        const path = monster.waterPath && actorInWater(world, monster, TILE)
+          ? monster.waterPath
+          : monster.spritePath;
+        return {
+          x: monster.x,
+          y: monster.y,
+          size: monster.large || monster.boss ? 1.3 : 1,
+          paint: () => drawSprite(path, monster.x, monster.y, size, {
+            flip: monster.facing < 0,
+            offsetY: (monster.visualOffsetY ?? -10) + 6,
+          }),
+        };
+      }),
+    ...passiveCreatures
+      .filter((creature) => !creature.defeated && actorInWater(world, creature, TILE))
+      .map((creature) => ({
+        x: creature.x,
+        y: creature.y,
+        size: 0.8,
+        paint: () => drawSprite(creature.spritePath, creature.x, creature.y, 64, {
+          flip: creature.facing < 0,
+          offsetY: -8,
+        }),
+      })),
+  ].filter((wader) => revealed.has(`${Math.floor(wader.x / TILE)},${Math.floor(wader.y / TILE)}`));
+}
+
+/**
+ * The surface is painted on the overlay, which sits above every actor, so it
+ * used to wash a wading figure blue from head to foot. Water does not do that:
+ * above the line you are simply out of it. So the wash is rubbed off each
+ * figure's own silhouette — `destination-out` with the very sprite the world
+ * drew — and only above the waterline, because below it the wash is exactly
+ * what should be there.
+ *
+ * A rectangular hole was tried first and was worse: the floor under the wash is
+ * lit by the biome and much darker than the wash makes it look, so every wader
+ * carried a dark box around their head.
+ */
+function eraseWashAboveWaterline(waders) {
+  if (waders.length === 0) return;
+  context.save();
+  context.globalCompositeOperation = 'destination-out';
+  for (const wader of waders) {
+    const position = worldToScreen(wader.x, wader.y);
+    context.save();
+    context.beginPath();
+    context.rect(
+      position.x - TILE,
+      position.y - WADE_HEAD_ROOM,
+      TILE * 2,
+      WADE_HEAD_ROOM + WADE_SURFACE_Y,
+    );
+    context.clip();
+    wader.paint();
+    context.restore();
+  }
+  context.restore();
+}
 
 /** A ripple across the legs of everyone wading, so a sunken sprite reads as water. */
 function drawWaterlines() {
-  const waders = [
-    ...(hero.dead || !heroWading() ? [] : [{ x: hero.x, y: hero.y, size: 1 }]),
-    ...monsters
-      .filter((monster) => monster.dead === 0 && !monster.flying && actorInWater(world, monster, TILE))
-      .map((monster) => ({ x: monster.x, y: monster.y, size: monster.large || monster.boss ? 1.3 : 1 })),
-    ...passiveCreatures
-      .filter((creature) => !creature.defeated && actorInWater(world, creature, TILE))
-      .map((creature) => ({ x: creature.x, y: creature.y, size: 0.8 })),
-  ];
+  const waders = wadingActors();
   if (waders.length === 0) return;
   for (const wader of waders) {
-    if (!revealed.has(`${Math.floor(wader.x / TILE)},${Math.floor(wader.y / TILE)}`)) continue;
     const skirt = WADE_SKIRT * wader.size;
     const wave = Math.floor(elapsed * 1.5 + hash(Math.floor(wader.x), Math.floor(wader.y)))
       % waterPaths.length;
@@ -4764,15 +4877,13 @@ function drawWaterlines() {
   context.save();
   context.lineWidth = 1;
   for (const wader of waders) {
-    if (!revealed.has(`${Math.floor(wader.x / TILE)},${Math.floor(wader.y / TILE)}`)) continue;
     const position = worldToScreen(wader.x, wader.y);
     const pulse = reducedMotion ? 0 : Math.sin(elapsed * 3 + wader.x * 0.05) * 2;
-    context.fillStyle = 'rgba(99, 184, 202, 0.34)';
-    context.strokeStyle = 'rgba(178, 226, 236, 0.5)';
-    context.beginPath();
-    context.ellipse(position.x, position.y + 6, (18 + pulse) * wader.size, 6 * wader.size, 0, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
+    context.fillStyle = 'rgba(186, 230, 240, 0.62)';
+    drawPixelRing(position.x, position.y + 6, (18 + pulse) * wader.size, {
+      squash: 0.34,
+      stud: 2,
+    });
   }
   context.restore();
 }
@@ -5014,12 +5125,10 @@ function drawMonster(monster) {
 
   if (monster.boss && monster.dead === 0) {
     context.save();
-    context.translate(Math.round(position.x), Math.round(position.y + 22));
-    context.rotate(Math.PI / 4);
     context.globalAlpha = 0.34 + Math.sin(elapsed * 3) * 0.08;
-    context.strokeStyle = '#9c618a';
-    context.lineWidth = 4;
-    context.strokeRect(-22, -22, 44, 44);
+    context.fillStyle = '#9c618a';
+    // It lies on the ground at the boss's feet, so it is squashed, not tilted.
+    drawPixelRing(position.x, position.y + 22, 26, { squash: 0.46, stud: 4 });
     context.restore();
   }
 
@@ -5160,6 +5269,8 @@ function drawWorld() {
       });
     }
   }
+  // Nobody standing in the water comes out of it painted blue to the ears.
+  eraseWashAboveWaterline(wadingActors());
 }
 
 const beltGroundColors = Object.freeze(['#737977', '#78513c', '#687761', '#927543']);
@@ -5648,10 +5759,7 @@ function drawEnemyTelegraphs() {
       );
     }
     const radius = pixelRound(22 + progress * 7, 4);
-    context.translate(pixelRound(target.x), pixelRound(target.y + 5));
-    context.rotate(Math.PI / 4);
-    context.lineWidth = 4;
-    context.strokeRect(-radius / 2, -radius / 2, radius, radius);
+    drawPixelRing(pixelRound(target.x), pixelRound(target.y + 5), radius * 0.72, { stud: 4 });
     context.restore();
   }
 }
@@ -5662,12 +5770,9 @@ function drawImpactWaves() {
     const progress = 1 - wave.life / wave.maxLife;
     const radius = Math.round((10 + progress * wave.size) / PIXEL_EFFECT_SCALE) * PIXEL_EFFECT_SCALE;
     context.save();
-    context.translate(Math.round(position.x), Math.round(position.y));
-    context.rotate(Math.PI / 4);
     context.globalAlpha = Math.max(0, wave.life / wave.maxLife) * 0.8;
-    context.strokeStyle = wave.color;
-    context.lineWidth = PIXEL_EFFECT_SCALE;
-    context.strokeRect(-radius / 2, -radius / 2, radius, radius);
+    context.fillStyle = wave.color;
+    drawPixelRing(position.x, position.y, radius * 0.72, { stud: PIXEL_EFFECT_SCALE * 2 });
     context.restore();
   }
 }
