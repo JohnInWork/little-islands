@@ -77,6 +77,7 @@ import {
   validateMerchantStates,
 } from './dcss-rpg-merchant.js';
 import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
+import { generateSurfacePlan } from './dcss-rpg-surface-plan.js';
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
@@ -410,7 +411,9 @@ function roomContains(room, point) {
   );
 }
 
-function planDungeonDoors({ grid, rooms, spawn, exit, sanctuary, objective, depth, floorSeed }) {
+function planDungeonDoors({
+  grid, rooms, spawn, exit, sanctuary, objective, depth, floorSeed, doorsRequired = true,
+}) {
   const rng = createRng(mixSeed(floorSeed, 0xd00d));
   const reserved = new Set(
     [spawn, exit, sanctuary, objective?.boss, objective?.artifact]
@@ -458,7 +461,11 @@ function planDungeonDoors({ grid, rooms, spawn, exit, sanctuary, objective, dept
       selectedKeys.add(`${candidate.x},${candidate.y}`);
     }
   }
-  if (selected.length === 0) throw new Error('Dungeon generator could not place doors');
+  // A dungeon without a doorway is a broken dungeon. Open country without one
+  // is just a field: nothing out there is obliged to have a door in it.
+  if (selected.length === 0 && doorsRequired) {
+    throw new Error('Dungeon generator could not place doors');
+  }
 
   const surpriseId = `surprise-${depth}-0`;
   const surpriseDoor = surpriseRoom ? rng.pick(surpriseRoom.doors) : null;
@@ -632,10 +639,18 @@ export function generateDungeon({
     return generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, height, scaling });
   }
   const rng = createRng(floorSeed);
-  const grid = Array.from({ length: height }, () => Array(width).fill('#'));
-  const rooms = [];
+  // A dungeon is carved out of solid rock; open country is built into open
+  // ground. Same output either way — a grid and a list of rectangles — because
+  // everything past this point is written against rooms.
+  const surfacePlan = branch === 'surface'
+    ? generateSurfacePlan({ rng, width, height, roomCount: scaling.layout.roomCount })
+    : null;
+  const grid = surfacePlan
+    ? surfacePlan.grid
+    : Array.from({ length: height }, () => Array(width).fill('#'));
+  const rooms = surfacePlan ? [...surfacePlan.rooms] : [];
   const desiredRooms = scaling.layout.roomCount;
-  for (let attempt = 0; attempt < 260 && rooms.length < desiredRooms; attempt += 1) {
+  for (let attempt = 0; attempt < (surfacePlan ? 0 : 260) && rooms.length < desiredRooms; attempt += 1) {
     const room = {
       width: rng.int(4, 8),
       height: rng.int(4, 7),
@@ -652,7 +667,7 @@ export function generateDungeon({
     rooms.push(room);
   }
   if (rooms.length < 6) throw new Error('Dungeon generator could not place enough rooms');
-  for (let loop = 0; loop < Math.min(3, rooms.length - 2); loop += 1) {
+  for (let loop = 0; loop < (surfacePlan ? 0 : Math.min(3, rooms.length - 2)); loop += 1) {
     const from = rng.int(0, rooms.length - 1);
     let to = rng.int(0, rooms.length - 1);
     if (to === from) to = (to + 2) % rooms.length;
@@ -696,6 +711,7 @@ export function generateDungeon({
     objective,
     depth,
     floorSeed,
+    doorsRequired: branch !== 'surface',
   });
   const surpriseRoom = doorPlan.surprise
     ? rooms[doorPlan.surprise.roomIndex]
