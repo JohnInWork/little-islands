@@ -9917,6 +9917,16 @@ const outfitWallet = document.querySelector('#outfit-wallet');
 const outfitWalletLabel = document.querySelector('#outfit-wallet-label');
 const outfitEmpty = document.querySelector('#outfit-empty');
 const outfitStartButton = document.querySelector('#outfit-start');
+const outfitDetail = document.querySelector('#outfit-detail');
+const outfitDetailIcon = document.querySelector('#outfit-detail-icon');
+const outfitDetailName = document.querySelector('#outfit-detail-name');
+const outfitDetailKind = document.querySelector('#outfit-detail-kind');
+const outfitDetailPrice = document.querySelector('#outfit-detail-price');
+const outfitDetailEffects = document.querySelector('#outfit-detail-effects');
+const outfitDetailOwned = document.querySelector('#outfit-detail-owned');
+const outfitDetailClose = document.querySelector('#outfit-detail-close');
+const outfitDetailReturn = document.querySelector('#outfit-detail-return');
+const outfitDetailBuy = document.querySelector('#outfit-detail-buy');
 const outfitTitle = document.querySelector('#outfit-title');
 let outfitReturnScreen = 'menu';
 
@@ -9985,7 +9995,66 @@ function renderOutfit() {
   }));
 }
 
-/** One tap buys, and a tap on something already bought gives the money back. */
+/**
+ * Buying without reading is not a decision. A tap on the counter opens the
+ * thing — the same name, the same description, the same list of what it does
+ * that the bag shows — and the money only moves from inside that card.
+ */
+let outfitDetailId = null;
+
+function renderOutfitDetail() {
+  if (!outfitDetailId) return;
+  const model = stashModel(stashState, itemDetailLanguage);
+  const good = model.rows.flatMap((row) => row.goods).find((entry) => entry.id === outfitDetailId);
+  if (!good) return;
+  outfitDetailIcon.src = assetUrl(good.icon);
+  outfitDetailIcon.alt = good.name;
+  outfitDetailName.textContent = good.name;
+  outfitDetailKind.textContent = [good.rarity, good.slotLabel].filter(Boolean).join(' · ');
+  outfitDetailPrice.textContent = `${good.price}●`;
+  outfitDetailEffects.replaceChildren(...good.effects.map((effect) => {
+    const row = document.createElement('li');
+    const icon = document.createElement('i');
+    icon.textContent = effect.icon;
+    const text = document.createElement('span');
+    text.textContent = effect.text;
+    row.append(icon, text);
+    return row;
+  }));
+  outfitDetailOwned.hidden = good.owned === 0;
+  outfitDetailOwned.textContent = `${model.copy.owned}: ${good.owned}`;
+  // The cross is what every other panel here closes with; the word did not fit
+  // its column and is the name the screen reader hears instead.
+  outfitDetailClose.textContent = '×';
+  outfitDetailClose.setAttribute('aria-label', model.copy.close);
+  outfitDetailReturn.textContent = model.copy.give;
+  outfitDetailReturn.hidden = good.owned === 0;
+  outfitDetailBuy.textContent = `${model.copy.buy} · ${good.price}●`;
+  outfitDetailBuy.disabled = !good.affordable;
+}
+
+function openOutfitDetail(id) {
+  outfitDetailId = id;
+  renderOutfitDetail();
+  outfitDetail.inert = false;
+  outfitDetail.setAttribute('aria-hidden', 'false');
+  playSound('ui-tap');
+  requestAnimationFrame(() => outfitDetailBuy.focus());
+}
+
+function closeOutfitDetail() {
+  if (outfitDetail.getAttribute('aria-hidden') === 'true') return false;
+  outfitDetail.setAttribute('aria-hidden', 'true');
+  outfitDetail.inert = true;
+  const id = outfitDetailId;
+  outfitDetailId = null;
+  playSound('ui-close');
+  requestAnimationFrame(() => {
+    outfitRows.querySelector(`button[data-good-id="${id}"]`)?.focus();
+  });
+  return true;
+}
+
 function toggleOutfitGood(id, wantsReturn) {
   const result = wantsReturn ? stashReturn(stashState, id) : stashBuy(stashState, id);
   if (!result.ok) {
@@ -9996,6 +10065,7 @@ function toggleOutfitGood(id, wantsReturn) {
   stashState = result.stash;
   persistStash();
   renderOutfit();
+  renderOutfitDetail();
   playSound(wantsReturn ? 'ui-close' : 'gold');
   return true;
 }
@@ -10015,6 +10085,7 @@ function openOutfit() {
 
 function closeOutfit() {
   if (uiScreen !== 'outfit') return false;
+  closeOutfitDetail();
   outfitScreen.inert = true;
   outfitScreen.setAttribute('aria-hidden', 'true');
   uiScreen = outfitReturnScreen === 'outfit' ? 'menu' : outfitReturnScreen;
@@ -13614,7 +13685,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Escape' && uiScreen === 'outfit') {
     event.preventDefault();
-    closeOutfit();
+    if (!closeOutfitDetail()) closeOutfit();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'character') {
@@ -13844,9 +13915,11 @@ closeOutfitButton.addEventListener('click', closeOutfit);
 outfitRows.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-good-id]');
   if (!button) return;
-  // Bought already? Then the tap is a change of mind, and the money comes back.
-  toggleOutfitGood(button.dataset.goodId, Boolean(button.dataset.owned));
+  openOutfitDetail(button.dataset.goodId);
 });
+outfitDetailClose.addEventListener('click', closeOutfitDetail);
+outfitDetailBuy.addEventListener('click', () => toggleOutfitGood(outfitDetailId, false));
+outfitDetailReturn.addEventListener('click', () => toggleOutfitGood(outfitDetailId, true));
 outfitStartButton.addEventListener('click', () => {
   closeOutfit();
   if (uiScreen === 'menu') startGameFromMenu();

@@ -7362,3 +7362,120 @@ body {
   background: #d6b95f;
   border: 2px solid #f0dda0;
 }
+
+/* The counter's own item card: read first, pay second. */
+.outfit-detail {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgb(3 6 7 / 88%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 100ms steps(2, end),
+    visibility 0s linear 100ms;
+}
+
+.outfit-detail[aria-hidden='false'] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.outfit-detail-card {
+  width: min(330px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-color: #6c7a74;
+  background: #0d1416;
+}
+
+.outfit-detail-head {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+#outfit-detail-icon {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+#outfit-detail-name {
+  margin: 0;
+  font-size: 14px;
+  color: var(--bone);
+}
+
+#outfit-detail-kind {
+  margin: 3px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #8fa39c;
+}
+
+#outfit-detail-price {
+  font-size: 15px;
+  color: var(--gold);
+}
+
+.outfit-detail-effects {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.outfit-detail-effects li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #cfe0d8;
+}
+
+.outfit-detail-effects i {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.outfit-detail-owned {
+  margin: 0;
+  font-size: 11px;
+  color: #9ec37a;
+}
+
+.outfit-detail-actions {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.outfit-detail-actions button {
+  min-height: 48px;
+  padding: 6px 8px;
+  color: #cfe0d8;
+  font-size: 12px;
+}
+
+.outfit-detail-actions:has(#outfit-detail-return:not([hidden])) {
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.outfit-detail-buy {
+  color: #10161a;
+  background: #d6b95f;
+  border-color: #f0dda0;
+  font-size: 13px;
+}

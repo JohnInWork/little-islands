@@ -222,6 +222,10 @@ const COPY = Object.freeze({
     empty: 'Схрон пуст. Золото приносит тот, кто ушёл из подземелья живым.',
     basket: 'С собой',
     start: 'В забег',
+    buy: 'Купить',
+    give: 'Вернуть',
+    close: 'Закрыть',
+    owned: 'С собой уже',
     rows: Object.freeze({
       arms: 'Оружие', armour: 'Броня', kit: 'Снаряжение', traps: 'Ловушки', food: 'Припасы',
     }),
@@ -239,6 +243,10 @@ const COPY = Object.freeze({
     empty: 'The stash is empty. Gold is carried out by whoever walks away alive.',
     basket: 'Taking along',
     start: 'Descend',
+    buy: 'Buy',
+    give: 'Return',
+    close: 'Close',
+    owned: 'Already taking',
     rows: Object.freeze({
       arms: 'Arms', armour: 'Armour', kit: 'Kit', traps: 'Traps', food: 'Supplies',
     }),
@@ -268,15 +276,25 @@ export function stashModel(stash, language = 'ru') {
       const definition = lootById(id);
       const price = stashPrice(id);
       const owned = state.goods[id] ?? 0;
+      // Everything the counter says about a thing comes from the same place the
+      // bag says it — the name, what it does, what it gives. Buying blind is
+      // not a decision, and a shop that will not let you read first is a trap.
+      const shown = definition ? itemPresentation({ ...definition, id }, language) : null;
       return Object.freeze({
         id,
         price,
         owned,
-        // The name and the icon come from the same place the bag uses, so a
-        // thing is called the same on the counter as it is in your hands.
-        name: definition ? itemPresentation({ ...definition, id }, language).name : id,
+        name: shown?.name ?? id,
         icon: definition?.icon ?? null,
         slot: definition?.slot ?? null,
+        slotLabel: shown?.slot ?? '',
+        rarity: shown?.rarity ?? '',
+        description: shown?.description ?? '',
+        effects: Object.freeze((shown?.effects ?? []).map((effect) => Object.freeze({
+          id: effect.id,
+          icon: effect.icon,
+          text: effect.text,
+        }))),
         affordable: price <= state.gold && owned < STASH_GOOD_LIMIT && basket < STASH_BASKET_LIMIT,
       });
     })),

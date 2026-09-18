@@ -141,7 +141,7 @@ const COPY = Object.freeze({
     graveClosed: '',
     graveInspected: 'На плите видна тёмная печать.',
     trapName: 'Механическая ловушка',
-    trapClosed: 'Обнаруженный механизм преграждает безопасный путь.',
+    trapClosed: 'Механизм взведён. Шагнёшь — сработает.',
     trapInspected: (tier, status) => `Сложность ${tier}. ${status}`,
     trapReady: 'Можно обезвредить.',
     merchantName: 'Странствующий торговец',
@@ -157,20 +157,27 @@ const COPY = Object.freeze({
     campStashClosed: '',
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
-    guardDescription: 'Следит за порядком. Удар по нему делает героя преступником.',
-    companionDescription: 'Твой зверь. Он идёт за тобой и дерётся рядом.',
+    // A guard is a person doing a job, not a rule printed on a card. He says
+    // what a man in that job says to a stranger with a sword — and the captain,
+    // who has said it a thousand times, says it shorter.
+    guardDescription: (id) => (id === 'city-captain'
+      ? '«Оружие в ножны, и я тебя не запомню.»'
+      : '«Ходи спокойно, чужак. Здесь за порядком следят.»'),
+    companionDescription: 'Идёт за тобой с тех пор, как ты его накормил, и дерётся рядом, пока цел.',
     companionOrder: (label) => `Приказ: ${label}.`,
-    guardWanted: (label, fine) => `${label}. Штраф — ${fine} реального золота.`,
+    // The status is the city's word («Разыскивается», «Враг города») and will
+    // not bend into a sentence; the guard's own words come after it.
+    guardWanted: (label, fine) => `${label}. «Плати ${fine} — или ночуешь в камере.»`,
     gateName: 'Развилка',
     gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под открытое небо — или домой, с тем, что уже унёс.',
     cellName: 'Дверь камеры',
-    cellDescription: (fine) => `Замок городской тюрьмы. Срок стоит ${fine} реального золота.`,
+    cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
-    deedDescription: (price) => `Свой дом в городе. Цена: ${price} реального золота.`,
+    deedDescription: (price) => `Пустой участок за оградой. Хозяин просит ${price} реального золота и не торгуется.`,
     slotName: (piece) => `Место под предмет: ${piece}`,
     slotDescription: (price) => `Цена: ${price} золота.`,
     houseBedName: 'Своя кровать',
-    houseBedDescription: 'Сон дома восстанавливает больше, чем спальник в лагере.',
+    houseBedDescription: 'Своя постель под своей крышей. Здесь высыпаешься так, как в лагере не выйдет.',
     guards: Object.freeze({ 'city-guard': 'Городской стражник', 'city-captain': 'Капитан стражи' }),
   }),
   en: Object.freeze({
@@ -203,20 +210,22 @@ const COPY = Object.freeze({
     campStashClosed: '',
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
-    guardDescription: 'Keeps the peace. Striking one makes the hero a criminal.',
-    companionDescription: 'Your beast. It follows you and fights beside you.',
+    guardDescription: (id) => (id === 'city-captain'
+      ? '“Sheathe it, and I never saw your face.”'
+      : '“Walk easy, stranger. This town is watched.”'),
+    companionDescription: 'It has followed you since you fed it, and it fights beside you while it can.',
     companionOrder: (label) => `Order: ${label}.`,
-    guardWanted: (label, fine) => `${label}. The fine is ${fine} real gold.`,
+    guardWanted: (label, fine) => `${label}. “Pay ${fine} or you sleep in a cell.”`,
     gateName: 'The fork',
     gateDescription: 'Three roads from here. Caves below, open sky beyond the gate — or home, with what you already carry.',
     cellName: 'Cell door',
-    cellDescription: (fine) => `A city jail lock. Your time costs ${fine} real gold.`,
+    cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
-    deedDescription: (price) => `A house of your own in the city. Price: ${price} real gold.`,
+    deedDescription: (price) => `An empty plot behind the fence. The owner asks ${price} real gold and will not haggle.`,
     slotName: (piece) => `Space for: ${piece}`,
     slotDescription: (price) => `Price: ${price} gold.`,
     houseBedName: 'Your own bed',
-    houseBedDescription: 'Sleeping at home restores more than a bedroll in camp.',
+    houseBedDescription: 'Your own bed under your own roof. You sleep here the way camp never lets you.',
     guards: Object.freeze({ 'city-guard': 'City guard', 'city-captain': 'Watch captain' }),
   }),
 });
@@ -363,7 +372,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       // A wanted hero is told the price before being told they can swing.
       description: target.wantedLabel
         ? copy.guardWanted(target.wantedLabel, target.fine)
-        : copy.guardDescription,
+        : copy.guardDescription(target.id),
       icon: target.icon,
       accent: '#c9a45f',
       actions: [

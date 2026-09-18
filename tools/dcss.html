@@ -797,8 +797,35 @@
           <p id="outfit-empty" class="records-empty" hidden></p>
           <div id="outfit-rows" class="outfit-rows"></div>
           <footer class="outfit-footer">
-            <button id="outfit-start" class="outfit-start" type="button"></button>
+            <button id="outfit-start" class="outfit-start tappable" type="button"></button>
           </footer>
+          <section
+            id="outfit-detail"
+            class="outfit-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="outfit-detail-name"
+            aria-hidden="true"
+            inert
+          >
+            <article class="outfit-detail-card pixel-frame">
+              <header class="outfit-detail-head">
+                <img id="outfit-detail-icon" alt="" />
+                <div>
+                  <h3 id="outfit-detail-name"></h3>
+                  <p id="outfit-detail-kind"></p>
+                </div>
+                <b id="outfit-detail-price"></b>
+              </header>
+              <ul id="outfit-detail-effects" class="outfit-detail-effects"></ul>
+              <p id="outfit-detail-owned" class="outfit-detail-owned" hidden></p>
+              <footer class="outfit-detail-actions">
+                <button id="outfit-detail-close" class="tappable" type="button"></button>
+                <button id="outfit-detail-return" class="tappable" type="button" hidden></button>
+                <button id="outfit-detail-buy" class="tappable outfit-detail-buy" type="button"></button>
+              </footer>
+            </article>
+          </section>
         </article>
       </section>
 
