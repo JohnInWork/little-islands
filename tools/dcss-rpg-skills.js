@@ -86,6 +86,33 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       }),
     ]),
   }),
+  darkvision: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ darkvisionRank: 1, darkvisionRadiusBonus: 1 }),
+      Object.freeze({ darkvisionRank: 2, darkvisionRadiusBonus: 2 }),
+      Object.freeze({ darkvisionRank: 3, darkvisionRadiusBonus: 3 }),
+    ]),
+  }),
+  'secret-search': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ secretSearchRank: 1, secretSearchRadius: 2 }),
+      Object.freeze({ secretSearchRank: 2, secretSearchRadius: 3 }),
+      Object.freeze({ secretSearchRank: 3, secretSearchRadius: 4 }),
+    ]),
+  }),
+  stealth: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ stealthRank: 1, stealthVisionPercent: 15, stealthNoisePercent: 25 }),
+      Object.freeze({ stealthRank: 2, stealthVisionPercent: 30, stealthNoisePercent: 45 }),
+      Object.freeze({ stealthRank: 3, stealthVisionPercent: 45, stealthNoisePercent: 65 }),
+    ]),
+  }),
   daggers: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -171,6 +198,9 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 // Add a system here only when its runtime consumer is connected and verified.
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
+  'darkness-vision',
+  'secret-discovery',
+  'stealth-detection',
   'ambush-attacks',
   'backstab-attacks',
   'armor-break',
@@ -219,6 +249,13 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   axeCleaveOneHandTargets: Object.freeze([0, 2]),
   shieldBlockChancePercent: Object.freeze([0, 100]),
   shieldBlockStunMs: Object.freeze([0, 10_000]),
+  darkvisionRank: Object.freeze([0, 3]),
+  darkvisionRadiusBonus: Object.freeze([0, 6]),
+  secretSearchRank: Object.freeze([0, 3]),
+  secretSearchRadius: Object.freeze([0, 8]),
+  stealthRank: Object.freeze([0, 3]),
+  stealthVisionPercent: Object.freeze([0, 60]),
+  stealthNoisePercent: Object.freeze([0, 80]),
   daggerRank: Object.freeze([0, 3]),
   daggerAmbushPercent: Object.freeze([0, 200]),
   daggerBackstabPercent: Object.freeze([0, 200]),

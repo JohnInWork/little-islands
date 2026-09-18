@@ -26,10 +26,13 @@ test('production menu exposes implemented trap skills, with no empty categories'
   assert.equal(model.groups.length, 3);
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
     'trap-sense',
+    'darkvision',
+    'secret-search',
     'trap-disarming',
     'lockpicking',
     'trap-setting',
     'appraisal',
+    'stealth',
     'daggers',
     'swords',
     'axes',

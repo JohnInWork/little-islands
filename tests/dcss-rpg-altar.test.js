@@ -75,7 +75,7 @@ test('the altar is a landmark: catalog, themed skins and bundled assets', async 
   assert.equal(altar.wave, 'landmark');
   assert.deepEqual(LANDMARK_CATALOG.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
   assert.equal(CORE_FIND_CATALOG.length, 3);
-  assert.equal(MAX_FINDS_PER_FLOOR, 4);
+  assert.equal(MAX_FINDS_PER_FLOOR, 5);
   assert.deepEqual(altar.outcomes.map(({ id }) => id), ['pray', 'offer', 'plunder']);
   assert.ok(Object.isFrozen(altar.outcomes));
   for (const themeId of ['ashen-vault', 'buried-sanctum', 'frozen-depths', 'infernal-core']) {
@@ -406,7 +406,7 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   const { dungeon, find, seed } = altarFixture(314, 1);
   const run = createRun(seed, dungeon);
   run.floor.resolvedFindIds = dungeon.finds.map(({ instanceId }) => instanceId);
-  assert.equal(run.floor.resolvedFindIds.length, MAX_FINDS_PER_FLOOR);
+  assert.ok(run.floor.resolvedFindIds.length <= MAX_FINDS_PER_FLOOR);
   assert.equal(validateRun(run), true);
   const hydrated = hydrateDungeon(run);
   assert.equal(hydrated.finds.find(({ instanceId }) => instanceId === find.instanceId).resolved, true);

@@ -41,9 +41,11 @@ test('each floor deterministically places one of every first-wave find without o
     assert.deepEqual(first.finds, second.finds);
     const coreIds = first.finds.slice(0, CORE_FIND_CATALOG.length).map(({ id }) => id);
     assert.deepEqual([...coreIds].sort(), [...CORE_FIND_CATALOG.map(({ id }) => id)].sort());
-    const landmarkIds = first.finds.slice(CORE_FIND_CATALOG.length).map(({ id }) => id);
+    // Past the core wave come the landmark and the hidden stash, in that order.
+    const extraIds = first.finds.slice(CORE_FIND_CATALOG.length).map(({ id }) => id);
+    const landmarkIds = extraIds.filter((id) => LANDMARK_CATALOG.some((entry) => entry.id === id));
     assert.ok(first.finds.length <= MAX_FINDS_PER_FLOOR);
-    assert.ok(landmarkIds.every((id) => LANDMARK_CATALOG.some((entry) => entry.id === id)));
+    assert.ok(extraIds.every((id) => LANDMARK_CATALOG.some((entry) => entry.id === id) || id === 'buried-stash'));
     // Only a chapter-end floor without a spare alcove lets the merchant reclaim
     // the landmark room; every other floor keeps its landmark.
     if (landmarkIds.length === 0) assert.equal(first.merchants.length, 1);

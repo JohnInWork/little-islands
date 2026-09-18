@@ -147,7 +147,9 @@ test('the generator floods a rare room with its own stream and seats water creat
       // into the pool, so compare the core wave and the landmark count separately.
       assert.deepEqual(level.finds.slice(0, 3).map(({ id }) => id), dry.finds.slice(0, 3).map(({ id }) => id));
       assert.deepEqual(level.finds.slice(0, 3).map(({ instanceId }) => instanceId), dry.finds.slice(0, 3).map(({ instanceId }) => instanceId));
-      assert.equal(level.finds.length, dry.finds.length);
+      // A flooded floor can lose the hidden stash: the fountain takes the pool
+      // room and the remaining free rooms differ, so only the core wave is fixed.
+      assert.ok(Math.abs(level.finds.length - dry.finds.length) <= 1);
       // The pool is still walkable and see-through for everyone.
       const cell = water[0];
       assert.equal(isWalkableCell(level.grid, cell.x, cell.y), true);

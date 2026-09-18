@@ -33,7 +33,8 @@ const defineFind = (definition) =>
 /** Three core finds share one stream; landmarks use a second one. */
 export const CORE_FINDS_PER_FLOOR = 3;
 export const LANDMARKS_PER_FLOOR = 1;
-export const MAX_FINDS_PER_FLOOR = CORE_FINDS_PER_FLOOR + LANDMARKS_PER_FLOOR;
+export const SECRETS_PER_FLOOR = 1;
+export const MAX_FINDS_PER_FLOOR = CORE_FINDS_PER_FLOOR + LANDMARKS_PER_FLOOR + SECRETS_PER_FLOOR;
 
 /**
  * Landmark outcomes are plain numbers rolled once at generation. The generic
@@ -331,6 +332,31 @@ export const FIND_CATALOG = Object.freeze([
       },
     },
   }),
+  defineFind({
+    // A secret is content behind a skill: nothing marks the tile, and a hero
+    // without Secret search simply walks past the loose flagstone forever.
+    id: 'buried-stash',
+    category: 'useful',
+    wave: 'secret',
+    path: 'item/gold/07.png',
+    size: 58,
+    screenOffsetY: -4,
+    color: '#d8bf68',
+    glyph: '\u25c7',
+    light: Object.freeze({ color: '#d0b45e', radius: 1.4, beam: false }),
+    copy: {
+      ru: {
+        name: 'Тайник под плитой',
+        action: 'Раскопать тайник',
+        result: 'Тайник раскопан',
+      },
+      en: {
+        name: 'Stash under the flagstone',
+        action: 'Dig out the stash',
+        result: 'The stash was dug out',
+      },
+    },
+  }),
 ]);
 
 const FINDS_BY_ID = new Map(FIND_CATALOG.map((definition) => [definition.id, definition]));
@@ -345,6 +371,13 @@ export const CORE_FIND_CATALOG = Object.freeze(
 export const LANDMARK_CATALOG = Object.freeze(
   FIND_CATALOG.filter(({ wave }) => wave === 'landmark'),
 );
+export const SECRET_CATALOG = Object.freeze(
+  FIND_CATALOG.filter(({ wave }) => wave === 'secret'),
+);
+
+export function isSecretFind(find) {
+  return findById(find?.id)?.wave === 'secret';
+}
 
 export const FIND_ASSET_PATHS = Object.freeze([
   ...new Set([
@@ -425,6 +458,10 @@ function outcomeFor(definition, depth, rng) {
       riskDamage: 8 + depth * 4 + rng.int(0, 3),
     };
   }
+  if (definition.id === 'buried-stash') {
+    // Free money, but only for a hero who spent a point on noticing it.
+    return { rewardGold: 14 + depth * 5 + rng.int(0, 6), rewardPower: 0, riskDamage: 0 };
+  }
   return { rewardGold: 5 + depth * 2 + rng.int(0, 4), rewardPower: 0, riskDamage: 0 };
 }
 
@@ -451,6 +488,36 @@ function landmarkOutcomes(definition, depth, rng) {
   return Object.fromEntries(
     definition.outcomes.map((outcome) => [outcome.id, outcome.roll(depth, rng)]),
   );
+}
+
+/**
+ * A hidden stash takes the last free room from its own stream, after the core
+ * finds and the landmark. It is worth nothing to a hero who cannot see it, so
+ * adding it never changes a floor for anyone else.
+ */
+function placeSecrets({ level, rng, roomEntries, occupied, avoided, usedRooms }) {
+  if (!isSeededRng(rng) || SECRET_CATALOG.length === 0) return [];
+  const rooms = shuffle(rng, roomEntries.filter(({ roomIndex }) => !usedRooms.has(roomIndex)));
+  const blueprints = shuffle(rng, [...SECRET_CATALOG]);
+  const targetCount = Math.min(SECRETS_PER_FLOOR, rooms.length, blueprints.length);
+  const secrets = [];
+  for (const { room, roomIndex } of rooms) {
+    if (secrets.length >= targetCount) break;
+    const candidates = shuffle(rng, roomFindCells(level, room, occupied, avoided));
+    const cell = candidates[0];
+    if (!cell) continue;
+    const definition = blueprints[secrets.length];
+    occupied.add(`${cell.x},${cell.y}`);
+    secrets.push({
+      instanceId: `find-${level.depth}-${roomIndex}`,
+      id: definition.id,
+      roomIndex,
+      x: cell.x,
+      y: cell.y,
+      ...outcomeFor(definition, level.depth, rng),
+    });
+  }
+  return secrets;
 }
 
 /**
@@ -502,6 +569,7 @@ export function createDungeonFinds({
   level,
   rng,
   landmarkRng = null,
+  secretRng = null,
   occupiedCells = [],
   avoidCells = [],
 }) {
@@ -546,15 +614,24 @@ export function createDungeonFinds({
         : {}),
     });
   }
+  const landmarks = placeLandmarks({
+    level,
+    rng: landmarkRng,
+    roomEntries,
+    occupied,
+    avoided,
+    usedRooms: new Set(finds.map(({ roomIndex }) => roomIndex)),
+  });
   return [
     ...finds,
-    ...placeLandmarks({
+    ...landmarks,
+    ...placeSecrets({
       level,
-      rng: landmarkRng,
+      rng: secretRng,
       roomEntries,
       occupied,
       avoided,
-      usedRooms: new Set(finds.map(({ roomIndex }) => roomIndex)),
+      usedRooms: new Set([...finds, ...landmarks].map(({ roomIndex }) => roomIndex)),
     }),
   ];
 }
@@ -844,14 +921,18 @@ export function resolveFindInteraction({
       actor,
     });
   }
-  const resolvedAction = action ?? (
-    find.id === 'crystal-vein' ? 'extract' : 'defile'
-  );
+  const defaultActions = {
+    'crystal-vein': 'extract',
+    'forgotten-grave': 'defile',
+    'buried-stash': 'dig',
+  };
   const allowedActions = {
     'crystal-vein': ['extract'],
     'forgotten-grave': ['defile'],
+    'buried-stash': ['dig'],
   };
-  if (!allowedActions[find.id].includes(resolvedAction)) return rejected('action');
+  const resolvedAction = action ?? defaultActions[find.id] ?? 'defile';
+  if (!allowedActions[find.id]?.includes(resolvedAction)) return rejected('action');
   if (find.riskDamage > 0 && hero.hp <= find.riskDamage) return rejected('unsafe');
 
   const damage = Math.max(0, Math.min(find.riskDamage, hero.hp - 1));

@@ -835,6 +835,7 @@ export function generateDungeon({
   // move the three core finds of an already saved floor.
   const findRng = createRng(mixSeed(floorSeed, 0x46494e44));
   const landmarkRng = createRng(mixSeed(floorSeed, 0x4c414e44));
+  const secretRng = createRng(mixSeed(floorSeed, 0x53454352));
   const finds = createDungeonFinds({
     level: {
       seed: floorSeed,
@@ -846,6 +847,7 @@ export function generateDungeon({
     },
     rng: findRng,
     landmarkRng,
+    secretRng,
     occupiedCells: occupied,
     avoidCells: route.map(({ x, y }) => `${x},${y}`),
   });

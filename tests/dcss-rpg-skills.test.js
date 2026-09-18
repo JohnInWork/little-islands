@@ -47,11 +47,13 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
+    'darkvision', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
-    'trap-detection', 'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
+    'trap-detection', 'darkness-vision', 'secret-discovery', 'stealth-detection',
+    'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
     'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'fire-spread', 'frost-buildup', 'chain-lightning',
@@ -185,6 +187,9 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
+    darkvisionRank: 0, darkvisionRadiusBonus: 0,
+    secretSearchRank: 0, secretSearchRadius: 0,
+    stealthRank: 0, stealthVisionPercent: 0, stealthNoisePercent: 0,
     daggerRank: 0, daggerAmbushPercent: 0, daggerBackstabPercent: 0,
     bluntRank: 0, bluntArmorBreakPercent: 0, bluntArmorBreakSeconds: 0, bluntInterruptStunMs: 0,
     spearRank: 0, spearInterceptPercent: 0, spearHoldMs: 0, spearInterceptCooldownMs: 0,

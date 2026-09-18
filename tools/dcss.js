@@ -136,6 +136,7 @@ import {
   findPresentation,
   findResultPresentation,
   findSkinPath,
+  isSecretFind,
   resolveFindInteraction,
 } from './dcss-rpg-finds.js';
 import { contextActionModel } from './dcss-rpg-context-actions.js';
@@ -169,6 +170,16 @@ import {
   selectPiercedTargets,
 } from './dcss-rpg-marksmanship.js';
 import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
+import {
+  darkvisionProfile,
+  discoverSecrets,
+  heroRevealRadius,
+  heroSightRadius,
+  secretSearchProfile,
+  stealthNoiseRadius,
+  stealthProfile,
+  stealthVisionRadius,
+} from './dcss-rpg-scouting.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -785,6 +796,8 @@ let swordRhythmState = createSwordRhythmState();
 // Weapon-technique transients: how long the hero has stood still for an aimed
 // shot, and how long a dodge still speeds them up. Neither belongs in the save.
 let heroSteadySeconds = 0;
+// Secrets in reach of Secret search right now; a hidden stash has no save state.
+const visibleSecretIds = new Set();
 let heroDodgeBoost = 0;
 
 let viewportWidth = innerWidth;
@@ -1503,6 +1516,53 @@ function currentMarksmanProfile() {
 
 function currentMobilityProfile() {
   return mobilityProfile(currentSkillCapabilities());
+}
+
+function currentDarkvisionProfile() {
+  return darkvisionProfile(currentSkillCapabilities());
+}
+
+function currentStealthProfile() {
+  return stealthProfile(currentSkillCapabilities());
+}
+
+function currentSecretSearchProfile() {
+  return secretSearchProfile(currentSkillCapabilities());
+}
+
+/** A secret shows itself only while a hero who can notice it stands near. */
+function findIsVisible(find) {
+  return !isSecretFind(find) || visibleSecretIds.has(find.instanceId);
+}
+
+function refreshVisibleSecrets() {
+  const secrets = findDefinitions.filter((find) => isSecretFind(find) && !find.resolved);
+  if (secrets.length === 0) {
+    if (visibleSecretIds.size > 0) visibleSecretIds.clear();
+    return;
+  }
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const within = new Set(discoverSecrets({
+    profile: currentSecretSearchProfile(),
+    hero: heroCell,
+    secrets: secrets.map((find) => ({
+      instanceId: find.instanceId,
+      x: Math.floor(find.x / TILE),
+      y: Math.floor(find.y / TILE),
+    })),
+  }));
+  for (const id of visibleSecretIds) {
+    if (!within.has(id)) visibleSecretIds.delete(id);
+  }
+  for (const id of within) {
+    if (visibleSecretIds.has(id)) continue;
+    visibleSecretIds.add(id);
+    const find = secrets.find(({ instanceId }) => instanceId === id);
+    if (!find) continue;
+    burst(find.x, find.y - 6, '#d8bf68', 14);
+    addCombatGlyph(find.x, find.y, '\u25c7', '#e6d79a', -54);
+    playSound('ui-tap');
+  }
 }
 
 function combatTempo(cooldown) {
@@ -2229,7 +2289,7 @@ function canActorsMelee(attacker, target) {
 
 function monsterSeesHero(monster, distanceToHero) {
   if (isHeroConcealed()) return false;
-  if (distanceToHero > TILE * monster.vision) return false;
+  if (distanceToHero > TILE * stealthVisionRadius(monster.vision, currentStealthProfile())) return false;
   const from = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
   const to = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return hasLineOfSight(world, from, to);
@@ -2252,7 +2312,8 @@ function canHeroAttack(monster, combat) {
 function isCurrentlyVisible(x, y) {
   const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const to = { x: Math.floor(x / TILE), y: Math.floor(y / TILE) };
-  return Math.hypot(to.x - from.x, to.y - from.y) <= 5.2 && hasLineOfSight(world, from, to);
+  return Math.hypot(to.x - from.x, to.y - from.y) <= heroSightRadius(currentDarkvisionProfile())
+    && hasLineOfSight(world, from, to);
 }
 
 function findPath(
@@ -2326,6 +2387,7 @@ function heroBlockingCells() {
 function blockingFindCells() {
   return new Set(
     findDefinitions
+      .filter(findIsVisible)
       .filter(
         (find) => !find.resolved || (find.id !== 'crystal-vein' && !find.consumedByMimic),
       )
@@ -2941,6 +3003,7 @@ function syncWorldActors3D() {
           shadowOpacity: 0.3,
         })),
       ...findDefinitions
+        .filter(findIsVisible)
         .filter(({ x, y }) =>
           revealed.has(`${Math.floor(x / TILE)},${Math.floor(y / TILE)}`),
         )
@@ -4138,6 +4201,7 @@ function atmosphereLightSources() {
         beam: decoration.light.beam,
       })),
     ...findDefinitions
+      .filter(findIsVisible)
       .filter(({ resolved, definition }) => !resolved && definition.light)
       .map((find) => ({
         id: `find-light:${find.instanceId}`,
@@ -5030,6 +5094,7 @@ function nearbyFind() {
   if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return findDefinitions
+    .filter(findIsVisible)
     .filter(
       (find) =>
         findIsInteractable(find) &&
@@ -5248,10 +5313,13 @@ function interactNearbyFind(preferredFind = null, action = null) {
 
 function alertNearbyMonsters(x, y, radiusInTiles) {
   if (!Number.isFinite(radiusInTiles) || radiusInTiles <= 0) return 0;
+  // Every deed here is the hero's, so stealth muffles all of them.
+  const heard = stealthNoiseRadius(radiusInTiles, currentStealthProfile());
+  if (heard <= 0) return 0;
   let alertedCount = 0;
   for (const monster of monsters) {
-    if (monster.dead > 0 || Math.hypot(monster.x - x, monster.y - y) > radiusInTiles * TILE) continue;
-    monster.alerted = Math.max(monster.alerted, monster.pursuit + radiusInTiles);
+    if (monster.dead > 0 || Math.hypot(monster.x - x, monster.y - y) > heard * TILE) continue;
+    monster.alerted = Math.max(monster.alerted, monster.pursuit + heard);
     monster.route = [];
     monster.repathCooldown = 0;
     monster.alertFlash = Math.max(monster.alertFlash, 0.24);
@@ -6501,7 +6569,7 @@ function currentFloorMapMarkers() {
       x: door.x,
       y: door.y,
     })),
-    ...findDefinitions.map((find) => ({
+    ...findDefinitions.filter(findIsVisible).map((find) => ({
       kind: FLOOR_MAP_FIND_KINDS[find.id] ?? 'chest',
       ...gridOf(find),
       muted: find.resolved === true,
@@ -6895,7 +6963,7 @@ function trapPlacementBlockedCells() {
   const blocked = new Set(heroBlockingCells());
   for (const door of doorDefinitions) blocked.add(`${door.x},${door.y}`);
   for (const find of findDefinitions) {
-    if (!find.resolved) blocked.add(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`);
+    if (!find.resolved && findIsVisible(find)) blocked.add(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`);
   }
   for (const event of eventDefinitions) {
     if (event.id === 'blade-trap' && !detectedTrapIds.has(event.instanceId)) continue;
@@ -7088,7 +7156,7 @@ function performTrapPlacement(x, y) {
 function blinkBlockedCells() {
   const blocked = new Set(heroBlockingCells());
   for (const find of findDefinitions) {
-    if (!find.resolved) blocked.add(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`);
+    if (!find.resolved && findIsVisible(find)) blocked.add(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`);
   }
   for (const event of eventDefinitions) {
     blocked.add(`${Math.floor(event.x / TILE)},${Math.floor(event.y / TILE)}`);
@@ -7352,7 +7420,7 @@ function performBlinkTarget(target) {
   hero.path = [];
   camera.x = hero.x;
   camera.y = hero.y;
-  revealAround(revealed, world, result.hero, 4);
+  revealAround(revealed, world, result.hero, heroRevealRadius(currentDarkvisionProfile()));
   lastHeroCell = `${result.hero.x},${result.hero.y}`;
   playerHasActed = true;
   closeAbilityTargeting({ returnToSource: false });
@@ -8478,7 +8546,7 @@ function resolveWorldInteractions() {
   const heroCellKey = `${heroCell.x},${heroCell.y}`;
   if (heroCellKey !== lastHeroCell) {
     lastHeroCell = heroCellKey;
-    if (revealAround(revealed, world, heroCell, 4)) persistRun();
+    if (revealAround(revealed, world, heroCell, heroRevealRadius(currentDarkvisionProfile()))) persistRun();
     discoverNearbyTraps();
     updateSanctuaryUi();
     updateInteractionUi();
@@ -8692,6 +8760,7 @@ function replaceFloor(nextDepth) {
   lootDefinitions = createLootDefinitions(dungeon);
   eventDefinitions = createEventDefinitions(dungeon);
   findDefinitions = createFindDefinitions(dungeon);
+  visibleSecretIds.clear();
   trapDefinitions = trapsFromDungeon(dungeon);
   placedTraps = [];
   detectedTrapIds = new Set();
@@ -9161,6 +9230,7 @@ function updatePassiveCreatures(delta) {
 function updateWorld(delta) {
   updateDoorOpening(delta);
   updateHeroTerrain();
+  refreshVisibleSecrets();
   const cryomancyRank = typeof currentSkillCapabilities === 'function'
     ? currentSkillCapabilities().cryomancyRank ?? 0
     : 0;
