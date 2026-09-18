@@ -1,8 +1,15 @@
 /**
- * A bow rewards stillness. Standing for a moment loads an aimed shot, and from
- * the second rank the arrow keeps going through the body it finds. The hero has
- * to choose between kiting and hitting hard, which is the whole point of a bow.
+ * Shooting rewards stillness. Standing for a moment loads an aimed shot, and
+ * from the second rank the arrow keeps going through the body it finds. The
+ * hero has to choose between kiting and hitting hard, which is the whole point
+ * of a ranged weapon.
+ *
+ * The skill answers to every family that shoots — bow, crossbow and sling. What
+ * each of them makes of an aimed shot is the weapon's business, not the skill's:
+ * that lives in `dcss-rpg-ranged.js`.
  */
+
+import { isRangedWeapon } from './dcss-rpg-ranged.js';
 
 export const BOW_FAMILY = 'bow';
 
@@ -16,7 +23,7 @@ function boundedInteger(value, min, max) {
 }
 
 export function marksmanProfile(weapon, capabilities = {}) {
-  if (weapon?.weaponFamily !== BOW_FAMILY) return EMPTY_PROFILE;
+  if (!isRangedWeapon(weapon)) return EMPTY_PROFILE;
   const rank = boundedInteger(capabilities.marksmanRank, 0, 3);
   const aimMs = boundedInteger(capabilities.marksmanAimMs, 0, 10_000);
   const aimBonusPercent = boundedInteger(capabilities.marksmanAimBonusPercent, 0, 200);

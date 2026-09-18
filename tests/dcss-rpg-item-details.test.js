@@ -8,8 +8,17 @@ import {
   itemStatComparison,
 } from '../tools/dcss-rpg-item-details.js';
 
+test('a Russian name is written, never fabricated from the item id', () => {
+  // The fallback turns 'hand-crossbow' into 'Hand Crossbow' and passes every
+  // length check, so a forgotten translation used to ship looking finished.
+  for (const item of LOOT_CATALOG) {
+    const name = itemDetails(item, 'ru').name;
+    assert.match(name, /[\u0410-\u044f\u0401\u0451]/, `${item.id} has no Russian name`);
+  }
+});
+
 test('every inventory item has complete readable details in Russian and English', () => {
-  assert.equal(LOOT_CATALOG.length, 104);
+  assert.equal(LOOT_CATALOG.length, 112);
   assert.deepEqual(itemDetailLanguages, ['ru', 'en']);
   for (const item of LOOT_CATALOG) {
     for (const language of itemDetailLanguages) {

@@ -67,6 +67,30 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/weapon/ranged/hand_crossbow.png',
     layer: 'player/hand1/hand_crossbow.png',
   }),
+  arbalest: Object.freeze({
+    icon: 'item/weapon/ranged/arbalest1.png',
+    layer: 'player/hand1/arbalest_two.png',
+  }),
+  'hand-crossbow': Object.freeze({
+    icon: 'item/weapon/ranged/hand_crossbow2.png',
+    layer: 'player/hand1/hand_crossbow.png',
+  }),
+  sling: Object.freeze({
+    icon: 'item/weapon/ranged/sling1.png',
+    layer: 'player/hand1/sling.png',
+  }),
+  greatsling: Object.freeze({
+    icon: 'item/weapon/ranged/greatsling.png',
+    layer: 'player/hand1/greatsling.png',
+  }),
+  bullwhip: Object.freeze({
+    icon: 'item/weapon/bullwhip.png',
+    layer: 'player/hand1/whip.png',
+  }),
+  'barbed-whip': Object.freeze({
+    icon: 'item/weapon/bullwhip3.png',
+    layer: 'player/hand1/whip2.png',
+  }),
   'long-sword': Object.freeze({
     icon: 'item/weapon/long_sword1.png',
     layer: 'player/hand1/long_sword_slant2.png',
@@ -89,6 +113,12 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'executioner-axe': Object.freeze({
     icon: 'item/weapon/hand_axe1.png', layer: 'player/hand1/axe_executioner2.png',
+  }),
+  'apprentice-staff': Object.freeze({
+    icon: 'item/staff/staff01.png', layer: 'player/hand1/quarterstaff.png',
+  }),
+  'channeling-staff': Object.freeze({
+    icon: 'item/staff/i-staff_channeling.png', layer: 'player/hand1/staff_mage.png',
   }),
   'skull-staff': Object.freeze({
     icon: 'item/staff/staff00.png', layer: 'player/hand1/staff_skull.png',

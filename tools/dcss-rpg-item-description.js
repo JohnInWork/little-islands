@@ -4,7 +4,7 @@ import { artifactCurseById, artifactCursePresentation } from './dcss-rpg-artifac
 import { INVISIBILITY_REVEAL_SECONDS, VAMPIRISM_RATIO } from './dcss-rpg-magic.js';
 import { spellById } from './dcss-rpg-spells.js';
 
-export const ITEM_DESCRIPTION_VERSION = 3;
+export const ITEM_DESCRIPTION_VERSION = 4;
 
 const freezeFact = (fact) => Object.freeze(fact);
 const locale = (requested) => requested === 'en' ? 'en' : 'ru';
@@ -86,6 +86,9 @@ const WEAPON_TYPES = Object.freeze({
     spear: Object.freeze({ 1: 'Одноручное древковое', 2: 'Двуручное древковое' }),
     blunt: Object.freeze({ 1: 'Одноручное тяжёлое', 2: 'Двуручное тяжёлое' }),
     bow: Object.freeze({ 1: 'Одноручный лук', 2: 'Двуручный лук' }),
+    crossbow: Object.freeze({ 1: 'Ручной арбалет', 2: 'Двуручный арбалет' }),
+    sling: Object.freeze({ 1: 'Праща', 2: 'Двуручная праща' }),
+    whip: Object.freeze({ 1: 'Кнут', 2: 'Двуручный кнут' }),
   }),
   en: Object.freeze({
     dagger: Object.freeze({ 1: 'One-handed blade', 2: 'Two-handed blade' }),
@@ -95,6 +98,9 @@ const WEAPON_TYPES = Object.freeze({
     spear: Object.freeze({ 1: 'One-handed polearm', 2: 'Two-handed polearm' }),
     blunt: Object.freeze({ 1: 'One-handed heavy weapon', 2: 'Two-handed heavy weapon' }),
     bow: Object.freeze({ 1: 'One-handed bow', 2: 'Two-handed bow' }),
+    crossbow: Object.freeze({ 1: 'Hand crossbow', 2: 'Two-handed crossbow' }),
+    sling: Object.freeze({ 1: 'Sling', 2: 'Two-handed sling' }),
+    whip: Object.freeze({ 1: 'Whip', 2: 'Two-handed whip' }),
   }),
 });
 
@@ -107,6 +113,10 @@ const COPY = Object.freeze({
     range: 'Дальность',
     guard: 'Блок урона',
     projectile: 'Снаряд',
+    familyWhip: 'Рывок: притягивает на клетку',
+    familyBow: 'Прицел и прошивание насквозь',
+    familyCrossbow: 'Долгий прицел, но болт вязнет в теле',
+    familySling: 'Камень сбивает врага с шага',
     tempoFast: 'Быстрый темп',
     tempoBalanced: 'Средний темп',
     tempoHeavy: 'Тяжёлый темп',
@@ -155,6 +165,10 @@ const COPY = Object.freeze({
     range: 'Range',
     guard: 'Damage block',
     projectile: 'Projectile',
+    familyWhip: 'Yank: pulls the target one cell closer',
+    familyBow: 'Aims, and the arrow goes through',
+    familyCrossbow: 'A longer aim, but the bolt stops in the body',
+    familySling: 'The stone breaks the enemy\u2019s step',
     tempoFast: 'Fast tempo',
     tempoBalanced: 'Balanced tempo',
     tempoHeavy: 'Heavy tempo',
@@ -242,10 +256,39 @@ function combatFacts(item, language) {
       : COPY[language].tempoHeavy;
   const projectile = item.combat.projectile ? ` · ${COPY[language].projectile}` : '';
   const text = `${COPY[language].range}: ${item.combat.range} · ${tempo}${projectile}`;
+  return [
+    freezeFact({
+      id: 'combat:profile',
+      kind: 'combat',
+      icon: item.combat.projectile === 'arrow' ? '➶' : item.combat.projectile ? '✦' : '⚔',
+      text,
+      short: text,
+    }),
+    ...familyFacts(item, language),
+  ];
+}
+
+/**
+ * Two weapons can share a range and a tempo and still play nothing alike. The
+ * family is what tells them apart, so it gets a line of its own.
+ */
+const FAMILY_COPY_KEYS = Object.freeze({
+  whip: 'familyWhip',
+  bow: 'familyBow',
+  crossbow: 'familyCrossbow',
+  sling: 'familySling',
+});
+
+const FAMILY_ICONS = Object.freeze({ whip: '↰', bow: '➶', crossbow: '➵', sling: '◍' });
+
+function familyFacts(item, language) {
+  const key = FAMILY_COPY_KEYS[item.weaponFamily];
+  if (!key) return [];
+  const text = COPY[language][key];
   return [freezeFact({
-    id: 'combat:profile',
+    id: `combat:family:${item.weaponFamily}`,
     kind: 'combat',
-    icon: item.combat.projectile === 'arrow' ? '➶' : item.combat.projectile ? '✦' : '⚔',
+    icon: FAMILY_ICONS[item.weaponFamily],
     text,
     short: text,
   })];

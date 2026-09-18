@@ -23,7 +23,7 @@ import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-haza
 import { createActorEffects, tickActorEffects } from '../tools/dcss-rpg-effects.js';
 import {
   HERO_BASE_MOVE_SPEED, MONSTER_MIN_SEPARATION, canMeleeAttack, canMonsterAdvance,
-  canWeaponAttack, combatDamage, monsterCellKey, occupiedMonsterCells, weaponCombatProfile,
+  canWeaponAttack, REACH_STYLES, combatDamage, monsterCellKey, occupiedMonsterCells, weaponCombatProfile,
 } from '../tools/dcss-rpg-rules.js';
 
 const TILE = 64;
@@ -127,7 +127,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     blockingActorCells, canActorsMeleeContact, constrainActorMovement, meleeApproachPoint,
     chooseCrowdPressureStep,
     monsterCellKey, occupiedMonsterCells,
-    canMonsterAdvance, canMeleeAttack, canWeaponAttack, findGridPath, hasLineOfSight,
+    canMonsterAdvance, canMeleeAttack, canWeaponAttack, REACH_STYLES, findGridPath, hasLineOfSight,
     hazardMoveIntent, createHazardInputState, attackCrossedContact, combatDamage, combatImpactProfile,
     axeCleaveDamage, selectAxeCleaveTargets,
     createSwordRhythmState, resolveSwordRhythmStrike, swordRhythmSource,

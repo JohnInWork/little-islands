@@ -5,6 +5,8 @@ const CONTACT_RATIOS = Object.freeze({
   spear: 0.5,
   staff: 0.6,
   bow: 0.62,
+  // A whip lands late: the lash has to travel before it bites.
+  whip: 0.66,
 });
 
 const LUNGE_PIXELS = Object.freeze({
@@ -14,6 +16,8 @@ const LUNGE_PIXELS = Object.freeze({
   spear: 11,
   staff: 3,
   bow: 2,
+  // The arm stays put; it is the lash that goes out.
+  whip: 5,
 });
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
@@ -81,6 +85,21 @@ export function heroAttackTrail(style, progress, cleaveRank = 0) {
         size: index < 2 ? 4 : 3,
         alpha: 0.34 + index * 0.11,
       })),
+    );
+  }
+  if (style === 'whip') {
+    // One long lash that bends: far points lead, near points trail behind.
+    return Object.freeze(
+      Array.from({ length: 7 }, (_, index) => {
+        const along = index / 6;
+        const bend = Math.sin(along * Math.PI) * (10 - phase * 6);
+        return Object.freeze({
+          x: 18 + along * 46,
+          y: bend * (phase < 0.5 ? 1 : -1),
+          size: index < 3 ? 4 : 3,
+          alpha: Math.max(0.2, 0.82 - index * 0.09),
+        });
+      }),
     );
   }
   if (style === 'staff' || style === 'bow') {

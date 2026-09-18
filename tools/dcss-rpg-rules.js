@@ -26,7 +26,15 @@ export const WEAPON_FAMILIES = Object.freeze([
   'spear',
   'staff',
   'bow',
+  // A crossbow is not a bow, a sling is not a crossbow, and a whip is none of
+  // them: each family is its own cadence, and the techniques read the family.
+  'crossbow',
+  'sling',
+  'whip',
 ]);
+
+/** Everything that shoots. Marksmanship answers to all of it. */
+export const RANGED_WEAPON_FAMILIES = Object.freeze(['bow', 'crossbow', 'sling']);
 
 export const WEAPON_LOADOUTS = Object.freeze([
   'unarmed',
@@ -355,6 +363,9 @@ export function canMonsterAdvance({
   return true;
 }
 
+/** Styles that strike further than arm's length without becoming a projectile. */
+export const REACH_STYLES = Object.freeze(['spear', 'whip']);
+
 export function canWeaponAttack(grid, attacker, target, combat, lineOfSight = true) {
   const from = { x: Math.floor(attacker.x), y: Math.floor(attacker.y) };
   const to = { x: Math.floor(target.x), y: Math.floor(target.y) };
@@ -364,7 +375,8 @@ export function canWeaponAttack(grid, attacker, target, combat, lineOfSight = tr
     const distance = Math.hypot(to.x - from.x, to.y - from.y);
     return distance > 0 && distance <= combat.range && lineOfSight;
   }
-  if (combat?.style !== 'spear') return canMeleeAttack(grid, attacker, target);
+  // A spear and a whip both reach past the next cell, down a clear lane.
+  if (!REACH_STYLES.includes(combat?.style)) return canMeleeAttack(grid, attacker, target);
 
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -491,7 +503,7 @@ export function assertEquipmentCatalog(items) {
         !WEAPON_FAMILIES.includes(item.weaponFamily) ||
         ![1, 2].includes(item.hands) ||
         !combat ||
-        !['blade', 'heavy', 'spear', 'staff', 'bow'].includes(combat.style) ||
+        !['blade', 'heavy', 'spear', 'staff', 'bow', 'whip'].includes(combat.style) ||
         !['range', 'cooldown', 'attackDuration', 'damageScale'].every(
           (key) => Number.isFinite(combat[key]) && combat[key] > 0,
         )

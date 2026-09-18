@@ -31,6 +31,7 @@ import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
   canWeaponAttack,
+  REACH_STYLES,
   combatDamage,
   createMonsterStates,
   deriveHeroStats,
@@ -181,6 +182,8 @@ import {
   resolveMarksmanShot,
   selectPiercedTargets,
 } from './dcss-rpg-marksmanship.js';
+import { resolveRangedShot } from './dcss-rpg-ranged.js';
+import { whipCopy, whipPull } from './dcss-rpg-whips.js';
 import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
 import {
   darkvisionProfile,
@@ -3376,7 +3379,7 @@ function monsterSeesHero(monster, distanceToHero) {
 
 function canHeroAttack(monster, combat) {
   if (!isCurrentlyVisible(monster.x, monster.y)) return false;
-  if (!combat.projectile && combat.style !== 'spear' && !canActorsMelee(hero, monster)) return false;
+  if (!combat.projectile && !REACH_STYLES.includes(combat.style) && !canActorsMelee(hero, monster)) return false;
   const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const to = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
   return canWeaponAttack(
@@ -4459,6 +4462,26 @@ function drawProjectiles() {
       context.globalAlpha = Math.min(1, projectile.life * 3);
       context.fillRect(-13, -2, 24, 4);
       context.fillRect(7, -5, 5, 10);
+    } else if (projectile.kind === 'bolt') {
+      // Shorter and thicker than an arrow, with a steel head and no fletching.
+      context.globalAlpha *= 0.26;
+      context.fillRect(-20, -1, 9, 2);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.fillStyle = '#6b5a45';
+      context.fillRect(-10, -3, 17, 6);
+      context.fillStyle = '#cdd6dd';
+      context.fillRect(5, -4, 7, 8);
+      context.fillRect(10, -2, 4, 4);
+    } else if (projectile.kind === 'stone') {
+      // A tumbling pebble: no point, no direction, just mass going forward.
+      context.globalAlpha *= 0.24;
+      context.fillRect(-18, -3, 8, 6);
+      context.globalAlpha = Math.min(1, projectile.life * 3);
+      context.rotate(elapsed * 11);
+      context.fillStyle = '#8d8579';
+      context.fillRect(-5, -5, 10, 10);
+      context.fillStyle = '#b3aa9b';
+      context.fillRect(-3, -3, 5, 5);
     } else if (projectile.kind === 'ember-bolt') {
       context.globalAlpha *= 0.22;
       context.fillStyle = '#7d3024';
@@ -10054,6 +10077,41 @@ function triggerPlacedTrapForMonster(monster) {
   return true;
 }
 
+let whipRefusalAt = -Infinity;
+
+/**
+ * The lash landed; now the target comes a cell closer. The pure rule decides
+ * whether and where; this only asks the world whether that cell is empty and
+ * slides the body there.
+ */
+function yankWithWhip(monster, weapon) {
+  if (!weapon || monster.dead > 0 || monster.defeated) return;
+  const occupied = heroBlockingCells();
+  const pull = whipPull({
+    weapon,
+    attacker: { x: hero.x / TILE, y: hero.y / TILE },
+    target: { x: monster.x / TILE, y: monster.y / TILE, boss: monster.boss === true },
+    isFree: (x, y) => isWalkable(x, y)
+      && !occupied.has(`${x},${y}`)
+      && !(Math.floor(hero.x / TILE) === x && Math.floor(hero.y / TILE) === y),
+  });
+  if (pull.reason === 'too-heavy') {
+    // Said once, not on every swing: a boss is hit many times a fight.
+    if (elapsed - whipRefusalAt > 6) {
+      whipRefusalAt = elapsed;
+      addCombatGlyph(monster.x, monster.y, whipCopy('too-heavy', itemDetailLanguage), '#9aa4ad', -62);
+    }
+    return;
+  }
+  if (!pull.ok) return;
+  monster.x = (pull.cell.x + 0.5) * TILE;
+  monster.y = (pull.cell.y + 0.5) * TILE;
+  monster.route = [];
+  monster.repathCooldown = Math.max(monster.repathCooldown ?? 0, 0.25);
+  addCombatGlyph(monster.x, monster.y, '\u21d0', '#e0c778', -60);
+  burst(monster.x, monster.y - 8, '#e0c778', 10);
+}
+
 function launchHeroProjectile(monster, damage, combat, color, shot = null) {
   const angle = Math.atan2(monster.y - hero.y, monster.x - hero.x);
   projectiles.push({
@@ -10068,6 +10126,7 @@ function launchHeroProjectile(monster, damage, combat, color, shot = null) {
     kind: combat.projectile,
     style: combat.style,
     pierceTargets: shot?.pierceTargets ?? 0,
+    staggerSeconds: shot?.staggerSeconds ?? 0,
     originX: hero.x,
     originY: hero.y,
     vampiric: currentHeroMagic().vampirism,
@@ -10335,7 +10394,10 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     || !canHeroAttack(monster, pending.combat)
   ) return;
   if (pending.combat.projectile) {
-    const shot = resolveMarksmanShot({ profile: pending.marksman, steadySeconds: heroSteadySeconds });
+    const shot = resolveRangedShot({
+      weapon: pending.weapon,
+      shot: resolveMarksmanShot({ profile: pending.marksman, steadySeconds: heroSteadySeconds }),
+    });
     const shotDamage = applyStrikeBonus(pending.damage, shot.bonusPercent);
     launchHeroProjectile(monster, shotDamage, pending.combat, pending.color, shot);
     if (shot.aimed) {
@@ -10383,8 +10445,10 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     vampiric: pending.vampiric,
     blunt: pending.blunt,
   });
-  // The pure runtime tests swing without the poison module mounted.
+  // The pure runtime tests swing with only part of the adapter mounted, so both
+  // of these answer for themselves rather than assuming their module is here.
   if (typeof applyWeaponCoating === 'function') applyWeaponCoating(monster);
+  if (typeof yankWithWhip === 'function') yankWithWhip(monster, pending.weapon);
   if (daggerBonus.kind) showDaggerStrikeImpact(monster, daggerBonus);
   if (primarySwordResult?.empowered) showSwordRhythmImpact(monster, primarySwordResult);
   if (pending.secondary && (monster.actorKind === 'wildlife' ? !monster.defeated : monster.dead === 0)) {
@@ -11291,9 +11355,10 @@ function updateHero(delta) {
       color,
       combat: { ...combat },
       cleave: currentHeroCleave(),
-    dagger: currentDaggerProfile(),
-    blunt: currentBluntProfile(),
-    marksman: currentMarksmanProfile(),
+      dagger: currentDaggerProfile(),
+      blunt: currentBluntProfile(),
+      marksman: currentMarksmanProfile(),
+      weapon: currentWeaponLoadout().primary,
       sword: swordSource
         ? {
             slot: swordSource.slot,
@@ -11909,6 +11974,17 @@ function updateWorld(delta) {
         sourceY: projectile.y,
         vampiric: projectile.vampiric,
       });
+    }
+    if (
+      projectile.staggerSeconds > 0
+      && (target.actorKind === 'wildlife' ? !target.defeated : target.dead === 0)
+    ) {
+      // A stone does not kill; it buys the hero another step back.
+      target.route = [];
+      target.attackWindup = 0;
+      target.attackRecovery = Math.max(target.attackRecovery ?? 0, projectile.staggerSeconds);
+      target.repathCooldown = Math.max(target.repathCooldown ?? 0, projectile.staggerSeconds);
+      addCombatGlyph(target.x, target.y, '\u00b7', '#cfd6dc', -52);
     }
     if (projectileDamage > 0 && projectile.pierceTargets > 0) {
       const pierced = selectPiercedTargets({
