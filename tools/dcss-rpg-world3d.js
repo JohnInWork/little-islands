@@ -36,6 +36,15 @@ export const MAX_SHADOWED_WORLD_LIGHTS = MAX_SPOT_SHADOW_LIGHTS;
  * layer decides it for actors.
  */
 export const WORLD_BILLBOARD_DEPTH_BIAS = 0.18;
+/**
+ * Scenery stands a hair further from the camera than anything alive. Both are
+ * billboards on the same ground line, so on a shared cell their depth is an
+ * exact tie and the draw order is whatever the sorter happened to pick — which
+ * is why the hero arrived every run standing inside the ascent arch with the
+ * arch painted over them. One step is enough to break the tie and far too small
+ * to reorder anything a whole tile apart.
+ */
+export const WORLD_SCENERY_DEPTH_STEP = 0.08;
 export const WORLD_DOOR_HEIGHT = 0.52;
 export const WORLD_DOOR_THICKNESS = 0.12;
 export const DOOR_PANEL_CROP = Object.freeze({ x: 6, y: 5, width: 20, height: 25 });
@@ -672,6 +681,10 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
 
     for (const decoration of decorations) {
       const key = `decoration:${decoration.id}`;
+      const placement = {
+        ...decoration,
+        depthBias: (decoration.depthBias ?? 0) - WORLD_SCENERY_DEPTH_STEP,
+      };
       activeKeys.add(key);
       const texture = actorTextureFor(decoration.path, imageForPath, spriteFilter);
       let entry = actorEntries.get(key);
@@ -690,7 +703,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
         entry.caster.customDistanceMaterial.needsUpdate = true;
         entry.path = decoration.path;
       }
-      placeActor(entry, decoration);
+      placeActor(entry, placement);
     }
 
     for (const key of actorEntries.keys()) {

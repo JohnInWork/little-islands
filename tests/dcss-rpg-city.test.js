@@ -234,6 +234,44 @@ test('the runtime walks the watch and turns it on the hero who starts something'
   assert.match(runtime, /const patrolling = monster\.alerted === 0;/);
 });
 
+/**
+ * The dungeon has had this invariant since doors existed; the city never did,
+ * and that is exactly how it came to tag every door with the wrong axis. `axis`
+ * is the direction of PASSAGE — the hinge, the frame posts and the leaf are all
+ * built from it — so a door tagged by the direction of its WALL is turned
+ * ninety degrees and lies across its own doorway.
+ */
+test('a city door faces the street it opens onto', () => {
+  let doors = 0;
+  for (let seed = 1; seed <= 120; seed += 1) {
+    const city = generateDungeon({ seed, depth: CITY_DEPTH });
+    for (const door of city.doors) {
+      doors += 1;
+      assert.equal(city.grid[door.y][door.x], 'D', `${seed}: ${door.x},${door.y}`);
+      const passage = door.axis === 'x'
+        ? [{ x: door.x - 1, y: door.y }, { x: door.x + 1, y: door.y }]
+        : [{ x: door.x, y: door.y - 1 }, { x: door.x, y: door.y + 1 }];
+      const alongTheWall = door.axis === 'x'
+        ? [{ x: door.x, y: door.y - 1 }, { x: door.x, y: door.y + 1 }]
+        : [{ x: door.x - 1, y: door.y }, { x: door.x + 1, y: door.y }];
+      for (const cell of passage) {
+        assert.ok(
+          ['.', 'D'].includes(city.grid[cell.y]?.[cell.x]),
+          `${seed}: door ${door.x},${door.y} axis ${door.axis} is walled where it should open`,
+        );
+      }
+      for (const cell of alongTheWall) {
+        assert.equal(
+          city.grid[cell.y]?.[cell.x],
+          '#',
+          `${seed}: door ${door.x},${door.y} axis ${door.axis} has no wall to hang from`,
+        );
+      }
+    }
+  }
+  assert.ok(doors > 200, `only ${doors} city doors were checked`);
+});
+
 test('the map knows the house, and the city hint points at it', async () => {
   const { FLOOR_MAP_COLORS, FLOOR_MAP_MARKER_KINDS, FLOOR_MAP_MARKER_SHAPES, createFloorMapModel } =
     await import('../tools/dcss-rpg-floor-map.js');

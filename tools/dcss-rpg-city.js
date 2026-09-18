@@ -138,11 +138,18 @@ function buildBuilding({ grid, block, kind, rng }) {
   const interior = { x: rect.x + 1, y: rect.y + 1, w: rect.w - 2, h: rect.h - 2 };
   carveRect(grid, interior, CITY_FLOOR);
   // South doors first: an entrance the player walks past reads as an entrance.
+  //
+  // `axis` is the direction of PASSAGE, not the direction of the wall. That is
+  // what the dungeon's own doorways mean by it, it is what the hinge and the
+  // frame posts are built from, and getting it backwards turns every door leaf
+  // ninety degrees: a door lying across its own wall instead of filling the
+  // opening. So a door in the north or south wall is walked through along y,
+  // and a door in a side wall along x.
   const candidates = [
-    { x: rect.x + roll(rng, 1, rect.w - 2), y: rect.y + rect.h - 1, axis: 'x', dx: 0, dy: 1 },
-    { x: rect.x + rect.w - 1, y: rect.y + roll(rng, 1, rect.h - 2), axis: 'y', dx: 1, dy: 0 },
-    { x: rect.x, y: rect.y + roll(rng, 1, rect.h - 2), axis: 'y', dx: -1, dy: 0 },
-    { x: rect.x + roll(rng, 1, rect.w - 2), y: rect.y, axis: 'x', dx: 0, dy: -1 },
+    { x: rect.x + roll(rng, 1, rect.w - 2), y: rect.y + rect.h - 1, axis: 'y', dx: 0, dy: 1 },
+    { x: rect.x + rect.w - 1, y: rect.y + roll(rng, 1, rect.h - 2), axis: 'x', dx: 1, dy: 0 },
+    { x: rect.x, y: rect.y + roll(rng, 1, rect.h - 2), axis: 'x', dx: -1, dy: 0 },
+    { x: rect.x + roll(rng, 1, rect.w - 2), y: rect.y, axis: 'y', dx: 0, dy: -1 },
   ];
   const door = candidates.find(({ x, y, dx, dy }) => grid[y + dy]?.[x + dx] === CITY_FLOOR);
   if (!door) {

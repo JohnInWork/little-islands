@@ -4122,6 +4122,81 @@ function monsterMotion(monster) {
  * hero built out of layers instead of a single sprite. Sleeping it is barely
  * there; woken, it is nearly solid.
  */
+/**
+ * The three fixed markers of a floor: the stair the hero came down by, the way
+ * on, and the altar. They used to be painted on the overlay canvas, which sits
+ * above the whole world — so the arch the hero arrives standing inside covered
+ * them from the shoulders down on the first frame of every run. They are world
+ * objects with a footprint, so they belong in the world, where sorting is real.
+ */
+function worldMarkers3D() {
+  const markers = [];
+  if (dungeon.sanctuary && revealed.has(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`)) {
+    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.1) * 2;
+    markers.push({
+      id: 'marker:sanctuary',
+      path: sanctuaryVisual.path,
+      x: (dungeon.sanctuary.x + 0.5) * TILE,
+      y: (dungeon.sanctuary.y + 0.5) * TILE,
+      size: 68 * sanctuaryVisual.scale,
+      facing: 1,
+      screenOffsetY: sanctuaryVisual.offsetY + pulse,
+      opacity: 1,
+      hit: false,
+      shadowScale: 0.7,
+      shadowOpacity: 0.28,
+    });
+  }
+  if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
+    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
+    const finalFloor = dungeon.depth === FINAL_DEPTH;
+    const chapterGateLocked = Boolean(
+      dungeon.objective && !finalFloor && !objectiveBossDefeated(),
+    );
+    const visual = finalFloor
+      ? artifactAvailable()
+        ? artifactVisual
+        : finalGateVisual
+      : chapterGateLocked
+        ? finalGateVisual
+        : exitVisual;
+    markers.push({
+      id: 'marker:exit',
+      path: visual.path,
+      x: (dungeon.exit.x + 0.5) * TILE,
+      y: (dungeon.exit.y + 0.5) * TILE,
+      size: (artifactAvailable() ? 54 : 64) * visual.scale,
+      facing: 1,
+      screenOffsetY: visual.offsetY + pulse,
+      opacity: 1,
+      hit: false,
+      shadowScale: 0.7,
+      shadowOpacity: 0.3,
+    });
+  }
+  // The stair the hero came down by. It leads up everywhere below the surface,
+  // and on the first floor that means out of the dungeon and into the city.
+  if (
+    dungeon.depth > CITY_DEPTH
+    && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)
+  ) {
+    markers.push({
+      id: 'marker:ascent',
+      path: ascentVisual.path,
+      x: (dungeon.spawn.x + 0.5) * TILE,
+      y: (dungeon.spawn.y + 0.5) * TILE,
+      size: 64 * ascentVisual.scale,
+      facing: 1,
+      screenOffsetY: ascentVisual.offsetY,
+      opacity: 1,
+      hit: false,
+      shadowScale: 0.7,
+      shadowOpacity: 0.3,
+    });
+  }
+  return markers;
+}
+
 function ghostActor3D() {
   const ghost = floorGhost;
   if (!ghost || ghost.dead > 0.72) return null;
@@ -4276,6 +4351,7 @@ function syncWorldActors3D() {
         })),
     ],
     decorations: [
+      ...worldMarkers3D(),
       ...dungeonEnvironment.props
         .filter(({ gridX, gridY }) => revealed.has(`${gridX},${gridY}`))
         .map((decoration) => ({
@@ -4569,6 +4645,9 @@ function drawWaterlines() {
   context.restore();
 }
 
+/** Fixed offsets, so the motes read as one column of disturbed air. */
+const INVISIBILITY_MOTES = Object.freeze([-16, 9, -5, 17, -12, 3]);
+
 function drawHeroEffects() {
   const active = activeActorEffects(hero.effects);
   const magic = currentHeroMagic();
@@ -4596,12 +4675,23 @@ function drawHeroEffects() {
     context.restore();
   }
   if (magic.invisibility && hero.invisibilityReveal <= 0) {
+    // Not a frame around the hero. A rectangle is a widget, and the hero is not
+    // one: a box drawn on top of them reads as a rendering fault, which is what
+    // it looked like. Invisibility is the air closing over someone — a few pale
+    // motes that drift up through the silhouette and go out.
     context.save();
-    context.strokeStyle = '#8fc8c5';
-    context.globalAlpha = 0.34;
-    context.lineWidth = 2;
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 3) * 2;
-    context.strokeRect(pixelRound(centerX - 24 - pulse), pixelRound(centerY - 37 - pulse), pixelRound(48 + pulse * 2), pixelRound(72 + pulse * 2));
+    context.fillStyle = '#8fc8c5';
+    const time = reducedMotion ? 0.35 : elapsed;
+    INVISIBILITY_MOTES.forEach((offsetX, index) => {
+      const phase = reducedMotion ? 0.45 : (time * 0.5 + index * 0.17) % 1;
+      context.globalAlpha = Math.sin(phase * Math.PI) * 0.42;
+      context.fillRect(
+        pixelRound(centerX + offsetX),
+        pixelRound(centerY + 26 - phase * 62),
+        phase > 0.5 ? 2 : 3,
+        2,
+      );
+    });
     context.restore();
   }
 }
@@ -5006,19 +5096,6 @@ function drawLoot() {
 }
 
 function drawEvents() {
-  if (
-    dungeon.sanctuary &&
-    revealed.has(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`)
-  ) {
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.1) * 2;
-    drawSprite(
-      sanctuaryVisual.path,
-      (dungeon.sanctuary.x + 0.5) * TILE,
-      (dungeon.sanctuary.y + 0.5) * TILE,
-      68 * sanctuaryVisual.scale,
-      { offsetY: sanctuaryVisual.offsetY + pulse },
-    );
-  }
   for (const event of eventDefinitions) {
     const gridX = Math.floor(event.x / TILE);
     const gridY = Math.floor(event.y / TILE);
@@ -5087,40 +5164,6 @@ function drawEvents() {
     context.fillRect(pixelRound(position.x - 18), pixelRound(position.y + 13), 8, 4);
     context.fillRect(pixelRound(position.x + 10), pixelRound(position.y + 13), 8, 4);
     context.restore();
-  }
-  if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
-    const finalFloor = dungeon.depth === FINAL_DEPTH;
-    const chapterGateLocked = Boolean(
-      dungeon.objective && !finalFloor && !objectiveBossDefeated(),
-    );
-    const visual = finalFloor
-      ? artifactAvailable()
-        ? artifactVisual
-        : finalGateVisual
-      : chapterGateLocked
-        ? finalGateVisual
-        : exitVisual;
-    drawSprite(
-      visual.path,
-      (dungeon.exit.x + 0.5) * TILE,
-      (dungeon.exit.y + 0.5) * TILE,
-      (artifactAvailable() ? 54 : 64) * visual.scale,
-      {
-        offsetY: visual.offsetY + pulse,
-      },
-    );
-  }
-  // The stair the hero came down by. It leads up everywhere below the surface,
-  // and on the first floor that means out of the dungeon and into the city.
-  if (dungeon.depth > CITY_DEPTH && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)) {
-    drawSprite(
-      ascentVisual.path,
-      (dungeon.spawn.x + 0.5) * TILE,
-      (dungeon.spawn.y + 0.5) * TILE,
-      64 * ascentVisual.scale,
-      { offsetY: ascentVisual.offsetY },
-    );
   }
 }
 
