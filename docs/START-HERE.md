@@ -54,6 +54,8 @@
   на семейство оружия плюс Манёвренность.
 - [2D-SCOUTING.md](2D-SCOUTING.md) — разведка: Темнозрение, Скрытность и
   тайник, который существует только для того, кто его ищет.
+- [2D-CAMP.md](2D-CAMP.md) — лагерь: походный набор, костёр и спальник по
+  рангам, личный сундук между этажами и заклинание «Зов лагеря».
 - [2D-VISUAL-WORKSHOP.md](2D-VISUAL-WORKSHOP.md) — локальный выбор спрайтов для
   предметов, существ и интерактивных объектов без изменения игровых ID.
 - [2D-RPG-PLAN.md](2D-RPG-PLAN.md) — долгосрочное направление, не список готового.
@@ -243,6 +245,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Звук и фон | `tools/dcss-rpg-audio.js`; WebAudio-адаптер в `dcss.js`, [контракт](2D-AUDIO.md) |
 | Обучение первых минут | `tools/dcss-rpg-onboarding.js`; сигналы и панель в `dcss.js`, [контракт](2D-ONBOARDING.md) |
 | Разведка | `tools/dcss-rpg-scouting.js`; тайник в `dcss-rpg-finds.js`, [контракт](2D-SCOUTING.md) |
+| Лагерь | `tools/dcss-rpg-camp.js`; `placeCamp` и предметы лагеря в `dcss.js`, [контракт](2D-CAMP.md) |
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |
