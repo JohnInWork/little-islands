@@ -265,6 +265,8 @@ export function cityGuardPosts(plan, count = 5) {
     for (let x = plan.area.x; x < plan.area.x + plan.area.w; x += 1) {
       if (plan.grid[y][x] !== CITY_FLOOR) continue;
       if (insideAnyBuilding(plan, x, y)) continue;
+      // A doorway is not a post: a guard standing in one corks the building.
+      if (plan.blocks.some(({ door }) => door && door.x === x && door.y === y)) continue;
       streetCells.push({ x, y });
     }
   }
@@ -275,6 +277,20 @@ export function cityGuardPosts(plan, count = 5) {
   const stride = Math.max(1, Math.floor(streetCells.length / count));
   for (let index = 0; posts.length < count && index < streetCells.length; index += stride) {
     posts.push(streetCells[index]);
+  }
+  // The first post is the captain's, and the captain belongs at his own door:
+  // he is the desk where a fine is paid, so he has to be where it is looked for.
+  const barracks = plan.blocks.find(({ kind }) => kind === 'barracks');
+  if (barracks?.door && posts.length > 0) {
+    const desk = streetCells.reduce((best, cell) => {
+      const distance = Math.abs(cell.x - barracks.door.x) + Math.abs(cell.y - barracks.door.y);
+      return distance < best.distance ? { cell, distance } : best;
+    }, { cell: null, distance: Number.POSITIVE_INFINITY }).cell;
+    if (desk) {
+      const taken = posts.findIndex(({ x, y }) => x === desk.x && y === desk.y);
+      if (taken > 0) posts.splice(taken, 1);
+      if (taken !== 0) posts.unshift(desk);
+    }
   }
   return posts;
 }

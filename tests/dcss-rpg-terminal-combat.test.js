@@ -78,7 +78,17 @@ function combatRuntime() {
     setAmbientLevel: () => {},
     hero,
     runStatus: 'playing',
-    run: { status: 'playing', floor: { defeated: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
+    // The city's ledger is a floor away from these fixtures; the stubs keep
+    // damageHero honest without dragging the whole town in.
+    isCityDepth: () => false,
+    isWanted: () => false,
+    jailHero: () => false,
+    run: {
+      status: 'playing',
+      floor: { defeated: [] },
+      crime: { wanted: 0, jailed: false },
+      stats: { kills: 0, activeSeconds: 0, killerId: null },
+    },
     projectiles: [{ targetId: 'monster-1-0', damage: 50 }],
     selected: createEmptyEquipment(),
     itemInstances: new Map(),

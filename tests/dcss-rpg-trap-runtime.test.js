@@ -79,7 +79,12 @@ function terminalRuntime({ victory = false } = {}) {
     setAmbientLevel: () => {},
     hero,
     runStatus: 'playing',
-    run: { status: 'playing', floor: { resolved: [] }, stats: { kills: 0, activeSeconds: 0, killerId: null } },
+    run: {
+      status: 'playing',
+      floor: { resolved: [] },
+      crime: { wanted: 0, jailed: false },
+      stats: { kills: 0, activeSeconds: 0, killerId: null },
+    },
     eventDefinitions: victory ? [] : [{
       id: 'blade-trap', instanceId: 'event-1-0', x: 96, y: 96,
       definition: { effect: 'damage', value: 14, path: 'dngn/traps/blade.png' },
@@ -90,6 +95,11 @@ function terminalRuntime({ victory = false } = {}) {
     monsters: [{ instanceId: 'monster-1-0', dead: 0, x: 160, y: 96 }],
     dungeon: { depth: 1, exit: victory ? { x: 1, y: 1 } : { x: 8, y: 8 }, spawn: { x: 9, y: 9 } },
     stairsArmed: true,
+    // The city's ledger is a floor away from these fixtures; the stubs keep
+    // damageHero honest without dragging the whole town in.
+    isCityDepth: () => false,
+    isWanted: () => false,
+    jailHero: () => false,
     climbFloor: () => {},
     lastHeroCell: '1,1',
     openingDoor: null,
@@ -220,7 +230,7 @@ function movementRuntime() {
     ready: true,
     uiScreen: 'game',
     TILE: 64,
-    run: { floor: { opened: [] } },
+    run: { floor: { opened: [] }, crime: { wanted: 0, jailed: false } },
     world: ['###', '#D#', '#.#'].map((row) => [...row]),
     doorDefinitions: [{ instanceId: 'door-1-0', x: 1, y: 1 }],
     revealed: new Set(['1,1']),

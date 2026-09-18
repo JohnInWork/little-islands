@@ -20,7 +20,7 @@ import {
 } from '../tools/dcss-rpg-core.js';
 
 test('a floor the hero leaves is remembered exactly as it was', () => {
-  assert.equal(SAVE_VERSION, 42);
+  assert.equal(SAVE_VERSION, 43);
   let run = createRun(7007);
   const first = generateDungeon({ seed: run.seed, depth: 1 });
   const victim = first.monsters[0].instanceId;
@@ -100,7 +100,7 @@ test('a migrated run starts with an empty archive', () => {
   legacy.version = 41;
   delete legacy.floors;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 42);
+  assert.equal(migrated.version, 43);
   assert.deepEqual(migrated.floors, {});
   assert.equal(validateRun(migrated), true);
 });

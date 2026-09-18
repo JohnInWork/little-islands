@@ -207,11 +207,25 @@ import {
   resolveBandage,
 } from './dcss-rpg-field-medicine.js';
 import {
+  CITY_CAPTAIN_ID,
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
   CITY_REVEAL_RADIUS,
   isCityDepth,
 } from './dcss-rpg-city.js';
+import {
+  JAIL_LOCK_TIER,
+  arrestHero,
+  breakOut,
+  canPickCell,
+  crimeFine,
+  crimeRefusalText,
+  isWanted,
+  payFine,
+  recordCrime,
+  serveSentence,
+  wantedLabel,
+} from './dcss-rpg-crime.js';
 import {
   HOME_STONE_ITEM_ID,
   HOUSE_FURNITURE,
@@ -1309,12 +1323,20 @@ function damageAlly(ally, amount) {
 
 function createMonsters(level) {
   const resolvedFindIds = new Set(run.floor.resolvedFindIds);
-  return createRuntimeMonsters(
+  const spawned = createRuntimeMonsters(
     level,
     level.monsters.filter(
       (spawn) => !spawn.activationFindId || resolvedFindIds.has(spawn.activationFindId),
     ),
   );
+  // A wanted hero is met by the watch instead of ignored by it. The captain is
+  // the exception: he is the desk where the fine is paid, so he keeps the peace.
+  if (isWanted(run.crime)) {
+    for (const monster of spawned) {
+      if (monster.neutral && monster.id !== CITY_CAPTAIN_ID) monster.provoked = true;
+    }
+  }
+  return spawned;
 }
 
 function createPassiveCreatures(level) {
@@ -1749,6 +1771,20 @@ function campPropsFor(camp) {
 function cityHousePlot() {
   if (!isCityDepth(dungeon.depth)) return null;
   return dungeon.city?.blocks.find(({ kind }) => kind === 'plot') ?? null;
+}
+
+/** The jail, and the one door it has, on the floor the city stands on. */
+function cityJailBlock() {
+  if (!isCityDepth(dungeon.depth)) return null;
+  return dungeon.city?.blocks.find(({ kind }) => kind === 'jail') ?? null;
+}
+
+function cityJailDoor() {
+  const blocks = dungeon.city?.blocks;
+  if (!blocks) return null;
+  const index = blocks.findIndex(({ kind }) => kind === 'jail');
+  if (index < 0) return null;
+  return doorDefinitions.find((door) => door.roomIndex === index) ?? null;
 }
 
 /** What stands in the house: bought furniture, and a marker where it could go. */
@@ -2833,8 +2869,9 @@ function patrolMonster(monster, delta, blockedCells) {
   return monster.route.length > 0;
 }
 
-/** Hitting one guard puts the whole street on the hero. */
+/** Hitting one guard puts the whole street on the hero, and into the ledger. */
 function provokeCityWatch(target) {
+  noteCrime('struck-guard');
   for (const monster of monsters) {
     if (!monster.neutral || monster.dead > 0) continue;
     const distance = Math.hypot(monster.x - target.x, monster.y - target.y);
@@ -6050,11 +6087,30 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
+  if (entry.kind === 'jail-door') {
+    const decision = canPickCell({
+      crime: run.crime,
+      lockpickTier: currentSkillCapabilities().lockpickTier ?? 0,
+    });
+    return {
+      kind: 'jail-door',
+      fine: crimeFine(run.crime),
+      canPick: decision.ok,
+      hint: decision.ok ? '' : crimeRefusalText(decision.reason, itemDetailLanguage),
+    };
+  }
   if (entry.kind === 'guard') {
+    const fine = crimeFine(run.crime);
+    const takesFine = entry.value.id === CITY_CAPTAIN_ID;
     return {
       kind: 'guard',
       id: entry.value.id,
       icon: entry.value.spritePath,
+      wantedLabel: isWanted(run.crime) ? wantedLabel(run.crime, itemDetailLanguage) : '',
+      fine,
+      takesFine,
+      canPay: takesFine && gold >= fine,
+      hint: crimeRefusalText('no-gold', itemDetailLanguage),
     };
   }
   if (entry.kind === 'wildlife') {
@@ -6127,6 +6183,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'find') return distance <= 1 && findIsInteractable(entry.value);
   if (entry.kind === 'merchant') return distance <= 1;
   if (propTarget) return distance <= 1;
+  if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
   const open = run.floor.opened.includes(entry.value.instanceId);
@@ -6813,6 +6870,11 @@ function transactMerchantBuyback(uid) {
 
 function openMerchantShop(merchant) {
   if (!merchant || uiScreen !== 'game' || hero.dead || runStatus !== 'playing') return false;
+  // Nobody sells to a face on the watch's list.
+  if (isWanted(run.crime)) {
+    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage));
+    return false;
+  }
   clearMoveControl();
   hero.path = [];
   hero.pendingAttack = null;
@@ -6964,6 +7026,8 @@ function nearbyContextTarget() {
   if (bedroll) return { kind: 'camp-rest', value: bedroll };
   const campChest = nearbyCampProp('camp-stash');
   if (campChest) return { kind: 'camp-stash', value: campChest };
+  const cellDoor = nearbyJailDoor();
+  if (cellDoor) return { kind: 'jail-door', value: cellDoor };
   const guard = nearbyGuard();
   if (guard) return { kind: 'guard', value: guard };
   const wildlife = nearbyWildlife();
@@ -7002,12 +7066,18 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     closeContextActions();
     return openMerchantShop(merchant);
   },
-  'provoke-guard'({ target }) {
+  'provoke-guard'({ target, action }) {
     closeContextActions();
     if (!target?.value || !target.value.neutral || target.value.provoked) return false;
+    // The captain's panel has two answers: settle the fine, or make it worse.
+    if (action.id === 'pay') return payWatchFine();
     provokeCityWatch(target.value);
     playSound('ui-tap');
     return true;
+  },
+  'jail-door'({ action }) {
+    closeContextActions();
+    return action.id === 'serve' ? serveJailSentence() : pickJailLock();
   },
   'hunt-wildlife'({ target }) {
     const creature = target.value;
@@ -7089,6 +7159,11 @@ function toggleNearbyDoor() {
 }
 
 function beginDoorTransition(door, targetOpen) {
+  // The cell door does not answer to hands, only to the fine or the lockpick.
+  if (run.crime.jailed && door && door.instanceId === cityJailDoor()?.instanceId) {
+    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('lock-too-good', itemDetailLanguage));
+    return false;
+  }
   if (!ready || uiScreen !== 'game' || hero.dead || !door || openingDoor || runStatus !== 'playing') return false;
   if (!doorDefinitions.some(({ instanceId }) => instanceId === door.instanceId) ||
     !revealed.has(`${door.x},${door.y}`)) return false;
@@ -9339,6 +9414,7 @@ function defeatMonster(monster) {
   monster.dead = 0.01;
   run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
+  if (monster.neutral) noteCrime('killed-guard');
   playSound('kill');
   if (monster.burst) burstEffectAround(monster);
   gainExperience(monster);
@@ -9422,6 +9498,10 @@ function damageHero(amount, {
   }
   updateHud();
   if (!result.dead) return result;
+  // In the city a wanted hero does not fall: the watch picks them up.
+  if (isCityDepth(dungeon.depth) && isWanted(run.crime) && !run.crime.jailed && jailHero()) {
+    return Object.freeze({ ...result, dead: false, arrested: true });
+  }
   hero.dead = true;
   runStatus = 'dead';
   hero.path = [];
@@ -9703,6 +9783,123 @@ function watchersOnHero() {
   )).length;
 }
 
+/** The face of the city's ledger in a toast. */
+const CRIME_TOAST_ICON = 'mon/vault_warden.png';
+
+/**
+ * One deed, one line in the ledger. Nothing here is undone by leaving the
+ * floor: the record lives in the run, so the street remembers a returning face.
+ */
+function noteCrime(deed) {
+  const result = recordCrime(run.crime, deed);
+  if (!result.ok) return false;
+  run.crime = result.crime;
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage));
+  persistRun();
+  return true;
+}
+
+/** Where the watch puts a hero it has caught: the middle of the cell. */
+function jailAnchorCell(jail) {
+  if (!jail?.interior) return null;
+  return {
+    x: jail.interior.x + Math.floor(jail.interior.w / 2),
+    y: jail.interior.y + Math.floor(jail.interior.h / 2),
+  };
+}
+
+/**
+ * Falling in the city while wanted is not a death. The watch takes the hero to
+ * a cell, the street calms down, and the record waits inside with them.
+ */
+function jailHero() {
+  const anchor = jailAnchorCell(cityJailBlock());
+  if (!anchor) return false;
+  const arrest = arrestHero({ crime: run.crime, maxHp: currentHeroStats().maxHp });
+  if (!arrest.ok) return false;
+  run.crime = arrest.crime;
+  hero.hp = arrest.hp;
+  hero.path = [];
+  hero.pendingAttack = null;
+  hero.attackEmpowered = false;
+  hero.attackMasteryRank = 0;
+  projectiles.length = 0;
+  // The chase is over the moment the cell door shuts.
+  for (const monster of monsters) {
+    if (!monster.neutral) continue;
+    monster.provoked = false;
+    monster.alerted = 0;
+    monster.route = [];
+  }
+  const cellDoor = cityJailDoor();
+  if (cellDoor) {
+    run.floor.opened = run.floor.opened.filter((id) => id !== cellDoor.instanceId);
+    openingDoor = null;
+  }
+  placeHeroAtCell(anchor);
+  closeContextActions();
+  playSound('door');
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('arrested', itemDetailLanguage));
+  updateHud();
+  persistRun();
+  return true;
+}
+
+/** The cell door the hero is locked behind, when they are behind one. */
+function nearbyJailDoor() {
+  if (!run.crime.jailed || runStatus !== 'playing') return null;
+  const door = cityJailDoor();
+  if (!door) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return Math.abs(cell.x - door.x) + Math.abs(cell.y - door.y) <= 1 ? door : null;
+}
+
+/** Serving the sentence: the purse pays what it can and the record closes. */
+function serveJailSentence() {
+  const result = serveSentence({ crime: run.crime, gold });
+  if (!result.ok) return false;
+  run.crime = result.crime;
+  gold = result.gold;
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 2 }, crimeRefusalText('served', itemDetailLanguage));
+  updateHud();
+  updateInteractionUi();
+  persistRun();
+  return true;
+}
+
+/** Picking the cell lock: quick, and it writes one more line in the ledger. */
+function pickJailLock() {
+  const result = breakOut({
+    crime: run.crime,
+    lockpickTier: currentSkillCapabilities().lockpickTier ?? 0,
+  });
+  if (!result.ok) return false;
+  run.crime = result.crime;
+  playSound('chest');
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('escaped', itemDetailLanguage));
+  updateHud();
+  updateInteractionUi();
+  persistRun();
+  return true;
+}
+
+/** Settling up with the captain while still on your feet. */
+function payWatchFine() {
+  const result = payFine({ crime: run.crime, gold });
+  if (!result.ok) return false;
+  run.crime = result.crime;
+  gold = result.gold;
+  for (const monster of monsters) {
+    if (monster.neutral) monster.provoked = false;
+  }
+  playSound('gold');
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 2 }, crimeRefusalText('paid', itemDetailLanguage));
+  updateHud();
+  updateInteractionUi();
+  persistRun();
+  return true;
+}
+
 /** True while the hero stands inside their own four walls. */
 function heroInsideHouse() {
   const plot = cityHousePlot();
@@ -9717,6 +9914,7 @@ function heroInsideHouse() {
  * remembers the spot, from home it puts the hero back on that spot.
  */
 function useHomeStone() {
+  if (run.crime.jailed) return crimeRefusalText('in-cell', itemDetailLanguage);
   if (heroInsideHouse()) {
     const back = returnFromHouse({ house: run.house });
     if (!back.ok) return houseRefusalText(back.reason, itemDetailLanguage);

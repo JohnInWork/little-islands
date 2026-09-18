@@ -69,7 +69,7 @@ function fixture({ open = false } = {}) {
     TILE: 64, hero: { x: 96, y: 160, hp: 100, dead: false, path: [] },
     monsters: [], passiveCreatures: [], allies: [], openingDoor: null,
     world: ['#####', '#...#', open ? '#...#' : '#.D.#', '#...#', '#####'].map((row) => [...row]),
-    run: { floor: { opened: open ? [door.instanceId] : [], triggered: [] } },
+    run: { floor: { opened: open ? [door.instanceId] : [], triggered: [] }, crime: { wanted: 0, jailed: false } },
     dungeon: { doors: [door], surprises: [{ id: door.surpriseId, type: 'treasure', monsterIds: [] }] },
     doorDefinitions: [door], revealed: new Set(['1,2', '2,2', '3,2']),
     hazardInputState: createHazardInputState(), permittedHazardCell: '2,2', playerHasActed: false,

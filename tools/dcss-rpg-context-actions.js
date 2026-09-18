@@ -31,6 +31,8 @@ const ACTION_COPY = Object.freeze({
     decipher: 'Разобрать',
     attune: 'Настроиться',
     break: 'Расколоть',
+    pay: 'Заплатить штраф',
+    serve: 'Отбыть срок',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -61,6 +63,8 @@ const ACTION_COPY = Object.freeze({
     decipher: 'Decipher',
     attune: 'Attune',
     break: 'Break',
+    pay: 'Pay the fine',
+    serve: 'Serve your time',
   }),
 });
 
@@ -94,6 +98,8 @@ const GLYPHS = Object.freeze({
   dive: '!',
   break: '!',
   decipher: '◈',
+  pay: '◉',
+  serve: '⌛',
 });
 
 const COPY = Object.freeze({
@@ -127,6 +133,9 @@ const COPY = Object.freeze({
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
     guardDescription: 'Следит за порядком. Удар по нему делает героя преступником.',
+    guardWanted: (label, fine) => `${label}. Штраф — ${fine} золота.`,
+    cellName: 'Дверь камеры',
+    cellDescription: (fine) => `Замок городской тюрьмы. Срок стоит ${fine} золота.`,
     deedName: 'Участок на продажу',
     deedDescription: (price) => `Свой дом в городе. Цена: ${price} золота.`,
     slotName: (piece) => `Место под предмет: ${piece}`,
@@ -165,6 +174,9 @@ const COPY = Object.freeze({
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
     guardDescription: 'Keeps the peace. Striking one makes the hero a criminal.',
+    guardWanted: (label, fine) => `${label}. The fine is ${fine} gold.`,
+    cellName: 'Cell door',
+    cellDescription: (fine) => `A city jail lock. Your time costs ${fine} gold.`,
     deedName: 'Plot for sale',
     deedDescription: (price) => `A house of your own in the city. Price: ${price} gold.`,
     slotName: (piece) => `Space for: ${piece}`,
@@ -306,10 +318,33 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
       name: copy.guards[target.id] ?? target.id,
-      description: copy.guardDescription,
+      // A wanted hero is told the price before being told they can swing.
+      description: target.wantedLabel
+        ? copy.guardWanted(target.wantedLabel, target.fine)
+        : copy.guardDescription,
       icon: target.icon,
       accent: '#c9a45f',
-      actions: [{ id: 'attack' }],
+      actions: [
+        ...(target.wantedLabel && target.takesFine
+          ? [{ id: 'pay', enabled: target.canPay === true, hint: target.canPay ? '' : target.hint ?? '' }]
+          : []),
+        { id: 'attack' },
+      ],
+    }),
+  }),
+  defineInteraction({
+    id: 'jail-door',
+    command: 'jail-door',
+    matches: (target) => target?.kind === 'jail-door' && Number.isInteger(target.fine),
+    present: ({ target, copy }) => ({
+      name: copy.cellName,
+      description: copy.cellDescription(target.fine),
+      icon: 'dngn/doors/closed_door.png',
+      accent: '#8c8f9b',
+      actions: [
+        { id: 'serve' },
+        { id: 'pick-lock', enabled: target.canPick === true, hint: target.canPick ? '' : target.hint ?? '' },
+      ],
     }),
   }),
   defineInteraction({

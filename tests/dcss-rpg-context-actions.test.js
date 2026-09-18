@@ -55,13 +55,14 @@ test('inspection reveals a hidden chest mechanism through the shared registry', 
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'guard',
-    'wildlife', 'merchant', 'door', 'trap', 'chest',
+    'jail-door', 'wildlife', 'merchant', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);
   assert.equal(interactionDefinitionFor({ kind: 'door', open: false }).command, 'door-transition');
   assert.equal(interactionDefinitionFor({ kind: 'find', id: 'sealed-cache' }).command, 'find-interact');
   assert.equal(interactionDefinitionFor({ kind: 'merchant', variantId: 'armourer' }).command, 'trade');
+  assert.equal(interactionDefinitionFor({ kind: 'jail-door', fine: 60 }).command, 'jail-door');
 });
 
 test('world-object descriptions identify visible state without predicting outcomes', () => {
