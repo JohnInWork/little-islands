@@ -34,6 +34,7 @@ import {
 } from '../tools/dcss-rpg-companions.js';
 import { PASSIVE_CREATURE_CATALOG, passiveCreatureById } from '../tools/dcss-rpg-passive.js';
 import { lootById, monsterById } from '../tools/dcss-rpg-content.js';
+import { floorScaling, monsterEligibleForFloor } from '../tools/dcss-rpg-scaling.js';
 import {
   SKILL_CAPABILITY_LIMITS,
   SKILL_IMPLEMENTATIONS,
@@ -44,6 +45,7 @@ import {
   SAVE_VERSION,
   advanceRunFloor,
   createRun,
+  generateDungeon,
   migrateLegacyRun,
   validateRun,
 } from '../tools/dcss-rpg-core.js';
@@ -179,6 +181,11 @@ test('a handler makes the beast tougher, and the beast has a body to wear', () =
     assert.ok(body, `tamed-${creature.id}`);
     assert.equal(body.spawn, 'summon', 'a tamed beast never joins a dungeon pool');
     assert.equal(body.xp, 0, 'and never pays experience');
+    assert.equal(
+      monsterEligibleForFloor(body, floorScaling(Math.max(1, body.tier))),
+      false,
+      `${body.id} is never rolled onto a floor`,
+    );
     assert.ok(companionName(creature.id, 'ru').length > 0);
     assert.ok(companionName(creature.id, 'en').length > 0);
   }
@@ -212,6 +219,24 @@ test(`save v${SAVE_VERSION} carries the party, its wounds and its orders`, () =>
   assert.equal(migrated.version, SAVE_VERSION);
   assert.deepEqual(migrated.companions, [{ id: 'yak', hp: 30, mode: DEFAULT_COMPANION_MODE }]);
   assert.equal(validateRun(migrated), true);
+});
+
+test('no tamed body ever opens a floor as its first creature', async () => {
+  // The starter creature is picked by tier alone, so it must exclude anything
+  // that belongs to a summon, a town or a flooded room.
+  const source = await readFile(new URL('../tools/dcss-rpg-core.js', import.meta.url), 'utf8');
+  assert.ok(
+    source.includes("monster.tier === 1 && monster.spawn === undefined"),
+    'the floor opener is an ordinary dungeon creature',
+  );
+  for (let seed = 1; seed < 40; seed += 1) {
+    const level = generateDungeon({ seed, depth: 1 });
+    for (const spawn of level.monsters) {
+      const body = monsterById(spawn.id);
+      assert.notEqual(body?.spawn, 'summon', `${spawn.id} on seed ${seed}`);
+      assert.notEqual(body?.spawn, 'city', `${spawn.id} on seed ${seed}`);
+    }
+  }
 });
 
 test('all five companion skills are wired, and the runtime keeps the party', async () => {

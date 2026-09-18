@@ -391,12 +391,24 @@ import {
   takeChestItem,
 } from './dcss-rpg-chest-containers.js';
 import {
+  PLAYER_BAIT_KIND,
+  PLAYER_BAIT_PATH,
   PLAYER_TRAP_ITEM_ID,
+  PLAYER_TRAP_KIND,
   PLAYER_TRAP_PATH,
   placePlayerTrap,
   playerTrapPlacementCells,
   triggerPlayerTrap,
 } from './dcss-rpg-player-traps.js';
+import {
+  POISON_BAIT_ITEM_ID,
+  POISON_VIAL_ITEM_ID,
+  canCoat,
+  coatWeapon,
+  poisonProfile,
+  poisonRefusalText,
+  spendCoating,
+} from './dcss-rpg-poisoncraft.js';
 import {
   ACTOR_EFFECTS,
   activeActorEffects,
@@ -766,6 +778,9 @@ const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GAT
 const artifactVisual = runtimeVisual('system', 'artifact', 'world', ARTIFACT_PATH, 1, -8);
 const armedPlayerTrapVisual = runtimeVisual('trap', 'player-armed', 'world', PLAYER_TRAP_PATH, 1, 5);
 const spentPlayerTrapVisual = runtimeVisual('trap', 'player-spent', 'world', PLAYER_TRAP_PATH, 0.86, 5);
+// A bait is not a machine: it looks like what it is, a piece of bad meat.
+const armedBaitVisual = runtimeVisual('trap', 'bait-armed', 'world', PLAYER_BAIT_PATH, 1, 5);
+const spentBaitVisual = runtimeVisual('trap', 'bait-spent', 'world', PLAYER_BAIT_PATH, 0.86, 5);
 const disarmedTrapVisual = runtimeVisual('trap', 'disarmed', 'world', DISARMED_TRAP_PATH, 1, 5);
 const doorPanelVisual = runtimeVisual(
   'system', 'door-panel', 'world', 'dngn/doors/closed_door.png', 1, 0,
@@ -2682,7 +2697,11 @@ function selectedActionModel(selection = selectedUiItem()) {
     };
   }
   if (selection.item.placeableTrap) {
-    const tier = currentSkillCapabilities().trapPlacementTier;
+    const capabilities = currentSkillCapabilities();
+    // A jaw trap answers to the trapper, a bait to the poisoner.
+    const tier = selection.item.placeableTrap === PLAYER_BAIT_KIND
+      ? capabilities.poisoncraftRank ?? 0
+      : capabilities.trapPlacementTier ?? 0;
     const enabled = tier > 0 && runStatus === 'playing' && !hero.dead;
     return {
       label: enabled
@@ -4861,7 +4880,10 @@ function drawEvents() {
   for (const trap of placedTraps) {
     if (!revealed.has(`${trap.x},${trap.y}`)) continue;
     const armed = trap.state === 'armed';
-    const visual = armed ? armedPlayerTrapVisual : spentPlayerTrapVisual;
+    const bait = trap.kind === PLAYER_BAIT_KIND;
+    const visual = bait
+      ? (armed ? armedBaitVisual : spentBaitVisual)
+      : (armed ? armedPlayerTrapVisual : spentPlayerTrapVisual);
     drawSprite(
       visual.path,
       (trap.x + 0.5) * TILE,
@@ -8619,12 +8641,16 @@ function renderTrapPlacementTargets() {
 function beginTrapPlacement(itemUid) {
   const item = itemInstances.get(itemUid);
   const capabilities = currentSkillCapabilities();
+  const bait = item?.id === POISON_BAIT_ITEM_ID;
+  const known = bait
+    ? (capabilities.poisoncraftRank ?? 0) >= 1
+    : (capabilities.trapPlacementTier ?? 0) >= 1;
   if (
     uiScreen !== 'inventory'
     || runStatus !== 'playing'
     || hero.dead
-    || item?.id !== PLAYER_TRAP_ITEM_ID
-    || capabilities.trapPlacementTier < 1
+    || (item?.id !== PLAYER_TRAP_ITEM_ID && !bait)
+    || !known
   ) return false;
   const available = currentTrapPlacementCells();
   if (available.length === 0) {
@@ -8715,6 +8741,7 @@ function performTrapPlacement(x, y) {
     blockedCells: trapPlacementBlockedCells(),
     placedTraps,
     ownerId: 'hero',
+    kind: item.id === POISON_BAIT_ITEM_ID ? PLAYER_BAIT_KIND : PLAYER_TRAP_KIND,
   });
   if (!result.ok) {
     trapAnnouncement.textContent = itemDetailLanguage === 'ru'
@@ -9537,6 +9564,21 @@ function useConsumable(item, index, effectOverride = null) {
     burst(hero.x, hero.y - 10, '#d8c9b4', 18);
     addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
     feedback = `+${treatment.healed}`;
+  } else if (effect?.type === 'coat') {
+    const result = coatWeapon({
+      weapon: itemInstances.get(selected.hand1) ?? null,
+      profile: poisonProfile(currentSkillCapabilities()),
+      coating: hero.coating,
+      vials: interactionResourceCount(POISON_VIAL_ITEM_ID),
+    });
+    if (!result.ok) {
+      showLootToast(item, poisonRefusalText(result.reason, itemDetailLanguage));
+      return;
+    }
+    hero.coating = { ...result.coating };
+    playSound('drink');
+    burst(hero.x, hero.y - 10, '#86b84f', 16);
+    feedback = poisonRefusalText('coated', itemDetailLanguage);
   } else if (effect?.type === 'cleanse-ritual') {
     const ritual = resolveCleansing({
       effects: hero.effects,
@@ -9869,6 +9911,26 @@ function damageWildlife(
   persistRun();
 }
 
+/**
+ * The venom on the blade. One strike spends one charge, and the hero is told
+ * when the edge runs clean again.
+ */
+function applyWeaponCoating(monster) {
+  if (!hero.coating || !monster || monster.dead > 0) return;
+  const spent = spendCoating(hero.coating);
+  if (!spent.applied) return;
+  hero.coating = spent.coating;
+  monster.effects = applyActorEffect(monster.effects, 'poison', spent.seconds).effects;
+  addCombatGlyph(monster.x, monster.y, '☠', ACTOR_EFFECTS.poison.color, -62);
+  if (!hero.coating) {
+    showLootToast(
+      { path: lootById(POISON_VIAL_ITEM_ID)?.icon ?? 'item/potion/i-poison.png', rarity: 1 },
+      poisonRefusalText('spent', itemDetailLanguage),
+    );
+  }
+  persistRun();
+}
+
 function applyHeroStatus(id, duration) {
   const previousDuration = hero.effects[id] ?? 0;
   // Endurance shortens what the hero suffers, and only what reaches the hero:
@@ -9976,6 +10038,10 @@ function triggerPlacedTrapForMonster(monster) {
     sourceX: trapX,
     sourceY: trapY,
   });
+  if (result.poisonSeconds > 0 && monster.dead === 0) {
+    monster.effects = applyActorEffect(monster.effects, 'poison', result.poisonSeconds).effects;
+    addCombatGlyph(monster.x, monster.y, '☠', ACTOR_EFFECTS.poison.color, -58);
+  }
   burst(trapX, trapY, '#d8bd68', 20);
   addImpactWave(trapX, trapY, '#c7574f', 54, 2);
   addCombatGlyph(trapX, trapY, '!', '#e0c778', -48);
@@ -10317,6 +10383,8 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     vampiric: pending.vampiric,
     blunt: pending.blunt,
   });
+  // The pure runtime tests swing without the poison module mounted.
+  if (typeof applyWeaponCoating === 'function') applyWeaponCoating(monster);
   if (daggerBonus.kind) showDaggerStrikeImpact(monster, daggerBonus);
   if (primarySwordResult?.empowered) showSwordRhythmImpact(monster, primarySwordResult);
   if (pending.secondary && (monster.actorKind === 'wildlife' ? !monster.defeated : monster.dead === 0)) {

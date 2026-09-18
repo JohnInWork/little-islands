@@ -311,6 +311,15 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ alchemyRank: 3 }),
     ]),
   }),
+  poisoncraft: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ poisoncraftRank: 1 }),
+      Object.freeze({ poisoncraftRank: 2 }),
+      Object.freeze({ poisoncraftRank: 3 }),
+    ]),
+  }),
   weaponsmithing: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -383,6 +392,8 @@ export const SKILL_SYSTEMS = Object.freeze([
   'component-salvage',
   'enchantment-transfer',
   'alchemy-recipes',
+  'weapon-coatings',
+  'poison-bait',
   'weapon-reforging',
   'armor-reforging',
   'animal-taming',
@@ -459,6 +470,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   cleansingRank: Object.freeze([0, 3]),
   salvagingRank: Object.freeze([0, 3]),
   alchemyRank: Object.freeze([0, 3]),
+  poisoncraftRank: Object.freeze([0, 3]),
   weaponsmithingRank: Object.freeze([0, 3]),
   armorsmithingRank: Object.freeze([0, 3]),
   tamingRank: Object.freeze([0, 3]),

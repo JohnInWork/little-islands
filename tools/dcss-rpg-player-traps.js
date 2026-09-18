@@ -1,6 +1,10 @@
 export const PLAYER_TRAP_ITEM_ID = 'hunter-trap';
 export const PLAYER_TRAP_KIND = 'jaw';
+/** A poisoner lays the same kind of thing, and it works the other way round. */
+export const PLAYER_BAIT_KIND = 'bait';
+export const PLACED_TRAP_KINDS = Object.freeze([PLAYER_TRAP_KIND, PLAYER_BAIT_KIND]);
 export const PLAYER_TRAP_PATH = 'dngn/traps/blade.png';
+export const PLAYER_BAIT_PATH = 'item/food/chunk_rotten.png';
 export const MAX_PLACED_TRAPS = 16;
 
 const PLACEMENT_OFFSETS = Object.freeze(
@@ -9,6 +13,9 @@ const PLACEMENT_OFFSETS = Object.freeze(
       .filter((dx) => dx !== 0 || dy !== 0)
       .map((dx) => Object.freeze({ dx, dy }))),
 );
+
+/** How long a bait's venom works, by the poisoner's rank. */
+export const BAIT_POISON_SECONDS = Object.freeze([0, 6, 8, 10]);
 
 const IMPACT_BY_TIER = Object.freeze({
   1: Object.freeze({ damage: 22, holdSeconds: 0.6 }),
@@ -88,6 +95,7 @@ export function placePlayerTrap({
   blockedCells = [],
   placedTraps = [],
   ownerId = 'hero',
+  kind = PLAYER_TRAP_KIND,
 } = {}) {
   const unavailable = (reason) => ({ ok: false, reason, consumed: 0, placedTraps });
   if (runStatus !== 'playing' || !validCell(hero) || !Number.isFinite(hero.hp) || hero.hp <= 0) {
@@ -99,7 +107,11 @@ export function placePlayerTrap({
   if (!validCell(target) || !Number.isInteger(itemCount) || itemCount < 0) {
     return unavailable('invalid-command');
   }
-  const tier = capabilities?.trapPlacementTier ?? 0;
+  if (!PLACED_TRAP_KINDS.includes(kind)) return unavailable('invalid-command');
+  // Jaws answer to the trapper's hands, bait to the poisoner's.
+  const tier = kind === PLAYER_BAIT_KIND
+    ? capabilities?.poisoncraftRank ?? 0
+    : capabilities?.trapPlacementTier ?? 0;
   if (!Number.isInteger(tier) || tier < 0 || tier > 3) return unavailable('invalid-command');
   if (tier === 0) return unavailable('skill-required');
   if (itemCount === 0) return unavailable('item-required');
@@ -121,7 +133,7 @@ export function placePlayerTrap({
   const impact = playerTrapImpact(tier);
   const trap = {
     instanceId: nextTrapId(placedTraps, depth),
-    kind: PLAYER_TRAP_KIND,
+    kind,
     ownerId,
     x: target.x,
     y: target.y,
@@ -143,7 +155,7 @@ export function placePlayerTrap({
       x: target.x,
       y: target.y,
       tier,
-      itemId: PLAYER_TRAP_ITEM_ID,
+      itemId: kind === PLAYER_BAIT_KIND ? 'poison-bait' : PLAYER_TRAP_ITEM_ID,
       consumed: 1,
     },
   };
@@ -157,12 +169,16 @@ export function triggerPlayerTrap({ trap, target, runStatus = 'playing' } = {}) 
     return unavailable('invalid-target');
   }
   if (target.ownerId === trap.ownerId) return unavailable('friendly');
-  const impact = playerTrapImpact(trap.tier);
+  // A bait bites with venom instead of steel: little damage, lasting poison.
+  const impact = trap.kind === PLAYER_BAIT_KIND
+    ? { damage: 1, holdSeconds: 0.7, poisonSeconds: BAIT_POISON_SECONDS[trap.tier] }
+    : { ...playerTrapImpact(trap.tier), poisonSeconds: 0 };
   return {
     ok: true,
     reason: 'triggered',
     damage: impact.damage,
     holdSeconds: impact.holdSeconds,
+    poisonSeconds: impact.poisonSeconds,
     trap: { ...trap, state: 'spent' },
     target: { ...target, hp: Math.max(0, target.hp - impact.damage) },
     event: {
@@ -184,7 +200,7 @@ export function validPlacedTrap(trap, depth = null) {
   return Boolean(
     match
     && (depth === null || Number(match[1]) === depth)
-    && trap.kind === PLAYER_TRAP_KIND
+    && PLACED_TRAP_KINDS.includes(trap.kind)
     && validOwnerId(trap.ownerId)
     && validCell(trap)
     && validTier(trap.tier)

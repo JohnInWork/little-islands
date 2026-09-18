@@ -73,6 +73,7 @@ import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
 import { validateReforgeState } from './dcss-rpg-smithing.js';
+import { createCoatingState, validateCoatingState } from './dcss-rpg-poisoncraft.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
@@ -92,10 +93,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 46;
-export const SAVE_KEY = 'dng-codex:rpg:v46';
+export const SAVE_VERSION = 47;
+export const SAVE_KEY = 'dng-codex:rpg:v47';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v46',
   'dng-codex:rpg:v45',
   'dng-codex:rpg:v44',
   'dng-codex:rpg:v43',
@@ -690,7 +692,12 @@ export function generateDungeon({
     monsterCount - fixedMonsterCount - surpriseMonsterCells.length,
     occupied,
   );
-  const starterMonster = weightedPick(rng, MONSTER_CATALOG.filter((monster) => monster.tier === 1));
+  // The floor's first creature is an ordinary dungeon one: summoned bodies and
+  // city watchmen have their own places and never open a floor.
+  const starterMonster = weightedPick(
+    rng,
+    MONSTER_CATALOG.filter((monster) => monster.tier === 1 && monster.spawn === undefined),
+  );
   const monsters = [
     { instanceId: `monster-${depth}-0`, id: starterMonster.id, ...starterMonsterCell },
     ...(objective
@@ -1040,6 +1047,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       power: 1,
       hunger: HUNGER_MAX,
       meal: null,
+      coating: null,
       effects: createActorEffects(),
       skills: createSkillState(),
       skillStudy: createBookStudy(),
@@ -1251,10 +1259,10 @@ function normalizedFloorArchive(source, currentDepth) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1304,6 +1312,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1425,6 +1434,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1561,6 +1571,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1675,6 +1686,7 @@ export function migrateLegacyRun(snapshot) {
   // on the floor and an empty stash in the run.
   // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
   migrated.hero.meal = migrated.hero.meal ?? null;
+  migrated.hero.coating = createCoatingState(migrated.hero.coating);
   migrated.floor.camp = migrated.floor.camp ?? null;
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1835,6 +1847,7 @@ export function validateRun(snapshot) {
   if (!validateHunger(hero.hunger)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateMealState(hero.meal)) return false;
+  if (!validateCoatingState(hero.coating ?? null)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
   if (!validateBookStudy(hero.skillStudy)) return false;
   if (!validateSpellState(hero.spells)) return false;

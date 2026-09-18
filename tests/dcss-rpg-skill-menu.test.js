@@ -52,6 +52,7 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'camping',
     'endurance',
     'alchemy',
+    'poisoncraft',
     'weaponsmithing',
     'armorsmithing',
     'salvaging',

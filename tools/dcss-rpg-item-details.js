@@ -8,6 +8,8 @@ const RUSSIAN_NAMES = Object.freeze({
   'short-blade': 'Короткий клинок',
   'camp-kit': 'Походный набор',
   bandage: 'Бинты',
+  'poison-vial': 'Флакон яда',
+  'poison-bait': 'Отравленная приманка',
   'book-of-wardens': 'Книга стражей',
   'book-of-embers-burst': 'Книга вспышки',
   'arcane-essence': 'Аркановая эссенция',
@@ -112,6 +114,8 @@ const RUSSIAN_NAMES = Object.freeze({
 const ENGLISH_NAMES = Object.freeze({
   'camp-kit': 'Camping kit',
   bandage: 'Bandages',
+  'poison-vial': 'Vial of poison',
+  'poison-bait': 'Poisoned bait',
   'book-of-wardens': 'Book of wardens',
   'book-of-embers-burst': 'Book of the burst',
   'arcane-essence': 'Arcane essence',

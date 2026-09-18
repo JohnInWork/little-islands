@@ -138,6 +138,8 @@ const COPY = Object.freeze({
     lockpick: 'Взлом замка · нужен навык · расходуется',
     essence: 'Реагент зачарования · остаётся от разобранных вещей',
     trap: 'Установка рядом · нужен Ловушечник I',
+    bait: 'Установка рядом · нужны «Ядовитые составы»',
+    coat: 'Смазывает клинок ядом · нужны «Ядовитые составы»',
     gold: 'При подборе превращается в золото',
     cooking: 'Можно приготовить у костра',
     bookStudy: 'Случайный навык получает +1 ранг до конца забега',
@@ -184,6 +186,8 @@ const COPY = Object.freeze({
     lockpick: 'Picks a lock · requires skill · consumed',
     essence: 'Enchanting reagent · left behind by salvaged gear',
     trap: 'Place nearby · requires Trap setting I',
+    bait: 'Placed nearby · requires Poisoncraft',
+    coat: 'Coats the blade with venom · requires Poisoncraft',
     gold: 'Turns into gold when collected',
     cooking: 'Can be cooked at a campfire',
     bookStudy: 'One random skill gains +1 rank for this run',
@@ -327,6 +331,10 @@ function effectFact(effect, language, source) {
     const text = COPY[language].cleanse;
     return freezeFact({ id: `${source}:cleanse`, kind: 'use', icon: '◇', text, short: text });
   }
+  if (effect.type === 'coat') {
+    const text = COPY[language].coat;
+    return freezeFact({ id: `${source}:coat`, kind: 'use', icon: '☠', text, short: text });
+  }
   if (effect.type === 'cleanse-ritual') {
     const text = COPY[language].cleanseRitual;
     return freezeFact({ id: `${source}:cleanse-ritual`, kind: 'use', icon: '◇', text, short: text });
@@ -451,9 +459,17 @@ function utilityFacts(item, language) {
     }));
   }
   if (item.placeableTrap) {
-    if (item.placeableTrap !== 'jaw') throw new Error(`Missing trap dictionary entry: ${item.placeableTrap}`);
-    const text = COPY[language].trap;
-    facts.push(freezeFact({ id: 'trap:jaw', kind: 'use', icon: '⌖', text, short: text }));
+    if (!['jaw', 'bait'].includes(item.placeableTrap)) {
+      throw new Error(`Missing trap dictionary entry: ${item.placeableTrap}`);
+    }
+    const text = COPY[language][item.placeableTrap === 'bait' ? 'bait' : 'trap'];
+    facts.push(freezeFact({
+      id: `trap:${item.placeableTrap}`,
+      kind: 'use',
+      icon: item.placeableTrap === 'bait' ? '☠' : '⌖',
+      text,
+      short: text,
+    }));
   }
   if (item.gold) {
     const text = COPY[language].gold;
