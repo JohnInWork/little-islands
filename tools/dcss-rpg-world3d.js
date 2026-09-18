@@ -24,7 +24,18 @@ export const WORLD_BEAM_OPACITY = 0.072;
 export const WORLD_AMBIENT_INTENSITY = 0.56;
 export const WORLD_KEY_LIGHT_INTENSITY = 0.82;
 export const MAX_SHADOWED_WORLD_LIGHTS = MAX_SPOT_SHADOW_LIGHTS;
-export const WORLD_DECORATION_DEPTH_BIAS = 0.18;
+/**
+ * Every billboard standing on the floor is lifted the same distance toward the
+ * camera, so it never fights the ground plane for the same pixels.
+ *
+ * It used to be given to decorations and finds only, and at a fifth of a tile
+ * that was enough to put a statue, a chest or the ascent arch *in front of the
+ * hero standing on it*. A lift that only some sprites get is not a lift, it is
+ * a reordering — so now everything that stands on the floor gets it, and what
+ * is in front of what is decided by ground position alone, exactly as the 2D
+ * layer decides it for actors.
+ */
+export const WORLD_BILLBOARD_DEPTH_BIAS = 0.18;
 export const WORLD_DOOR_HEIGHT = 0.52;
 export const WORLD_DOOR_THICKNESS = 0.12;
 export const DOOR_PANEL_CROP = Object.freeze({ x: 6, y: 5, width: 20, height: 25 });
@@ -568,7 +579,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     const planeScale = (actor.size * groundVerticalScale) / tileSize;
     const verticalPixelsPerUnit =
       (tileSize * Math.cos(elevationRadians)) / groundVerticalScale;
-    const depthBias = actor.depthBias ?? 0;
+    const depthBias = WORLD_BILLBOARD_DEPTH_BIAS + (actor.depthBias ?? 0);
     entry.sprite.position.set(
       (actor.x / tileSize) * groundVerticalScale,
       -actor.screenOffsetY / verticalPixelsPerUnit + depthBias * Math.sin(elevationRadians),

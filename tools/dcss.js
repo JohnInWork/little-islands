@@ -132,7 +132,6 @@ import {
   dominantCardinalDirection,
 } from './dcss-rpg-input.js';
 import {
-  WORLD_DECORATION_DEPTH_BIAS,
   WORLD_WALL_HEIGHT,
   createDungeonWorld3D,
 } from './dcss-rpg-world3d.js';
@@ -4209,7 +4208,6 @@ function syncWorldActors3D() {
           screenOffsetY: decoration.screenOffsetY,
           opacity: 1,
           hit: false,
-          depthBias: WORLD_DECORATION_DEPTH_BIAS,
           shadowScale: 0.72,
           shadowOpacity: 0.3,
         })),
@@ -4243,7 +4241,6 @@ function syncWorldActors3D() {
                 : 1
             : 1,
           hit: false,
-          depthBias: WORLD_DECORATION_DEPTH_BIAS,
           shadowScale: find.resolved && find.id !== 'sealed-cache' ? 0.52 : 0.78,
           shadowOpacity: find.resolved
             ? find.id === 'sealed-cache' ? 0.26 : 0.14

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -114,7 +115,11 @@ test('runtime sends decorations through the depth-tested 3D world and gives ligh
   assert.match(runtime, /decorations: \[/);
   assert.match(runtime, /\.\.\.dungeonEnvironment\.props/);
   assert.match(runtime, /decoration\.frames/);
-  assert.match(runtime, /depthBias: WORLD_DECORATION_DEPTH_BIAS/);
+  // The lift off the floor plane belongs to every billboard, not to decorations
+  // alone: giving it to some sprites only reorders them in front of the hero.
+  assert.doesNotMatch(runtime, /depthBias: WORLD_DECORATION_DEPTH_BIAS/);
+  const world3dSource = readFileSync(new URL('../tools/dcss-rpg-world3d.js', import.meta.url), 'utf8');
+  assert.match(world3dSource, /WORLD_BILLBOARD_DEPTH_BIAS \+ \(actor\.depthBias \?\? 0\)/);
   assert.match(runtime, /filter\(\(\{ light \}\) => light\)/);
   assert.match(world3d, /decorations = \[\]/);
   assert.match(world3d, /decoration:\$\{decoration\.id\}/);
