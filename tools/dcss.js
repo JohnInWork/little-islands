@@ -180,6 +180,16 @@ import {
   stealthProfile,
   stealthVisionRadius,
 } from './dcss-rpg-scouting.js';
+import {
+  CAMP_KIT_ITEM_ID,
+  CAMP_STASH_CONTAINER_ID,
+  campLayout,
+  campProfile,
+  campRefusalText,
+  canPitchCamp,
+  createCampState,
+  resolveCampRest,
+} from './dcss-rpg-camp.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -1528,6 +1538,141 @@ function currentStealthProfile() {
 
 function currentSecretSearchProfile() {
   return secretSearchProfile(currentSkillCapabilities());
+}
+
+function currentCampProfile() {
+  return campProfile(currentSkillCapabilities());
+}
+
+/** The camp's furniture: props the hero put there, not the dungeon. */
+const CAMP_PROP_VISUALS = Object.freeze({
+  fire: Object.freeze({
+    path: 'dngn/altars/makhleb_flame1.png',
+    frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
+    size: 62,
+    screenOffsetY: -10,
+    light: Object.freeze({ color: '#d88447', radius: 2.35, beam: false }),
+    interactionId: 'campfire',
+  }),
+  bedroll: Object.freeze({
+    path: 'item/armour/cloak2.png',
+    frames: Object.freeze(['item/armour/cloak2.png']),
+    size: 58,
+    screenOffsetY: -2,
+    light: null,
+    interactionId: 'camp-rest',
+  }),
+  chest: Object.freeze({
+    path: 'licensed/cmski-chests/wooden/4.png',
+    frames: Object.freeze(['licensed/cmski-chests/wooden/4.png']),
+    size: 60,
+    screenOffsetY: -6,
+    light: null,
+    interactionId: 'camp-stash',
+  }),
+});
+
+function campPropsFor(camp) {
+  if (!camp) return [];
+  return camp.places.map(({ feature, x, y }) => {
+    const visual = CAMP_PROP_VISUALS[feature];
+    return Object.freeze({
+      id: `camp-${feature}`,
+      ...visual,
+      gridX: x,
+      gridY: y,
+      x: x + 0.5,
+      y: y + 0.5,
+      phase: 0,
+    });
+  });
+}
+
+/** Rebuilds the environment so the camp's things live beside the dungeon's. */
+function applyCampProps() {
+  const withoutCamp = dungeonEnvironment.props.filter(({ id }) => !String(id).startsWith('camp-'));
+  const props = [...withoutCamp, ...campPropsFor(run.floor.camp)];
+  dungeonEnvironment = Object.freeze({ ...dungeonEnvironment, props: Object.freeze(props) });
+}
+
+function campKitCount() {
+  return interactionResourceCount(CAMP_KIT_ITEM_ID);
+}
+
+/** Spends one kit and puts a camp on the floor, or explains why it cannot. */
+function pitchCamp() {
+  const profile = currentCampProfile();
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const occupied = [
+    ...monsters.filter((monster) => monster.dead === 0).map((monster) => monsterCellKey(monster, TILE)),
+    ...passiveCreatures.filter((creature) => !creature.defeated).map((creature) => monsterCellKey(creature, TILE)),
+    ...dungeonEnvironment.props.map(({ gridX, gridY }) => `${gridX},${gridY}`),
+    ...findDefinitions.map((find) => `${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`),
+    ...doorDefinitions.map((door) => `${door.x},${door.y}`),
+    `${dungeon.exit.x},${dungeon.exit.y}`,
+  ];
+  const decision = canPitchCamp({
+    profile,
+    kits: campKitCount(),
+    camp: run.floor.camp,
+    grid: world,
+    cell,
+    occupied,
+    // A wall between them is enough: only what can watch the spot forbids it.
+    threats: monsters
+      .filter((monster) => monster.dead === 0)
+      .map((monster) => ({ x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }))
+      .filter((threat) => hasLineOfSight(world, threat, cell)),
+  });
+  if (!decision.ok) {
+    addCombatGlyph(hero.x, hero.y, '\u2302', '#b9aaa0', -66);
+    return campRefusalText(decision.reason, itemDetailLanguage);
+  }
+  run.floor.camp = createCampState({ cell, places: decision.places, rank: profile.rank });
+  applyCampProps();
+  for (const place of run.floor.camp.places) {
+    revealAround(revealed, world, { x: place.x, y: place.y }, 1);
+    burst((place.x + 0.5) * TILE, (place.y + 0.5) * TILE, '#d8bf68', 12);
+  }
+  playSound('chest');
+  playerHasActed = true;
+  return '';
+}
+
+function nearbyCampProp(interactionId) {
+  if (runStatus !== 'playing' || !run.floor.camp) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return dungeonEnvironment.props.find((prop) => (
+    prop.interactionId === interactionId
+    && Math.abs(cell.x - prop.gridX) + Math.abs(cell.y - prop.gridY) <= 1
+  )) ?? null;
+}
+
+function campRestDecision() {
+  return resolveCampRest({
+    profile: currentCampProfile(),
+    camp: run.floor.camp,
+    hp: hero.hp,
+    maxHp: currentHeroStats().maxHp,
+    hunger: hero.hunger,
+  });
+}
+
+function restAtCamp() {
+  const result = campRestDecision();
+  if (!result.ok) return false;
+  hero.hp = result.hp;
+  hero.hunger = result.hunger;
+  run.floor.camp = result.camp;
+  currentHungerStageId = hungerStage(hero.hunger).id;
+  hungerAutosaveElapsed = 0;
+  playerHasActed = true;
+  burst(hero.x, hero.y - 10, '#9db4c8', 14);
+  addCombatGlyph(hero.x, hero.y, `+${result.healed}`, '#8bc59c', -70);
+  playSound('spell-heal');
+  updateHud();
+  persistRun();
+  return true;
 }
 
 /** A secret shows itself only while a hero who can notice it stands near. */
@@ -4639,7 +4784,11 @@ function renderLootToast({ item, value }) {
       ? labels.equipped
       : value === 'full'
         ? labels.inventoryFullShort
-        : presentation.primaryEffect.text;
+        // A plain sentence means the runtime has something to say about this
+        // very use, which beats repeating what the item always does.
+        : typeof value === 'string' && value !== ''
+          ? value
+          : presentation.primaryEffect.text;
     if (definition?.gold && typeof value === 'number') lootValue.textContent = `+${value}`;
     else if (typeof value === 'number' && value > 1) lootValue.textContent = `+${value}`;
     else if ((item.stack ?? 0) > 1) lootValue.textContent = `×${item.stack}`;
@@ -5368,6 +5517,12 @@ function contextModelTarget(entry = contextTarget) {
       rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
     };
   }
+  if (entry.kind === 'camp-rest') {
+    return { kind: 'camp-rest', reason: campRestDecision().reason };
+  }
+  if (entry.kind === 'camp-stash') {
+    return { kind: 'camp-stash' };
+  }
   if (entry.kind === 'wildlife') {
     return {
       kind: 'wildlife',
@@ -5409,16 +5564,20 @@ function contextModelTarget(entry = contextTarget) {
   };
 }
 
+/** Props sit on a grid cell of their own; actors and finds carry pixel positions. */
+const PROP_INTERACTION_KINDS = new Set(['campfire', 'camp-rest', 'camp-stash']);
+
 function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const propTarget = PROP_INTERACTION_KINDS.has(entry.kind);
   const pixelActor = entry.kind === 'find' || entry.kind === 'wildlife';
-  const x = entry.kind === 'campfire'
+  const x = propTarget
     ? entry.value.gridX
     : pixelActor
       ? Math.floor(entry.value.x / TILE)
       : entry.value.x;
-  const y = entry.kind === 'campfire'
+  const y = propTarget
     ? entry.value.gridY
     : pixelActor
       ? Math.floor(entry.value.y / TILE)
@@ -5431,7 +5590,7 @@ function contextTargetIsAdjacent(entry) {
   }
   if (entry.kind === 'find') return distance <= 1 && findIsInteractable(entry.value);
   if (entry.kind === 'merchant') return distance <= 1;
-  if (entry.kind === 'campfire') return distance <= 1;
+  if (propTarget) return distance <= 1;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
@@ -5686,6 +5845,7 @@ function merchantFailureCopy(reason) {
 const CHEST_CONTAINER_COPY = Object.freeze({
   ru: Object.freeze({
     title: 'Сундук',
+    campTitle: 'Сундук лагеря',
     destroyedTitle: 'Разбитый сундук',
     open: 'Открыт',
     destroyed: 'Повреждён · хранение недоступно',
@@ -5704,6 +5864,7 @@ const CHEST_CONTAINER_COPY = Object.freeze({
   }),
   en: Object.freeze({
     title: 'Chest',
+    campTitle: 'Camp chest',
     destroyedTitle: 'Broken chest',
     open: 'Open',
     destroyed: 'Damaged · storage unavailable',
@@ -5727,11 +5888,18 @@ function chestContainerCopy() {
 }
 
 function chestContainerState(findId = activeChestFindId) {
+  if (findId === CAMP_STASH_CONTAINER_ID) return run.camp.stash;
   return run.floor.chests.find((container) => container.findId === findId) ?? null;
 }
 
 function replaceChestContainerState(nextContainer) {
   if (!nextContainer) return false;
+  if (nextContainer.findId === CAMP_STASH_CONTAINER_ID) {
+    // The camp chest belongs to the run, so it survives the descent with its
+    // contents; only the camp around it is left behind on the old floor.
+    run.camp = { stash: { ...nextContainer, items: nextContainer.items.map((item) => ({ ...item })) } };
+    return true;
+  }
   let replaced = false;
   run.floor.chests = run.floor.chests.map((container) => {
     if (container.findId !== nextContainer.findId) return container;
@@ -5799,7 +5967,9 @@ function renderChestContainer() {
   const find = findDefinitions.find(({ instanceId }) => instanceId === container.findId);
   const frames = find?.definition.animationFrames;
   chestContainer.lang = itemDetailLanguage;
-  chestContainerTitle.textContent = container.destroyed ? copy.destroyedTitle : copy.title;
+  // The camp chest says so, or a player would take it for dungeon furniture.
+  const plainTitle = container.findId === CAMP_STASH_CONTAINER_ID ? copy.campTitle : copy.title;
+  chestContainerTitle.textContent = container.destroyed ? copy.destroyedTitle : plainTitle;
   chestContainerStateLabel.textContent = container.destroyed ? copy.destroyed : copy.open;
   chestStorageTitle.textContent = copy.storage;
   chestBackpackTitle.textContent = copy.backpack;
@@ -5942,6 +6112,35 @@ function openChestContainerUi(find) {
   hero.path = [];
   hero.pendingAttack = null;
   activeChestFindId = find.instanceId;
+  chestContainerFeedback.textContent = '';
+  uiScreen = 'chest';
+  document.body.dataset.screen = uiScreen;
+  chestContainer.inert = false;
+  chestContainer.setAttribute('aria-hidden', 'false');
+  moveControl.inert = true;
+  moveControl.setAttribute('aria-hidden', 'true');
+  spellBar.inert = true;
+  spellBar.setAttribute('aria-hidden', 'true');
+  bagButton.disabled = true;
+  characterSheetButton.disabled = true;
+  pauseGameButton.disabled = true;
+  renderChestContainer();
+  requestAnimationFrame(() => (
+    chestStorageList.querySelector('button:not(:disabled)')
+    ?? chestBackpackList.querySelector('button:not(:disabled)')
+    ?? closeChestContainerButton
+  ).focus());
+  return true;
+}
+
+/** The camp chest opens the same two-panel screen as any container. */
+function openCampStashUi() {
+  if (uiScreen !== 'game' || hero.dead || runStatus !== 'playing' || !run.floor.camp) return false;
+  playSound('chest');
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  activeChestFindId = CAMP_STASH_CONTAINER_ID;
   chestContainerFeedback.textContent = '';
   uiScreen = 'chest';
   document.body.dataset.screen = uiScreen;
@@ -6203,6 +6402,10 @@ function nearbyContextTarget() {
   if (campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0) {
     return { kind: 'campfire', value: campfire };
   }
+  const bedroll = nearbyCampProp('camp-rest');
+  if (bedroll) return { kind: 'camp-rest', value: bedroll };
+  const campChest = nearbyCampProp('camp-stash');
+  if (campChest) return { kind: 'camp-stash', value: campChest };
   const wildlife = nearbyWildlife();
   if (wildlife) return { kind: 'wildlife', value: wildlife };
   if (campfire) return { kind: 'campfire', value: campfire };
@@ -6248,6 +6451,15 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     const site = target.value;
     closeContextActions();
     return cookAtCampfire(site);
+  },
+  'camp-rest'() {
+    closeContextActions();
+    return restAtCamp();
+  },
+  'camp-stash'() {
+    closeContextActions();
+    activeChestFindId = CAMP_STASH_CONTAINER_ID;
+    return openCampStashUi();
   },
 });
 
@@ -6956,6 +7168,9 @@ function closeInventory() {
   markedForSalvage.clear();
   salvageMode = false;
   updateSalvageUi();
+  // Opening the bag hid the interact button; whatever stands beside the hero
+  // is still there when the bag closes, so offer it again without a step.
+  updateInteractionUi();
   bagButton.focus();
 }
 
@@ -7722,6 +7937,12 @@ function useConsumable(item, index) {
     hungerAutosaveElapsed = 0;
     playerHasActed = true;
     feedback = `+${Math.ceil(result.restored / 60)}′`;
+  } else if (item.useEffect?.type === 'camp') {
+    const refusal = pitchCamp();
+    if (refusal !== '') {
+      showLootToast(item, refusal);
+      return;
+    }
   } else if (item.useEffect?.type === 'power') {
     hero.power += item.useEffect.amount;
     feedback = `+${item.useEffect.amount}`;
@@ -8761,6 +8982,7 @@ function replaceFloor(nextDepth) {
   eventDefinitions = createEventDefinitions(dungeon);
   findDefinitions = createFindDefinitions(dungeon);
   visibleSecretIds.clear();
+  applyCampProps();
   trapDefinitions = trapsFromDungeon(dungeon);
   placedTraps = [];
   detectedTrapIds = new Set();

@@ -47,7 +47,7 @@ test('v9 migration grants earned skill points and preserves difficulty across th
   const before = structuredClone(legacy);
   const next = migrateLegacyRun(legacy);
   assert.equal(next.version, SAVE_VERSION);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v37');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v38');
   assert.deepEqual(next.hero.skills, createSkillState(4));
   assert.equal(next.difficulty, before.difficulty);
   assert.equal(next.hero.hp, before.hero.hp);
@@ -59,7 +59,7 @@ test('v9 migration grants earned skill points and preserves difficulty across th
   assert.deepEqual(floorWithoutChests, {
     revealed: [], defeated: [], collected: [], resolved: [], resolvedFindIds: [],
     detectedTrapIds: [], disarmedTrapIds: [], placedTraps: [], opened: [],
-    triggered: [], monsters: [], passives: [], merchants: [],
+    triggered: [], monsters: [], passives: [], camp: null, merchants: [],
   });
   assert.ok(chests.length > 0);
   assert.equal(next.started, false);

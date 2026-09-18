@@ -79,12 +79,15 @@ import {
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
 import { WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
+import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
+import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 37;
-export const SAVE_KEY = 'dng-codex:rpg:v37';
+export const SAVE_VERSION = 38;
+export const SAVE_KEY = 'dng-codex:rpg:v38';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v37',
   'dng-codex:rpg:v36',
   'dng-codex:rpg:v35',
   'dng-codex:rpg:v34',
@@ -989,6 +992,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       amulet: null,
     },
     inventory: [],
+    camp: { stash: createCampStash() },
     floor: createEmptyFloorState(dungeon),
   };
 }
@@ -1007,6 +1011,7 @@ function createEmptyFloorState(dungeon = null) {
     triggered: [],
     monsters: [],
     passives: [],
+    camp: null,
     merchants: dungeon
       ? [...createMerchantStates({ merchants: dungeon.merchants, depth: dungeon.depth })]
       : [],
@@ -1151,10 +1156,10 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1197,7 +1202,13 @@ export function migrateLegacyRun(snapshot) {
     // (generator 9) adds the fountain and rune landmarks: both regenerate the
     // floor from the same seed, and every saved position stays walkable.
     migrated.stats = createRunStats(snapshot.stats);
+    // v38 lets the hero pitch a camp; an older floor simply has none yet and
+    // the stash starts empty, so nothing an old run owned changes hands.
     migrated.generatorVersion = GENERATOR_VERSION;
+    // Every migrated run gets the camp fields v38 introduced: no pitched camp
+    // on the floor and an empty stash in the run.
+    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.camp = migrated.camp ?? { stash: createCampStash() };
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     return migrated;
   }
@@ -1297,6 +1308,10 @@ export function migrateLegacyRun(snapshot) {
     rebaseLegacyRunForExpandedDungeon(migrated, snapshot.status);
     delete migrated.floor.merchantPurchases;
     migrated.stats = createRunStats(migrated.stats);
+    // Every migrated run gets the camp fields v38 introduced: no pitched camp
+    // on the floor and an empty stash in the run.
+    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.camp = migrated.camp ?? { stash: createCampStash() };
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1420,6 +1435,10 @@ export function migrateLegacyRun(snapshot) {
       lootAbundance,
     })];
     delete migrated.shards;
+    // Every migrated run gets the camp fields v38 introduced: no pitched camp
+    // on the floor and an empty stash in the run.
+    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.camp = migrated.camp ?? { stash: createCampStash() };
     if (!validateRun(migrated)) {
       throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     }
@@ -1521,6 +1540,10 @@ export function migrateLegacyRun(snapshot) {
     lootAbundance: DEFAULT_LOOT_ABUNDANCE,
   })];
   delete migrated.shards;
+  // Every migrated run gets the camp fields v38 introduced: no pitched camp
+  // on the floor and an empty stash in the run.
+  migrated.floor.camp = migrated.floor.camp ?? null;
+  migrated.camp = migrated.camp ?? { stash: createCampStash() };
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
   return migrated;
 }
@@ -1632,9 +1655,12 @@ export function validateRun(snapshot) {
     )
   )
     return false;
+  if (!validateCampState(floor.camp)) return false;
+  if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateChestContainerStates(floor.chests, { depth: snapshot.depth })) return false;
   if (!validateMerchantStateShape(floor.merchants, snapshot.depth)) return false;
   const storedItemRecords = [
+    ...snapshot.camp.stash.items,
     ...floor.chests.flatMap(({ items: storedItems }) => storedItems),
     ...floor.merchants.flatMap(({ buyback }) => buyback.map(({ record }) => record)),
   ];
@@ -1890,6 +1916,8 @@ export function advanceRunFloor(snapshot) {
     equipment: { ...snapshot.equipment },
     items: snapshot.items.map((item) => ({ ...item })),
     inventory: [...snapshot.inventory],
+    // The pitched camp belongs to the floor; the stash inside it belongs to the run.
+    camp: { stash: { ...snapshot.camp.stash, items: snapshot.camp.stash.items.map((item) => ({ ...item })) } },
     floor: createEmptyFloorState(dungeon),
     commandSequence: snapshot.commandSequence,
   };

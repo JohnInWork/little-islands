@@ -17,6 +17,8 @@ const ACTION_COPY = Object.freeze({
     trade: 'Торговать',
     hunt: 'Охотиться',
     cook: 'Приготовить',
+    rest: 'Отдохнуть',
+    stash: 'Открыть сундук',
     pray: 'Молиться',
     offer: 'Пожертвовать',
     plunder: 'Ограбить',
@@ -43,6 +45,8 @@ const ACTION_COPY = Object.freeze({
     trade: 'Trade',
     hunt: 'Hunt',
     cook: 'Cook',
+    rest: 'Rest',
+    stash: 'Open the chest',
     pray: 'Pray',
     offer: 'Offer',
     plunder: 'Plunder',
@@ -71,6 +75,8 @@ const GLYPHS = Object.freeze({
   trade: '●',
   hunt: '⚔',
   cook: '♨',
+  rest: '☾',
+  stash: '▤',
   pray: '✚',
   offer: '◆',
   plunder: '!',
@@ -105,6 +111,13 @@ const COPY = Object.freeze({
     merchantName: 'Странствующий торговец',
     merchantDescription: '',
     campfireName: 'Костёр',
+    campBedName: 'Спальник',
+    campBedClosed: '',
+    campBedRested: 'Герой уже отдохнул здесь.',
+    campBedHungry: 'Слишком голоден для сна',
+    campBedFull: 'Отдыхать незачем',
+    campStashName: 'Сундук лагеря',
+    campStashClosed: '',
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
   }),
@@ -128,6 +141,13 @@ const COPY = Object.freeze({
     merchantName: 'Wandering merchant',
     merchantDescription: '',
     campfireName: 'Campfire',
+    campBedName: 'Bedroll',
+    campBedClosed: '',
+    campBedRested: 'The hero has already slept here.',
+    campBedHungry: 'Too hungry to sleep',
+    campBedFull: 'Nothing to sleep off',
+    campStashName: 'Camp chest',
+    campStashClosed: '',
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
   }),
@@ -165,6 +185,42 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: 'dngn/altars/makhleb_flame1.png',
       accent: '#d88447',
       actions: [{ id: 'cook', enabled: target.rawMeatCount > 0, hint: target.rawMeatCount > 0 ? '' : copy.campfireEmpty }],
+    }),
+  }),
+  defineInteraction({
+    // The bedroll and the chest are the camp's own furniture: they exist only
+    // where the hero pitched one, and the ranks decide which of them are there.
+    id: 'camp-rest',
+    command: 'camp-rest',
+    matches: (target) => target?.kind === 'camp-rest' && typeof target.reason === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.campBedName,
+      description: copy.campBedClosed,
+      icon: 'item/armour/cloak2.png',
+      accent: '#9db4c8',
+      actions: [{
+        id: 'rest',
+        enabled: target.reason === 'rested',
+        hint: target.reason === 'already-rested'
+          ? copy.campBedRested
+          : target.reason === 'too-hungry'
+            ? copy.campBedHungry
+            : target.reason === 'nothing-to-heal'
+              ? copy.campBedFull
+              : '',
+      }],
+    }),
+  }),
+  defineInteraction({
+    id: 'camp-stash',
+    command: 'camp-stash',
+    matches: (target) => target?.kind === 'camp-stash',
+    present: ({ copy }) => ({
+      name: copy.campStashName,
+      description: copy.campStashClosed,
+      icon: 'licensed/cmski-chests/wooden/4.png',
+      accent: '#c2a36a',
+      actions: [{ id: 'stash' }],
     }),
   }),
   defineInteraction({

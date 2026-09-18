@@ -120,6 +120,7 @@ const COPY = Object.freeze({
     satiety: 'Сытость',
     minutes: 'мин',
     power: 'Сила до конца забега',
+    camp: 'Разбивает лагерь',
     cleanse: 'Снимает все состояния',
     venom: 'Отравление',
     seconds: 'с',
@@ -157,6 +158,7 @@ const COPY = Object.freeze({
     satiety: 'Satiety',
     minutes: 'min',
     power: 'Run power',
+    camp: 'Pitches a camp',
     cleanse: 'Clears all statuses',
     venom: 'Poison',
     seconds: 's',
@@ -288,6 +290,10 @@ function effectFact(effect, language, source) {
   if (effect.type === 'power' && Number.isFinite(effect.amount) && effect.amount > 0) {
     const text = `${COPY[language].power}: +${effect.amount}`;
     return freezeFact({ id: `${source}:power`, kind: 'use', icon: '⚔', text, short: text });
+  }
+  if (effect.type === 'camp') {
+    const text = COPY[language].camp;
+    return freezeFact({ id: `${source}:camp`, kind: 'use', icon: '\u2302', text, short: text });
   }
   if (effect.type === 'cleanse') {
     const text = COPY[language].cleanse;

@@ -17,6 +17,12 @@ import {
 } from './dcss-rpg-game-commands.js';
 
 export const CHEST_CONTAINER_CAPACITY = 8;
+/** The camp stash reuses the whole container contract, but it has no floor. */
+export const CAMP_STASH_CONTAINER_ID = 'camp-stash';
+
+export function containerDepthOf(findId) {
+  return findId === CAMP_STASH_CONTAINER_ID ? 1 : Number(String(findId).split('-')[1]);
+}
 export const HERO_BACKPACK_CAPACITY = 12;
 export const CHEST_CONTAINER_COMMANDS = Object.freeze({
   take: 'chest-take',
@@ -197,7 +203,8 @@ export function validateChestContainerStates(containers, { depth, findIds = null
   return containers.every((container) => (
     container
     && typeof container.findId === 'string'
-    && new RegExp(`^find-${depth}-\\d+$`).test(container.findId)
+    && (container.findId === CAMP_STASH_CONTAINER_ID
+      || new RegExp(`^find-${depth}-\\d+$`).test(container.findId))
     && (!known || known.has(container.findId))
     && typeof container.opened === 'boolean'
     && typeof container.destroyed === 'boolean'
@@ -242,7 +249,7 @@ function validTransfer(command, container, type) {
     && command.targetId === container?.findId
     && container.opened
     && validateChestContainerStates([container], {
-      depth: Number(container.findId.split('-')[1]),
+      depth: containerDepthOf(container.findId),
     }),
   );
 }

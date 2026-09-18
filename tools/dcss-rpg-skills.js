@@ -86,6 +86,15 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       }),
     ]),
   }),
+  camping: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ campRank: 1, campRestPercent: 0, campStashSlots: 0 }),
+      Object.freeze({ campRank: 2, campRestPercent: 25, campStashSlots: 0 }),
+      Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
+    ]),
+  }),
   darkvision: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -198,6 +207,7 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 // Add a system here only when its runtime consumer is connected and verified.
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
+  'camp-rest',
   'darkness-vision',
   'secret-discovery',
   'stealth-detection',
@@ -249,6 +259,9 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   axeCleaveOneHandTargets: Object.freeze([0, 2]),
   shieldBlockChancePercent: Object.freeze([0, 100]),
   shieldBlockStunMs: Object.freeze([0, 10_000]),
+  campRank: Object.freeze([0, 3]),
+  campRestPercent: Object.freeze([0, 100]),
+  campStashSlots: Object.freeze([0, 12]),
   darkvisionRank: Object.freeze([0, 3]),
   darkvisionRadiusBonus: Object.freeze([0, 6]),
   secretSearchRank: Object.freeze([0, 3]),

@@ -670,6 +670,19 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 6,
   },
   {
+    // The kit is the price of a camp: one kit, one camp, and it is gone.
+    id: 'camp-kit',
+    icon: 'item/misc/misc_box.png',
+    slot: null,
+    kind: 'tool',
+    useEffect: { type: 'camp' },
+    rarity: 1,
+    weight: 7,
+    minDepth: 1,
+    stack: 1,
+    value: 9,
+  },
+  {
     // Starting clothes only: a shirt and trousers, never rolled as loot.
     id: 'worn-tunic',
     icon: 'item/armour/robe1.png',
