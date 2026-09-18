@@ -76,6 +76,7 @@ export const AMBIENT_SAMPLES = Object.freeze({
   dusk: sample('ambience/dungeon-loop.mp3', 0.11),
   hamlet: sample('ambience/dungeon-loop.mp3', 0.1),
   bramble: sample('ambience/dungeon-loop.mp3', 0.12),
+  frost: sample('ambience/dungeon-loop.mp3', 0.08),
 });
 
 export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([

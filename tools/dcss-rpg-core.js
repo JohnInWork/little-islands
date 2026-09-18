@@ -572,6 +572,8 @@ function generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, he
     themeId: CITY_DUNGEON_THEME.id,
     conditionIds,
     branch,
+    builtWalls: Object.freeze([]),
+    hewnWalls: Object.freeze([]),
     depth,
     scaling,
     width,
@@ -1112,6 +1114,10 @@ export function generateDungeon({
     themeId,
     conditionIds,
     branch,
+    // Which walls somebody built and which were cut out of a hill. Only the
+    // plan knows, and the renderer has no way to work it out from the grid.
+    builtWalls: surfacePlan?.builtWalls ?? Object.freeze([]),
+    hewnWalls: surfacePlan?.hewnWalls ?? Object.freeze([]),
     depth,
     scaling,
     width,

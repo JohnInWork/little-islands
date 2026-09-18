@@ -60,7 +60,7 @@ function raiseMassif(grid, rng, { x, y, size }) {
  * bored out to the open. It is the one place outside that is properly enclosed,
  * and the only enclosed place that was not built by anybody.
  */
-function hollowCave(grid, rng, { width, height, rooms }) {
+function hollowCave(grid, rng, { width, height, rooms, hewn }) {
   const solid = (rect) => {
     for (let y = rect.y - 1; y <= rect.y + rect.height; y += 1) {
       for (let x = rect.x - 1; x <= rect.x + rect.width; x += 1) {
@@ -77,12 +77,16 @@ function hollowCave(grid, rng, { width, height, rooms }) {
     // The hill comes with the cave. Waiting for a massif thick enough to hollow
     // leaves nine floors in ten without one, so the cave raises its own rock.
     if (!solid(chamber)) {
-      fill(grid, {
+      const hill = {
         x: chamber.x - 2,
         y: chamber.y - 2,
         width: chamber.width + 4,
         height: chamber.height + 4,
-      }, SURFACE_WALL);
+      };
+      fill(grid, hill, SURFACE_WALL);
+      for (let y = hill.y; y < hill.y + hill.height; y += 1) {
+        for (let x = hill.x; x < hill.x + hill.width; x += 1) hewn.add(`${x},${y}`);
+      }
     }
     fill(grid, chamber, SURFACE_FLOOR);
     // Bore outward from the middle of one side until daylight.
@@ -112,8 +116,11 @@ function hollowCave(grid, rng, { width, height, rooms }) {
  * exactly what the door planner calls a narrow passage, so huts get real doors
  * from the same code that gives the caves theirs.
  */
-function raiseBuilding(grid, rng, rect) {
+function raiseBuilding(grid, rng, rect, built) {
   fill(grid, rect, SURFACE_WALL);
+  for (let y = rect.y; y < rect.y + rect.height; y += 1) {
+    for (let x = rect.x; x < rect.x + rect.width; x += 1) built.add(`${x},${y}`);
+  }
   const interior = { x: rect.x + 1, y: rect.y + 1, width: rect.width - 2, height: rect.height - 2 };
   fill(grid, interior, SURFACE_FLOOR);
   const side = rng.int(0, 3);
@@ -210,6 +217,11 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   // At least one building, always. Its doorway is the only narrow passage open
   // country has, and a floor with no doorway at all is one the door planner
   // refuses to build — so the field would simply have no doors anywhere.
+  // A wall is not just a wall: one was built by somebody and one was cut out of
+  // a hill, and they are drawn out of different stone. The plan is the only
+  // place that knows which is which, so it says so.
+  const built = new Set();
+  const hewn = new Set();
   const structures = [];
   const wanted = rng.int(3, 5);
   for (let attempt = 0; attempt < 120 && structures.length < wanted; attempt += 1) {
@@ -222,12 +234,12 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
     rect.x = rng.int(2, width - rect.width - 3);
     rect.y = rng.int(2, height - rect.height - 3);
     if (structures.some(({ rect: other }) => overlaps(rect, other, 2))) continue;
-    structures.push(raiseBuilding(grid, rng, rect));
+    structures.push(raiseBuilding(grid, rng, rect, built));
   }
   if (structures.length === 0) {
     // Nowhere fitted, so one is made to fit: a hut clears the ground it stands on.
     const rect = { width: 6, height: 6, x: Math.floor(width / 2) - 3, y: Math.floor(height / 2) - 3 };
-    structures.push(raiseBuilding(grid, rng, rect));
+    structures.push(raiseBuilding(grid, rng, rect, built));
   }
 
   // Clearings: open ground big enough to hold something worth finding.
@@ -261,7 +273,7 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   // Caves come last: they need rock that nothing else has claimed.
   const caves = [];
   for (let index = 0; index < rng.int(1, 2); index += 1) {
-    const chamber = hollowCave(grid, rng, { width, height, rooms: [...rooms, ...caves] });
+    const chamber = hollowCave(grid, rng, { width, height, rooms: [...rooms, ...caves], hewn });
     if (chamber) caves.push(chamber);
   }
   rooms.push(...caves);
@@ -301,5 +313,19 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
     wearTrail(grid, centre(stranded), start);
   }
 
-  return { grid, rooms, structures, caves };
+  // Anything carved back open is no longer a wall of any kind.
+  for (const set of [built, hewn]) {
+    for (const key of [...set]) {
+      const [x, y] = key.split(',').map(Number);
+      if (grid[y]?.[x] !== SURFACE_WALL) set.delete(key);
+    }
+  }
+  return {
+    grid,
+    rooms,
+    structures,
+    caves,
+    builtWalls: Object.freeze([...built]),
+    hewnWalls: Object.freeze([...hewn]),
+  };
 }

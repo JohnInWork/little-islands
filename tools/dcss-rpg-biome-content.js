@@ -160,6 +160,11 @@ export const BIOME_CONTENT = Object.freeze({
     element: Object.freeze({  }),
     loot: Object.freeze({ tool: 1.6, weapon: 1.3, jewellery: 0.7 }),
   }),
+  'snowfield': Object.freeze({
+    kin: Object.freeze({ beast: 2, dragon: 1.3, undead: 1, humanoid: 0.9, oddity: 0.8, demon: 0.4 }),
+    element: Object.freeze({ ice: 2, fire: 0.45 }),
+    loot: Object.freeze({ armour: 1.6, potion: 1.2, book: 0.7 }),
+  }),
   'thornwood': Object.freeze({
     kin: Object.freeze({ beast: 2.2, oddity: 1.3, dragon: 1, humanoid: 0.9, undead: 0.5, demon: 0.4 }),
     element: Object.freeze({  }),

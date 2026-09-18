@@ -223,3 +223,26 @@ test('two actors on one tile no longer stack their numbers on one spot', () => {
   assert.deepEqual(combatGlyphDrift({ x: 5, y: 5 }), { dx: 0, dy: 0 });
   assert.deepEqual(combatGlyphDrift(), { dx: 0, dy: 0 });
 });
+
+/**
+ * A place has one ground, not a chequerboard of two. Mixing families — grass
+ * with bare earth, moss with dirt, swamp with bog — reads as patchwork rather
+ * than variety, which is exactly what the surface looked like when it shipped.
+ *
+ * A colour in the name is not a second ground: `grass_flowers_blue` and
+ * `grass_flowers_red` are the same grass with different flowers in it.
+ */
+test('the ground of a place is all one tone', () => {
+  // `lair3b` is the third tile of the `lair…b` set, not a family of its own.
+  const groundOf = (path) => path
+    .replace(/[0-9]+([a-z])?\.png$/, '$1')
+    .replace(/_(blue|red|yellow|green|cyan|white|gray|grey|brown|magenta|light[a-z]+)_?$/, '');
+  for (const theme of BIOME_THEMES) {
+    const grounds = new Set(theme.floors.map(groundOf));
+    assert.equal(
+      grounds.size,
+      1,
+      `${theme.id} mixes ${[...grounds].join(' and ')}: two grounds make a chequerboard`,
+    );
+  }
+});

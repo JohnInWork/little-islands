@@ -200,6 +200,14 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
   }),
   defineDungeonTheme({
+    id: 'snowfield',
+    surfaceSetId: 'snowfield',
+    branch: 'surface',
+    atmosphereId: 'frost',
+    chestSkinIds: ['jade-ruby'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'drowned-chapel', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
     id: 'thornwood',
     surfaceSetId: 'thornwood',
     branch: 'surface',

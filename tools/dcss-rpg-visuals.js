@@ -292,6 +292,15 @@ export const ATMOSPHERE_THEMES = Object.freeze({
     drip: '#849060',
     ray: '#c0cc94',
   }),
+  frost: atmosphere({
+    darkness: '#080a0d',
+    heroLight: '#dfe9f2',
+    localLight: '#9ab4cc',
+    fog: '#9fb0c0',
+    dust: '#e6eef6',
+    drip: '#a8bccd',
+    ray: '#e2ecf4',
+  }),
 });
 
 /**
@@ -324,6 +333,7 @@ export const CHAPTER_WEATHER = Object.freeze({
   dusk: weather({ id: 'mist', driftX: 0.4, driftY: 0.15, sway: 20, alpha: 1.1 }),
   hamlet: weather({ id: 'ash', driftX: 0.6, driftY: 0.3, sway: 18, alpha: 0.95 }),
   bramble: weather({ id: 'seeds', driftX: 0.55, driftY: -0.3, sway: 24, alpha: 1.1 }),
+  frost: weather({ id: 'snow', driftX: 0.3, driftY: 0.95, sway: 24, size: 1, alpha: 1.35 }),
 });
 
 export function chapterWeather(paletteId) {
@@ -331,6 +341,15 @@ export function chapterWeather(paletteId) {
 }
 
 export const BLOOD_FLOOR_PATHS = numberedPaths('dngn/floor/cobble_blood', [8, 9, 10, 12]);
+
+/**
+ * Two kinds of wall that are not the ground they stand on. A hut is timber
+ * wherever it stands and a cave is granite wherever it is cut, so unlike the
+ * terrain families these are shared on purpose — a hut that looked like the
+ * meadow it sits in would not read as a hut at all.
+ */
+export const BUILT_WALLS = numberedPaths('dngn/wall/vault', [0, 1, 2, 3]);
+export const HEWN_WALLS = numberedPaths('dngn/wall/stone_gray', [0, 1, 2, 3]);
 
 export const BIOME_THEMES = Object.freeze([
   Object.freeze({
@@ -434,7 +453,7 @@ export const BIOME_THEMES = Object.freeze([
   Object.freeze({
     id: 'catacomb-tiers',
     palette: 'bone',
-    floors: numberedPaths('dngn/floor/limestone', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    floors: numberedPaths('dngn/floor/limestone', [0, 1, 2, 4, 5, 6, 7, 9]),
     walls: numberedPaths('dngn/wall/catacombs', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
     accentWalls: [],
     accentModulo: 0,
@@ -682,9 +701,6 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/grass/grass0.png',
       'dngn/floor/grass/grass1.png',
       'dngn/floor/grass/grass2.png',
-      'dngn/floor/grass/grass0-dirt-mix1.png',
-      'dngn/floor/grass/grass0-dirt-mix2.png',
-      'dngn/floor/grass/grass0-dirt-mix3.png',
     ]),
     walls: numberedPaths('dngn/wall/pebble_red', [0, 1, 2, 3]),
     accentWalls: [
@@ -712,10 +728,6 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/swamp1.png',
       'dngn/floor/swamp2.png',
       'dngn/floor/swamp3.png',
-      'dngn/floor/bog_green0.png',
-      'dngn/floor/bog_green1.png',
-      'dngn/floor/bog_green2.png',
-      'dngn/floor/bog_green3.png',
     ]),
     walls: numberedPaths('dngn/wall/shoals_wall', [1, 2, 3, 4]),
     accentWalls: [
@@ -725,14 +737,14 @@ export const BIOME_THEMES = Object.freeze([
     accentModulo: 11,
     bloodModulo: 0,
     world3d: Object.freeze({
-      floorTint: '#f1f8ee',
-      wallTint: '#edf4ea',
-      actorTint: '#dee8d8',
-      background: '#050908',
-      fog: '#080e0b',
-      fogDensity: 0.023,
-      ambient: '#6d8874',
-      keyLight: '#a6c199',
+      floorTint: '#ffffff',
+      wallTint: '#f6fbf4',
+      actorTint: '#e8f0e4',
+      background: '#080e0c',
+      fog: '#0c1411',
+      fogDensity: 0.015,
+      ambient: '#a8bfa8',
+      keyLight: '#d8e6cc',
     }),
   }),
   Object.freeze({
@@ -774,9 +786,6 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/moss1.png',
       'dngn/floor/moss2.png',
       'dngn/floor/moss3.png',
-      'dngn/floor/dirt0.png',
-      'dngn/floor/dirt1.png',
-      'dngn/floor/dirt2.png',
     ]),
     walls: numberedPaths('dngn/wall/undead_brown', [0, 1, 2, 3]),
     accentWalls: [
@@ -785,14 +794,14 @@ export const BIOME_THEMES = Object.freeze([
     accentModulo: 15,
     bloodModulo: 0,
     world3d: Object.freeze({
-      floorTint: '#f4f5fa',
-      wallTint: '#f0f1f6',
-      actorTint: '#e0e2ea',
-      background: '#060708',
-      fog: '#090a0c',
-      fogDensity: 0.02,
-      ambient: '#7a8090',
-      keyLight: '#c0c4d0',
+      floorTint: '#ffffff',
+      wallTint: '#f7f8fd',
+      actorTint: '#e6e8f0',
+      background: '#0a0b0d',
+      fog: '#0e1014',
+      fogDensity: 0.015,
+      ambient: '#a3a9ba',
+      keyLight: '#dadee8',
     }),
   }),
   Object.freeze({
@@ -843,14 +852,33 @@ export const BIOME_THEMES = Object.freeze([
     accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
-      floorTint: '#f6faec',
-      wallTint: '#f2f6e6',
-      actorTint: '#e3e8d2',
-      background: '#050705',
-      fog: '#080b07',
-      fogDensity: 0.018,
-      ambient: '#7c8862',
-      keyLight: '#bac68c',
+      floorTint: '#ffffff',
+      wallTint: '#fbfdf2',
+      actorTint: '#eaf0da',
+      background: '#0a0d08',
+      fog: '#0e120b',
+      fogDensity: 0.013,
+      ambient: '#b4c091',
+      keyLight: '#e0e8bc',
+    }),
+  }),
+  Object.freeze({
+    id: 'snowfield',
+    palette: 'frost',
+    floors: numberedPaths('dngn/floor/white_marble', [0, 1, 2, 4, 5, 6, 7, 9]),
+    walls: numberedPaths('dngn/wall/stone2_gray', [0, 1, 2, 3]),
+    accentWalls: ['dngn/trees/tree2_lightred.png'],
+    accentModulo: 19,
+    bloodModulo: 0,
+    world3d: Object.freeze({
+      floorTint: '#f6fbff',
+      wallTint: '#f2f7fd',
+      actorTint: '#e6edf5',
+      background: '#070a0d',
+      fog: '#0a0e12',
+      fogDensity: 0.016,
+      ambient: '#93a6b8',
+      keyLight: '#dbe8f4',
     }),
   }),
 ]);
@@ -948,6 +976,8 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
 export function allBiomeAssetPaths() {
   return [
     ...BLOOD_FLOOR_PATHS,
+    ...BUILT_WALLS,
+    ...HEWN_WALLS,
     ...BIOME_THEMES.flatMap(({ floors, walls, accentWalls }) => [
       ...floors,
       ...walls,

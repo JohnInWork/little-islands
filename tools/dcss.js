@@ -80,6 +80,8 @@ import {
 import {
   allBiomeAssetPaths,
   atmosphereThemeFor,
+  BUILT_WALLS,
+  HEWN_WALLS,
   biomeThemeFor,
   BLOOD_FLOOR_PATHS,
   chapterWeather,
@@ -901,6 +903,8 @@ let permittedHazardCell = null;
 let inputGesture = 0;
 let doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
 let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
+let builtWallCells = new Set(dungeon.builtWalls ?? []);
+let hewnWallCells = new Set(dungeon.hewnWalls ?? []);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
 
@@ -5009,6 +5013,12 @@ function floorTextureAt(x, y, cell, theme) {
 
 function wallTextureAt(x, y, cell, theme) {
   if (cell === 'D') return doorPanelVisual.path;
+  // A wall somebody put up is not the ground it stands on, and neither is the
+  // rock a cave was cut from. Both come from the floor, which is the only place
+  // that knows; the grid is just '#' either way.
+  const key = `${x},${y}`;
+  if (builtWallCells.has(key)) return BUILT_WALLS[hash(x, y, 5) % BUILT_WALLS.length];
+  if (hewnWallCells.has(key)) return HEWN_WALLS[hash(x, y, 7) % HEWN_WALLS.length];
   const accented =
     theme.accentModulo > 0 &&
     theme.accentWalls.length > 0 &&
@@ -11288,6 +11298,8 @@ function replaceFloor(nextDepth, arrival = null) {
   permittedHazardCell = null;
   doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
   merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
+  builtWallCells = new Set(dungeon.builtWalls ?? []);
+  hewnWallCells = new Set(dungeon.hewnWalls ?? []);
   openingDoor = null;
   activeChestFindId = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);
