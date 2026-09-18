@@ -15,6 +15,8 @@ const ACTION_COPY = Object.freeze({
     'pick-lock': 'Взломать',
     attack: 'Атаковать',
     trade: 'Торговать',
+    buy: 'Купить',
+    install: 'Поставить',
     hunt: 'Охотиться',
     cook: 'Приготовить',
     rest: 'Отдохнуть',
@@ -43,6 +45,8 @@ const ACTION_COPY = Object.freeze({
     'pick-lock': 'Pick lock',
     attack: 'Attack',
     trade: 'Trade',
+    buy: 'Buy',
+    install: 'Install',
     hunt: 'Hunt',
     cook: 'Cook',
     rest: 'Rest',
@@ -73,6 +77,8 @@ const GLYPHS = Object.freeze({
   'pick-lock': '⌁',
   attack: '⚔',
   trade: '●',
+  buy: '●',
+  install: '◆',
   hunt: '⚔',
   cook: '♨',
   rest: '☾',
@@ -121,6 +127,12 @@ const COPY = Object.freeze({
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
     guardDescription: 'Следит за порядком. Удар по нему делает героя преступником.',
+    deedName: 'Участок на продажу',
+    deedDescription: (price) => `Свой дом в городе. Цена: ${price} золота.`,
+    slotName: (piece) => `Место под предмет: ${piece}`,
+    slotDescription: (price) => `Цена: ${price} золота.`,
+    houseBedName: 'Своя кровать',
+    houseBedDescription: 'Сон дома восстанавливает больше, чем спальник в лагере.',
     guards: Object.freeze({ 'city-guard': 'Городской стражник', 'city-captain': 'Капитан стражи' }),
   }),
   en: Object.freeze({
@@ -153,6 +165,12 @@ const COPY = Object.freeze({
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
     guardDescription: 'Keeps the peace. Striking one makes the hero a criminal.',
+    deedName: 'Plot for sale',
+    deedDescription: (price) => `A house of your own in the city. Price: ${price} gold.`,
+    slotName: (piece) => `Space for: ${piece}`,
+    slotDescription: (price) => `Price: ${price} gold.`,
+    houseBedName: 'Your own bed',
+    houseBedDescription: 'Sleeping at home restores more than a bedroll in camp.',
     guards: Object.freeze({ 'city-guard': 'City guard', 'city-captain': 'Watch captain' }),
   }),
 });
@@ -225,6 +243,59 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: 'licensed/cmski-chests/wooden/4.png',
       accent: '#c2a36a',
       actions: [{ id: 'stash' }],
+    }),
+  }),
+  defineInteraction({
+    id: 'house-deed',
+    command: 'buy-house',
+    matches: (target) => target?.kind === 'house-deed'
+      && Number.isInteger(target.price)
+      && typeof target.reason === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.deedName,
+      description: copy.deedDescription(target.price),
+      icon: target.icon,
+      accent: '#d8bf68',
+      actions: [{
+        id: 'buy',
+        enabled: target.reason === 'ready',
+        hint: target.reason === 'ready' ? '' : target.hint ?? '',
+      }],
+    }),
+  }),
+  defineInteraction({
+    id: 'house-slot',
+    command: 'install-furniture',
+    matches: (target) => target?.kind === 'house-slot'
+      && typeof target.furnitureId === 'string'
+      && Number.isInteger(target.price)
+      && typeof target.reason === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.slotName(target.label),
+      description: copy.slotDescription(target.price),
+      icon: target.icon,
+      accent: '#c8b184',
+      actions: [{
+        id: 'install',
+        enabled: target.reason === 'ready',
+        hint: target.reason === 'ready' ? '' : target.hint ?? '',
+      }],
+    }),
+  }),
+  defineInteraction({
+    id: 'house-rest',
+    command: 'house-rest',
+    matches: (target) => target?.kind === 'house-rest' && typeof target.reason === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.houseBedName,
+      description: copy.houseBedDescription,
+      icon: 'item/armour/cloak2.png',
+      accent: '#9db4c8',
+      actions: [{
+        id: 'rest',
+        enabled: target.reason === 'rested',
+        hint: target.reason === 'rested' ? '' : target.hint ?? '',
+      }],
     }),
   }),
   defineInteraction({

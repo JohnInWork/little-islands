@@ -182,8 +182,8 @@ test('v34 saves book adjustments and migrates v25 without resetting command orde
   const run = createRun(912);
   run.hero.skillStudy = createBookStudy({ rankAdjustments: { swords: 1 } });
   run.commandSequence = 17;
-  assert.equal(SAVE_VERSION, 40);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v40');
+  assert.equal(SAVE_VERSION, 41);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v41');
   assert.equal(validateRun(run), true);
   assert.deepEqual(advanceRunFloor(run).hero.skillStudy, run.hero.skillStudy);
 

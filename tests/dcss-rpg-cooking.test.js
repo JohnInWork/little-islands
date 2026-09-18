@@ -125,9 +125,9 @@ test('dishes are real items only a fire produces', () => {
   assert.match(itemDetails(lootById('roast-meat'), 'en').description, /Dish “Roast”/);
 });
 
-test('save v40 keeps the dish on the hero', () => {
+test('save v41 keeps the dish on the hero', () => {
   const run = createRun(4001);
-  assert.equal(SAVE_VERSION, 40);
+  assert.equal(SAVE_VERSION, 41);
   assert.equal(run.hero.meal, null);
   assert.equal(validateRun(run), true);
   run.hero.meal = startMeal('stew');
@@ -139,7 +139,7 @@ test('save v40 keeps the dish on the hero', () => {
   legacy.version = 39;
   delete legacy.hero.meal;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 40);
+  assert.equal(migrated.version, 41);
   assert.equal(migrated.hero.meal, null);
   assert.equal(validateRun(migrated), true);
 });

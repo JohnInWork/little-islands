@@ -15,6 +15,7 @@ import {
   LEGACY_SAVE_KEYS,
   SAVE_KEY,
   advanceRunFloor,
+  travelRunToDepth,
   createRun,
   findGridPath,
   generateDungeon,
@@ -195,10 +196,27 @@ import {
   resolveBandage,
 } from './dcss-rpg-field-medicine.js';
 import {
+  CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
   CITY_REVEAL_RADIUS,
   isCityDepth,
 } from './dcss-rpg-city.js';
+import {
+  HOME_STONE_ITEM_ID,
+  HOUSE_FURNITURE,
+  HOUSE_PRICE,
+  HOUSE_SAFE_DISTANCE,
+  buyHouse,
+  canBuyHouse,
+  canInstallFurniture,
+  houseArrivalCell,
+  houseRefusalText,
+  houseSlots,
+  installFurniture,
+  resolveHouseRest,
+  returnFromHouse,
+  travelHome,
+} from './dcss-rpg-house.js';
 import {
   CAMP_BEDROLL_PATH,
   CAMP_CHEST_PATH,
@@ -1613,10 +1631,106 @@ function campPropsFor(camp) {
   });
 }
 
-/** Rebuilds the environment so the camp's things live beside the dungeon's. */
+/** The plot the city sells, or null on every floor that is not the city. */
+function cityHousePlot() {
+  if (!isCityDepth(dungeon.depth)) return null;
+  return dungeon.city?.blocks.find(({ kind }) => kind === 'plot') ?? null;
+}
+
+/** What stands in the house: bought furniture, and a marker where it could go. */
+const HOUSE_PROP_VISUALS = Object.freeze({
+  bed: Object.freeze({
+    path: CAMP_BEDROLL_PATH,
+    frames: Object.freeze([CAMP_BEDROLL_PATH]),
+    size: 58,
+    screenOffsetY: -2,
+    light: null,
+    interactionId: 'house-rest',
+  }),
+  chest: Object.freeze({
+    path: CAMP_CHEST_PATH,
+    frames: Object.freeze([CAMP_CHEST_PATH]),
+    size: 60,
+    screenOffsetY: -6,
+    light: null,
+    interactionId: 'camp-stash',
+  }),
+  hearth: Object.freeze({
+    path: CAMP_FIRE_FRAMES[0],
+    frames: CAMP_FIRE_FRAMES,
+    size: 60,
+    screenOffsetY: -10,
+    light: Object.freeze({ color: '#d88447', radius: 2.3, beam: false }),
+    interactionId: 'campfire',
+  }),
+  slot: Object.freeze({
+    path: 'item/misc/misc_box.png',
+    frames: Object.freeze(['item/misc/misc_box.png']),
+    size: 48,
+    screenOffsetY: -4,
+    light: null,
+    interactionId: 'house-slot',
+  }),
+  deed: Object.freeze({
+    path: 'dngn/shops/shop_gadgets.png',
+    frames: Object.freeze(['dngn/shops/shop_gadgets.png']),
+    size: 62,
+    screenOffsetY: -10,
+    light: null,
+    interactionId: 'house-deed',
+  }),
+});
+
+function deedSignCell(plot) {
+  if (!plot?.door) return null;
+  const candidates = [
+    { x: plot.door.x + 2, y: plot.door.y },
+    { x: plot.door.x - 2, y: plot.door.y },
+    { x: plot.door.x, y: plot.door.y + 2 },
+    { x: plot.door.x, y: plot.door.y - 2 },
+  ];
+  return candidates.find(({ x, y }) => world[y]?.[x] === '.') ?? null;
+}
+
+function housePropsFor() {
+  const plot = cityHousePlot();
+  if (!plot) return [];
+  if (!run.house.owned) {
+    const cell = deedSignCell(plot);
+    if (!cell) return [];
+    return [Object.freeze({
+      id: 'house-deed',
+      furnitureId: null,
+      ...HOUSE_PROP_VISUALS.deed,
+      gridX: cell.x,
+      gridY: cell.y,
+      x: cell.x + 0.5,
+      y: cell.y + 0.5,
+      phase: 0,
+    })];
+  }
+  return houseSlots(plot).map(({ furnitureId, x, y }) => {
+    const installed = run.house.furniture.includes(furnitureId);
+    const visual = HOUSE_PROP_VISUALS[installed ? furnitureId : 'slot'];
+    return Object.freeze({
+      id: `house-${furnitureId}`,
+      furnitureId,
+      ...visual,
+      gridX: x,
+      gridY: y,
+      x: x + 0.5,
+      y: y + 0.5,
+      phase: 0,
+    });
+  });
+}
+
+/** Rebuilds the environment so the hero's own things live beside the dungeon's. */
 function applyCampProps() {
-  const withoutCamp = dungeonEnvironment.props.filter(({ id }) => !String(id).startsWith('camp-'));
-  const props = [...withoutCamp, ...campPropsFor(run.floor.camp)];
+  const withoutPlaced = dungeonEnvironment.props.filter(({ id }) => (
+    !String(id).startsWith('camp-') && !String(id).startsWith('house-')
+  ));
+  const props = [...withoutPlaced, ...campPropsFor(run.floor.camp), ...housePropsFor()];
   dungeonEnvironment = Object.freeze({ ...dungeonEnvironment, props: Object.freeze(props) });
 }
 
@@ -1679,12 +1793,100 @@ function placeCamp(profile, { needsKit = true } = {}) {
 }
 
 function nearbyCampProp(interactionId) {
-  if (runStatus !== 'playing' || !run.floor.camp) return null;
+  if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return dungeonEnvironment.props.find((prop) => (
     prop.interactionId === interactionId
     && Math.abs(cell.x - prop.gridX) + Math.abs(cell.y - prop.gridY) <= 1
   )) ?? null;
+}
+
+function houseDeedDecision() {
+  return canBuyHouse({
+    house: run.house,
+    gold,
+    backpackCount: backpackItems.filter(Boolean).length,
+    capacity: HERO_BACKPACK_CAPACITY,
+  });
+}
+
+function houseRestDecision() {
+  return resolveHouseRest({
+    house: run.house,
+    hp: hero.hp,
+    maxHp: currentHeroStats().maxHp,
+    hunger: hero.hunger,
+  });
+}
+
+/** Puts one authored item straight into the backpack, if there is room for it. */
+function grantItem(id, uid) {
+  if (backpackItems.filter(Boolean).length >= HERO_BACKPACK_CAPACITY) return false;
+  const state = currentItemState();
+  // Only gear carries affixes; a tool's record is the item and its uid.
+  const definition = lootById(id);
+  const record = definition?.slot
+    ? { id, uid, affixIds: [], artifactPowerId: null, artifactCurseId: null }
+    : { id, uid };
+  applyItemState({
+    ...state,
+    items: [...state.items, record],
+    inventory: [...state.inventory, uid],
+  });
+  renderPack();
+  return true;
+}
+
+/** Paying for the deed also hands over the stone that leads back to it. */
+function purchaseHouse() {
+  const result = buyHouse({
+    house: run.house,
+    gold,
+    backpackCount: backpackItems.filter(Boolean).length,
+    capacity: HERO_BACKPACK_CAPACITY,
+  });
+  if (!result.ok) return false;
+  gold = result.gold;
+  run.house = result.house;
+  grantItem(HOME_STONE_ITEM_ID, `home-stone-${run.seed}`);
+  applyCampProps();
+  playerHasActed = true;
+  playSound('coins');
+  burst(hero.x, hero.y - 10, '#d8bf68', 22);
+  updateHud();
+  updateGearUi();
+  persistRun();
+  return true;
+}
+
+function installHouseFurniture(furnitureId) {
+  const result = installFurniture({ house: run.house, furnitureId, gold });
+  if (!result.ok) return false;
+  gold = result.gold;
+  run.house = result.house;
+  applyCampProps();
+  playerHasActed = true;
+  playSound('coins');
+  burst(hero.x, hero.y - 10, '#c8b184', 18);
+  updateHud();
+  persistRun();
+  return true;
+}
+
+function restAtHouse() {
+  const result = houseRestDecision();
+  if (!result.ok) return false;
+  hero.hp = result.hp;
+  hero.hunger = result.hunger;
+  currentHungerStageId = hungerStage(hero.hunger).id;
+  hungerAutosaveElapsed = 0;
+  playerHasActed = true;
+  burst(hero.x, hero.y - 10, '#9db4c8', 16);
+  addCombatGlyph(hero.x, hero.y, `+${result.healed}`, '#8bc59c', -70);
+  playSound('spell-heal');
+  updateHud();
+  persistRun();
+  return true;
 }
 
 function campRestDecision() {
@@ -5634,6 +5836,41 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-rest') {
     return { kind: 'camp-rest', reason: campRestDecision().reason };
   }
+  if (entry.kind === 'house-deed') {
+    const decision = houseDeedDecision();
+    return {
+      kind: 'house-deed',
+      price: HOUSE_PRICE,
+      reason: decision.reason,
+      hint: houseRefusalText(decision.reason, itemDetailLanguage),
+      icon: entry.value.path,
+    };
+  }
+  if (entry.kind === 'house-slot') {
+    const piece = HOUSE_FURNITURE[entry.value.furnitureId];
+    const decision = canInstallFurniture({
+      house: run.house,
+      furnitureId: entry.value.furnitureId,
+      gold,
+    });
+    return {
+      kind: 'house-slot',
+      furnitureId: entry.value.furnitureId,
+      label: piece.labels[itemDetailLanguage === 'en' ? 'en' : 'ru'],
+      price: piece.price,
+      reason: decision.reason,
+      hint: houseRefusalText(decision.reason, itemDetailLanguage),
+      icon: entry.value.path,
+    };
+  }
+  if (entry.kind === 'house-rest') {
+    const decision = houseRestDecision();
+    return {
+      kind: 'house-rest',
+      reason: decision.reason,
+      hint: houseRefusalText(decision.reason, itemDetailLanguage),
+    };
+  }
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
@@ -5686,7 +5923,9 @@ function contextModelTarget(entry = contextTarget) {
 }
 
 /** Props sit on a grid cell of their own; actors and finds carry pixel positions. */
-const PROP_INTERACTION_KINDS = new Set(['campfire', 'camp-rest', 'camp-stash']);
+const PROP_INTERACTION_KINDS = new Set([
+  'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest',
+]);
 
 function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
@@ -6539,6 +6778,12 @@ function nearbyContextTarget() {
   if (campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0) {
     return { kind: 'campfire', value: campfire };
   }
+  const deed = nearbyCampProp('house-deed');
+  if (deed) return { kind: 'house-deed', value: deed };
+  const slot = nearbyCampProp('house-slot');
+  if (slot) return { kind: 'house-slot', value: slot };
+  const houseBed = nearbyCampProp('house-rest');
+  if (houseBed) return { kind: 'house-rest', value: houseBed };
   const bedroll = nearbyCampProp('camp-rest');
   if (bedroll) return { kind: 'camp-rest', value: bedroll };
   const campChest = nearbyCampProp('camp-stash');
@@ -6597,6 +6842,18 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     const site = target.value;
     closeContextActions();
     return cookAtCampfire(site);
+  },
+  'buy-house'() {
+    closeContextActions();
+    return purchaseHouse();
+  },
+  'install-furniture'({ target }) {
+    closeContextActions();
+    return installHouseFurniture(target?.value?.furnitureId);
+  },
+  'house-rest'() {
+    closeContextActions();
+    return restAtHouse();
   },
   'camp-rest'() {
     closeContextActions();
@@ -6880,6 +7137,9 @@ function startGameFromMenu() {
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
+  // A loaded save can already own a camp or a house; their things belong on
+  // the floor before the first frame, not only after the next descent.
+  applyCampProps();
   updateInteractionUi();
   setAmbientLevel(1);
   startGameButton.blur();
@@ -8096,6 +8356,17 @@ function useConsumable(item, index) {
       showLootToast(item, refusal);
       return;
     }
+  } else if (item.useEffect?.type === 'home-travel') {
+    const refusal = useHomeStone();
+    if (refusal !== '') {
+      showLootToast(item, refusal);
+      return;
+    }
+    // The stone is the deed's companion: it is spent on nothing and stays.
+    showLootToast(item, '\u2302');
+    updateHud();
+    persistRun();
+    return;
   } else if (item.useEffect?.type === 'bandage') {
     const treatment = resolveBandage({
       profile: fieldMedicineProfile(currentSkillCapabilities()),
@@ -9104,7 +9375,7 @@ function healAtSanctuary() {
   persistRun();
 }
 
-function replaceFloor(nextDepth) {
+function replaceFloor(nextDepth, arrival = null) {
   dungeon = generateDungeon({
     seed: run.seed,
     depth: nextDepth,
@@ -9178,7 +9449,6 @@ function replaceFloor(nextDepth) {
   eventDefinitions = createEventDefinitions(dungeon);
   findDefinitions = createFindDefinitions(dungeon);
   visibleSecretIds.clear();
-  applyCampProps();
   trapDefinitions = trapsFromDungeon(dungeon);
   placedTraps = [];
   detectedTrapIds = new Set();
@@ -9189,10 +9459,22 @@ function replaceFloor(nextDepth) {
   openingDoor = null;
   activeChestFindId = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);
+  // After the dungeon's own props, never before: the hero's camp and house
+  // are added on top of the environment the floor just built.
+  applyCampProps();
   revealed.clear();
-  revealAround(revealed, world, dungeon.spawn, currentRevealRadius());
+  revealAround(
+    revealed,
+    world,
+    { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    currentRevealRadius(),
+  );
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
   hero.y = (dungeon.spawn.y + 0.5) * TILE;
+  if (arrival && isWalkable(arrival.x, arrival.y)) {
+    hero.x = (arrival.x + 0.5) * TILE;
+    hero.y = (arrival.y + 0.5) * TILE;
+  }
   hero.path = [];
   hero.attack = 0;
   hero.pendingAttack = null;
@@ -9214,7 +9496,7 @@ function replaceFloor(nextDepth) {
   hero.dead = false;
   runStatus = 'playing';
   run.status = 'playing';
-  lastHeroCell = `${dungeon.spawn.x},${dungeon.spawn.y}`;
+  lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
   camera.x = hero.x;
   camera.y = hero.y;
   sceneStartedAt = elapsed;
@@ -9222,6 +9504,79 @@ function replaceFloor(nextDepth) {
   discoverNearbyTraps({ feedback: false });
   updateHud();
   persistRun();
+}
+
+/** Puts the hero on a cell after a floor was rebuilt, with the map and camera. */
+function placeHeroAtCell(cell) {
+  if (!cell || !isWalkable(cell.x, cell.y)) return false;
+  hero.x = (cell.x + 0.5) * TILE;
+  hero.y = (cell.y + 0.5) * TILE;
+  hero.path = [];
+  lastHeroCell = `${cell.x},${cell.y}`;
+  camera.x = hero.x;
+  camera.y = hero.y;
+  revealAround(revealed, world, cell, currentRevealRadius());
+  updateInteractionUi();
+  persistRun();
+  return true;
+}
+
+/** Anything alive that can see the hero right now; the road home refuses these. */
+function watchersOnHero() {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return monsters.filter((monster) => (
+    monster.dead === 0
+    && (!monster.neutral || monster.provoked)
+    && Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * HOUSE_SAFE_DISTANCE
+    && hasLineOfSight(world, { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }, heroCell)
+  )).length;
+}
+
+/** True while the hero stands inside their own four walls. */
+function heroInsideHouse() {
+  const plot = cityHousePlot();
+  if (!plot?.interior || !run.house.owned) return false;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return cell.x >= plot.interior.x && cell.x < plot.interior.x + plot.interior.w
+    && cell.y >= plot.interior.y && cell.y < plot.interior.y + plot.interior.h;
+}
+
+/**
+ * The stone works both ways: from the dungeon it opens the door home and
+ * remembers the spot, from home it puts the hero back on that spot.
+ */
+function useHomeStone() {
+  if (heroInsideHouse()) {
+    const back = returnFromHouse({ house: run.house });
+    if (!back.ok) return houseRefusalText(back.reason, itemDetailLanguage);
+    run.house = back.house;
+    run = travelRunToDepth(captureRun(), back.anchor.depth, { x: back.anchor.x, y: back.anchor.y });
+    replaceFloor(run.depth, { x: back.anchor.x, y: back.anchor.y });
+    playSound('descend');
+    showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+    return '';
+  }
+  const cityDepth = CITY_DEPTHS[0];
+  const result = travelHome({
+    house: run.house,
+    depth: dungeon.depth,
+    cell: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    hunger: hero.hunger,
+    watchers: watchersOnHero(),
+  });
+  if (!result.ok) return houseRefusalText(result.reason, itemDetailLanguage);
+  hero.hunger = result.hunger;
+  currentHungerStageId = hungerStage(hero.hunger).id;
+  run.house = result.house;
+  run = travelRunToDepth(captureRun(), cityDepth, null);
+  replaceFloor(cityDepth);
+  // The plot only exists once the city itself does, so the hero is put down
+  // inside their own walls after the floor is built, not before.
+  const arrival = houseArrivalCell(cityHousePlot());
+  if (arrival) placeHeroAtCell(arrival);
+  playSound('spell-toggle');
+  burst(hero.x, hero.y - 12, '#d8bf68', 24);
+  return '';
 }
 
 function descendFloor() {

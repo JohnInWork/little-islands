@@ -8,6 +8,7 @@ const RUSSIAN_NAMES = Object.freeze({
   'short-blade': 'Короткий клинок',
   'camp-kit': 'Походный набор',
   bandage: 'Бинты',
+  'home-stone': 'Камень возвращения',
   'roast-meat': 'Жаркое',
   'hearty-stew': 'Похлёбка',
   'feast-platter': 'Пир',
@@ -100,6 +101,7 @@ const RUSSIAN_NAMES = Object.freeze({
 const ENGLISH_NAMES = Object.freeze({
   'camp-kit': 'Camping kit',
   bandage: 'Bandages',
+  'home-stone': 'Homing stone',
   'roast-meat': 'Roast',
   'hearty-stew': 'Hearty stew',
   'feast-platter': 'Feast platter',

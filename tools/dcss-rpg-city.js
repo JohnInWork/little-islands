@@ -118,7 +118,10 @@ export function cityBlockRects({ area, columns, rows }) {
  * door. The door always faces a street, because every block is ringed by one.
  */
 function buildBuilding({ grid, block, kind, rng }) {
-  const inset = block.w > MIN_BLOCK.width && block.h > MIN_BLOCK.height && rng() < 0.5 ? 1 : 0;
+  // The plot is the house the hero buys: it always takes its whole block, so
+  // there is room for a bed, a chest and a hearth with space left to walk.
+  const roomy = kind === 'plot';
+  const inset = !roomy && block.w > MIN_BLOCK.width && block.h > MIN_BLOCK.height && rng() < 0.5 ? 1 : 0;
   const rect = {
     x: block.x + inset,
     y: block.y + inset,

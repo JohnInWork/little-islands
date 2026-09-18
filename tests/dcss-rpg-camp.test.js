@@ -178,7 +178,7 @@ test('the camp chest is an ordinary container that belongs to the run, not the f
   assert.deepEqual(taken.state.inventory, ['potion-1']);
 });
 
-test('save v39 carries the stash down the stairs and leaves the camp behind', () => {
+test('save v41 carries the stash down the stairs and leaves the camp behind', () => {
   const run = createRun(3808);
   assert.equal(run.floor.camp, null);
   assert.deepEqual(run.camp.stash.items, []);
@@ -209,7 +209,7 @@ test('save v39 carries the stash down the stairs and leaves the camp behind', ()
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 40);
+  assert.equal(migrated.version, 41);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
@@ -229,7 +229,7 @@ test('save v39 carries the stash down the stairs and leaves the camp behind', ()
     ],
   };
   const movedIn = migrateLegacyRun(camped);
-  assert.equal(movedIn.version, 40);
+  assert.equal(movedIn.version, 41);
   assert.equal(movedIn.floor.camp.restPercent, 40);
   assert.equal(validateRun(movedIn), true);
 });
@@ -246,7 +246,11 @@ test('the runtime pitches from the bag and puts the camp on the floor', async ()
   assert.match(runtime, /'camp-stash'\(\) \{[\s\S]*openCampStashUi\(\)/);
   assert.match(runtime, /if \(findId === CAMP_STASH_CONTAINER_ID\) return run\.camp\.stash;/);
   assert.match(runtime, /if \(nextContainer\.findId === CAMP_STASH_CONTAINER_ID\) \{[\s\S]*run\.camp = \{ stash:/);
-  assert.match(runtime, /visibleSecretIds\.clear\(\);\s+applyCampProps\(\);/, 'a new floor rebuilds the camp props');
+  assert.match(
+    runtime,
+    /dungeonEnvironment = createDungeonEnvironment\(dungeon\);[\s\S]*applyCampProps\(\);/,
+    'a new floor rebuilds the placed props on top of its own',
+  );
 });
 
 test('a refused camp explains itself in both languages', () => {
@@ -276,7 +280,7 @@ test('the bedroll and the camp chest count as adjacent the way the fire does', a
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(
     runtime,
-    /const PROP_INTERACTION_KINDS = new Set\(\['campfire', 'camp-rest', 'camp-stash'\]\);/,
+    /const PROP_INTERACTION_KINDS = new Set\(\[\s+'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest',\s+\]\);/,
     'every camp prop lives on a grid cell, not on pixel coordinates',
   );
   assert.match(runtime, /const propTarget = PROP_INTERACTION_KINDS\.has\(entry\.kind\);/);

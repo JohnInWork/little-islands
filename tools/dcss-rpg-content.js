@@ -695,6 +695,21 @@ export const LOOT_CATALOG = Object.freeze([
     value: 9,
   },
   {
+    // The deed comes with it; it is never found and never sold.
+    id: 'home-stone',
+    icon: 'item/misc/misc_stone.png',
+    slot: null,
+    kind: 'tool',
+    useEffect: { type: 'home-travel' },
+    rarity: 2,
+    weight: 0,
+    minDepth: 1,
+    stack: 1,
+    randomDrop: false,
+    merchantStock: false,
+    value: 0,
+  },
+  {
     id: 'bandage',
     icon: 'item/scroll/scroll-grey.png',
     slot: null,
