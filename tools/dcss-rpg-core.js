@@ -102,7 +102,7 @@ import {
   createChestContainerStates,
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
-import { WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
+import { WATER_LIFE_MINIMUM, WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
 import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
@@ -1004,7 +1004,12 @@ export function generateDungeon({
     excluded: dryRooms,
     // An explicit argument wins over the run's conditions, and the conditions
     // win over the default: a caller asking for a dry floor gets a dry floor.
-    chance: waterChance ?? conditions.waterChance ?? WATER_ROOM_CHANCE,
+    // Outside, the default is none at all — open country waters itself from its
+    // own profile, and a flooded clearing in a burnt steppe is exactly the thing
+    // the profile said that place does not have. A condition may still flood it;
+    // «Большая вода» means everywhere, and everywhere includes the steppe.
+    chance: waterChance ?? conditions.waterChance
+      ?? (branch === 'surface' ? 0 : WATER_ROOM_CHANCE),
   });
   if (floodedRoomIndex !== null) {
     const keepCells = [...events, ...passiveCreatures].filter((entry) => roomHolds(rooms[floodedRoomIndex], entry));
@@ -1015,22 +1020,29 @@ export function generateDungeon({
       floodedRoomIndex = null;
     }
   }
-  if (floodedRoomIndex !== null) {
+  // Whatever lives in water lives in the water there is. A flooded chamber and a
+  // bog with a stream through it are the same thing to an eel, and asking "was a
+  // room flooded?" left every mire outside with open water and nothing in it.
+  {
     const water = [];
-    const room = rooms[floodedRoomIndex];
-    for (let y = room.y; y < room.y + room.height; y += 1) {
-      for (let x = room.x; x < room.x + room.width; x += 1) if (grid[y][x] === '~') water.push({ x, y });
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        if (grid[y][x] === '~' && !occupied.has(`${x},${y}`)) water.push({ x, y });
+      }
     }
-    const waterSpawns = water.filter(({ x, y }) => !occupied.has(`${x},${y}`));
-    const waterMonsters = MONSTER_CATALOG.filter((monster) => (
-      monster.spawn === 'water' && belongsToFloor(monster)
-    ));
-    waterMonsters.forEach((monster, index) => {
-      const cell = waterSpawns[index];
-      if (!cell) return;
-      occupied.add(`${cell.x},${cell.y}`);
-      monsters.push({ instanceId: `monster-${depth}-water-${index}`, id: monster.id, x: cell.x, y: cell.y });
-    });
+    // A puddle is not a habitat: below this the floor simply has no water life.
+    if (water.length >= WATER_LIFE_MINIMUM) {
+      const waterSpawns = shuffle(waterRng, water);
+      const waterMonsters = MONSTER_CATALOG.filter((monster) => (
+        monster.spawn === 'water' && belongsToFloor(monster)
+      ));
+      waterMonsters.forEach((monster, index) => {
+        const cell = waterSpawns[index];
+        if (!cell) return;
+        occupied.add(`${cell.x},${cell.y}`);
+        monsters.push({ instanceId: `monster-${depth}-water-${index}`, id: monster.id, x: cell.x, y: cell.y });
+      });
+    }
   }
   // Each chapter past the first seats one signature creature from its own
   // stream. The shared pool and every earlier placement stay byte-identical,

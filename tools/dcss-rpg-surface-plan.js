@@ -23,18 +23,21 @@ export const SURFACE_PROFILES = Object.freeze({
   // massifs/huts/caves are counts; `acre` scales the massif count to the map,
   // `clump` is how wide one of them spreads — a boulder field and a wood differ
   // far more in that than in how many things are standing about.
-  default: Object.freeze({ acre: [0.9, 1.5], massifSize: [2, 5], clump: [1, 2], huts: [3, 5], caves: [1, 2], massifKind: 'rock' }),
-  'sunburnt-steppe': Object.freeze({ acre: [0.3, 0.55], massifSize: [5, 10], clump: [1, 2], huts: [4, 6], caves: [0, 0], massifKind: 'rock' }),
-  'wild-heath': Object.freeze({ acre: [1.7, 2.6], massifSize: [1, 3], clump: [1, 2], huts: [2, 3], caves: [1, 1], massifKind: 'rock' }),
-  'green-hollow': Object.freeze({ acre: [0.7, 1.1], massifSize: [3, 7], clump: [1, 2], huts: [1, 2], caves: [2, 3], massifKind: 'rock' }),
+  default: Object.freeze({ acre: [0.9, 1.5], massifSize: [2, 5], clump: [1, 2], huts: [3, 5], caves: [1, 2], massifKind: 'rock', streams: [0, 1], marsh: 0 }),
+  'sunburnt-steppe': Object.freeze({ acre: [0.3, 0.55], massifSize: [5, 10], clump: [1, 2], huts: [4, 6], caves: [0, 0], massifKind: 'rock', streams: [0, 0], marsh: 0 }),
+  'wild-heath': Object.freeze({ acre: [1.7, 2.6], massifSize: [1, 3], clump: [1, 2], huts: [2, 3], caves: [1, 1], massifKind: 'rock', streams: [0, 1], marsh: 0 }),
+  'green-hollow': Object.freeze({ acre: [0.7, 1.1], massifSize: [3, 7], clump: [1, 2], huts: [1, 2], caves: [2, 3], massifKind: 'rock', streams: [1, 2], marsh: 0.2 }),
   // A wood is not a field with a few trees standing in it, and it is not a few
   // groves either. What blocks the way IS the trees, all of them, everywhere:
   // very many very small clumps, so the open ground left over is lanes between
   // trunks. Walking through a wood is a series of small choices about which gap
   // to take, and it is that — not the tint of the grass — that makes it a wood.
-  'autumn-wood': Object.freeze({ acre: [7, 9], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket' }),
-  'thornwood': Object.freeze({ acre: [7.5, 9.5], massifSize: [1, 2], clump: [0, 1], huts: [1, 2], caves: [0, 1], massifKind: 'thicket' }),
-  mire: Object.freeze({ acre: [6, 8], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket' }),
+  'autumn-wood': Object.freeze({ acre: [7, 9], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket', streams: [1, 1], marsh: 0.1 }),
+  'thornwood': Object.freeze({ acre: [7.5, 9.5], massifSize: [1, 2], clump: [0, 1], huts: [1, 2], caves: [0, 1], massifKind: 'thicket', streams: [0, 1], marsh: 0 }),
+  // A mire is not a wood that happens to be damp. The water is the place: it
+  // runs everywhere, it stands between the trunks, and the dry ground is what
+  // is left over — which is the same bargain the trees make, one layer down.
+  mire: Object.freeze({ acre: [8, 10], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket', streams: [3, 4], marsh: 0.62 }),
 });
 
 export function surfaceProfile(themeId) {
@@ -50,6 +53,16 @@ export const SURFACE_FLOOR = '.';
 
 /** Fewer places than this and there is nothing to find on the floor. */
 export const MIN_CLEARINGS = 6;
+
+export const WATER_CELL = '~';
+
+/**
+ * How much of a floor may be under water. Outside, water is not a flooded room
+ * — it is a watercourse crossing the map — so the promise is about the floor as
+ * a whole. The dry places keep their floor at zero on purpose: a burnt steppe
+ * with a brook in it is not a burnt steppe.
+ */
+export const SURFACE_WATER = Object.freeze({ max: 0.42 });
 
 /**
  * How much of a wood is standing timber. This is a promise, not a knob: under
@@ -188,10 +201,16 @@ function raiseBuilding(grid, rng, rect, built) {
   return { rect, interior, door };
 }
 
-/** Every open cell reachable from a starting one. */
+/**
+ * Every cell reachable from a starting one. Ground is ground you can stand on,
+ * and shallow water is ground: you wade it. Saying otherwise would make a brook
+ * across a meadow read as a wall, which is the opposite of what it is.
+ */
+export const isOpenCell = (cell) => cell === SURFACE_FLOOR || cell === WATER_CELL;
+
 export function reachableFrom(grid, start) {
   const seen = new Set();
-  if (grid[start.y]?.[start.x] !== SURFACE_FLOOR) return seen;
+  if (!isOpenCell(grid[start.y]?.[start.x])) return seen;
   const queue = [start];
   seen.add(`${start.x},${start.y}`);
   while (queue.length > 0) {
@@ -199,7 +218,7 @@ export function reachableFrom(grid, start) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const next = { x: x + dx, y: y + dy };
       const key = `${next.x},${next.y}`;
-      if (seen.has(key) || grid[next.y]?.[next.x] !== SURFACE_FLOOR) continue;
+      if (seen.has(key) || !isOpenCell(grid[next.y]?.[next.x])) continue;
       seen.add(key);
       queue.push(next);
     }
@@ -214,7 +233,7 @@ function openRegions(grid) {
   for (let y = 1; y < grid.length - 1; y += 1) {
     for (let x = 1; x < grid[0].length - 1; x += 1) {
       const key = `${x},${y}`;
-      if (seen.has(key) || grid[y][x] !== SURFACE_FLOOR) continue;
+      if (seen.has(key) || !isOpenCell(grid[y][x])) continue;
       const region = reachableFrom(grid, { x, y });
       for (const cell of region) seen.add(cell);
       regions.push(region);
@@ -266,6 +285,69 @@ function fillRegion(grid, region) {
   for (const key of region) {
     const [x, y] = key.split(',').map(Number);
     grid[y][x] = SURFACE_WALL;
+  }
+}
+
+/**
+ * A watercourse, drawn across the map rather than poured into a room.
+ *
+ * It wanders — one step along its own axis, sometimes one step sideways — and
+ * whatever it meets it wears away: rock and thicket alike give in to running
+ * water. What it will not touch is a wall somebody built or a hill a cave was
+ * cut from, because a stream through a hut is a hole in a hut. Meeting one of
+ * those it simply passes it by and picks the thread up on the far side.
+ *
+ * Water is walked through, not around, so a stream can never cut the floor in
+ * two — which is why this runs after the ground has been mended and not before.
+ */
+function runStream(grid, rng, { width, height, spared }) {
+  const down = rng.int(0, 1) === 0;
+  const span = down ? height : width;
+  let main = 1;
+  let cross = rng.int(3, (down ? width : height) - 4);
+  const cut = (x, y) => {
+    if (!inBounds(grid, x, y)) return;
+    if (spared.has(`${x},${y}`)) return;
+    grid[y][x] = WATER_CELL;
+  };
+  const wide = rng.int(0, 2) > 0;
+  for (let step = 0; step < span; step += 1) {
+    const x = down ? cross : main;
+    const y = down ? main : cross;
+    if (!inBounds(grid, x, y)) break;
+    cut(x, y);
+    if (wide) cut(down ? x + 1 : x, down ? y : y + 1);
+    // A sideways step is taken as its own cell, so the channel stays joined
+    // edge to edge instead of pinching off into a diagonal chain.
+    if (rng.next() < 0.42) {
+      cross += rng.int(0, 1) === 0 ? 1 : -1;
+      const sideX = down ? cross : main;
+      const sideY = down ? main : cross;
+      cut(sideX, sideY);
+      if (wide) cut(down ? sideX + 1 : sideX, down ? sideY : sideY + 1);
+    }
+    main += 1;
+  }
+}
+
+/**
+ * Marsh: standing water that creeps out from the channel over whatever ground
+ * lies beside it. It keeps off the clearings — a find at the bottom of a bog is
+ * a find nobody picks up — and off everything anybody built.
+ */
+function spreadMarsh(grid, rng, { width, height, spared, share }) {
+  if (share <= 0) return;
+  for (let round = 0; round < 3; round += 1) {
+    const soaked = [];
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        if (grid[y][x] !== SURFACE_FLOOR || spared.has(`${x},${y}`)) continue;
+        const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+          .some(([dx, dy]) => grid[y + dy]?.[x + dx] === WATER_CELL);
+        if (wet && rng.next() < share) soaked.push({ x, y });
+      }
+    }
+    for (const { x, y } of soaked) grid[y][x] = WATER_CELL;
   }
 }
 
@@ -445,6 +527,69 @@ export function generateSurfacePlan({
   const standingStructures = structures.filter(({ interior }) => isClear(interior));
   const standingCaves = caves.filter((chamber) => isClear(chamber));
 
+  // Water comes last, once the ground is whole. It is waded through rather than
+  // walked round, so a watercourse cannot cut the floor in two — but it is also
+  // the one thing here that writes over finished work, which is why nothing is
+  // allowed to depend on it having been written.
+  const rectCells = (rect) => {
+    const cells = [];
+    for (let y = rect.y - 1; y <= rect.y + rect.height; y += 1) {
+      for (let x = rect.x - 1; x <= rect.x + rect.width; x += 1) cells.push(`${x},${y}`);
+    }
+    return cells;
+  };
+  const spared = new Set([...built, ...hewn]);
+  for (const structure of standingStructures) for (const key of rectCells(structure.rect)) spared.add(key);
+  for (const chamber of standingCaves) for (const key of rectCells(chamber)) spared.add(key);
+  // Whichever clearing the hero arrives in stays dry: waking up ankle-deep is
+  // not an introduction to a place, it is an accident.
+  if (rooms[0]) for (const key of rectCells(rooms[0])) spared.add(key);
+  const streams = rng.int(profile.streams?.[0] ?? 0, profile.streams?.[1] ?? 0);
+  for (let index = 0; index < streams; index += 1) {
+    runStream(grid, rng, { width, height, spared });
+  }
+  // A brook may cross a glade; a bog may not swallow one.
+  const marshSpared = new Set(spared);
+  for (const room of rooms) for (const key of rectCells(room)) marshSpared.add(key);
+  spreadMarsh(grid, rng, { width, height, spared: marshSpared, share: profile.marsh ?? 0 });
+  // Erosion can leave a channel landlocked: a stream that started inside a rock
+  // massif and ran up against a hut wall is water nobody will ever stand in.
+  // Water only ever *adds* passable ground, so anything cut off from the main
+  // body was made by this pass and by nothing else — it goes back to being the
+  // rock it was a moment ago, thicket and all.
+  const walkable = (x, y) => grid[y]?.[x] !== undefined && grid[y][x] !== SURFACE_WALL;
+  const seen = new Set();
+  const bodies = [];
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      if (seen.has(`${x},${y}`) || !walkable(x, y)) continue;
+      const body = new Set([`${x},${y}`]);
+      const queue = [{ x, y }];
+      while (queue.length > 0) {
+        const node = queue.pop();
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const key = `${node.x + dx},${node.y + dy}`;
+          if (body.has(key) || !walkable(node.x + dx, node.y + dy)) continue;
+          body.add(key);
+          queue.push({ x: node.x + dx, y: node.y + dy });
+        }
+      }
+      for (const key of body) seen.add(key);
+      bodies.push(body);
+    }
+  }
+  bodies.sort((left, right) => right.size - left.size);
+  for (const body of bodies.slice(1)) {
+    for (const key of body) {
+      const [x, y] = key.split(',').map(Number);
+      grid[y][x] = SURFACE_WALL;
+    }
+  }
+  const waterCells = [];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) if (grid[y][x] === WATER_CELL) waterCells.push(`${x},${y}`);
+  }
+
   // Anything carved back open is no longer a wall of any kind.
   for (const set of [built, hewn, thicket].filter(Boolean)) {
     for (const key of [...set]) {
@@ -460,5 +605,6 @@ export function generateSurfacePlan({
     builtWalls: Object.freeze([...built]),
     hewnWalls: Object.freeze([...hewn]),
     thicketWalls: Object.freeze(thicket ? [...thicket] : []),
+    waterCells: Object.freeze(waterCells),
   };
 }

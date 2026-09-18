@@ -413,15 +413,17 @@ export function thicketProps(themeId) {
 }
 
 /**
- * A trunk stands taller than the cell it grows in, so the tree one step nearer
- * the camera than the hero paints straight over him — and in a wood dense enough
- * to be a wood, that is most of the time. The tree in the way thins out instead.
+ * Scenery stands taller than the cell it occupies, so anything one step nearer
+ * the camera than the hero paints straight over him — a tree, a sarcophagus, a
+ * fallen column. That is honest depth order and it is meant to be there; what
+ * is not meant to happen is the hero disappearing behind it. Nothing inanimate
+ * hides him: what stands in the way thins out instead.
  *
- * Only the row in front matters: a tree two rows down reaches the row above it,
+ * Only the row in front matters: a prop two rows down reaches the row above it,
  * never the hero's own. Directly ahead it nearly vanishes; to either side it
  * only clips a shoulder, so it merely goes pale.
  */
-export function thicketOpacity(cell, heroCell) {
+export function sceneryOpacity(cell, heroCell) {
   if (!cell || !heroCell || cell.y !== heroCell.y + 1) return 1;
   const offset = Math.abs(cell.x - heroCell.x);
   if (offset === 0) return 0.3;
@@ -436,6 +438,22 @@ export function thicketOpacity(cell, heroCell) {
  * mortar is the plainest dwelling wall we own: still not timber, but it reads as
  * somebody's house rather than as somebody's treasury.
  */
+/**
+ * A brook in the open runs clear and catches the light; water that stands —
+ * a bog, a flooded cellar, a cistern underground — goes dark and murky. A place
+ * says which of the two it has; everything that does not say keeps the still,
+ * dark water the dungeon has always had.
+ */
+export const WATER_TILES = Object.freeze({
+  still: Object.freeze(['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png']),
+  running: numberedPaths('dngn/water/shoals_shallow_water', [0, 2, 4, 6, 8, 10]),
+});
+
+export function waterTiles(themeId) {
+  const theme = BIOME_THEMES.find((entry) => entry.id === themeId);
+  return WATER_TILES[theme?.water ?? 'still'] ?? WATER_TILES.still;
+}
+
 export const BUILT_WALLS = numberedPaths('dngn/wall/stone2_brown', [0, 1, 2, 3]);
 export const HEWN_WALLS = numberedPaths('dngn/wall/stone_gray', [0, 1, 2, 3]);
 
@@ -784,6 +802,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'autumn-wood',
+    water: 'running',
     palette: 'autumn',
     floors: Object.freeze([
       'dngn/floor/grass/grass0.png',
@@ -831,6 +850,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'flower-meadow',
+    water: 'running',
     palette: 'meadow',
     floors: Object.freeze([
       'dngn/floor/grass/grass_flowers_blue1.png',
@@ -860,6 +880,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'old-graveyard',
+    water: 'running',
     palette: 'dusk',
     floors: Object.freeze([
       'dngn/floor/moss0.png',
@@ -884,6 +905,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'abandoned-hamlet',
+    water: 'running',
     palette: 'hamlet',
     floors: Object.freeze([
       'dngn/floor/grey_dirt_b_0.png',
@@ -912,6 +934,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'thornwood',
+    water: 'running',
     palette: 'bramble',
     floors: Object.freeze([
       'dngn/floor/lair0b.png',
@@ -942,6 +965,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'snowfield',
+    water: 'running',
     palette: 'frost',
     floors: numberedPaths('dngn/floor/white_marble', [0, 1, 2, 4, 5, 6, 7, 9]),
     walls: numberedPaths('dngn/wall/stone2_gray', [0, 1, 2, 3]),
@@ -961,6 +985,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'sunburnt-steppe',
+    water: 'running',
     palette: 'scorch',
     floors: Object.freeze([
       'dngn/floor/snake-d0.png',
@@ -985,6 +1010,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'wild-heath',
+    water: 'running',
     palette: 'heath',
     floors: Object.freeze([
       'dngn/floor/snake-c0.png',
@@ -1009,6 +1035,7 @@ export const BIOME_THEMES = Object.freeze([
   }),
   Object.freeze({
     id: 'green-hollow',
+    water: 'running',
     palette: 'verdant',
     floors: Object.freeze([
       'dngn/floor/snake-a0.png',
@@ -1130,6 +1157,7 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
  */
 export function allBiomeAssetPaths() {
   return [...new Set([
+    ...Object.values(WATER_TILES).flat(),
     ...BLOOD_FLOOR_PATHS,
     ...BUILT_WALLS,
     ...HEWN_WALLS,

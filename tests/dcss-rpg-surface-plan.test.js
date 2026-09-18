@@ -38,7 +38,8 @@ const plans = Array.from({ length: 160 }, (_entry, index) => generateSurfacePlan
 test('open country is open, and the rock is what was put into it', () => {
   for (const plan of plans) {
     const cells = plan.grid.flat();
-    const open = cells.filter((cell) => cell === SURFACE_FLOOR).length;
+    // Ground is ground you can stand on; a brook is waded, not climbed.
+    const open = cells.filter((cell) => cell !== SURFACE_WALL).length;
     const cover = 1 - open / cells.length;
     // The border ring alone is a good tenth of a floor this size, so the band
     // is about what is left: open country with rock in it, not rock with paths.
@@ -59,7 +60,7 @@ test('every clearing, hut and cave can be walked to from the first one', () => {
       // Rooms are open ground, not a rectangle drawn over rock.
       for (let y = room.y; y < room.y + room.height; y += 1) {
         for (let x = room.x; x < room.x + room.width; x += 1) {
-          assert.equal(plan.grid[y][x], SURFACE_FLOOR, `${room.x},${room.y} is not clear`);
+          assert.notEqual(plan.grid[y][x], SURFACE_WALL, `${room.x},${room.y} is not clear`);
         }
       }
     }
@@ -185,7 +186,7 @@ test('the ground of a floor is one piece, and no road stops halfway', async () =
       });
       const open = [];
       plan.grid.forEach((row, y) => row.forEach((cell, x) => {
-        if (cell === SURFACE_FLOOR) open.push({ x, y });
+        if (cell !== SURFACE_WALL) open.push({ x, y });
       }));
       const reached = reachableFrom(plan.grid, open[0]);
       assert.equal(reached.size, open.length, `${themeId} seed ${seed} leaves ground cut off`);
@@ -216,7 +217,7 @@ test('each place outside is built to its own shape', async () => {
         profile: surfaceProfile(themeId),
       });
       const cells = plan.grid.flat();
-      total += 1 - cells.filter((cell) => cell === SURFACE_FLOOR).length / cells.length;
+      total += 1 - cells.filter((cell) => cell !== SURFACE_WALL).length / cells.length;
     }
     return total / 40;
   };
@@ -257,7 +258,7 @@ test('a wood is mostly trees, and the lanes through it still join up', async () 
       // Dense enough to be a wood is also dense enough to seal a pocket off.
       const open = [];
       plan.grid.forEach((row, y) => row.forEach((cell, x) => {
-        if (cell === SURFACE_FLOOR) open.push({ x, y });
+        if (cell !== SURFACE_WALL) open.push({ x, y });
       }));
       assert.equal(reachableFrom(plan.grid, open[0]).size, open.length, `${themeId} seed ${seed} is cut in two`);
     }
@@ -288,7 +289,8 @@ test('a floor outside always has places on it, however thick the wood', async ()
       for (const room of plan.rooms) {
         for (let y = room.y; y < room.y + room.height; y += 1) {
           for (let x = room.x; x < room.x + room.width; x += 1) {
-            assert.equal(plan.grid[y][x], SURFACE_FLOOR, `${themeId} seed ${seed}: a place with a wall in it`);
+            // A brook may cross a glade — a wall may not stand in one.
+            assert.notEqual(plan.grid[y][x], SURFACE_WALL, `${themeId} seed ${seed}: a place with a wall in it`);
           }
         }
       }
@@ -296,16 +298,103 @@ test('a floor outside always has places on it, however thick the wood', async ()
   }
 });
 
-/** A trunk between the camera and the hero would hide him behind bark. */
-test('the tree standing in front of the hero thins out', async () => {
-  const { thicketOpacity } = await import('../tools/dcss-rpg-visuals.js');
+/** Nothing inanimate hides the hero: a trunk, a sarcophagus, a fallen column. */
+test('the scenery standing in front of the hero thins out', async () => {
+  const { sceneryOpacity } = await import('../tools/dcss-rpg-visuals.js');
   const hero = { x: 10, y: 10 };
-  assert.ok(thicketOpacity({ x: 10, y: 11 }, hero) < 0.4, 'the trunk dead ahead still covers him');
-  assert.ok(thicketOpacity({ x: 9, y: 11 }, hero) < 1, 'the trunk at his shoulder is untouched');
-  assert.ok(thicketOpacity({ x: 9, y: 11 }, hero) > thicketOpacity({ x: 10, y: 11 }, hero));
+  assert.ok(sceneryOpacity({ x: 10, y: 11 }, hero) < 0.4, 'the prop dead ahead still covers him');
+  assert.ok(sceneryOpacity({ x: 9, y: 11 }, hero) < 1, 'the prop at his shoulder is untouched');
+  assert.ok(sceneryOpacity({ x: 9, y: 11 }, hero) > sceneryOpacity({ x: 10, y: 11 }, hero));
   // Everything else is a tree, not a curtain: behind, beside and two rows off.
-  assert.equal(thicketOpacity({ x: 10, y: 9 }, hero), 1);
-  assert.equal(thicketOpacity({ x: 11, y: 10 }, hero), 1);
-  assert.equal(thicketOpacity({ x: 10, y: 12 }, hero), 1);
-  assert.equal(thicketOpacity({ x: 7, y: 11 }, hero), 1);
+  assert.equal(sceneryOpacity({ x: 10, y: 9 }, hero), 1);
+  assert.equal(sceneryOpacity({ x: 11, y: 10 }, hero), 1);
+  assert.equal(sceneryOpacity({ x: 10, y: 12 }, hero), 1);
+  assert.equal(sceneryOpacity({ x: 7, y: 11 }, hero), 1);
+});
+
+/**
+ * «Воду добавь на поверхности — больше воды, реки и тд — на болотах например
+ * это фишка». Water outside is not a flooded room: it is a watercourse drawn
+ * across the map, and the place decides how much of it there is.
+ */
+test('water runs across open country, and the place decides how much', async () => {
+  const { surfaceProfile, SURFACE_PROFILES, SURFACE_WATER, WATER_CELL } = await import('../tools/dcss-rpg-surface-plan.js');
+  const wet = {};
+  for (const themeId of Object.keys(SURFACE_PROFILES)) {
+    let total = 0;
+    for (let seed = 1; seed <= 80; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      const share = plan.waterCells.length / (MAP_WIDTH * MAP_HEIGHT);
+      total += share;
+      assert.ok(share <= SURFACE_WATER.max, `${themeId} seed ${seed}: ${share.toFixed(3)} of the floor is water`);
+      // The manifest and the grid say the same thing.
+      const onGrid = plan.grid.flat().filter((cell) => cell === WATER_CELL).length;
+      assert.equal(onGrid, plan.waterCells.length, `${themeId} seed ${seed}: the water list is not the water`);
+      // Water is waded, not climbed: it never cuts the floor in two.
+      const open = [];
+      plan.grid.forEach((row, y) => row.forEach((cell, x) => {
+        if (cell !== SURFACE_WALL) open.push({ x, y });
+      }));
+      assert.equal(reachableFrom(plan.grid, open[0]).size, open.length, `${themeId} seed ${seed}: water cut the floor`);
+      // Nothing anybody built is under water, and neither is the arrival.
+      for (const structure of plan.structures) {
+        for (let y = structure.rect.y; y < structure.rect.y + structure.rect.height; y += 1) {
+          for (let x = structure.rect.x; x < structure.rect.x + structure.rect.width; x += 1) {
+            assert.notEqual(plan.grid[y][x], WATER_CELL, `${themeId} seed ${seed}: a hut with a stream through it`);
+          }
+        }
+      }
+      const arrival = plan.rooms[0];
+      for (let y = arrival.y; y < arrival.y + arrival.height; y += 1) {
+        for (let x = arrival.x; x < arrival.x + arrival.width; x += 1) {
+          assert.notEqual(plan.grid[y][x], WATER_CELL, `${themeId} seed ${seed}: the hero wakes ankle-deep`);
+        }
+      }
+    }
+    wet[themeId] = total / 80;
+  }
+  // A mire is water with trees in it; a burnt steppe is the place with none.
+  assert.equal(wet['sunburnt-steppe'], 0, 'the burnt steppe found itself a brook');
+  assert.ok(wet.mire > 0.1, `the mire is only ${(wet.mire * 100).toFixed(0)}% water`);
+  assert.ok(wet.mire > wet['green-hollow'] * 2, 'the mire is not the wettest place outside');
+  assert.ok(wet['green-hollow'] > wet['wild-heath'], 'the hollow is no wetter than the heath');
+});
+
+/** Water is the one pass that writes over finished ground; it must not litter. */
+test('a channel that leads nowhere is not left lying about', async () => {
+  const { surfaceProfile, WATER_CELL } = await import('../tools/dcss-rpg-surface-plan.js');
+  for (const themeId of ['mire', 'green-hollow', 'autumn-wood']) {
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      // Every water cell is reachable from the clearing the hero arrives in.
+      const reached = reachableFrom(plan.grid, centre(plan.rooms[0]));
+      plan.grid.forEach((row, y) => row.forEach((cell, x) => {
+        if (cell !== WATER_CELL) return;
+        assert.ok(reached.has(`${x},${y}`), `${themeId} seed ${seed}: landlocked water at ${x},${y}`);
+      }));
+    }
+  }
+});
+
+/** A brook in the open runs clear; a bog stands and goes murky. */
+test('a place says what its water looks like', async () => {
+  const { waterTiles, WATER_TILES } = await import('../tools/dcss-rpg-visuals.js');
+  assert.notDeepEqual(waterTiles('autumn-wood'), waterTiles('mire'));
+  assert.deepEqual(waterTiles('mire'), WATER_TILES.still, 'a bog should stand dark');
+  assert.deepEqual(waterTiles('green-hollow'), WATER_TILES.running, 'a hollow should run clear');
+  // Underground keeps exactly the water it always had.
+  assert.deepEqual(waterTiles('ashen-vault'), WATER_TILES.still);
+  assert.deepEqual(waterTiles('nowhere-at-all'), WATER_TILES.still);
 });

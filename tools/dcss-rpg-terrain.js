@@ -8,6 +8,12 @@
 
 export const WATER_CELL = '~';
 export const WATER_ROOM_CHANCE = 0.3;
+/**
+ * Below this many cells the water on a floor is a puddle, and nothing lives in
+ * it. It is the same four cells a flooded room must hold to stay flooded: a
+ * body of water either counts or it does not, and it should not count twice.
+ */
+export const WATER_LIFE_MINIMUM = 4;
 export const WATER_WET_DURATION = 4;
 export const WATER_WET_REFRESH_BELOW = 3.5;
 export const WATER_FIRE_MULTIPLIER = 0.5;

@@ -83,8 +83,9 @@ import {
   BUILT_WALLS,
   HEWN_WALLS,
   biomeThemeFor,
-  thicketOpacity,
+  sceneryOpacity,
   thicketProps,
+  waterTiles,
   BLOOD_FLOOR_PATHS,
   chapterWeather,
   deterministicAtmosphereMote,
@@ -797,7 +798,8 @@ const combatGlyph = Object.freeze({
   bow: '➶',
 });
 
-const waterPaths = WATER_PATHS;
+/** The water of the place the run is standing in; still and dark by default. */
+let waterPaths = WATER_PATHS;
 
 const sanctuaryVisual = runtimeVisual('system', 'sanctuary', 'world', SANCTUARY_PATH, 1, -5);
 const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
@@ -909,6 +911,7 @@ let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }))
 let builtWallCells = new Set(dungeon.builtWalls ?? []);
 let thicketCells = new Set(dungeon.thicketWalls ?? []);
 let hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+waterPaths = waterTiles(dungeon.themeId);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
 
@@ -4204,13 +4207,29 @@ function thicketActors3D() {
       size: 84 + (hash(x, y, 13) % 3) * 6,
       facing: hash(x, y, 17) % 2 === 0 ? 1 : -1,
       screenOffsetY: -18,
-      opacity: thicketOpacity({ x, y }, heroCell),
+      opacity: 1,
       hit: false,
       shadowScale: 0.66,
       shadowOpacity: 0.26,
     });
   }
   return standing;
+}
+
+/**
+ * Nothing inanimate hides the hero. The rule lives in `sceneryOpacity`; this is
+ * where every piece of scenery is held to it, once, instead of each list of
+ * props remembering to do it for itself.
+ */
+function stepAsideForHero(scenery) {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return scenery.map((prop) => {
+    const fade = sceneryOpacity(
+      { x: Math.floor(prop.x / TILE), y: Math.floor(prop.y / TILE) },
+      heroCell,
+    );
+    return fade === 1 ? prop : { ...prop, opacity: prop.opacity * fade };
+  });
 }
 
 function worldMarkers3D() {
@@ -4435,6 +4454,10 @@ function syncWorldActors3D() {
         })),
     ],
     decorations: [
+      // Scenery first, and all of it steps aside for the hero: see
+      // `sceneryOpacity`. Finds come after and keep their own opacity, which
+      // already means something — a pale chest is an emptied chest.
+      ...stepAsideForHero([
       ...thicketActors3D(),
       ...worldMarkers3D(),
       ...dungeonEnvironment.props
@@ -4455,6 +4478,7 @@ function syncWorldActors3D() {
           shadowScale: 0.72,
           shadowOpacity: 0.3,
         })),
+      ]),
       ...findDefinitions
         .filter(findIsVisible)
         .filter(({ x, y }) =>
@@ -4702,6 +4726,18 @@ function drawPoisonedHero(centerX, centerY) {
   context.restore();
 }
 
+/**
+ * Standing in water is not a blue wash over the whole figure. What is under the
+ * surface is not visible at all, so the water of the place is drawn again over
+ * the legs of everyone wading — opaque, following the body rather than the
+ * cell, so it does not step from tile to tile while somebody walks — and the
+ * ripple is drawn on top of it as the line where the two meet.
+ */
+/** Where the surface cuts a standing figure, in screen pixels below its anchor. */
+const WADE_SURFACE_Y = 4;
+/** How far below that line water is painted — far enough to reach past the boots. */
+const WADE_SKIRT = 32;
+
 /** A ripple across the legs of everyone wading, so a sunken sprite reads as water. */
 function drawWaterlines() {
   const waders = [
@@ -4714,6 +4750,17 @@ function drawWaterlines() {
       .map((creature) => ({ x: creature.x, y: creature.y, size: 0.8 })),
   ];
   if (waders.length === 0) return;
+  for (const wader of waders) {
+    if (!revealed.has(`${Math.floor(wader.x / TILE)},${Math.floor(wader.y / TILE)}`)) continue;
+    const skirt = WADE_SKIRT * wader.size;
+    const wave = Math.floor(elapsed * 1.5 + hash(Math.floor(wader.x), Math.floor(wader.y)))
+      % waterPaths.length;
+    drawSprite(waterPaths[wave], wader.x, wader.y, TILE + 1, {
+      scaleY: skirt / (TILE + 1),
+      scaleX: wader.size,
+      offsetY: WADE_SURFACE_Y + skirt / 2,
+    });
+  }
   context.save();
   context.lineWidth = 1;
   for (const wader of waders) {
@@ -5044,7 +5091,7 @@ function drawMonster(monster) {
 }
 
 function floorTextureAt(x, y, cell, theme) {
-  if (cell === '~') return waterPaths[0];
+  if (cell === '~') return waterPaths[hash(x, y, 23) % waterPaths.length];
   const isBlood =
     cell === '.' && theme.bloodModulo > 0 && hash(x, y, 17) % theme.bloodModulo === 0;
   return isBlood
@@ -11351,6 +11398,7 @@ function replaceFloor(nextDepth, arrival = null) {
   builtWallCells = new Set(dungeon.builtWalls ?? []);
   thicketCells = new Set(dungeon.thicketWalls ?? []);
   hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+  waterPaths = waterTiles(dungeon.themeId);
   openingDoor = null;
   activeChestFindId = null;
   dungeonEnvironment = createDungeonEnvironment(dungeon);

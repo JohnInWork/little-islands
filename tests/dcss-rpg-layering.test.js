@@ -35,7 +35,7 @@ test('nothing on the floor is drawn over what is standing on it', async () => {
   assert.match(runtime, /function worldMarkers3D\(\)[\s\S]*id: 'marker:sanctuary'/);
   assert.match(runtime, /function worldMarkers3D\(\)[\s\S]*id: 'marker:exit'/);
   assert.match(runtime, /function worldMarkers3D\(\)[\s\S]*id: 'marker:ascent'/);
-  assert.match(runtime, /decorations: \[[\s\S]{0,80}?\.\.\.worldMarkers3D\(\),/);
+  assert.match(runtime, /decorations: \[[\s\S]{0,600}?\.\.\.worldMarkers3D\(\),/);
   for (const visual of ['ascentVisual', 'sanctuaryVisual', 'exitVisual']) {
     assert.doesNotMatch(
       runtime,

@@ -254,3 +254,56 @@ test('the runtime wades, conducts, dampens fire and refuses books in water', asy
     assert.ok((await stat(new URL(`../public/assets/dcss-preview/${file}`, import.meta.url))).size > 0, file);
   }
 });
+
+/**
+ * Water life used to be seated only when a *room* had been flooded. Outside,
+ * water comes from the place's own profile instead, so a mire had open water
+ * across half the floor and nothing living in it.
+ */
+test('whatever lives in water lives in the water there is, however it got there', async () => {
+  const { dungeonThemeFor } = await import('../tools/dcss-rpg-room-plans.js');
+  const { runConditions } = await import('../tools/dcss-rpg-conditions.js');
+  let mires = 0;
+  let inhabited = 0;
+  let dryFloorsWithLife = 0;
+  for (let seed = 1; seed <= 400; seed += 1) {
+    for (let depth = 1; depth <= 3; depth += 1) {
+      if (dungeonThemeFor(seed, depth, 'surface').id !== 'mire') continue;
+      // «Большая вода» floods rooms on top of the profile; that is its job.
+      if (runConditions(seed).includes('high-water')) continue;
+      const level = generateDungeon({ seed, depth, branch: 'surface' });
+      const water = level.grid.flat().filter((cell) => cell === '~').length;
+      const life = level.monsters.filter(({ instanceId }) => instanceId.includes('-water-'));
+      mires += 1;
+      if (life.length > 0) inhabited += 1;
+      if (water === 0 && life.length > 0) dryFloorsWithLife += 1;
+      // Nothing that lives in water is ever seated on dry land.
+      for (const spawn of life) {
+        assert.equal(level.grid[spawn.y][spawn.x], '~', 'a water creature on dry ground');
+      }
+      // The mire is flooded by its profile, not by the flooded-room roll.
+      assert.equal(level.floodedRoomIndex, null, 'open country floods itself');
+    }
+  }
+  assert.ok(mires >= 20, `only ${mires} mires to look at`);
+  assert.equal(dryFloorsWithLife, 0);
+  assert.equal(inhabited, mires, `${mires - inhabited} mires have open water and nothing in it`);
+});
+
+/** A burnt steppe is the place with no water; that is what makes it one. */
+test('the flooded-room roll does not water open country behind the profile’s back', async () => {
+  const { dungeonThemeFor } = await import('../tools/dcss-rpg-room-plans.js');
+  const { runConditions } = await import('../tools/dcss-rpg-conditions.js');
+  let steppes = 0;
+  for (let seed = 1; seed <= 600; seed += 1) {
+    for (let depth = 1; depth <= 3; depth += 1) {
+      if (dungeonThemeFor(seed, depth, 'surface').id !== 'sunburnt-steppe') continue;
+      // «Большая вода» floods everywhere on purpose, the steppe included.
+      if (runConditions(seed).includes('high-water')) continue;
+      const level = generateDungeon({ seed, depth, branch: 'surface' });
+      steppes += 1;
+      assert.equal(level.grid.flat().filter((cell) => cell === '~').length, 0, `seed ${seed} watered the steppe`);
+    }
+  }
+  assert.ok(steppes >= 20, `only ${steppes} steppes to look at`);
+});
