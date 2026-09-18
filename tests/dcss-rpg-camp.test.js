@@ -178,7 +178,7 @@ test('the camp chest is an ordinary container that belongs to the run, not the f
   assert.deepEqual(taken.state.inventory, ['potion-1']);
 });
 
-test('save v43 carries the stash down the stairs and leaves the camp behind', () => {
+test('save v44 carries the stash down the stairs and leaves the camp behind', () => {
   const run = createRun(3808);
   assert.equal(run.floor.camp, null);
   assert.deepEqual(run.camp.stash.items, []);
@@ -209,7 +209,7 @@ test('save v43 carries the stash down the stairs and leaves the camp behind', ()
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 43);
+  assert.equal(migrated.version, 44);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
@@ -229,7 +229,7 @@ test('save v43 carries the stash down the stairs and leaves the camp behind', ()
     ],
   };
   const movedIn = migrateLegacyRun(camped);
-  assert.equal(movedIn.version, 43);
+  assert.equal(movedIn.version, 44);
   assert.equal(movedIn.floor.camp.restPercent, 40);
   assert.equal(validateRun(movedIn), true);
 });

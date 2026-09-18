@@ -263,6 +263,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Очищение и Арканистика | `tools/dcss-rpg-{cleansing,scrolls}.js`; круги свитков и ритуал в `dcss.js`, [контракт](2D-MAGIC-SCHOOLS.md) |
 | Ремесло: разбор, зачарование, алхимия | `tools/dcss-rpg-{crafting,alchemy}.js`; эссенция, вторая кнопка карточки и варка на костре в `dcss.js`, [контракт](2D-CRAFTING.md) |
 | Записи между забегами | `tools/dcss-rpg-meta.js`; экран «Записи» в `dcss.js`, [контракт](2D-META.md) |
+| Прирученный зверь | `tools/dcss-rpg-companions.js`; `run.companion` в ядре, `raiseCompanion` в `dcss.js`, [контракт](2D-COMPANIONS.md) |
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |

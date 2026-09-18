@@ -125,6 +125,21 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.85, vision: 7, windup: 0.26, pursuit: 6 },
   },
   {
+    id: 'tamed-sheep', path: 'mon/animals/sheep.png',
+    tier: 1, hp: 18, damage: 0, speed: 0.5, xp: 0, bloodColor: '#6d3030', spawn: 'summon',
+    threat: { attackRate: 0.9, vision: 6, windup: 0.3, pursuit: 5 },
+  },
+  {
+    id: 'tamed-hog', path: 'mon/animals/hog.png',
+    tier: 2, hp: 34, damage: 7, speed: 0.62, xp: 0, bloodColor: '#74342f', spawn: 'summon',
+    threat: { attackRate: 0.72, vision: 6, windup: 0.42, pursuit: 5 },
+  },
+  {
+    id: 'tamed-yak', path: 'mon/animals/yak.png',
+    tier: 3, hp: 58, damage: 11, speed: 0.44, xp: 0, bloodColor: '#60332b', spawn: 'summon',
+    threat: { attackRate: 0.58, vision: 6, windup: 0.54, pursuit: 5 },
+  },
+  {
     id: 'raised-warden', path: 'mon/undead/skeletal_warrior.png',
     tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },

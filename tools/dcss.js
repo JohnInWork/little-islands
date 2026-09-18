@@ -234,6 +234,15 @@ import {
   scrollVariantLabel,
 } from './dcss-rpg-scrolls.js';
 import {
+  TAME_FOOD_IDS,
+  canTame,
+  companionName,
+  companionRefusalText,
+  companionStats,
+  tameCreature,
+  tamingProfile,
+} from './dcss-rpg-companions.js';
+import {
   alchemyProfile,
   alchemyRefusalText,
   brew,
@@ -1314,6 +1323,37 @@ function raiseAlly(spellId) {
   return ally;
 }
 
+/**
+ * The tamed beast takes its place beside the hero. Unlike a servant it is not
+ * born from a slot: it comes out of the run and keeps the health it had.
+ */
+function raiseCompanion() {
+  if (!run.companion) return null;
+  const stats = companionStats({
+    creatureId: run.companion.id,
+    profile: tamingProfile(currentSkillCapabilities()),
+  });
+  const cell = freeCellNearHero();
+  if (!stats || !cell) return null;
+  const [beast] = createRuntimeMonsters(dungeon, [{
+    instanceId: 'ally-companion',
+    id: `tamed-${run.companion.id}`,
+    x: cell.x,
+    y: cell.y,
+  }]);
+  if (!beast) return null;
+  beast.ally = true;
+  beast.companion = true;
+  beast.spellId = null;
+  beast.maxHp = stats.maxHp;
+  beast.hp = Math.min(run.companion.hp, stats.maxHp);
+  beast.damage = stats.damage;
+  beast.xp = 0;
+  beast.alerted = beast.pursuit;
+  allies = [...allies.filter((other) => !other.companion), beast];
+  return beast;
+}
+
 /** A cell beside the hero that nothing else stands on. */
 function freeCellNearHero() {
   const origin = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
@@ -1338,7 +1378,9 @@ function freeCellNearHero() {
 function updateAllySlots() {
   if (runStatus !== 'playing' || hero.dead) return;
   const prepared = hero.spells.preparedSpellIds.filter((id) => id && isMinionSpell(id));
-  allies = allies.filter((ally) => prepared.includes(ally.spellId));
+  allies = allies.filter((ally) => ally.companion || prepared.includes(ally.spellId));
+  // The tamed beast follows the hero down the stairs, health and all.
+  if (run.companion && !allies.some((ally) => ally.companion && ally.dead === 0)) raiseCompanion();
   const stats = currentHeroStats();
   for (const spellId of prepared) {
     const spell = spellById(spellId);
@@ -1364,6 +1406,14 @@ function damageAlly(ally, amount) {
   if (ally.hp > 0) return;
   ally.hp = 0;
   ally.dead = 0.01;
+  if (ally.companion) {
+    // A friend is not a spell: when the beast falls, it stays fallen.
+    const name = companionName(run.companion?.id ?? '', itemDetailLanguage);
+    run.companion = null;
+    showLootToast({ path: ally.spritePath, rarity: 2 }, `${name}: ${companionRefusalText('lost', itemDetailLanguage)}`);
+    persistRun();
+    return;
+  }
   const blueprint = minionBlueprint(ally.spellId);
   const seconds = minionStats({
     blueprint,
@@ -1524,6 +1574,9 @@ function findSpritePath(find) {
 function captureRun() {
   run.depth = dungeon.depth;
   run.knowledge = createItemKnowledge(run.knowledge);
+  // The beast carries its wounds down the stairs, not a full bar.
+  const beast = allies.find((ally) => ally.companion && ally.dead === 0);
+  if (run.companion && beast) run.companion = { id: run.companion.id, hp: Math.max(1, Math.round(beast.hp)) };
   run.hero = {
     x: Math.floor(hero.x / TILE),
     y: Math.floor(hero.y / TILE),
@@ -6321,10 +6374,20 @@ function contextModelTarget(entry = contextTarget) {
     };
   }
   if (entry.kind === 'wildlife') {
+    const profile = tamingProfile(currentSkillCapabilities());
+    const decision = canTame({
+      creature: entry.value,
+      profile,
+      foodCount: tameFoodCount(),
+      companion: run.companion,
+    });
     return {
       kind: 'wildlife',
       id: entry.value.id,
       icon: entry.value.spritePath,
+      tameKnown: profile.rank > 0,
+      canTame: decision.ok,
+      tameHint: decision.ok ? '' : companionRefusalText(decision.reason, itemDetailLanguage),
     };
   }
   if (entry.kind === 'find') {
@@ -7143,6 +7206,52 @@ function nearbyCampfire() {
     .sort((left, right) => left.id.localeCompare(right.id))[0] ?? null;
 }
 
+/** Any real meal in the bag will do to make a friend. */
+function tameFoodCount() {
+  return TAME_FOOD_IDS.reduce((total, id) => total + interactionResourceCount(id), 0);
+}
+
+/**
+ * Bread instead of a blade. The beast leaves the wildlife of the floor and
+ * joins the run: from here it walks with the hero and dies only once.
+ */
+function tameNearbyWildlife(creature) {
+  if (!creature || hero.dead || runStatus !== 'playing') return false;
+  const result = tameCreature({
+    creature,
+    profile: tamingProfile(currentSkillCapabilities()),
+    foodCount: tameFoodCount(),
+    companion: run.companion,
+  });
+  if (!result.ok) {
+    showLootToast(
+      { path: creature.spritePath, rarity: 1 },
+      companionRefusalText(result.reason, itemDetailLanguage),
+    );
+    return false;
+  }
+  const meal = TAME_FOOD_IDS.find((id) => interactionResourceCount(id) > 0);
+  if (!meal || !consumeInteractionResources([{ id: meal, amount: 1 }])) return false;
+  run.companion = result.companion;
+  // The tamed beast is no longer part of the floor's wildlife.
+  creature.defeated = true;
+  creature.hunted = true;
+  creature.hp = 0;
+  passiveCreatures = passiveCreatures.filter((other) => other !== creature);
+  raiseCompanion();
+  playerHasActed = true;
+  playSound('eat');
+  burst(creature.x, creature.y - 10, '#9ad3b8', 20);
+  showLootToast(
+    { path: creature.spritePath, rarity: 2 },
+    companionRefusalText('tamed', itemDetailLanguage),
+  );
+  updateHud();
+  renderPack();
+  persistRun();
+  return true;
+}
+
 function nearbyWildlife() {
   if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
@@ -7325,9 +7434,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     closeContextActions();
     return action.id === 'serve' ? serveJailSentence() : pickJailLock();
   },
-  'hunt-wildlife'({ target }) {
+  'hunt-wildlife'({ target, action }) {
     const creature = target.value;
     closeContextActions();
+    if (action.id === 'tame') return tameNearbyWildlife(creature);
     return beginNearbyWildlifeHunt(creature);
   },
   'cook-meat'({ target, action }) {

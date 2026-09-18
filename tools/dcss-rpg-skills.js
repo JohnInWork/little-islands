@@ -257,6 +257,15 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ salvagingRank: 3 }),
     ]),
   }),
+  taming: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ tamingRank: 1 }),
+      Object.freeze({ tamingRank: 2 }),
+      Object.freeze({ tamingRank: 3 }),
+    ]),
+  }),
   alchemy: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -320,6 +329,8 @@ export const SKILL_SYSTEMS = Object.freeze([
   'component-salvage',
   'enchantment-transfer',
   'alchemy-recipes',
+  'animal-taming',
+  'companion-limits',
 ]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
@@ -388,6 +399,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   cleansingRank: Object.freeze([0, 3]),
   salvagingRank: Object.freeze([0, 3]),
   alchemyRank: Object.freeze([0, 3]),
+  tamingRank: Object.freeze([0, 3]),
   enchantingRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),
   scrollVariantTier: Object.freeze([0, 3]),

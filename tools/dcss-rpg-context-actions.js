@@ -18,6 +18,7 @@ const ACTION_COPY = Object.freeze({
     buy: 'Купить',
     install: 'Поставить',
     hunt: 'Охотиться',
+    tame: 'Приручить',
     cook: 'Приготовить',
     brew: 'Сварить',
     rest: 'Отдохнуть',
@@ -51,6 +52,7 @@ const ACTION_COPY = Object.freeze({
     buy: 'Buy',
     install: 'Install',
     hunt: 'Hunt',
+    tame: 'Tame',
     cook: 'Cook',
     brew: 'Brew',
     rest: 'Rest',
@@ -86,6 +88,7 @@ const GLYPHS = Object.freeze({
   buy: '●',
   install: '◆',
   hunt: '⚔',
+  tame: '♥',
   cook: '♨',
   brew: '⚗',
   rest: '☾',
@@ -368,10 +371,16 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
       name: copy.wildlife[target.id] ?? target.id,
-      description: '',
+      description: target.tameHint ?? '',
       icon: target.icon,
       accent: '#b69062',
-      actions: [{ id: 'hunt' }],
+      actions: [
+        // A beast can be met with a blade or with bread; taming offers the bread.
+        ...(target.tameKnown
+          ? [{ id: 'tame', enabled: target.canTame === true, hint: target.canTame ? '' : target.tameHint ?? '' }]
+          : []),
+        { id: 'hunt' },
+      ],
     }),
   }),
   defineInteraction({
