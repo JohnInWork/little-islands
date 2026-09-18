@@ -140,3 +140,43 @@ test('Salvaging and Enchanting are wired as skills and performed by the runtime'
   uses('salvageYield({');
   uses("consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])");
 });
+
+test('alchemy brews catalogue potions at a fire, and only what the rank reads', async () => {
+  const { ALCHEMY_RECIPES, alchemyProfile, alchemyRefusalText, brew, canBrew, nextBrew, recipeLabel } =
+    await import('../tools/dcss-rpg-alchemy.js');
+
+  assert.deepEqual(alchemyProfile({}).recipes, [], 'without the school the fire only cooks');
+  for (const recipe of ALCHEMY_RECIPES) {
+    assert.ok(lootById(recipe.id), `${recipe.id} is a real potion`);
+    assert.equal(lootById(recipe.id).kind, 'potion');
+    assert.ok(recipe.essence >= 2 && recipe.essence <= 4);
+    for (const language of ['ru', 'en']) assert.ok(recipeLabel(recipe.id, language).length > 0);
+  }
+
+  const novice = alchemyProfile({ alchemyRank: 1 });
+  assert.equal(novice.recipes.length, 1, 'the first rank knows one recipe');
+  assert.equal(canBrew({ recipeId: 'venom-potion', essence: 9, profile: novice }).reason, 'rank-required');
+  assert.equal(canBrew({ recipeId: 'nothing', essence: 9, profile: novice }).reason, 'unknown-recipe');
+  assert.equal(canBrew({ recipeId: 'mending-potion', essence: 0, profile: novice }).reason, 'no-essence');
+  assert.equal(
+    canBrew({ recipeId: 'mending-potion', essence: 9, backpackCount: 12, capacity: 12, profile: novice }).reason,
+    'no-room',
+  );
+  assert.equal(alchemyRefusalText('no-essence'), 'Не хватает эссенции');
+
+  const master = alchemyProfile({ alchemyRank: 3 });
+  assert.equal(nextBrew({ essence: 2, profile: master }).id, 'mending-potion', 'a thin purse still brews something');
+  assert.equal(nextBrew({ essence: 9, profile: master }).id, 'venom-potion', 'a full purse brews the best of them');
+  const bottle = brew({ recipeId: 'cleansing-potion', essence: 5, backpackCount: 1, profile: master });
+  assert.equal(bottle.ok, true);
+  assert.equal(bottle.itemId, 'cleansing-potion');
+  assert.equal(bottle.essence, 5 - bottle.cost);
+
+  const source = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.ok(source.includes('function brewAtCampfire('), 'the fire performs it');
+  assert.ok(source.includes("action.id === 'brew'"), 'and the panel offers it');
+  assert.ok(
+    source.includes('run.knowledge = identifyItem(run.knowledge, result.itemId, IDENTIFIABLE_LOOT_IDS)'),
+    'a hero who brewed the bottle knows what is in it',
+  );
+});

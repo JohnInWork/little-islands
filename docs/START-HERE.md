@@ -261,7 +261,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Дом и камень | `tools/dcss-rpg-house.js`; `run.house` и `travelRunToDepth` в `dcss-rpg-core.js`, [контракт](2D-CITY.md) |
 | Розыск и тюрьма | `tools/dcss-rpg-crime.js`; `run.crime`, `noteCrime` и `jailHero` в `dcss.js`, [контракт](2D-CITY.md) |
 | Очищение и Арканистика | `tools/dcss-rpg-{cleansing,scrolls}.js`; круги свитков и ритуал в `dcss.js`, [контракт](2D-MAGIC-SCHOOLS.md) |
-| Разбор и Зачарование | `tools/dcss-rpg-crafting.js`; эссенция и вторая кнопка карточки в `dcss.js`, [контракт](2D-CRAFTING.md) |
+| Ремесло: разбор, зачарование, алхимия | `tools/dcss-rpg-{crafting,alchemy}.js`; эссенция, вторая кнопка карточки и варка на костре в `dcss.js`, [контракт](2D-CRAFTING.md) |
 | Записи между забегами | `tools/dcss-rpg-meta.js`; экран «Записи» в `dcss.js`, [контракт](2D-META.md) |
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |

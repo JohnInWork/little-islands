@@ -234,6 +234,14 @@ import {
   scrollVariantLabel,
 } from './dcss-rpg-scrolls.js';
 import {
+  alchemyProfile,
+  alchemyRefusalText,
+  brew,
+  canBrew,
+  nextBrew,
+  recipeLabel,
+} from './dcss-rpg-alchemy.js';
+import {
   ESSENCE_ITEM_ID,
   canEnchant,
   craftingCopy,
@@ -6224,9 +6232,24 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
   if (entry.kind === 'campfire') {
+    const profile = alchemyProfile(currentSkillCapabilities());
+    const recipe = nextBrew({ essence: interactionResourceCount(ESSENCE_ITEM_ID), profile });
+    const decision = recipe
+      ? canBrew({
+          recipeId: recipe.id,
+          essence: interactionResourceCount(ESSENCE_ITEM_ID),
+          backpackCount: backpackItems.filter(Boolean).length,
+          capacity: HERO_BACKPACK_CAPACITY,
+          profile,
+        })
+      : null;
     return {
       kind: 'campfire',
       rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+      brewLabel: recipe ? recipeLabel(recipe.id, itemDetailLanguage) : '',
+      canBrew: decision?.ok === true,
+      brewHint: decision && !decision.ok ? alchemyRefusalText(decision.reason, itemDetailLanguage) : '',
+      brewRecipeId: recipe?.id ?? '',
     };
   }
   if (entry.kind === 'camp-rest') {
@@ -7175,6 +7198,45 @@ function cookAtCampfire(site) {
   return true;
 }
 
+/**
+ * Brewing at the fire: essence in, a bottle out. The recipe is the best one the
+ * hero can both read and afford, so the panel never offers what it cannot make.
+ */
+function brewAtCampfire() {
+  if (hero.dead || runStatus !== 'playing') return false;
+  const profile = alchemyProfile(currentSkillCapabilities());
+  const essence = interactionResourceCount(ESSENCE_ITEM_ID);
+  const recipe = nextBrew({ essence, profile });
+  if (!recipe) return false;
+  const result = brew({
+    recipeId: recipe.id,
+    essence,
+    backpackCount: backpackItems.filter(Boolean).length,
+    capacity: HERO_BACKPACK_CAPACITY,
+    profile,
+  });
+  if (!result.ok) {
+    showLootToast(
+      { path: lootById(recipe.id)?.icon ?? 'item/potion/i-curing.png', rarity: 2 },
+      alchemyRefusalText(result.reason, itemDetailLanguage),
+    );
+    return false;
+  }
+  if (!consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])) return false;
+  grantItem(result.itemId, `brewed-${result.itemId}-${run.seed}-${run.commandSequence}`);
+  // A hero who brewed the bottle knows what is in it.
+  run.knowledge = identifyItem(run.knowledge, result.itemId, IDENTIFIABLE_LOOT_IDS);
+  playerHasActed = true;
+  playSound('drink');
+  burst(hero.x, hero.y - 10, '#9fd4c4', 20);
+  addImpactWave(hero.x, hero.y - 8, '#9fd4c4', 54, 0);
+  showLootToast(lootById(result.itemId), alchemyRefusalText('brewed', itemDetailLanguage));
+  updateHud();
+  renderPack();
+  persistRun();
+  return true;
+}
+
 /** The nearest guard still keeping the peace; a provoked one is just an enemy. */
 function nearbyGuard() {
   if (runStatus !== 'playing' || hero.dead) return null;
@@ -7267,9 +7329,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     closeContextActions();
     return beginNearbyWildlifeHunt(creature);
   },
-  'cook-meat'({ target }) {
+  'cook-meat'({ target, action }) {
     const site = target.value;
     closeContextActions();
+    if (action.id === 'brew') return brewAtCampfire();
     return cookAtCampfire(site);
   },
   'buy-house'() {
