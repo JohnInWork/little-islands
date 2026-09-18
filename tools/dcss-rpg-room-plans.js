@@ -25,6 +25,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'ashen-vault',
     surfaceSetId: 'ashen-vault',
+    branch: 'deep',
     atmosphereId: 'slate',
     chestSkinIds: ['wooden', 'pirate'],
     roomArchetypeIds: [
@@ -39,6 +40,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'buried-sanctum',
     surfaceSetId: 'buried-sanctum',
+    branch: 'deep',
     atmosphereId: 'ochre',
     chestSkinIds: ['pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -46,6 +48,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'frozen-depths',
     surfaceSetId: 'frozen-depths',
+    branch: 'deep',
     atmosphereId: 'ice',
     chestSkinIds: ['jade-ruby'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'drowned-chapel', 'fungal-hollow', 'merchant-alcove'],
@@ -53,6 +56,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'infernal-core',
     surfaceSetId: 'infernal-core',
+    branch: 'deep',
     atmosphereId: 'ember',
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -60,6 +64,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'catacomb-tiers',
     surfaceSetId: 'catacomb-tiers',
+    branch: 'deep',
     atmosphereId: 'bone',
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -67,6 +72,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'crystal-hollow',
     surfaceSetId: 'crystal-hollow',
+    branch: 'deep',
     atmosphereId: 'prism',
     chestSkinIds: ['jade-ruby'],
     roomArchetypeIds: ['fallen-hall', 'drowned-chapel', 'fungal-hollow', 'merchant-alcove'],
@@ -74,6 +80,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'drowned-palace',
     surfaceSetId: 'drowned-palace',
+    branch: 'deep',
     atmosphereId: 'verdigris',
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'drowned-chapel', 'forgotten-crypt', 'merchant-alcove'],
@@ -81,6 +88,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'bone-fields',
     surfaceSetId: 'bone-fields',
+    branch: 'deep',
     atmosphereId: 'mold',
     chestSkinIds: ['wooden', 'pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
@@ -88,6 +96,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'flesh-deep',
     surfaceSetId: 'flesh-deep',
+    branch: 'deep',
     atmosphereId: 'viscera',
     chestSkinIds: ['pirate'],
     roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'fungal-hollow', 'merchant-alcove'],
@@ -95,6 +104,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'overgrown-ruin',
     surfaceSetId: 'overgrown-ruin',
+    branch: 'deep',
     atmosphereId: 'moss',
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
@@ -102,6 +112,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'cobalt-mine',
     surfaceSetId: 'cobalt-mine',
+    branch: 'deep',
     atmosphereId: 'cobalt',
     chestSkinIds: ['wooden', 'jade-ruby'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -109,6 +120,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'magma-shelf',
     surfaceSetId: 'magma-shelf',
+    branch: 'deep',
     atmosphereId: 'magma',
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
@@ -116,6 +128,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'beast-lair',
     surfaceSetId: 'beast-lair',
+    branch: 'deep',
     atmosphereId: 'loam',
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
@@ -123,6 +136,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'orc-stronghold',
     surfaceSetId: 'orc-stronghold',
+    branch: 'deep',
     atmosphereId: 'iron',
     chestSkinIds: ['wooden', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
@@ -130,6 +144,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'funeral-hall',
     surfaceSetId: 'funeral-hall',
+    branch: 'deep',
     atmosphereId: 'sepia',
     chestSkinIds: ['pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -137,9 +152,60 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'deep-mine',
     surfaceSetId: 'deep-mine',
+    branch: 'deep',
     atmosphereId: 'coal',
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  // Beyond the gate. The same dungeon in every way that matters — floors,
+  // chapters, guardians, promises — under an open sky.
+  defineDungeonTheme({
+    id: 'autumn-wood',
+    surfaceSetId: 'autumn-wood',
+    branch: 'surface',
+    atmosphereId: 'autumn',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'mire',
+    surfaceSetId: 'mire',
+    branch: 'surface',
+    atmosphereId: 'bog',
+    chestSkinIds: ['pirate'],
+    roomArchetypeIds: ['fallen-hall', 'drowned-chapel', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'flower-meadow',
+    surfaceSetId: 'flower-meadow',
+    branch: 'surface',
+    atmosphereId: 'meadow',
+    chestSkinIds: ['wooden', 'jade-ruby'],
+    roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'ashen-shrine', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'old-graveyard',
+    surfaceSetId: 'old-graveyard',
+    branch: 'surface',
+    atmosphereId: 'dusk',
+    chestSkinIds: ['pharaoh'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'abandoned-hamlet',
+    surfaceSetId: 'abandoned-hamlet',
+    branch: 'surface',
+    atmosphereId: 'hamlet',
+    chestSkinIds: ['wooden', 'pirate'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'thornwood',
+    surfaceSetId: 'thornwood',
+    branch: 'surface',
+    atmosphereId: 'bramble',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
   }),
 ]);
 
@@ -443,9 +509,11 @@ function themeOrderHash(seed, index) {
  * identity for three floors but which place that is changes between runs, and
  * with four themes across three chapters one of them is always left out.
  */
-export function chapterThemeOrder(seed) {
+export function chapterThemeOrder(seed, branch = 'deep') {
   if (!Number.isInteger(seed) || seed < 0) throw new TypeError('Theme order requires a run seed');
-  const order = [...DUNGEON_THEME_CATALOG];
+  // A branch shuffles only its own places: the caves never open onto a meadow.
+  const order = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === branch);
+  if (order.length === 0) throw new TypeError(`No places for branch ${branch}`);
   // Fisher-Yates from the run seed: deterministic, and adding a theme later
   // reshuffles nothing that came before it in the list.
   for (let index = order.length - 1; index > 0; index -= 1) {
@@ -459,12 +527,12 @@ export function chapterThemeOrder(seed) {
  * Which place a floor is. Takes the RUN seed, never the floor seed: the floor
  * seed is `mixSeed(seed, depth)` and cannot be turned back into the run.
  */
-export function dungeonThemeFor(seed, depth) {
+export function dungeonThemeFor(seed, depth, branch = 'deep') {
   if (isCityDepth(depth)) return CITY_DUNGEON_THEME;
   if (!Number.isInteger(depth) || depth < 1) {
     throw new TypeError('Dungeon theme depth must be a positive integer');
   }
-  const order = chapterThemeOrder(seed);
+  const order = chapterThemeOrder(seed, branch);
   const chapterIndex = Math.floor((depth - 1) / FLOORS_PER_CHAPTER);
   return order[chapterIndex % order.length];
 }

@@ -17,6 +17,7 @@ import {
   SAVE_KEY,
   advanceRunFloor,
   retreatRunFloor,
+  switchRunBranch,
   travelRunToDepth,
   createRun,
   findGridPath,
@@ -6863,6 +6864,9 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
+  if (entry.kind === 'city-gate') {
+    return { kind: 'city-gate', branch: run.branch };
+  }
   if (entry.kind === 'jail-door') {
     const decision = canPickCell({
       crime: run.crime,
@@ -7006,6 +7010,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'merchant') return distance <= 1;
   if (propTarget) return distance <= 1;
   if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
+  if (entry.kind === 'city-gate') return distance <= 1;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -7982,6 +7987,15 @@ function brewAtCampfire() {
   return true;
 }
 
+/** The two roads out of the city, offered where they part. */
+function nearbyCityGate() {
+  if (!isCityDepth(dungeon.depth) || runStatus !== 'playing' || hero.dead) return null;
+  if (run.crime.jailed) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const reach = Math.abs(cell.x - dungeon.exit.x) + Math.abs(cell.y - dungeon.exit.y);
+  return reach <= 1 ? dungeon.exit : null;
+}
+
 /** The nearest guard still keeping the peace; a provoked one is just an enemy. */
 function nearbyGuard() {
   if (runStatus !== 'playing' || hero.dead) return null;
@@ -8019,6 +8033,8 @@ function nearbyContextTarget() {
   if (campChest) return { kind: 'camp-stash', value: campChest };
   const beast = nearbyCompanion();
   if (beast) return { kind: 'companion', value: beast };
+  const gate = nearbyCityGate();
+  if (gate) return { kind: 'city-gate', value: gate };
   const cellDoor = nearbyJailDoor();
   if (cellDoor) return { kind: 'jail-door', value: cellDoor };
   const guard = nearbyGuard();
@@ -8066,6 +8082,15 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'pay') return payWatchFine();
     provokeCityWatch(target.value);
     playSound('ui-tap');
+    return true;
+  },
+  'city-gate'({ action }) {
+    closeContextActions();
+    const branch = action.id === 'goSurface' ? 'surface' : 'deep';
+    if (run.branch !== branch) {
+      run = switchRunBranch(captureRun(), branch);
+    }
+    descendFloor();
     return true;
   },
   'jail-door'({ action }) {
@@ -11105,6 +11130,9 @@ function resolveWorldInteractions() {
     completeVictory();
     return;
   }
+  // In the city the gate is a fork, not a staircase: the panel asks which road,
+  // and stepping on it must not choose for the hero.
+  if (isCityDepth(dungeon.depth)) return;
   if (dungeon.depth < FINAL_DEPTH) descendFloor();
 }
 

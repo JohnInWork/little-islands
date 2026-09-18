@@ -38,6 +38,8 @@ const ACTION_COPY = Object.freeze({
     break: 'Расколоть',
     pay: 'Заплатить штраф',
     serve: 'Отбыть срок',
+    goDeep: 'Вниз, в пещеры',
+    goSurface: 'Наружу, за ворота',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -75,6 +77,8 @@ const ACTION_COPY = Object.freeze({
     break: 'Break',
     pay: 'Pay the fine',
     serve: 'Serve your time',
+    goDeep: 'Down into the caves',
+    goSurface: 'Out through the gate',
   }),
 });
 
@@ -115,6 +119,8 @@ const GLYPHS = Object.freeze({
   decipher: '◈',
   pay: '◉',
   serve: '⌛',
+  goDeep: '▼',
+  goSurface: '▲',
 });
 
 const COPY = Object.freeze({
@@ -152,6 +158,8 @@ const COPY = Object.freeze({
     companionDescription: 'Твой зверь. Он идёт за тобой и дерётся рядом.',
     companionOrder: (label) => `Приказ: ${label}.`,
     guardWanted: (label, fine) => `${label}. Штраф — ${fine} золота.`,
+    gateName: 'Развилка',
+    gateDescription: 'Отсюда две дороги. Внизу пещеры, за воротами — открытое небо.',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `Замок городской тюрьмы. Срок стоит ${fine} золота.`,
     deedName: 'Участок на продажу',
@@ -196,6 +204,8 @@ const COPY = Object.freeze({
     companionDescription: 'Your beast. It follows you and fights beside you.',
     companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. The fine is ${fine} gold.`,
+    gateName: 'The fork',
+    gateDescription: 'Two roads from here. Caves below, open sky beyond the gate.',
     cellName: 'Cell door',
     cellDescription: (fine) => `A city jail lock. Your time costs ${fine} gold.`,
     deedName: 'Plot for sale',
@@ -358,6 +368,22 @@ export const INTERACTION_REGISTRY = Object.freeze([
           ? [{ id: 'pay', enabled: target.canPay === true, hint: target.canPay ? '' : target.hint ?? '' }]
           : []),
         { id: 'attack' },
+      ],
+    }),
+  }),
+  defineInteraction({
+    // The city is the only place a run chooses its road, so the gate asks.
+    id: 'city-gate',
+    command: 'city-gate',
+    matches: (target) => target?.kind === 'city-gate' && typeof target.branch === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.gateName,
+      description: copy.gateDescription,
+      icon: 'dngn/gateways/stone_stairs_down.png',
+      accent: '#d8bf68',
+      actions: [
+        { id: 'goDeep', enabled: target.branch !== 'deep' },
+        { id: 'goSurface', enabled: target.branch !== 'surface' },
       ],
     }),
   }),

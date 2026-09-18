@@ -1,6 +1,9 @@
 import {
   EVENT_CATALOG,
+  DEFAULT_RUN_BRANCH,
   LOOT_CATALOG,
+  monsterSuitsBranch,
+  validateRunBranch,
   MONSTER_CATALOG,
   eventById,
   lootById,
@@ -103,10 +106,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 47;
-export const SAVE_KEY = 'dng-codex:rpg:v47';
+export const SAVE_VERSION = 48;
+export const SAVE_KEY = 'dng-codex:rpg:v48';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v47',
   'dng-codex:rpg:v46',
   'dng-codex:rpg:v45',
   'dng-codex:rpg:v44',
@@ -540,7 +544,7 @@ function pickSpawnCells(rng, grid, spawn, count, occupied) {
  * instead of loot, the watch instead of monsters. Its own seed stream means
  * the city can grow new features without moving anything in the dungeon.
  */
-function generateCityDungeon({ floorSeed, conditionIds, depth, width, height, scaling }) {
+function generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, height, scaling }) {
   const rng = createRng(mixSeed(floorSeed, 0x43495459));
   const plan = generateCityPlan({ rng: () => rng.next(), width, height });
   const city = buildCityFloor({ plan, depth, seed: floorSeed, width, height, scaling, rng });
@@ -560,6 +564,7 @@ function generateCityDungeon({ floorSeed, conditionIds, depth, width, height, sc
     artifactFloor: false,
     themeId: CITY_DUNGEON_THEME.id,
     conditionIds,
+    branch,
     depth,
     scaling,
     width,
@@ -594,6 +599,7 @@ export function generateDungeon({
   difficulty = DEFAULT_DIFFICULTY,
   lootAbundance = DEFAULT_LOOT_ABUNDANCE,
   waterChance = null,
+  branch = DEFAULT_RUN_BRANCH,
 }) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
   if (!Number.isInteger(depth) || depth < CITY_DEPTH)
@@ -619,11 +625,11 @@ export function generateDungeon({
   const artifactFloor = depth === guaranteedArtifactDepth(seed, FINAL_DEPTH);
   // Which place this floor is. Decided from the RUN seed, then carried: the
   // floor seed below cannot be turned back into the run it came from.
-  const themeId = dungeonThemeFor(seed, depth).id;
+  const themeId = dungeonThemeFor(seed, depth, branch).id;
   // The city is a floor of a different kind, built by its own plan. It returns
   // the same shape every other floor returns, so nothing downstream cares.
   if (isCityDepth(depth)) {
-    return generateCityDungeon({ floorSeed, conditionIds, depth, width, height, scaling });
+    return generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, height, scaling });
   }
   const rng = createRng(floorSeed);
   const grid = Array.from({ length: height }, () => Array(width).fill('#'));
@@ -667,7 +673,7 @@ export function generateDungeon({
 
   const sanctuary = depth > 1 ? { ...route[0] } : null;
   if (sanctuary) occupied.add(`${sanctuary.x},${sanctuary.y}`);
-  const chapterGuardian = chapterGuardianForDepth(depth);
+  const chapterGuardian = chapterGuardianForDepth(depth, branch);
   const bossCell = chapterGuardian ? route.at(-2) : null;
   const objective = bossCell
     ? {
@@ -735,8 +741,9 @@ export function generateDungeon({
     return { instanceId: `event-${depth}-${index}`, id: definition.id, ...position };
   });
 
+  // A sheep has no business in a crypt, and a lich none in a meadow.
   const monsterPool = MONSTER_CATALOG.filter((monster) =>
-    monsterEligibleForFloor(monster, scaling),
+    monsterEligibleForFloor(monster, scaling) && monsterSuitsBranch(monster, branch),
   );
   // The tier says what CAN live on this floor; the place says what often does.
   // A multiplier, never a filter: nothing is ever taken out of the game.
@@ -774,7 +781,9 @@ export function generateDungeon({
   // city watchmen have their own places and never open a floor.
   const starterMonster = weightedPick(
     rng,
-    MONSTER_CATALOG.filter((monster) => monster.tier === 1 && monster.spawn === undefined),
+    MONSTER_CATALOG.filter((monster) => (
+      monster.tier === 1 && monster.spawn === undefined && monsterSuitsBranch(monster, branch)
+    )),
     (monster) => monsterBiomeWeight(monster, themeId),
   );
   const monsters = [
@@ -945,7 +954,7 @@ export function generateDungeon({
   const chapterOfDepth = Math.floor((depth - 1) / FLOORS_PER_CHAPTER) + 1;
   // A creature tied to a chapter belongs to that chapter only; everything else
   // simply needs the floor to be deep enough.
-  const belongsToFloor = (monster) => (
+  const belongsToFloor = (monster) => monsterSuitsBranch(monster, branch) && (
     Number.isInteger(monster.chapter)
       ? monster.chapter === chapterOfDepth
       : depth >= (monster.minDepth ?? 1)
@@ -1003,7 +1012,9 @@ export function generateDungeon({
   // so a saved floor simply gains the creature when it is regenerated.
   const chapterRng = createRng(mixSeed(floorSeed, 0x43484150));
   const chapterMonsters = MONSTER_CATALOG.filter((monster) => (
-    monster.chapter === chapterOfDepth && monster.spawn !== 'water'
+    monster.chapter === chapterOfDepth
+    && monster.spawn !== 'water'
+    && monsterSuitsBranch(monster, branch)
   ));
   chapterMonsters.forEach((monster, index) => {
     const cell = pickSpawnCells(chapterRng, grid, spawn, 4, occupied)
@@ -1084,6 +1095,7 @@ export function generateDungeon({
     artifactFloor,
     themeId,
     conditionIds,
+    branch,
     depth,
     scaling,
     width,
@@ -1147,6 +1159,10 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     lootAbundance: dungeon.scaling?.lootAbundance ?? DEFAULT_LOOT_ABUNDANCE,
     seed: seed >>> 0,
     depth: dungeon.depth,
+    // Which way this run went out of the city: down into the caves, or out
+    // through the gate. It decides the places and who lives in them, and it
+    // is not derivable from the seed — the hero chose it.
+    branch: dungeon.branch ?? DEFAULT_RUN_BRANCH,
     hero: {
       x: dungeon.spawn.x,
       y: dungeon.spawn.y,
@@ -1370,10 +1386,10 @@ function normalizedFloorArchive(source, currentDepth) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1382,6 +1398,7 @@ export function migrateLegacyRun(snapshot) {
     // the migrated merchant; no owned item changes hands during migration.
     const migrated = structuredClone(snapshot);
     migrated.version = SAVE_VERSION;
+    migrated.branch = migrated.branch ?? DEFAULT_RUN_BRANCH;
     migrated.contentVersion = CONTENT_VERSION;
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1470,6 +1487,7 @@ export function migrateLegacyRun(snapshot) {
       const legacyDungeon = generateDungeon({
         seed: snapshot.seed,
         depth: snapshot.depth,
+        branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
         scalingVersion: scalingVersionSupported(snapshot.scalingVersion)
           ? snapshot.scalingVersion
           : SCALING_VERSION,
@@ -1485,6 +1503,7 @@ export function migrateLegacyRun(snapshot) {
     }
     const migrated = structuredClone(snapshot);
     migrated.version = SAVE_VERSION;
+    migrated.branch = migrated.branch ?? DEFAULT_RUN_BRANCH;
     migrated.generatorVersion = GENERATOR_VERSION;
     migrated.contentVersion = CONTENT_VERSION;
     migrated.gold = migrateLegacyGold(snapshot);
@@ -1598,6 +1617,7 @@ export function migrateLegacyRun(snapshot) {
     const migrated = {
       ...snapshot,
       version: SAVE_VERSION,
+      branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
       generatorVersion: GENERATOR_VERSION,
       contentVersion: CONTENT_VERSION,
       scalingVersion,
@@ -1746,6 +1766,7 @@ export function migrateLegacyRun(snapshot) {
   const migrated = {
     ...snapshot,
     version: SAVE_VERSION,
+    branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
     generatorVersion: GENERATOR_VERSION,
     contentVersion: CONTENT_VERSION,
     scalingVersion: SCALING_VERSION,
@@ -1937,7 +1958,8 @@ export function validateRun(snapshot) {
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
-    !isFiniteInteger(snapshot.depth, CITY_DEPTH, FINAL_DEPTH)
+    !validateRunBranch(snapshot.branch)
+    || !isFiniteInteger(snapshot.depth, CITY_DEPTH, FINAL_DEPTH)
   )
     return false;
   const hero = snapshot.hero;
@@ -2086,6 +2108,7 @@ export function hydrateDungeon(snapshot) {
   const dungeon = generateDungeon({
     seed: snapshot.seed,
     depth: snapshot.depth,
+    branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,
@@ -2224,6 +2247,7 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   const dungeon = generateDungeon({
     seed: snapshot.seed,
     depth,
+    branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,
@@ -2263,6 +2287,21 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   };
 }
 
+/**
+ * The fork at the gate. The city is the only place a run can change its mind
+ * about which way it is going, and changing it forgets every floor the run has
+ * archived: those floors belong to the other road, and the dungeon has moved on
+ * anyway — the same rule the Return Stone already lives by.
+ */
+export function switchRunBranch(snapshot, branch) {
+  if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
+  if (!validateRunBranch(branch)) throw new Error('Unknown run branch');
+  if (!isCityDepth(snapshot.depth)) throw new Error('A run only turns around in the city');
+  if (snapshot.status !== 'playing') throw new Error('Cannot turn around after the run has ended');
+  if (snapshot.branch === branch) return snapshot;
+  return { ...snapshot, branch, floors: {} };
+}
+
 export function advanceRunFloor(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot descend after the run has ended');
@@ -2271,6 +2310,7 @@ export function advanceRunFloor(snapshot) {
   const dungeon = generateDungeon({
     seed: snapshot.seed,
     depth,
+    branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,
@@ -2290,6 +2330,7 @@ export function retreatRunFloor(snapshot) {
   const dungeon = generateDungeon({
     seed: snapshot.seed,
     depth,
+    branch: snapshot.branch ?? DEFAULT_RUN_BRANCH,
     scalingVersion: snapshot.scalingVersion,
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,

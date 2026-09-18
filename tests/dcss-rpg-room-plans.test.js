@@ -39,7 +39,8 @@ test('dungeon themes own compatible surfaces, chests and room families', () => {
 test('visual theme and difficulty chapter advance on the same depth boundary', () => {
   for (const seed of [0, 3, 97]) {
     const order = chapterThemeOrder(seed);
-    assert.equal(new Set(order).size, DUNGEON_THEME_CATALOG.length, 'the shuffle lost a theme');
+    const deepPlaces = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === 'deep');
+    assert.equal(new Set(order).size, deepPlaces.length, 'the shuffle lost a theme');
     for (let depth = 1; depth <= 32; depth += 1) {
       // The city keeps its own surfaces and belongs to no chapter rotation.
       if (isCityDepth(depth)) {

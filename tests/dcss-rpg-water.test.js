@@ -215,9 +215,9 @@ test('the floor map paints water and save v37 regenerates older floors with the 
   const grid = [['#', '#', '#'], ['#', '~', '#'], ['#', '#', '#']];
   const model = createFloorMapModel({ grid, revealed: new Set(['1,1']), hero: { x: 1, y: 1 }, markers: [] });
   assert.equal(model.cells[0].kind, 'water');
-  assert.equal(SAVE_VERSION, 47);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v47');
-  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v46');
+  assert.equal(SAVE_VERSION, 48);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v48');
+  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v47');
   assert.equal(GENERATOR_VERSION, 15);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
@@ -226,7 +226,7 @@ test('the floor map paints water and save v37 regenerates older floors with the 
   legacy.generatorVersion = 7;
   assert.equal(validateRun(legacy), false);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 47);
+  assert.equal(migrated.version, 48);
   assert.equal(migrated.generatorVersion, GENERATOR_VERSION);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));

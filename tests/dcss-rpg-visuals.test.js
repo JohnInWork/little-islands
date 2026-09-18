@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { RUN_BRANCHES } from '../tools/dcss-rpg-content.js';
 import { readFile } from 'node:fs/promises';
 
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
@@ -47,9 +49,11 @@ test('a chapter keeps one place for three floors, but which place is the run\'s 
 test('every place the game ships is actually met, the infernal core included', () => {
   const met = new Set();
   const openings = new Set();
-  for (let seed = 0; seed < 400; seed += 1) {
-    for (const depth of [1, 4, 7]) met.add(biomeAt(seed, depth).id);
-    openings.add(biomeAt(seed, 1).id);
+  for (const branch of RUN_BRANCHES) {
+    for (let seed = 0; seed < 400; seed += 1) {
+      for (const depth of [1, 4, 7]) met.add(dungeonThemeFor(seed, depth, branch).surfaceSetId);
+      openings.add(dungeonThemeFor(seed, 1, branch).surfaceSetId);
+    }
   }
   // Everything the game ships has to be reachable. Before the shuffle the
   // fourth theme sat at a chapter index nine floors never reach, so nobody had

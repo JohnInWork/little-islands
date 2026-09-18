@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { RUN_BRANCHES } from '../tools/dcss-rpg-content.js';
+
 import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
 import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
@@ -14,11 +16,17 @@ import {
 } from '../tools/dcss-rpg-room-plans.js';
 
 test('the shuffle is a permutation, not a reshuffle that loses things', () => {
-  for (let seed = 0; seed < 300; seed += 1) {
-    const order = chapterThemeOrder(seed);
-    assert.equal(order.length, DUNGEON_THEME_CATALOG.length);
-    assert.equal(new Set(order).size, order.length, `seed ${seed} repeats a theme`);
-    for (const theme of DUNGEON_THEME_CATALOG) assert.ok(order.includes(theme), theme.id);
+  // Each branch shuffles its own places and nothing else: the caves never open
+  // onto a meadow, and the surface never onto a crypt.
+  for (const branch of RUN_BRANCHES) {
+    const places = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === branch);
+    assert.ok(places.length >= 6, `${branch} ships too few places`);
+    for (let seed = 0; seed < 300; seed += 1) {
+      const order = chapterThemeOrder(seed, branch);
+      assert.equal(order.length, places.length);
+      assert.equal(new Set(order).size, order.length, `seed ${seed} repeats a theme`);
+      for (const theme of places) assert.ok(order.includes(theme), theme.id);
+    }
   }
   assert.throws(() => chapterThemeOrder(-1), /run seed/);
   assert.throws(() => chapterThemeOrder(1.5), /run seed/);
@@ -36,20 +44,25 @@ test('one seed, one world: the same run always meets the same places', () => {
 
 test('every theme the game ships gets played, and no run sees them all', () => {
   const met = new Set();
-  const openings = new Set();
-  for (let seed = 0; seed < 400; seed += 1) {
-    const chapters = [];
-    for (let depth = 1; depth <= FINAL_DEPTH; depth += FLOORS_PER_CHAPTER) {
-      chapters.push(dungeonThemeFor(seed, depth).id);
+  for (const branch of RUN_BRANCHES) {
+    const places = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === branch);
+    const openings = new Set();
+    for (let seed = 0; seed < 400; seed += 1) {
+      const chapters = [];
+      for (let depth = 1; depth <= FINAL_DEPTH; depth += FLOORS_PER_CHAPTER) {
+        chapters.push(dungeonThemeFor(seed, depth, branch).id);
+      }
+      for (const id of chapters) met.add(id);
+      openings.add(chapters[0]);
+      // Three chapters out of many places: most of a branch is left for next time.
+      assert.equal(new Set(chapters).size, chapters.length, `seed ${seed} repeats a chapter`);
+      assert.ok(chapters.length < places.length);
+      assert.ok(chapters.every((id) => places.some((place) => place.id === id)),
+        `${branch} run wandered into the other branch`);
     }
-    for (const id of chapters) met.add(id);
-    openings.add(chapters[0]);
-    // Three chapters out of four themes: something is always left for next time.
-    assert.equal(new Set(chapters).size, chapters.length, `seed ${seed} repeats a chapter`);
-    assert.ok(chapters.length < DUNGEON_THEME_CATALOG.length);
+    assert.equal(openings.size, places.length, `${branch} always opens in the same place`);
   }
   assert.equal(met.size, DUNGEON_THEME_CATALOG.length, 'a shipped theme is never reachable');
-  assert.equal(openings.size, DUNGEON_THEME_CATALOG.length, 'the run always opens in the same place');
 });
 
 test('the surface is not shuffled, and a floor keeps its place for a whole chapter', () => {

@@ -17,8 +17,10 @@ const chapterOf = (depth) => Math.floor((depth - 1) / FLOORS_PER_CHAPTER) + 1;
 const signatures = MONSTER_CATALOG.filter(({ chapter }) => Number.isInteger(chapter));
 
 test('every chapter past the first has one signature creature with a mechanic of its own', async () => {
-  assert.deepEqual(signatures.map(({ id }) => id), ['tomb-revenant', 'siren']);
-  assert.deepEqual(signatures.map(({ chapter }) => chapter), [2, 3]);
+  // One per chapter per branch: the crypts keep the revenant, the marshes get
+  // the naga, and the siren belongs to the water either side of the gate.
+  assert.deepEqual(signatures.map(({ id }) => id).sort(), ['moor-naga', 'siren', 'tomb-revenant']);
+  assert.deepEqual(signatures.map(({ chapter }) => chapter).sort(), [2, 2, 3]);
   for (const monster of signatures) {
     assert.ok(monster.hp > 0 && monster.damage > 0 && monster.xp > 0, monster.id);
     assert.ok(RUN_END_SOURCE_NAMES[monster.id]?.ru && RUN_END_SOURCE_NAMES[monster.id]?.en, monster.id);

@@ -1,19 +1,34 @@
 export const FLOORS_PER_CHAPTER = 3;
 export const FINAL_DEPTH = 9;
 export const FINAL_BOSS_ID = 'depth-warden';
-export const CHAPTER_GUARDIANS = Object.freeze([
-  Object.freeze({ depth: 3, monsterId: 'ashen-guardian', final: false }),
-  Object.freeze({ depth: 6, monsterId: 'sanctum-guardian', final: false }),
-  Object.freeze({ depth: FINAL_DEPTH, monsterId: FINAL_BOSS_ID, final: true }),
-]);
+/**
+ * One guardian per chapter, and a different three for each branch: the thing
+ * that holds a meadow is not the thing that holds a crypt. The depths and the
+ * shape are identical, so every promise about chapter ends keeps holding.
+ */
+export const BRANCH_CHAPTER_GUARDIANS = Object.freeze({
+  deep: Object.freeze([
+    Object.freeze({ depth: 3, monsterId: 'ashen-guardian', final: false }),
+    Object.freeze({ depth: 6, monsterId: 'sanctum-guardian', final: false }),
+    Object.freeze({ depth: FINAL_DEPTH, monsterId: FINAL_BOSS_ID, final: true }),
+  ]),
+  surface: Object.freeze([
+    Object.freeze({ depth: 3, monsterId: 'grove-warden', final: false }),
+    Object.freeze({ depth: 6, monsterId: 'moor-catoblepas', final: false }),
+    Object.freeze({ depth: FINAL_DEPTH, monsterId: 'storm-raiju', final: true }),
+  ]),
+});
+
+export const CHAPTER_GUARDIANS = BRANCH_CHAPTER_GUARDIANS.deep;
 export const SANCTUARY_COST = 3;
 export const SANCTUARY_HEAL = 36;
 
-export function chapterGuardianForDepth(depth) {
+export function chapterGuardianForDepth(depth, branch = 'deep') {
   if (!Number.isInteger(depth) || depth < 1) {
     throw new TypeError('Chapter guardian depth must be a positive integer');
   }
-  return CHAPTER_GUARDIANS.find((guardian) => guardian.depth === depth) ?? null;
+  const guardians = BRANCH_CHAPTER_GUARDIANS[branch] ?? BRANCH_CHAPTER_GUARDIANS.deep;
+  return guardians.find((guardian) => guardian.depth === depth) ?? null;
 }
 
 export function goldRewardForMonster(monster) {

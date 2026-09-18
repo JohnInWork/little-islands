@@ -1,15 +1,34 @@
 import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
 
+/**
+ * Where a run is. The city forks: down into the caves, or out through the gate
+ * onto the surface. Both are dungeons of the same shape — same floors, same
+ * chapters, same promises — and what differs is the places and who lives in
+ * them, which is exactly what `habitat` on a monster decides.
+ */
+export const RUN_BRANCHES = Object.freeze(['deep', 'surface']);
+export const DEFAULT_RUN_BRANCH = 'deep';
+export const MONSTER_HABITATS = Object.freeze(['deep', 'surface', 'any']);
+
+export function validateRunBranch(branch) {
+  return RUN_BRANCHES.includes(branch);
+}
+
+export function monsterSuitsBranch(monster, branch = DEFAULT_RUN_BRANCH) {
+  if (!monster?.habitat) return false;
+  return monster.habitat === 'any' || monster.habitat === branch;
+}
+
 export const MONSTER_CATALOG = Object.freeze([
   {
-    id: 'goblin', kin: 'humanoid', path: 'mon/goblin.png', tier: 1, hp: 3, damage: 4, speed: 1.22, xp: 4, bloodColor: '#71352d',
+    id: 'goblin', habitat: 'any', kin: 'humanoid', path: 'mon/goblin.png', tier: 1, hp: 3, damage: 4, speed: 1.22, xp: 4, bloodColor: '#71352d',
     threat: { attackRate: 1.15, vision: 5.8, windup: 0.16, pursuit: 3.6 },
   },
   {
     // Water creatures never join the random pool (`spawn`): the generator seats
     // them in a flooded room. The eel cannot leave water (land speed 0) and its
     // bite shocks everyone wet within two tiles, allies included.
-    id: 'electric-eel', kin: 'beast',
+    id: 'electric-eel', habitat: 'any', kin: 'beast',
     path: 'mon/aquatic/electric_eel.png',
     tier: 2,
     hp: 7,
@@ -23,7 +42,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.2, vision: 6.5, windup: 0.14, pursuit: 5 },
   },
   {
-    id: 'merfolk-impaler', kin: 'humanoid',
+    id: 'merfolk-impaler', habitat: 'any', kin: 'humanoid',
     minDepth: 3,
     path: 'mon/merfolk_impaler.png',
     waterPath: 'mon/merfolk_impaler_water.png',
@@ -38,7 +57,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.1, vision: 6.2, windup: 0.18, pursuit: 5.5 },
   },
   {
-    id: 'bat', kin: 'beast',
+    id: 'bat', habitat: 'any', kin: 'beast',
     path: 'mon/animals/bat.png',
     tier: 1,
     hp: 2,
@@ -52,7 +71,7 @@ export const MONSTER_CATALOG = Object.freeze([
   {
     // Chapter II wears this face: slow, relentless, poisonous alive and dead.
     // `chapter` keeps it out of the shared pool; the generator seats it itself.
-    id: 'tomb-revenant', kin: 'undead',
+    id: 'tomb-revenant', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/revenant.png',
     tier: 4,
     hp: 16,
@@ -69,7 +88,7 @@ export const MONSTER_CATALOG = Object.freeze([
   {
     // Chapter III wears this one: she never leaves the flooded hall and does
     // not need to, because her song drags the hero in to her.
-    id: 'siren', kin: 'humanoid',
+    id: 'siren', habitat: 'any', kin: 'humanoid',
     path: 'mon/siren.png',
     waterPath: 'mon/siren_water.png',
     tier: 5,
@@ -86,7 +105,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.6, vision: 8, windup: 0.22, pursuit: 8 },
   },
   {
-    id: 'chest-mimic', kin: 'oddity',
+    id: 'chest-mimic', habitat: 'any', kin: 'oddity',
     path: 'licensed/cmski-chests/wooden/4.png',
     tier: 1,
     hp: 8,
@@ -98,7 +117,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.12, vision: 7, windup: 0.2, pursuit: 6.5 },
   },
   {
-    id: 'zombie-rat', kin: 'undead',
+    id: 'zombie-rat', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/zombies/zombie_rat.png',
     tier: 1,
     hp: 3,
@@ -109,38 +128,38 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.35, vision: 4.8, windup: 0.12, pursuit: 4.5 },
   },
   {
-    id: 'gnoll', kin: 'humanoid', path: 'mon/gnoll.png', tier: 1, hp: 4, damage: 5, speed: 1.08, xp: 5, bloodColor: '#70342b',
+    id: 'gnoll', habitat: 'any', kin: 'humanoid', path: 'mon/gnoll.png', tier: 1, hp: 4, damage: 5, speed: 1.08, xp: 5, bloodColor: '#70342b',
     threat: { attackRate: 1, vision: 6, windup: 0.2, pursuit: 4.2 },
   },
   {
     // Raised servants. `spawn: 'summon'` keeps them out of every pool: they
     // exist only while a necromancer holds the slot that calls them.
-    id: 'raised-skeleton', kin: 'undead', path: 'mon/undead/skeletons/skeleton_humanoid_small.png',
+    id: 'raised-skeleton', habitat: 'deep', kin: 'undead', path: 'mon/undead/skeletons/skeleton_humanoid_small.png',
     tier: 2, hp: 14, damage: 5, speed: 1.12, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 1.05, vision: 7, windup: 0.18, pursuit: 6 },
   },
   {
-    id: 'raised-ghoul', kin: 'undead', path: 'mon/undead/ghoul.png',
+    id: 'raised-ghoul', habitat: 'deep', kin: 'undead', path: 'mon/undead/ghoul.png',
     tier: 3, hp: 26, damage: 8, speed: 0.94, xp: 0, bloodColor: '#6f7b52', spawn: 'summon',
     threat: { attackRate: 0.85, vision: 7, windup: 0.26, pursuit: 6 },
   },
   {
-    id: 'tamed-sheep', kin: 'beast', path: 'mon/animals/sheep.png',
+    id: 'tamed-sheep', habitat: 'any', kin: 'beast', path: 'mon/animals/sheep.png',
     tier: 1, hp: 18, damage: 0, speed: 0.5, xp: 0, bloodColor: '#6d3030', spawn: 'summon',
     threat: { attackRate: 0.9, vision: 6, windup: 0.3, pursuit: 5 },
   },
   {
-    id: 'tamed-hog', kin: 'beast', path: 'mon/animals/hog.png',
+    id: 'tamed-hog', habitat: 'any', kin: 'beast', path: 'mon/animals/hog.png',
     tier: 2, hp: 34, damage: 7, speed: 0.62, xp: 0, bloodColor: '#74342f', spawn: 'summon',
     threat: { attackRate: 0.72, vision: 6, windup: 0.42, pursuit: 5 },
   },
   {
-    id: 'tamed-yak', kin: 'beast', path: 'mon/animals/yak.png',
+    id: 'tamed-yak', habitat: 'any', kin: 'beast', path: 'mon/animals/yak.png',
     tier: 3, hp: 58, damage: 11, speed: 0.44, xp: 0, bloodColor: '#60332b', spawn: 'summon',
     threat: { attackRate: 0.58, vision: 6, windup: 0.54, pursuit: 5 },
   },
   {
-    id: 'raised-warden', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
+    id: 'raised-warden', habitat: 'deep', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
     tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },
   },
@@ -149,46 +168,148 @@ export const MONSTER_CATALOG = Object.freeze([
     // pool — the bones place it, not the floor — and `neutral` is what makes it
     // a memory instead of an ambush: it stands still until something is taken.
     // Its sprite is only a fallback; a placed ghost is drawn in its own gear.
-    id: 'player-ghost', kin: 'undead', path: 'mon/undead/ghost.png',
+    id: 'player-ghost', habitat: 'any', kin: 'undead', path: 'mon/undead/ghost.png',
     tier: 3, hp: 40, damage: 8, speed: 0.98, xp: 0, bloodColor: '#9fc7d8',
     spawn: 'summon', neutral: true,
     threat: { attackRate: 0.9, vision: 5, windup: 0.26, pursuit: 7 },
   },
+  // What lives above the gate. `habitat: 'surface'` keeps every one of them out
+  // of the caves: a sheep has no business in a crypt, and the crypt's dead have
+  // none in a meadow.
+  {
+    id: 'wild-sheep', kin: 'beast', habitat: 'surface', path: 'mon/animals/sheep.png',
+    tier: 1, hp: 5, damage: 3, speed: 0.92, xp: 4, bloodColor: '#6d3030',
+    threat: { attackRate: 0.85, vision: 5.5, windup: 0.3, pursuit: 3.4 },
+  },
+  {
+    id: 'jackal', kin: 'beast', habitat: 'surface', path: 'mon/animals/jackal.png',
+    tier: 1, hp: 4, damage: 4, speed: 1.16, xp: 5, bloodColor: '#70342b',
+    threat: { attackRate: 1.1, vision: 6.5, windup: 0.18, pursuit: 5.2 },
+  },
+  {
+    id: 'forest-adder', kin: 'beast', habitat: 'surface', path: 'mon/animals/adder.png',
+    tier: 2, hp: 5, damage: 6, speed: 1.02, xp: 8, bloodColor: '#4f6b3a',
+    threat: { attackRate: 1.0, vision: 6, windup: 0.22, pursuit: 4 },
+  },
+  {
+    id: 'wild-boar', kin: 'beast', habitat: 'surface', path: 'mon/animals/hog.png',
+    tier: 2, hp: 9, damage: 7, speed: 1.05, xp: 11, bloodColor: '#74342f',
+    threat: { attackRate: 0.9, vision: 6.2, windup: 0.3, pursuit: 5.6 },
+  },
+  {
+    id: 'killer-bee', kin: 'beast', habitat: 'surface', path: 'mon/animals/killer_bee.png',
+    tier: 2, hp: 4, damage: 6, speed: 1.32, xp: 10, bloodColor: '#8a7a34',
+    threat: { attackRate: 1.25, vision: 7, windup: 0.14, pursuit: 6.4 },
+  },
+  {
+    id: 'faun', kin: 'humanoid', habitat: 'surface', path: 'mon/faun.png',
+    tier: 3, hp: 11, damage: 8, speed: 1.08, xp: 16, bloodColor: '#70342b',
+    threat: { attackRate: 1.0, vision: 7, windup: 0.24, pursuit: 5.4 },
+  },
+  {
+    id: 'field-scorpion', kin: 'beast', habitat: 'surface', path: 'mon/animals/emperor_scorpion.png',
+    tier: 3, hp: 10, damage: 9, speed: 0.94, xp: 17, bloodColor: '#4a4038',
+    threat: { attackRate: 0.9, vision: 6, windup: 0.28, pursuit: 4.6 },
+  },
+  {
+    id: 'black-bear', kin: 'beast', habitat: 'surface', path: 'mon/animals/black_bear.png',
+    tier: 4, hp: 18, damage: 12, speed: 0.92, xp: 26, bloodColor: '#4a352b',
+    threat: { attackRate: 0.78, vision: 6.4, windup: 0.34, pursuit: 5.8 },
+  },
+  {
+    id: 'dryad', kin: 'humanoid', habitat: 'surface', path: 'mon/dryad.png',
+    tier: 4, hp: 14, damage: 11, speed: 1.0, xp: 28, bloodColor: '#4f6b3a',
+    threat: { attackRate: 0.88, vision: 7.4, windup: 0.28, pursuit: 6 },
+  },
+  {
+    id: 'anaconda', kin: 'beast', habitat: 'surface', path: 'mon/animals/anaconda.png',
+    tier: 5, hp: 22, damage: 13, speed: 0.86, xp: 34, bloodColor: '#4f6b3a',
+    threat: { attackRate: 0.8, vision: 6.2, windup: 0.32, pursuit: 5 },
+  },
+  {
+    id: 'death-yak', kin: 'beast', habitat: 'surface', path: 'mon/animals/death_yak.png',
+    tier: 5, hp: 26, damage: 14, speed: 0.9, xp: 36, bloodColor: '#60332b', large: true,
+    threat: { attackRate: 0.76, vision: 6, windup: 0.36, pursuit: 5.4 },
+  },
+  {
+    id: 'polar-bear', kin: 'beast', habitat: 'surface', path: 'mon/animals/polar_bear.png',
+    tier: 5, hp: 24, damage: 13, speed: 0.94, xp: 35, bloodColor: '#8a8a86',
+    threat: { attackRate: 0.8, vision: 6.4, windup: 0.32, pursuit: 5.8 },
+  },
+  {
+    id: 'griffon', kin: 'beast', habitat: 'surface', path: 'mon/griffon.png',
+    tier: 6, hp: 28, damage: 16, speed: 1.1, xp: 46, bloodColor: '#8a6b3a', flying: true,
+    threat: { attackRate: 0.9, vision: 8, windup: 0.26, pursuit: 7 },
+  },
+  {
+    id: 'bull-elephant', kin: 'beast', habitat: 'surface', path: 'mon/animals/elephant.png',
+    tier: 6, hp: 40, damage: 18, speed: 0.72, xp: 52, bloodColor: '#6b6660', large: true,
+    threat: { attackRate: 0.62, vision: 6.2, windup: 0.44, pursuit: 5 },
+  },
+  {
+    // The surface's signature creature, chapter two: the same job the tomb
+    // revenant does below, done by something that belongs in a marsh.
+    id: 'moor-naga', kin: 'humanoid', habitat: 'surface', path: 'mon/greater_naga.png',
+    tier: 5, hp: 24, damage: 9, speed: 0.78, xp: 30, chapter: 2, large: true,
+    bloodColor: '#4f6b3a', inflicts: { id: 'poison', duration: 5 },
+    threat: { attackRate: 1.3, vision: 7.5, windup: 0.3, pursuit: 8 },
+  },
+  // The three that hold the surface. Same shape as the ones below — one per
+  // chapter, `unique` keeps them out of the ordinary pools — but a lich has no
+  // business guarding a meadow, and neither has a bear a crypt.
+  {
+    id: 'grove-warden', kin: 'humanoid', habitat: 'surface', path: 'mon/fungi_plants/treant.png',
+    tier: 3, hp: 26, damage: 9, speed: 0.72, xp: 44, bloodColor: '#4f6b3a',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.74, vision: 7.6, windup: 0.4, pursuit: 6.2 },
+  },
+  {
+    id: 'moor-catoblepas', kin: 'beast', habitat: 'surface', path: 'mon/animals/catoblepas.png',
+    tier: 6, hp: 44, damage: 14, speed: 0.78, xp: 78, bloodColor: '#60332b',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.7, vision: 8, windup: 0.38, pursuit: 7 },
+  },
+  {
+    id: 'storm-raiju', kin: 'beast', habitat: 'surface', path: 'mon/animals/raiju.png',
+    tier: 9, hp: 22, damage: 11, speed: 1.14, xp: 118, bloodColor: '#8aa0c8',
+    unique: true, boss: true,
+    threat: { attackRate: 1.05, vision: 8.6, windup: 0.24, pursuit: 8.4 },
+  },
   {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
-    id: 'city-guard', kin: 'humanoid', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
+    id: 'city-guard', habitat: 'surface', kin: 'humanoid', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.95, vision: 7, windup: 0.22, pursuit: 6 },
   },
   {
-    id: 'city-captain', kin: 'humanoid', path: 'mon/vault_warden.png', tier: 4, hp: 22, damage: 12, speed: 1, xp: 28,
+    id: 'city-captain', habitat: 'surface', kin: 'humanoid', path: 'mon/vault_warden.png', tier: 4, hp: 22, damage: 12, speed: 1, xp: 28,
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.85, vision: 7.6, windup: 0.26, pursuit: 7 },
   },
   {
-    id: 'orc', kin: 'humanoid', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
+    id: 'orc', habitat: 'any', kin: 'humanoid', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
     threat: { attackRate: 0.92, vision: 5.8, windup: 0.22, pursuit: 4 },
   },
   {
-    id: 'spider', kin: 'beast', path: 'mon/animals/spider.png', tier: 2, hp: 4, damage: 7, speed: 1.42, xp: 7, bloodColor: '#425127',
+    id: 'spider', habitat: 'any', kin: 'beast', path: 'mon/animals/spider.png', tier: 2, hp: 4, damage: 7, speed: 1.42, xp: 7, bloodColor: '#425127',
     inflicts: { id: 'poison', duration: 7 },
     threat: { attackRate: 1.35, vision: 6.3, windup: 0.12, pursuit: 5 },
   },
   {
-    id: 'orc-priest', kin: 'humanoid', path: 'mon/orc_priest.png', tier: 2, hp: 5, damage: 7, speed: 0.94, xp: 8, bloodColor: '#5e3529',
+    id: 'orc-priest', habitat: 'any', kin: 'humanoid', path: 'mon/orc_priest.png', tier: 2, hp: 5, damage: 7, speed: 0.94, xp: 8, bloodColor: '#5e3529',
     threat: { attackRate: 0.8, vision: 6.6, windup: 0.25, pursuit: 4.8 },
   },
   {
-    id: 'wolf', kin: 'beast', path: 'mon/animals/wolf.png', tier: 2, hp: 6, damage: 6, speed: 1.5, xp: 8, bloodColor: '#743129',
+    id: 'wolf', habitat: 'any', kin: 'beast', path: 'mon/animals/wolf.png', tier: 2, hp: 6, damage: 6, speed: 1.5, xp: 8, bloodColor: '#743129',
     threat: { attackRate: 1.3, vision: 7, windup: 0.14, pursuit: 6 },
   },
   {
-    id: 'orc-warrior', kin: 'humanoid', path: 'mon/orc_warrior.png', tier: 3, hp: 8, damage: 8, speed: 1, xp: 11, bloodColor: '#5e3529',
+    id: 'orc-warrior', habitat: 'any', kin: 'humanoid', path: 'mon/orc_warrior.png', tier: 3, hp: 8, damage: 8, speed: 1, xp: 11, bloodColor: '#5e3529',
     threat: { attackRate: 0.8, vision: 6.2, windup: 0.28, pursuit: 5 },
   },
   {
-    id: 'ghost', kin: 'undead',
+    id: 'ghost', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/ghost.png',
     tier: 3,
     hp: 7,
@@ -200,7 +321,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.15, vision: 6.5, windup: 0.18, pursuit: 5.5 },
   },
   {
-    id: 'zombie-hound', kin: 'undead',
+    id: 'zombie-hound', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/zombies/zombie_hound.png',
     tier: 3,
     hp: 9,
@@ -210,7 +331,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.08, vision: 6.6, windup: 0.16, pursuit: 5.2 },
   },
   {
-    id: 'ogre', kin: 'humanoid',
+    id: 'ogre', habitat: 'any', kin: 'humanoid',
     path: 'mon/ogre.png',
     tier: 3,
     hp: 13,
@@ -222,7 +343,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.62, vision: 5.2, windup: 0.38, pursuit: 4 },
   },
   {
-    id: 'ashen-guardian', kin: 'humanoid',
+    id: 'ashen-guardian', habitat: 'deep', kin: 'humanoid',
     path: 'mon/orc_warrior.png',
     tier: 3,
     hp: 10,
@@ -235,7 +356,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.74, vision: 7.1, windup: 0.31, pursuit: 6.7 },
   },
   {
-    id: 'sanctum-guardian', kin: 'undead',
+    id: 'sanctum-guardian', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/lich.png',
     tier: 6,
     hp: 13,
@@ -248,7 +369,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.82, vision: 8.4, windup: 0.29, pursuit: 8.2 },
   },
   {
-    id: FINAL_BOSS_ID, kin: 'undead',
+    id: FINAL_BOSS_ID, kin: 'undead', habitat: 'deep',
     path: 'mon/death_knight.png',
     tier: 9,
     hp: 20,
@@ -261,11 +382,11 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.78, vision: 7, windup: 0.32, pursuit: 7 },
   },
   {
-    id: 'orc-wizard', kin: 'humanoid', path: 'mon/orc_wizard.png', tier: 4, hp: 8, damage: 12, speed: 0.92, xp: 16, bloodColor: '#5e3529',
+    id: 'orc-wizard', habitat: 'any', kin: 'humanoid', path: 'mon/orc_wizard.png', tier: 4, hp: 8, damage: 12, speed: 0.92, xp: 16, bloodColor: '#5e3529',
     threat: { attackRate: 0.86, vision: 7.2, windup: 0.28, pursuit: 5.5 },
   },
   {
-    id: 'vampire', kin: 'undead',
+    id: 'vampire', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/vampire.png',
     tier: 4,
     hp: 12,
@@ -276,7 +397,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.2, vision: 7.4, windup: 0.16, pursuit: 6.5 },
   },
   {
-    id: 'crimson-imp', kin: 'demon', element: 'fire',
+    id: 'crimson-imp', habitat: 'deep', kin: 'demon', element: 'fire',
     path: 'mon/demons/crimson_imp.png',
     tier: 4,
     hp: 10,
@@ -288,7 +409,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.42, vision: 7.5, windup: 0.12, pursuit: 6.8 },
   },
   {
-    id: 'flying-skull', kin: 'undead',
+    id: 'flying-skull', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/flying_skull.png',
     tier: 4,
     hp: 9,
@@ -299,7 +420,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.5, vision: 8, windup: 0.1, pursuit: 7 },
   },
   {
-    id: 'hell-hound', kin: 'demon', element: 'fire',
+    id: 'hell-hound', habitat: 'deep', kin: 'demon', element: 'fire',
     path: 'mon/animals/hell_hound.png',
     tier: 5,
     hp: 15,
@@ -310,7 +431,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.3, vision: 7.6, windup: 0.14, pursuit: 7 },
   },
   {
-    id: 'vampire-knight', kin: 'undead',
+    id: 'vampire-knight', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/vampire_knight.png',
     tier: 5,
     hp: 18,
@@ -320,7 +441,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.94, vision: 7.2, windup: 0.24, pursuit: 7.2 },
   },
   {
-    id: 'smoke-demon', kin: 'demon', element: 'fire',
+    id: 'smoke-demon', habitat: 'deep', kin: 'demon', element: 'fire',
     path: 'mon/demons/smoke_demon.png',
     tier: 5,
     hp: 17,
@@ -331,7 +452,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.02, vision: 7.8, windup: 0.2, pursuit: 7.5 },
   },
   {
-    id: 'wyvern', kin: 'dragon',
+    id: 'wyvern', habitat: 'any', kin: 'dragon',
     path: 'mon/dragons/wyvern.png',
     tier: 6,
     hp: 22,
@@ -343,7 +464,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.88, vision: 8.2, windup: 0.26, pursuit: 8 },
   },
   {
-    id: 'lich', kin: 'undead',
+    id: 'lich', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/lich.png',
     tier: 6,
     hp: 26,
@@ -354,7 +475,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.9, vision: 8.6, windup: 0.3, pursuit: 8.5 },
   },
   {
-    id: 'ice-dragon', kin: 'dragon', element: 'ice',
+    id: 'ice-dragon', habitat: 'any', kin: 'dragon', element: 'ice',
     path: 'mon/dragons/ice_dragon.png',
     tier: 7,
     hp: 36,
@@ -368,7 +489,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.72, vision: 9, windup: 0.4, pursuit: 9 },
   },
   {
-    id: 'balrug', kin: 'demon', element: 'fire',
+    id: 'balrug', habitat: 'deep', kin: 'demon', element: 'fire',
     path: 'mon/demons/balrug.png',
     tier: 8,
     hp: 44,
@@ -381,7 +502,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.84, vision: 9.2, windup: 0.36, pursuit: 9 },
   },
   {
-    id: 'golden-dragon', kin: 'dragon',
+    id: 'golden-dragon', habitat: 'any', kin: 'dragon',
     path: 'mon/dragons/golden_dragon.png',
     tier: 9,
     hp: 58,

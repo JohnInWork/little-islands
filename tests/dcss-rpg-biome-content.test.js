@@ -12,7 +12,12 @@ import {
   lootCategory,
   monsterBiomeWeight,
 } from '../tools/dcss-rpg-biome-content.js';
-import { LOOT_CATALOG, MONSTER_CATALOG } from '../tools/dcss-rpg-content.js';
+import {
+  LOOT_CATALOG,
+  MONSTER_CATALOG,
+  RUN_BRANCHES,
+  monsterSuitsBranch,
+} from '../tools/dcss-rpg-content.js';
 import { DUNGEON_THEME_CATALOG } from '../tools/dcss-rpg-room-plans.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 
@@ -27,7 +32,8 @@ const survey = (() => {
   // empty place where there is only a shallow sample.
   for (let seed = 1; seed <= 260; seed += 1) {
     for (let depth = 1; depth <= 9; depth += 1) {
-      const dungeon = generateDungeon({ seed, depth });
+      for (const branch of RUN_BRANCHES) {
+      const dungeon = generateDungeon({ seed, depth, branch });
       const entry = themes.get(dungeon.themeId)
         ?? { floors: 0, monsters: 0, kin: new Map(), loot: 0, category: new Map(), nutrition: 0 };
       entry.floors += 1;
@@ -47,6 +53,7 @@ const survey = (() => {
         }
       }
       themes.set(dungeon.themeId, entry);
+      }
     }
   }
   return themes;
@@ -106,11 +113,23 @@ test('the place decides who lives there', () => {
   );
   assert.ok(kinShare('ashen-vault', 'humanoid') > kinShare('buried-sanctum', 'humanoid') * 1.5);
   assert.ok(kinShare('frozen-depths', 'beast') > kinShare('infernal-core', 'beast') * 1.8);
-  // And no place is empty of anything: every kin still turns up everywhere.
-  for (const themeId of Object.keys(BIOME_CONTENT)) {
+  // And no place is empty of anything its branch can host. A demon never walks
+  // a meadow — that is `habitat`, not the biome — but everything the branch
+  // does have turns up in every one of its places.
+  for (const [themeId, content] of Object.entries(BIOME_CONTENT)) {
+    const branch = DUNGEON_THEME_CATALOG.find((theme) => theme.id === themeId).branch;
+    // `unique` keeps a creature out of the ordinary pool, not out of the floor:
+    // the mimic is placed by its own chest. Habitat is the only thing a branch
+    // rules on.
+    const hosted = new Set(MONSTER_CATALOG
+      .filter((monster) => !monster.spawn && monsterSuitsBranch(monster, branch))
+      .map((monster) => monster.kin));
     for (const kin of MONSTER_KINS) {
-      assert.ok((survey.get(themeId).kin.get(kin) ?? 0) > 0, `${kin} never appears in ${themeId}`);
+      const seen = survey.get(themeId).kin.get(kin) ?? 0;
+      if (hosted.has(kin)) assert.ok(seen > 0, `${kin} never appears in ${themeId}`);
+      else assert.equal(seen, 0, `${kin} has no business in ${themeId}`);
     }
+    assert.ok(content.kin, themeId);
   }
 });
 
