@@ -164,3 +164,62 @@ test('no crypt statue ever stands in a meadow', async () => {
     }
   }
 });
+
+/**
+ * A road that stops at a wall it was supposed to go through is the worst thing
+ * open country can produce: the map looks passable and is not. So the rule is
+ * not "every clearing is reachable" but "there is one piece of ground". A patch
+ * that cannot be joined without knocking a hut open is filled back in — better
+ * rock than ground nobody can stand on.
+ */
+test('the ground of a floor is one piece, and no road stops halfway', async () => {
+  const { surfaceProfile } = await import('../tools/dcss-rpg-surface-plan.js');
+  for (const themeId of ['autumn-wood', 'sunburnt-steppe', 'wild-heath', 'green-hollow']) {
+    for (let seed = 1; seed <= 90; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      const open = [];
+      plan.grid.forEach((row, y) => row.forEach((cell, x) => {
+        if (cell === SURFACE_FLOOR) open.push({ x, y });
+      }));
+      const reached = reachableFrom(plan.grid, open[0]);
+      assert.equal(reached.size, open.length, `${themeId} seed ${seed} leaves ground cut off`);
+      // And the plan never describes a building that the repair filled in.
+      for (const structure of plan.structures) {
+        assert.equal(plan.grid[structure.interior.y][structure.interior.x], SURFACE_FLOOR);
+      }
+      for (const cave of plan.caves) {
+        assert.equal(plan.grid[cave.y][cave.x], SURFACE_FLOOR);
+      }
+    }
+  }
+});
+
+/** Two fields of grass are not the same place with a different tint. */
+test('each place outside is built to its own shape', async () => {
+  const { surfaceProfile, SURFACE_PROFILES } = await import('../tools/dcss-rpg-surface-plan.js');
+  assert.notDeepEqual(surfaceProfile('sunburnt-steppe'), surfaceProfile('wild-heath'));
+  assert.deepEqual(surfaceProfile('nowhere-at-all'), SURFACE_PROFILES.default);
+  const cover = (themeId) => {
+    let total = 0;
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      const cells = plan.grid.flat();
+      total += 1 - cells.filter((cell) => cell === SURFACE_FLOOR).length / cells.length;
+    }
+    return total / 40;
+  };
+  // A steppe is open with a few great mesas; a heath is a thousand small rocks.
+  assert.ok(cover('wild-heath') > cover('sunburnt-steppe') + 0.04, 'the heath is not denser than the steppe');
+});

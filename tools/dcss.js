@@ -196,6 +196,7 @@ import {
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
 import { materialFilter } from './dcss-rpg-materials.js';
 import { bonesCopy, bonesForDepth, bonesKey, bonesPlacement, ghostStats } from './dcss-rpg-bones.js';
+import { SURFACE_LIGHT_MULTIPLIER, SURFACE_REVEAL_RADIUS } from './dcss-rpg-surface-plan.js';
 import { conditionCopy, conditionEffects } from './dcss-rpg-conditions.js';
 import {
   armourProfile,
@@ -5724,7 +5725,10 @@ function carveLight(origin, screenPosition, radius, strength) {
 function currentRevealRadius() {
   const base = Math.max(2, heroRevealRadius(currentDarkvisionProfile())
     + currentConditions().revealRadiusDelta);
-  return isCityDepth(dungeon.depth) ? Math.max(base, CITY_REVEAL_RADIUS) : base;
+  if (isCityDepth(dungeon.depth)) return Math.max(base, CITY_REVEAL_RADIUS);
+  // Outside, the sky does the work the torch does below.
+  if (dungeon.branch === 'surface') return Math.max(base, SURFACE_REVEAL_RADIUS);
+  return base;
 }
 
 function drawLighting() {
@@ -5733,7 +5737,9 @@ function drawLighting() {
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const sources = atmosphereLightSources();
   const reveal = revealProgress();
-  const daylight = isCityDepth(dungeon.depth) ? CITY_LIGHT_MULTIPLIER : 1;
+  const daylight = isCityDepth(dungeon.depth)
+    ? CITY_LIGHT_MULTIPLIER
+    : dungeon.branch === 'surface' ? SURFACE_LIGHT_MULTIPLIER : 1;
   const heroRadius = daylight * (
     VISIBILITY_TUNING.heroBaseRadius +
     reveal *
@@ -5745,7 +5751,10 @@ function drawLighting() {
 
   resetAtmosphereBuffer();
   atmosphereContext.save();
-  atmosphereContext.globalAlpha = VISIBILITY_TUNING.darknessOpacity;
+  // The veil of darkness is what makes a cave a cave. Outside it is daytime:
+  // the same veil at full strength turned a sunlit steppe into another cavern,
+  // so the daylight that widens the lit pool thins the veil by as much.
+  atmosphereContext.globalAlpha = VISIBILITY_TUNING.darknessOpacity / daylight;
   atmosphereContext.fillStyle = theme.darkness;
   atmosphereContext.fillRect(0, 0, viewportWidth, viewportHeight);
   atmosphereContext.restore();

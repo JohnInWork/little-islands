@@ -12,6 +12,29 @@
  * room plans) is written against rooms and does not care how they came to be.
  */
 
+/**
+ * How much of what a place is made of. Two fields of grass with different
+ * numbers here are not the same place with a different tint: a steppe is open
+ * with a few great mesas in it, a heath is a thousand little rocks to pick a
+ * way between, a hollow is half cave. The tiles say what it looks like; this
+ * says how it is put together.
+ */
+export const SURFACE_PROFILES = Object.freeze({
+  // massifs/huts/caves are counts; `acre` scales the massif count to the map.
+  default: Object.freeze({ acre: [0.9, 1.5], massifSize: [2, 5], huts: [3, 5], caves: [1, 2] }),
+  'sunburnt-steppe': Object.freeze({ acre: [0.3, 0.55], massifSize: [5, 10], huts: [4, 6], caves: [0, 0] }),
+  'wild-heath': Object.freeze({ acre: [1.7, 2.6], massifSize: [1, 3], huts: [2, 3], caves: [1, 1] }),
+  'green-hollow': Object.freeze({ acre: [0.7, 1.1], massifSize: [3, 7], huts: [1, 2], caves: [2, 3] }),
+});
+
+export function surfaceProfile(themeId) {
+  return SURFACE_PROFILES[themeId] ?? SURFACE_PROFILES.default;
+}
+
+/** Daylight outside: wider sight than a cave, dimmer than a lit town. */
+export const SURFACE_REVEAL_RADIUS = 7;
+export const SURFACE_LIGHT_MULTIPLIER = 1.45;
+
 export const SURFACE_WALL = '#';
 export const SURFACE_FLOOR = '.';
 
@@ -164,18 +187,66 @@ export function reachableFrom(grid, start) {
   return seen;
 }
 
-/** A trail worn through the rock, straight and one cell wide. */
-function wearTrail(grid, from, to) {
-  let { x, y } = from;
-  while (x !== to.x) {
-    if (inBounds(grid, x, y)) grid[y][x] = SURFACE_FLOOR;
-    x += x < to.x ? 1 : -1;
+/** Every separate patch of open ground on the floor, largest first. */
+function openRegions(grid) {
+  const seen = new Set();
+  const regions = [];
+  for (let y = 1; y < grid.length - 1; y += 1) {
+    for (let x = 1; x < grid[0].length - 1; x += 1) {
+      const key = `${x},${y}`;
+      if (seen.has(key) || grid[y][x] !== SURFACE_FLOOR) continue;
+      const region = reachableFrom(grid, { x, y });
+      for (const cell of region) seen.add(cell);
+      regions.push(region);
+    }
   }
-  while (y !== to.y) {
-    if (inBounds(grid, x, y)) grid[y][x] = SURFACE_FLOOR;
-    y += y < to.y ? 1 : -1;
+  return regions.sort((left, right) => right.size - left.size);
+}
+
+/**
+ * A trail worn from one patch of ground to another, digging only through rock
+ * that nobody put there. A straight line would cut a hut in half — which is how
+ * a road ends up broken, opening a wall on one side and a wall on the other —
+ * so this is a breadth-first search through the massifs alone, and it takes the
+ * shortest way round anything built.
+ */
+function wearTrail(grid, region, destination, protectedCells) {
+  const queue = [...region].map((key) => {
+    const [x, y] = key.split(',').map(Number);
+    return { x, y, from: null };
+  });
+  const seen = new Set(region);
+  let head = 0;
+  while (head < queue.length) {
+    const node = queue[head];
+    head += 1;
+    if (destination.has(`${node.x},${node.y}`)) {
+      // Walk the trail back and open it.
+      for (let step = node.from; step && !region.has(`${step.x},${step.y}`); step = step.from) {
+        grid[step.y][step.x] = SURFACE_FLOOR;
+      }
+      return true;
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const next = { x: node.x + dx, y: node.y + dy, from: node };
+      const key = `${next.x},${next.y}`;
+      if (seen.has(key) || !inBounds(grid, next.x, next.y)) continue;
+      // Rock may be dug. A wall somebody built or a hill a cave was cut from is
+      // left alone: a trail through it would be a hole, not a road.
+      if (grid[next.y][next.x] === SURFACE_WALL && protectedCells.has(key)) continue;
+      seen.add(key);
+      queue.push(next);
+    }
   }
-  if (inBounds(grid, to.x, to.y)) grid[to.y][to.x] = SURFACE_FLOOR;
+  return false;
+}
+
+/** Ground nobody can ever stand on is not ground. */
+function fillRegion(grid, region) {
+  for (const key of region) {
+    const [x, y] = key.split(',').map(Number);
+    grid[y][x] = SURFACE_WALL;
+  }
 }
 
 const clearingFits = (grid, rect) => {
@@ -194,7 +265,9 @@ const clearingFits = (grid, rect) => {
  * rectangles of open ground, exactly what the dungeon hands downstream, and the
  * first one is where the hero arrives.
  */
-export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {}) {
+export function generateSurfacePlan({
+  rng, width, height, roomCount = 10, profile = SURFACE_PROFILES.default,
+} = {}) {
   if (!rng || typeof rng.int !== 'function') throw new TypeError('Surface plan requires seeded RNG');
   if (width < 24 || height < 18) throw new TypeError('Surface plan needs room to breathe');
   const grid = Array.from({ length: height }, (_row, y) => Array.from({ length: width }, (_cell, x) => (
@@ -205,12 +278,15 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   // Scaled to the map, not to a number that happened to look right once: the
   // same count on a smaller floor turns open country into a maze.
   const acres = (width * height) / 150;
-  const massifs = rng.int(Math.round(acres * 0.9), Math.round(acres * 1.5));
+  const massifs = rng.int(
+    Math.max(1, Math.round(acres * profile.acre[0])),
+    Math.max(2, Math.round(acres * profile.acre[1])),
+  );
   for (let index = 0; index < massifs; index += 1) {
     raiseMassif(grid, rng, {
       x: rng.int(2, width - 3),
       y: rng.int(2, height - 3),
-      size: rng.int(2, 5),
+      size: rng.int(profile.massifSize[0], profile.massifSize[1]),
     });
   }
 
@@ -223,7 +299,7 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   const built = new Set();
   const hewn = new Set();
   const structures = [];
-  const wanted = rng.int(3, 5);
+  const wanted = rng.int(profile.huts[0], profile.huts[1]);
   for (let attempt = 0; attempt < 120 && structures.length < wanted; attempt += 1) {
     const rect = {
       width: rng.int(6, 9),
@@ -272,7 +348,7 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   for (const structure of structures) rooms.push({ ...structure.interior });
   // Caves come last: they need rock that nothing else has claimed.
   const caves = [];
-  for (let index = 0; index < rng.int(1, 2); index += 1) {
+  for (let index = 0; index < rng.int(profile.caves[0], profile.caves[1]); index += 1) {
     const chamber = hollowCave(grid, rng, { width, height, rooms: [...rooms, ...caves], hewn });
     if (chamber) caves.push(chamber);
   }
@@ -298,20 +374,40 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
     rooms.push(best.rect);
   }
 
-  // Open country is connected by construction almost always — but a massif can
-  // seal a hollow, and a hut can be walled in by one. Where that happened, a
-  // trail is worn through.
-  const centre = (room) => ({
-    x: Math.floor(room.x + room.width / 2),
-    y: Math.floor(room.y + room.height / 2),
-  });
-  const start = centre(rooms[0]);
-  for (let pass = 0; pass < rooms.length; pass += 1) {
-    const reached = reachableFrom(grid, start);
-    const stranded = rooms.find((room) => !reached.has(`${centre(room).x},${centre(room).y}`));
-    if (!stranded) break;
-    wearTrail(grid, centre(stranded), start);
+  // The floor must be one piece. Not "every clearing reachable" — every square
+  // of open ground, or the map ends up with roads that lead into a sealed
+  // pocket and stop. Whatever cannot be joined without breaking a hut open is
+  // not left lying around as unreachable ground: it goes back to rock.
+  const protectedCells = new Set([...built, ...hewn]);
+  for (let pass = 0; pass < 24; pass += 1) {
+    const regions = openRegions(grid);
+    if (regions.length <= 1) break;
+    const main = regions[0];
+    let joined = false;
+    for (const region of regions.slice(1)) {
+      if (wearTrail(grid, region, main, protectedCells)) joined = true;
+      else fillRegion(grid, region);
+    }
+    if (!joined) break;
   }
+  // Clearings and hut interiors that the repair filled in are no longer places.
+  const standing = openRegions(grid)[0] ?? new Set();
+  const isClear = (room) => {
+    for (let y = room.y; y < room.y + room.height; y += 1) {
+      for (let x = room.x; x < room.x + room.width; x += 1) {
+        if (!standing.has(`${x},${y}`)) return false;
+      }
+    }
+    return true;
+  };
+  for (let index = rooms.length - 1; index >= 0; index -= 1) {
+    if (!isClear(rooms[index])) rooms.splice(index, 1);
+  }
+  // A hut nobody could ever walk into was filled in with the rest of the
+  // unreachable ground; it is no longer a hut, and saying otherwise would leave
+  // the plan describing a building that is not there.
+  const standingStructures = structures.filter(({ interior }) => isClear(interior));
+  const standingCaves = caves.filter((chamber) => isClear(chamber));
 
   // Anything carved back open is no longer a wall of any kind.
   for (const set of [built, hewn]) {
@@ -323,8 +419,8 @@ export function generateSurfacePlan({ rng, width, height, roomCount = 10 } = {})
   return {
     grid,
     rooms,
-    structures,
-    caves,
+    structures: standingStructures,
+    caves: standingCaves,
     builtWalls: Object.freeze([...built]),
     hewnWalls: Object.freeze([...hewn]),
   };

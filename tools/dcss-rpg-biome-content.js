@@ -160,6 +160,21 @@ export const BIOME_CONTENT = Object.freeze({
     element: Object.freeze({  }),
     loot: Object.freeze({ tool: 1.6, weapon: 1.3, jewellery: 0.7 }),
   }),
+  'sunburnt-steppe': Object.freeze({
+    kin: Object.freeze({ beast: 2.1, humanoid: 1.4, dragon: 1, oddity: 0.8, undead: 0.5, demon: 0.4 }),
+    element: Object.freeze({ fire: 1.5, ice: 0.5 }),
+    loot: Object.freeze({ weapon: 1.4, tool: 1.3, book: 0.6 }),
+  }),
+  'wild-heath': Object.freeze({
+    kin: Object.freeze({ beast: 1.9, oddity: 1.3, humanoid: 1.1, undead: 0.8, dragon: 0.7, demon: 0.5 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ tool: 1.5, armour: 1.3, jewellery: 0.7 }),
+  }),
+  'green-hollow': Object.freeze({
+    kin: Object.freeze({ beast: 2.2, oddity: 1.4, dragon: 1, humanoid: 0.8, undead: 0.6, demon: 0.4 }),
+    element: Object.freeze({ ice: 1.2, fire: 0.6 }),
+    loot: Object.freeze({ potion: 1.6, armour: 1.2, weapon: 0.7 }),
+  }),
   'snowfield': Object.freeze({
     kin: Object.freeze({ beast: 2, dragon: 1.3, undead: 1, humanoid: 0.9, oddity: 0.8, demon: 0.4 }),
     element: Object.freeze({ ice: 2, fire: 0.45 }),

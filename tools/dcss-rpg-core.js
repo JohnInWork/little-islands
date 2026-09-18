@@ -77,7 +77,7 @@ import {
   validateMerchantStates,
 } from './dcss-rpg-merchant.js';
 import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
-import { generateSurfacePlan } from './dcss-rpg-surface-plan.js';
+import { generateSurfacePlan, surfaceProfile } from './dcss-rpg-surface-plan.js';
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
@@ -645,7 +645,13 @@ export function generateDungeon({
   // ground. Same output either way — a grid and a list of rectangles — because
   // everything past this point is written against rooms.
   const surfacePlan = branch === 'surface'
-    ? generateSurfacePlan({ rng, width, height, roomCount: scaling.layout.roomCount })
+    ? generateSurfacePlan({
+      rng,
+      width,
+      height,
+      roomCount: scaling.layout.roomCount,
+      profile: surfaceProfile(themeId),
+    })
     : null;
   const grid = surfacePlan
     ? surfacePlan.grid
