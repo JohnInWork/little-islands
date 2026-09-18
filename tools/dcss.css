@@ -428,6 +428,7 @@ body {
 }
 
 .appearance-editor,
+.records-screen,
 .new-run-confirm {
   position: fixed;
   inset: 0;
@@ -449,11 +450,159 @@ body {
 }
 
 [data-screen='appearance'] .appearance-editor,
+[data-screen='records'] .records-screen,
 [data-screen='restart-confirm'] .new-run-confirm {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
   transition-delay: 0s;
+}
+
+/* The records screen: a run history, not a reward shelf. */
+.records-card {
+  width: min(460px, 100%);
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  overflow: hidden;
+  border-color: #667375;
+  background: #0b1113;
+}
+
+.records-header {
+  min-height: 56px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 4px solid #303a3c;
+  background: #151e20;
+}
+
+.records-header h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d6c79c;
+}
+
+#close-records {
+  min-width: 44px;
+  min-height: 44px;
+  color: #c5d8c4;
+  background: #202a2e;
+  border: 4px solid #4c5f5f;
+  font: inherit;
+  cursor: pointer;
+}
+
+.records-daily {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: #8fa7a0;
+  border-bottom: 4px solid #1d2628;
+}
+
+.records-body {
+  padding: 10px;
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.records-block h3 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8fa7a0;
+}
+
+.records-best {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.records-best li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #d7d2c4;
+  background: #141c1e;
+  border: 2px solid #263134;
+}
+
+.records-best li b {
+  color: #d8bf68;
+}
+
+.records-best li span {
+  color: #90a39c;
+  font-size: 10px;
+}
+
+.records-empty {
+  margin: 0;
+  font-size: 11px;
+  color: #7d8f8a;
+}
+
+.records-totals {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 4px 8px;
+  font-size: 11px;
+}
+
+.records-totals dt {
+  color: #8fa7a0;
+}
+
+.records-totals dd {
+  margin: 0;
+  color: #d7d2c4;
+  text-align: right;
+}
+
+.records-milestones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.records-milestones li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  font-size: 11px;
+  color: #5f6d6a;
+}
+
+.records-milestones li[data-earned='true'] {
+  color: #d7d2c4;
+}
+
+.records-milestones li[data-earned='true'] b {
+  color: #8bc59c;
+}
+
+.records-milestones li span {
+  display: block;
+  font-size: 10px;
+  color: #6f7f7b;
 }
 
 .appearance-card {

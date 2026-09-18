@@ -62,6 +62,9 @@
               <button id="new-run-from-menu" type="button" hidden>
                 <span aria-hidden="true">↻</span><b id="new-run-from-menu-label">Новый забег</b>
               </button>
+              <button id="open-records" type="button">
+                <span aria-hidden="true">✦</span><b id="open-records-label">Записи</b>
+              </button>
             </div>
             <div id="main-menu-audio" class="main-menu-audio" role="group" aria-label="Звук">
               <button id="audio-mute" type="button" aria-pressed="false" aria-label="Выключить звук">♪</button>
@@ -716,6 +719,39 @@
             <span aria-hidden="true">↻</span>
           </button>
         </div>
+      </section>
+
+      <section
+        id="records-screen"
+        class="records-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Записи"
+        aria-hidden="true"
+        inert
+      >
+        <article class="records-card pixel-frame">
+          <header class="records-header">
+            <h2 id="records-title">Записи</h2>
+            <button id="close-records" type="button" aria-label="Закрыть записи">×</button>
+          </header>
+          <p id="records-daily" class="records-daily"></p>
+          <div class="records-body">
+            <section class="records-block" aria-labelledby="records-best-title">
+              <h3 id="records-best-title">Лучшие забеги</h3>
+              <ol id="records-best" class="records-best"></ol>
+              <p id="records-empty" class="records-empty" hidden></p>
+            </section>
+            <section class="records-block" aria-labelledby="records-totals-title">
+              <h3 id="records-totals-title">Всего</h3>
+              <dl id="records-totals" class="records-totals"></dl>
+            </section>
+            <section class="records-block" aria-labelledby="records-milestones-title">
+              <h3 id="records-milestones-title">Вехи</h3>
+              <ul id="records-milestones" class="records-milestones"></ul>
+            </section>
+          </div>
+        </article>
       </section>
 
       <a

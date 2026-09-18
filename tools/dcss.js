@@ -157,6 +157,15 @@ import {
   zoomFloorMapView,
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
+import {
+  META_KEY,
+  createMetaState,
+  metaCopy,
+  metaModel,
+  parseMeta,
+  recordRunResult,
+  serializeMeta,
+} from './dcss-rpg-meta.js';
 import { applyStrikeBonus, daggerProfile, resolveDaggerStrike } from './dcss-rpg-daggers.js';
 import {
   armorBreakMultiplier,
@@ -600,6 +609,16 @@ const runEndScreen = document.querySelector('#run-end-screen');
 const restartRunButton = document.querySelector('#restart-run');
 const runEndTitle = document.querySelector('#run-end-title');
 const runSummaryList = document.querySelector('#run-summary');
+const recordsScreen = document.querySelector('#records-screen');
+const openRecordsButton = document.querySelector('#open-records');
+const openRecordsLabel = document.querySelector('#open-records-label');
+const closeRecordsButton = document.querySelector('#close-records');
+const recordsTitle = document.querySelector('#records-title');
+const recordsDaily = document.querySelector('#records-daily');
+const recordsBest = document.querySelector('#records-best');
+const recordsEmpty = document.querySelector('#records-empty');
+const recordsTotals = document.querySelector('#records-totals');
+const recordsMilestones = document.querySelector('#records-milestones');
 const bossHud = document.querySelector('#boss-hud');
 const bossHealth = bossHud.querySelector('.boss-health');
 const sanctuaryAction = document.querySelector('#sanctuary-action');
@@ -920,6 +939,9 @@ let selectedSpellSlot = 0;
 let inventoryFilter = 'all';
 let inventoryView = loadInventoryView();
 let salvageMode = false;
+// The history of finished runs. It lives beside the save, never inside it.
+let metaState = createMetaState();
+let recordsReturnScreen = 'menu';
 let toastTimer = 0;
 let toastVisible = false;
 let activeLootToastEntry = null;
@@ -1188,6 +1210,7 @@ function setInterfaceLanguage(language) {
   renderMainMenu();
   if (uiScreen === 'appearance') renderAppearanceEditor();
   if (!ready) return;
+  renderRecords();
   renderCharacterSheet();
   if (itemDetailItem) renderItemDetail(itemDetailItem);
   updateGearUi();
@@ -8569,6 +8592,112 @@ function performAbilityTargetAtCell(x, y) {
   return target ? performAbilityTarget({ targetId: target.instanceId }) : false;
 }
 
+function loadMetaState() {
+  try {
+    metaState = parseMeta(localStorage.getItem(META_KEY));
+  } catch {
+    metaState = createMetaState();
+  }
+  renderRecords();
+}
+
+function persistMetaState() {
+  try {
+    localStorage.setItem(META_KEY, serializeMeta(metaState));
+  } catch {
+    // A full or private storage must never interrupt the end of a run.
+  }
+}
+
+/** One finished run enters the history: totals, best runs and milestones. */
+function recordFinishedRun(result) {
+  const outcome = recordRunResult(metaState, {
+    depth: dungeon.depth,
+    status: result,
+    kills: run.stats.kills,
+    gold,
+    level: hero.level,
+    seconds: Math.round(run.stats.activeSeconds),
+    seed: run.seed,
+    killerId: run.stats.killerId,
+    at: new Date().toISOString().slice(0, 10),
+    house: run.house.owned,
+    wanted: run.crime.wanted,
+  });
+  if (!outcome.ok) return null;
+  metaState = outcome.meta;
+  persistMetaState();
+  renderRecords();
+  return outcome;
+}
+
+function renderRecords() {
+  const model = metaModel(metaState, itemDetailLanguage);
+  recordsTitle.textContent = model.title;
+  openRecordsLabel.textContent = model.title;
+  openRecordsButton.setAttribute('aria-label', model.title);
+  closeRecordsButton.setAttribute('aria-label', model.close);
+  recordsScreen.setAttribute('aria-label', model.title);
+  recordsDaily.textContent = model.daily;
+  recordsEmpty.textContent = model.empty;
+  recordsEmpty.hidden = model.empty === '';
+  recordsBest.replaceChildren(...model.best.map((entry) => {
+    const row = document.createElement('li');
+    const place = document.createElement('b');
+    const depth = document.createElement('span');
+    const detail = document.createElement('span');
+    place.textContent = `${entry.place}.`;
+    depth.textContent = entry.depth;
+    detail.textContent = `${entry.kills} ⚔ · ${entry.gold} ◆ · ${entry.time}`;
+    row.append(place, depth, detail);
+    return row;
+  }));
+  recordsTotals.replaceChildren(...model.totals.flatMap((row) => {
+    const label = document.createElement('dt');
+    const value = document.createElement('dd');
+    label.textContent = row.label;
+    value.textContent = row.value;
+    return [label, value];
+  }));
+  recordsMilestones.replaceChildren(...model.milestones.map((milestone) => {
+    const row = document.createElement('li');
+    const mark = document.createElement('b');
+    const body = document.createElement('div');
+    const label = document.createElement('span');
+    mark.textContent = milestone.earned ? '✔' : '·';
+    body.textContent = milestone.label;
+    label.textContent = milestone.hint;
+    body.append(label);
+    row.append(mark, body);
+    row.dataset.earned = String(milestone.earned);
+    return row;
+  }));
+}
+
+function openRecords() {
+  if (uiScreen === 'records') return false;
+  recordsReturnScreen = uiScreen;
+  renderRecords();
+  uiScreen = 'records';
+  document.body.dataset.screen = uiScreen;
+  recordsScreen.inert = false;
+  recordsScreen.setAttribute('aria-hidden', 'false');
+  playSound('ui-tap');
+  requestAnimationFrame(() => closeRecordsButton.focus());
+  return true;
+}
+
+function closeRecords() {
+  if (uiScreen !== 'records') return false;
+  recordsScreen.inert = true;
+  recordsScreen.setAttribute('aria-hidden', 'true');
+  uiScreen = recordsReturnScreen === 'records' ? 'menu' : recordsReturnScreen;
+  document.body.dataset.screen = uiScreen;
+  playSound('ui-close');
+  requestAnimationFrame(() => openRecordsButton.focus());
+  return true;
+}
+
 function showRunEndScreen(result) {
   if (uiScreen === result) return;
   clearMoveControl();
@@ -8580,6 +8709,7 @@ function showRunEndScreen(result) {
   document.body.dataset.screen = uiScreen;
   runEndScreen.inert = false;
   runEndScreen.setAttribute('aria-hidden', 'false');
+  const outcome = recordFinishedRun(result);
   const summary = runSummaryModel({
     status: result,
     depthLabel: romanDepth(dungeon.depth),
@@ -8599,6 +8729,15 @@ function showRunEndScreen(result) {
     value.dataset.row = row.id;
     return [label, value];
   }));
+  // A run that stands above every run before it says so, right on the screen.
+  if (outcome?.isRecord) {
+    const label = document.createElement('dt');
+    const value = document.createElement('dd');
+    label.textContent = metaCopy(itemDetailLanguage).record;
+    value.textContent = '★';
+    value.dataset.row = 'record';
+    runSummaryList.append(label, value);
+  }
   restartRunButton.setAttribute('aria-label', summary.restart);
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
@@ -11567,6 +11706,7 @@ async function initialize() {
     renderAppearanceEditor();
     updateSalvageUi();
     updateHud();
+    loadMetaState();
     renderMainMenu();
     startGameButton.disabled = false;
     editAppearanceButton.disabled = false;
@@ -11750,6 +11890,11 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
     if (closeItemDetail()) return;
     closeInventory();
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'records') {
+    event.preventDefault();
+    closeRecords();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'character') {
@@ -11962,6 +12107,8 @@ salvageConfirm.addEventListener('click', () => {
   persistRun();
 });
 restartRunButton.addEventListener('click', restartRun);
+openRecordsButton.addEventListener('click', openRecords);
+closeRecordsButton.addEventListener('click', closeRecords);
 sanctuaryAction.addEventListener('click', healAtSanctuary);
 closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
 contextActionBackdrop.addEventListener('click', () => closeContextActions());
