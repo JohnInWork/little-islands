@@ -20,6 +20,12 @@ const ACTION_COPY = Object.freeze({
     pray: 'Молиться',
     offer: 'Пожертвовать',
     plunder: 'Ограбить',
+    drink: 'Испить',
+    toss: 'Бросить',
+    dive: 'Нырнуть',
+    decipher: 'Разобрать',
+    attune: 'Настроиться',
+    break: 'Расколоть',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -39,6 +45,12 @@ const ACTION_COPY = Object.freeze({
     pray: 'Pray',
     offer: 'Offer',
     plunder: 'Plunder',
+    drink: 'Drink',
+    toss: 'Toss',
+    dive: 'Dive',
+    decipher: 'Decipher',
+    attune: 'Attune',
+    break: 'Break',
   }),
 });
 
@@ -60,6 +72,13 @@ const GLYPHS = Object.freeze({
   pray: '✚',
   offer: '◆',
   plunder: '!',
+  // One visual grammar across landmarks: restore, trade, risk, knowledge.
+  drink: '✚',
+  attune: '✚',
+  toss: '◆',
+  dive: '!',
+  break: '!',
+  decipher: '◈',
 });
 
 const COPY = Object.freeze({

@@ -80,10 +80,11 @@ import {
 } from './dcss-rpg-chest-containers.js';
 import { WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
 
-export const SAVE_VERSION = 36;
-export const SAVE_KEY = 'dng-codex:rpg:v36';
+export const SAVE_VERSION = 37;
+export const SAVE_KEY = 'dng-codex:rpg:v37';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v36',
   'dng-codex:rpg:v35',
   'dng-codex:rpg:v34',
   'dng-codex:rpg:v33',
@@ -120,7 +121,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 8;
+export const GENERATOR_VERSION = 9;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -1123,10 +1124,10 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1165,8 +1166,9 @@ export function migrateLegacyRun(snapshot) {
       delete migrated.floor.merchantPurchases;
     }
     // v35 adds whole-run statistics; an older run simply starts counting now.
-    // v36 (generator 8) floods a rare room with shallow water: the floor is
-    // regenerated from the same seed and every saved position stays walkable.
+    // v36 (generator 8) floods a rare room with shallow water and v37
+    // (generator 9) adds the fountain and rune landmarks: both regenerate the
+    // floor from the same seed, and every saved position stays walkable.
     migrated.stats = createRunStats(snapshot.stats);
     migrated.generatorVersion = GENERATOR_VERSION;
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);

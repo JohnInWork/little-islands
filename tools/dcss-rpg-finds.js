@@ -12,6 +12,7 @@ import {
   createActorEffects,
 } from './dcss-rpg-effects.js';
 import { dungeonThemeForDepth } from './dcss-rpg-room-plans.js';
+import { WATER_CELL } from './dcss-rpg-terrain.js';
 
 const freezeCopy = (value) => Object.freeze({ ...value });
 
@@ -192,6 +193,144 @@ export const FIND_CATALOG = Object.freeze([
       },
     },
   }),
+  defineFind({
+    id: 'sunken-fountain',
+    category: 'choice',
+    wave: 'landmark',
+    // The fountain looks for a flooded room first; standing water is its home.
+    prefersWater: true,
+    path: 'dngn/blue_fountain.png',
+    skins: {
+      'ashen-vault': 'dngn/blue_fountain.png',
+      'buried-sanctum': 'dngn/sparkling_fountain.png',
+      'frozen-depths': 'dngn/blue_fountain2.png',
+      'infernal-core': 'dngn/blood_fountain.png',
+    },
+    size: 72,
+    screenOffsetY: -7,
+    color: '#63b8ca',
+    glyph: '\u2248',
+    light: Object.freeze({ color: '#5ea9c4', radius: 1.8, beam: false }),
+    // Water is the fountain's currency: drinking restores but soaks, a tossed
+    // coin buys lasting strength, and the coins on the bottom lie in the cold.
+    outcomes: [
+      {
+        id: 'drink',
+        roll: () => ({ healRatio: 0.25, status: { id: 'wet', duration: 6 } }),
+      },
+      {
+        id: 'toss',
+        roll: (depth, rng) => ({
+          costGold: 8 + depth * 3 + rng.int(0, 3),
+          rewardPower: 1,
+        }),
+      },
+      {
+        id: 'dive',
+        roll: (depth, rng) => ({
+          rewardGold: 10 + depth * 4 + rng.int(0, 5),
+          damage: 4 + depth * 2 + rng.int(0, 2),
+          status: { id: 'chilled', duration: 5 + Math.min(6, depth) },
+        }),
+      },
+    ],
+    copy: {
+      ru: {
+        name: 'Затопленный фонтан',
+        action: 'Подойти к фонтану',
+        inspected: 'Чаша полна тёмной воды. На дне поблёскивают монеты.',
+        unsafe: 'Слишком опасно при таком здоровье',
+        nothingToHeal: 'Нечего лечить',
+        goldRequired: 'Нужно',
+        result: 'Фонтан ответил герою',
+        results: {
+          drink: 'Герой напился и вымок',
+          toss: 'Монета ушла на дно, рука стала твёрже',
+          dive: 'Монеты добыты, вода выстудила героя',
+        },
+      },
+      en: {
+        name: 'Sunken fountain',
+        action: 'Approach the fountain',
+        inspected: 'The basin holds dark water. Coins glint at the bottom.',
+        unsafe: 'Too dangerous at this health',
+        nothingToHeal: 'Nothing to heal',
+        goldRequired: 'Needs',
+        result: 'The fountain answered the hero',
+        results: {
+          drink: 'The hero drank deep and came up soaked',
+          toss: 'The coin sank and the hero grew steadier',
+          dive: 'The coins were won and the water chilled the hero',
+        },
+      },
+    },
+  }),
+  defineFind({
+    id: 'warded-rune',
+    category: 'choice',
+    wave: 'landmark',
+    path: 'dngn/altars/ashenzari.png',
+    skins: {
+      'ashen-vault': 'dngn/altars/ashenzari.png',
+      'buried-sanctum': 'dngn/altars/kikubaaqudgha.png',
+      'frozen-depths': 'dngn/altars/cheibriados.png',
+      'infernal-core': 'dngn/altars/makhleb_flame1.png',
+    },
+    size: 70,
+    screenOffsetY: -8,
+    color: '#9b86d8',
+    glyph: '\u25c8',
+    light: Object.freeze({ color: '#8f7ad0', radius: 1.7, beam: false }),
+    // The rune takes no gold at all: it is paid for in blood and in noise.
+    outcomes: [
+      {
+        id: 'decipher',
+        roll: (depth, rng) => ({ rewardPower: 1, damage: 3 + depth + rng.int(0, 2) }),
+      },
+      {
+        id: 'attune',
+        roll: (depth) => ({ heal: 5 + depth, cleanse: true }),
+      },
+      {
+        id: 'break',
+        roll: (depth, rng) => ({
+          rewardGold: 14 + depth * 4 + rng.int(0, 5),
+          noise: 9,
+          status: { id: 'poison', duration: 4 + Math.min(6, depth) },
+        }),
+      },
+    ],
+    copy: {
+      ru: {
+        name: 'Запечатанная руна',
+        action: 'Подойти к руне',
+        inspected: 'Камень в цепях. Знаки на нём ещё держат тепло.',
+        unsafe: 'Слишком опасно при таком здоровье',
+        nothingToHeal: 'Нечего лечить',
+        goldRequired: 'Нужно',
+        result: 'Руна ответила герою',
+        results: {
+          decipher: 'Знаки прочтены, разум заплатил кровью',
+          attune: 'Оберег руны затянул раны',
+          break: 'Руна расколота, подземелье услышало',
+        },
+      },
+      en: {
+        name: 'Warded rune',
+        action: 'Approach the rune',
+        inspected: 'A stone bound in chains. Its marks still hold warmth.',
+        unsafe: 'Too dangerous at this health',
+        nothingToHeal: 'Nothing to heal',
+        goldRequired: 'Needs',
+        result: 'The rune answered the hero',
+        results: {
+          decipher: 'The marks were read and paid for in blood',
+          attune: 'The ward of the rune closed the wounds',
+          break: 'The rune was broken and the dungeon heard it',
+        },
+      },
+    },
+  }),
 ]);
 
 const FINDS_BY_ID = new Map(FIND_CATALOG.map((definition) => [definition.id, definition]));
@@ -241,6 +380,15 @@ function shuffle(rng, values) {
     [values[index], values[target]] = [values[target], values[index]];
   }
   return values;
+}
+
+function roomHoldsWater(grid, room) {
+  for (let y = room.y; y < room.y + roomSize(room, 'height'); y += 1) {
+    for (let x = room.x; x < room.x + roomSize(room, 'width'); x += 1) {
+      if (grid[y]?.[x] === WATER_CELL) return true;
+    }
+  }
+  return false;
 }
 
 function roomFindCells(level, room, occupied, avoided) {
@@ -319,8 +467,15 @@ function placeLandmarks({ level, rng, roomEntries, occupied, avoided, usedRooms 
   );
   const blueprints = shuffle(rng, [...LANDMARK_CATALOG]);
   const targetCount = Math.min(LANDMARKS_PER_FLOOR, rooms.length, blueprints.length);
+  // A blueprint that wants water takes the flooded room when the floor has one.
+  // The sort is stable, so every other floor keeps the shuffled order exactly.
+  const ordered = blueprints[0]?.prefersWater
+    ? [...rooms].sort((a, b) => (
+      Number(roomHoldsWater(level.grid, b.room)) - Number(roomHoldsWater(level.grid, a.room))
+    ))
+    : rooms;
   const landmarks = [];
-  for (const { room, roomIndex } of rooms) {
+  for (const { room, roomIndex } of ordered) {
     if (landmarks.length >= targetCount) break;
     const candidates = shuffle(rng, roomFindCells(level, room, occupied, avoided));
     const cell = candidates[0];

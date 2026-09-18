@@ -143,7 +143,11 @@ test('the generator floods a rare room with its own stream and seats water creat
         assert.equal(levelIds.length, dryIds.length + waterSpawns.length);
       }
       assert.deepEqual(level.loot.map(({ instanceId }) => instanceId), dry.loot.map(({ instanceId }) => instanceId));
-      assert.deepEqual(level.finds.map(({ instanceId }) => instanceId), dry.finds.map(({ instanceId }) => instanceId));
+      // The three core finds never move; only the fountain landmark may relocate
+      // into the pool, so compare the core wave and the landmark count separately.
+      assert.deepEqual(level.finds.slice(0, 3).map(({ id }) => id), dry.finds.slice(0, 3).map(({ id }) => id));
+      assert.deepEqual(level.finds.slice(0, 3).map(({ instanceId }) => instanceId), dry.finds.slice(0, 3).map(({ instanceId }) => instanceId));
+      assert.equal(level.finds.length, dry.finds.length);
       // The pool is still walkable and see-through for everyone.
       const cell = water[0];
       assert.equal(isWalkableCell(level.grid, cell.x, cell.y), true);
@@ -172,15 +176,15 @@ test('water creatures live only in flooded rooms and have names for the death sc
   assert.ok(SOUND_SAMPLES.splash.files.length === 2);
 });
 
-test('the floor map paints water and save v36 regenerates v35 floors with generator 8', () => {
+test('the floor map paints water and save v37 regenerates older floors with generator 9', () => {
   assert.equal(FLOOR_MAP_COLORS.water, '#2b4f66');
   const grid = [['#', '#', '#'], ['#', '~', '#'], ['#', '#', '#']];
   const model = createFloorMapModel({ grid, revealed: new Set(['1,1']), hero: { x: 1, y: 1 }, markers: [] });
   assert.equal(model.cells[0].kind, 'water');
-  assert.equal(SAVE_VERSION, 36);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v36');
-  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v35');
-  assert.equal(GENERATOR_VERSION, 8);
+  assert.equal(SAVE_VERSION, 37);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v37');
+  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v36');
+  assert.equal(GENERATOR_VERSION, 9);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
   const legacy = structuredClone(run);
@@ -188,8 +192,8 @@ test('the floor map paints water and save v36 regenerates v35 floors with genera
   legacy.generatorVersion = 7;
   assert.equal(validateRun(legacy), false);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 36);
-  assert.equal(migrated.generatorVersion, 8);
+  assert.equal(migrated.version, 37);
+  assert.equal(migrated.generatorVersion, 9);
   assert.equal(validateRun(migrated), true);
   assert.doesNotThrow(() => hydrateDungeon(migrated));
 });

@@ -596,6 +596,8 @@ const requestedSeedValue = new URL(document.location.href).searchParams.get('see
 const previewFindIdNearSpawn = {
   chest: 'sealed-cache',
   altar: 'ancient-altar',
+  fountain: 'sunken-fountain',
+  rune: 'warded-rune',
 }[new URL(document.location.href).searchParams.get('preview')] ?? null;
 const previewChestNearSpawn = previewFindIdNearSpawn === 'sealed-cache';
 const previewHuntNearSpawn = new URL(document.location.href).searchParams.get('preview') === 'hunt';

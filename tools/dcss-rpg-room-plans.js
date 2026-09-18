@@ -167,6 +167,34 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
     rewardMultiplier: 1.3,
   }),
   defineRoomArchetype({
+    id: 'fountain-court',
+    role: 'discovery',
+    environmentThemeIds: {
+      'ashen-vault': 'fountain-court',
+      'buried-sanctum': 'fountain-court',
+      'frozen-depths': 'fountain-court',
+      'infernal-core': 'fountain-court',
+    },
+    content: { findId: 'sunken-fountain' },
+    variants: ['still', 'overflowing'],
+    dangerMultiplier: 0.9,
+    rewardMultiplier: 1.25,
+  }),
+  defineRoomArchetype({
+    id: 'rune-vault',
+    role: 'discovery',
+    environmentThemeIds: {
+      'ashen-vault': 'rune-vault',
+      'buried-sanctum': 'rune-vault',
+      'frozen-depths': 'rune-vault',
+      'infernal-core': 'rune-vault',
+    },
+    content: { findId: 'warded-rune' },
+    variants: ['sealed', 'cracked'],
+    dangerMultiplier: 1,
+    rewardMultiplier: 1.3,
+  }),
+  defineRoomArchetype({
     id: 'ambush-chamber',
     role: 'encounter',
     environmentThemeIds: COMMON_ENVIRONMENT,
@@ -254,7 +282,13 @@ const ARCHETYPE_ID_BY_FIND_ID = new Map(
 );
 // Rooms the merchant may reclaim when a floor has no free alcove, in order of
 // preference. The altar yields before the older discoveries.
-const MERCHANT_FALLBACK_ARCHETYPE_IDS = Object.freeze(['altar-niche', 'forgotten-crypt', 'crystal-grotto']);
+const MERCHANT_FALLBACK_ARCHETYPE_IDS = Object.freeze([
+  'altar-niche',
+  'fountain-court',
+  'rune-vault',
+  'forgotten-crypt',
+  'crystal-grotto',
+]);
 
 export function roomArchetypeIdForFind(findId) {
   return ARCHETYPE_ID_BY_FIND_ID.get(findId) ?? null;

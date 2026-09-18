@@ -93,6 +93,36 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
   }),
   roomTheme({
+    // The landmark fountain is the only fountain here: the court decorates with
+    // statues so the interactive basin stays the one lit object in the room.
+    id: 'fountain-court',
+    features: [
+      prop('dngn/statues/statue_mermaid.png', { size: 74 }),
+      prop('dngn/statues/statue_naga.png', { size: 74 }),
+      prop('dngn/statues/crumbled_column_3.png', { size: 70 }),
+    ],
+    details: [
+      prop('mon/fungi_plants/plant_crypt.png', { size: 62, screenOffsetY: -4 }),
+      prop('dngn/statues/crumbled_column_2.png', { size: 66 }),
+      prop('dngn/statues/crumbled_column_5.png', { size: 66 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/black_cobalt0', [5, 6, 7, 8]),
+  }),
+  roomTheme({
+    id: 'rune-vault',
+    features: [
+      prop('dngn/statues/statue_iron.png', { size: 72 }),
+      prop('dngn/statues/statue_triangle.png', { size: 72 }),
+      prop('dngn/statues/statue_orb.png', { size: 72 }),
+    ],
+    details: [
+      prop('dngn/statues/crumbled_column_1.png', { size: 68 }),
+      prop('dngn/statues/crumbled_column_6.png', { size: 68 }),
+      emberBrazier,
+    ],
+    floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
+  }),
+  roomTheme({
     id: 'drowned-chapel',
     features: [
       prop(blueFountainFrames[0], {

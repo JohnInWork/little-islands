@@ -44,11 +44,18 @@ const inside = (room, point) => (
   && point.y < room.y + room.height
 );
 
+/** One landmark per floor and three of them in the catalog: scan for the wanted one. */
+function landmarkFixture(id, seed = 7, depth = 2) {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
+    const dungeon = generateDungeon({ seed: seed + attempt, depth });
+    const find = dungeon.finds.find((candidate) => candidate.id === id);
+    if (find) return { dungeon, find, seed: seed + attempt };
+  }
+  throw new Error(`No ${id} fixture near seed ${seed} depth ${depth}`);
+}
+
 function altarFixture(seed = 7, depth = 2) {
-  const dungeon = generateDungeon({ seed, depth });
-  const find = dungeon.finds.find(({ id }) => id === 'ancient-altar');
-  if (!find) throw new Error(`No altar fixture for seed ${seed} depth ${depth}`);
-  return { dungeon, find };
+  return landmarkFixture('ancient-altar', seed, depth);
 }
 
 function heroNear(find, overrides = {}) {
@@ -66,7 +73,7 @@ function heroNear(find, overrides = {}) {
 test('the altar is a landmark: catalog, themed skins and bundled assets', async () => {
   const altar = findById('ancient-altar');
   assert.equal(altar.wave, 'landmark');
-  assert.deepEqual(LANDMARK_CATALOG.map(({ id }) => id), ['ancient-altar']);
+  assert.deepEqual(LANDMARK_CATALOG.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
   assert.equal(CORE_FIND_CATALOG.length, 3);
   assert.equal(MAX_FINDS_PER_FLOOR, 4);
   assert.deepEqual(altar.outcomes.map(({ id }) => id), ['pray', 'offer', 'plunder']);
@@ -84,21 +91,21 @@ test('the altar is a landmark: catalog, themed skins and bundled assets', async 
   assert.equal(roomArchetypeById('altar-niche').content.findId, 'ancient-altar');
 });
 
-test('every floor places at most one altar in its own quiet room without blocking the route', () => {
+test('every floor places at most one landmark in its own quiet room without blocking the route', () => {
   let placed = 0;
   for (let seed = 1; seed <= 600; seed += 1) {
     const depth = 1 + (seed % 9);
     const dungeon = generateDungeon({ seed, depth });
     const again = generateDungeon({ seed, depth });
     assert.deepEqual(again.finds, dungeon.finds);
-    const altars = dungeon.finds.filter(({ id }) => id === 'ancient-altar');
-    assert.ok(altars.length <= 1);
-    if (altars.length === 0) {
-      assert.equal(dungeon.merchants.length, 1, 'only a merchant may reclaim the altar room');
+    const landmarks = dungeon.finds.filter((find) => isLandmarkFind(find));
+    assert.ok(landmarks.length <= 1);
+    if (landmarks.length === 0) {
+      assert.equal(dungeon.merchants.length, 1, 'only a merchant may reclaim the landmark room');
       continue;
     }
     placed += 1;
-    const [altar] = altars;
+    const [altar] = landmarks;
     assert.equal(altar.instanceId, `find-${depth}-${altar.roomIndex}`);
     assert.equal(altar.themeId, dungeonThemeForDepth(depth).id);
     assert.equal(isLandmarkFind(altar), true);
@@ -118,18 +125,24 @@ test('every floor places at most one altar in its own quiet room without blockin
     ].filter(Boolean).map(({ x, y }) => `${x},${y}`);
     assert.equal(occupied.includes(`${altar.x},${altar.y}`), false);
     const plan = dungeon.roomPlans[altar.roomIndex];
-    assert.equal(plan.archetypeId, 'altar-niche');
-    assert.equal(plan.environmentThemeId, 'altar-niche');
+    const archetypeId = roomArchetypeIdForFind(altar.id);
+    assert.equal(plan.archetypeId, archetypeId);
+    assert.equal(
+      plan.environmentThemeId,
+      roomArchetypeById(archetypeId).environmentThemeIds[dungeonThemeForDepth(depth).id],
+    );
     const blocked = dungeon.grid.map((row) => [...row]);
     for (const find of dungeon.finds) blocked[find.y][find.x] = '#';
     assert.ok(findGridPath(blocked, dungeon.spawn, dungeon.exit, { allowDoors: true }).length > 0);
-    const { pray, offer, plunder } = altar.outcomes;
-    assert.deepEqual(pray, { healRatio: 0.3, cleanse: true });
-    assert.ok(offer.costGold >= 14 && offer.rewardMaxHp === 4 + depth && offer.heal === offer.rewardMaxHp);
-    assert.ok(plunder.rewardGold > 0 && plunder.damage > 0 && plunder.noise > 0);
-    assert.ok(['poison', 'chilled'].includes(plunder.status.id));
+    if (altar.id === 'ancient-altar') {
+      const { pray, offer, plunder } = altar.outcomes;
+      assert.deepEqual(pray, { healRatio: 0.3, cleanse: true });
+      assert.ok(offer.costGold >= 14 && offer.rewardMaxHp === 4 + depth && offer.heal === offer.rewardMaxHp);
+      assert.ok(plunder.rewardGold > 0 && plunder.damage > 0 && plunder.noise > 0);
+      assert.ok(['poison', 'chilled'].includes(plunder.status.id));
+    }
   }
-  assert.ok(placed >= 590, `altar placed on ${placed} of 600 floors`);
+  assert.ok(placed >= 590, `landmark placed on ${placed} of 600 floors`);
 });
 
 test('the landmark stream never moves the three core finds', () => {
@@ -148,7 +161,7 @@ test('the landmark stream never moves the three core finds', () => {
   assert.equal(coreOnly.length, 3);
   assert.equal(withLandmark.length, 4);
   assert.deepEqual(withLandmark.slice(0, 3), coreOnly);
-  assert.equal(withLandmark[3].id, 'ancient-altar');
+  assert.equal(isLandmarkFind(withLandmark[3]), true);
   assert.ok(coreOnly.every(({ roomIndex }) => roomIndex !== withLandmark[3].roomIndex));
   assert.deepEqual(
     createDungeonFinds({ level, rng: createRng(5), landmarkRng: createRng(9) }),
@@ -390,8 +403,8 @@ test('the shared registry presents the altar bilingually without spoiling outcom
 });
 
 test('a resolved altar survives reload inside the v34 find history and old saves gain it unresolved', () => {
-  const { dungeon, find } = altarFixture(314, 1);
-  const run = createRun(314, dungeon);
+  const { dungeon, find, seed } = altarFixture(314, 1);
+  const run = createRun(seed, dungeon);
   run.floor.resolvedFindIds = dungeon.finds.map(({ instanceId }) => instanceId);
   assert.equal(run.floor.resolvedFindIds.length, MAX_FINDS_PER_FLOOR);
   assert.equal(validateRun(run), true);
@@ -406,9 +419,9 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   legacy.floor.merchantPurchases = [];
   delete legacy.floor.merchants;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 36);
+  assert.equal(migrated.version, 37);
   const restored = hydrateDungeon(migrated);
-  const altar = restored.finds.find(({ id }) => id === 'ancient-altar');
+  const altar = restored.finds.find((find) => isLandmarkFind(find));
   assert.ok(altar);
   assert.equal(altar.resolved, false);
 });
