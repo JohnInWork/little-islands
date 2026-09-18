@@ -6,6 +6,13 @@ import { materializeItemAffixes } from '../tools/dcss-rpg-affixes.js';
 import { assertEquipmentCatalog } from '../tools/dcss-rpg-rules.js';
 import { itemDetailLanguages, itemDetails } from '../tools/dcss-rpg-item-details.js';
 import {
+  EQUIPMENT_VISUALS,
+  allEquipmentVisualAssetPaths,
+  equipmentVisualProblems,
+  itemSpriteFor,
+  itemSpriteVariants,
+} from '../tools/dcss-rpg-equipment-visuals.js';
+import {
   MATERIALS,
   MATERIAL_IDS,
   applyMaterialStats,
@@ -163,4 +170,38 @@ test('a material rolls the same way twice, so a reloaded floor is the same floor
       assert.ok(materialById(id).minDepth <= depth, `${id} surfaced on floor ${depth}`);
     }
   }
+});
+
+test('a form can be forged by more than one hand, and no two items share a shape', () => {
+  assert.deepEqual(equipmentVisualProblems(LOOT_CATALOG), []);
+  const withVariants = Object.values(EQUIPMENT_VISUALS).filter(({ iconVariants }) => iconVariants?.length);
+  assert.ok(withVariants.length >= 20, `only ${withVariants.length} items have a second silhouette`);
+  // Every silhouette belongs to exactly one item: the icon is how the player
+  // tells one thing from another before opening anything.
+  const paths = Object.values(EQUIPMENT_VISUALS)
+    .flatMap((visual) => [visual.icon, ...(visual.iconVariants ?? [])])
+    .filter(Boolean);
+  assert.equal(new Set(paths).size, paths.length, 'two items are drawn with the same sprite');
+  // And every one of them ships: a silhouette the packer does not know is a hole.
+  const shipped = new Set(allEquipmentVisualAssetPaths());
+  for (const path of paths) assert.ok(shipped.has(path), `${path} is never packed`);
+});
+
+test('two of the same thing are drawn differently, and the same one twice the same', () => {
+  const sword = lootById('long-sword');
+  assert.ok(itemSpriteVariants(sword).length > 1);
+  assert.equal(itemSpriteVariants(sword)[0], sword.icon, 'the catalogue icon comes first');
+  const shapes = new Set();
+  for (let index = 0; index < 40; index += 1) {
+    shapes.add(itemSpriteFor({ ...sword, uid: `loot-3-${index}` }));
+  }
+  assert.ok(shapes.size > 1, 'every sword is drawn the same way');
+  // Stable: a reloaded floor hands back the same sword, not a reshuffled one.
+  assert.equal(
+    itemSpriteFor({ ...sword, uid: 'loot-3-0' }),
+    itemSpriteFor({ ...sword, uid: 'loot-3-0' }),
+  );
+  // An item with one silhouette simply keeps it.
+  const unique = lootById('sword-of-power');
+  assert.equal(itemSpriteFor(unique), unique.icon);
 });

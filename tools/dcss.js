@@ -61,6 +61,8 @@ import {
 import {
   allEquipmentVisualAssetPaths,
   equipmentVisualForItem,
+  itemSpriteFor,
+  itemSpriteVariants,
 } from './dcss-rpg-equipment-visuals.js';
 import {
   PLAYER_BODY_OPTIONS,
@@ -804,6 +806,9 @@ const requiredPaths = requiredAssetPaths(visualOverridePaths(visualOverrides));
 const images = new Map();
 const floorLootSpritePaths = new Set([
   ...LOOT_CATALOG.map(({ icon }) => icon),
+  // Alternate silhouettes are floor loot too: without their own alpha bounds
+  // they would be drawn untrimmed and sit differently on the tile.
+  ...LOOT_CATALOG.flatMap((item) => itemSpriteVariants(item)),
   ...IDENTIFICATION_APPEARANCE_PATHS,
   ...visualOverridePaths(visualOverrides),
 ]);
@@ -1893,6 +1898,14 @@ function equippedItem(slot) {
  * different sprite: the silhouette has to stay readable, or the icon stops
  * telling the player what the thing is.
  */
+/**
+ * The sprite this instance is drawn with: its own silhouette out of the family,
+ * falling back to the catalogue icon for anything that has only one.
+ */
+function spriteForItem(item) {
+  return itemSpriteFor(item) ?? item?.icon ?? null;
+}
+
 function materialSpriteFilter(item) {
   return materialFilter(item?.materialId ?? null);
 }
@@ -2842,7 +2855,7 @@ function renderItemDetail(item) {
   itemDetailName.textContent = presentation.name;
   itemDetailRarity.textContent = `${presentation.rarity} ${presentation.rarityMarks}`;
   itemDetailSlot.textContent = presentation.slot;
-  itemDetailIcon.src = assetUrl(displayItem.icon);
+  itemDetailIcon.src = assetUrl(spriteForItem(displayItem));
   paintMaterial(itemDetailIcon, displayItem);
   itemDetailDescription.textContent = presentation.description;
   itemDetailComparison.hidden = presentation.comparison.length === 0;
@@ -4898,7 +4911,7 @@ function drawLoot() {
     const isBelt = displayItem.slot === 'belt';
     if (isBelt) drawGroundBelt(position, rarity, pulse);
     const material = materialSpriteFilter(displayItem);
-    drawSprite(displayItem.icon, x, y, (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1), {
+    drawSprite(spriteForItem(displayItem), x, y, (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1), {
       offsetY: (displayItem.visualOffsetY ?? -7) + pulse,
       ...(material ? { filter: `${VISIBILITY_TUNING.spriteFilter} ${material}` } : {}),
       trim: true,
@@ -5703,7 +5716,7 @@ function renderEquippedPreview() {
     const displayItem = presentedItem(item);
     const presentation = itemPresentation(displayItem, itemDetailLanguage);
     button.dataset.rarity = String(displayItem.rarity);
-    icon.src = assetUrl(displayItem.icon);
+    icon.src = assetUrl(spriteForItem(displayItem));
     paintMaterial(icon, displayItem);
     button.title = presentation.name;
     button.setAttribute('aria-label', `${slotLabel}: ${presentation.name}`);
@@ -5791,7 +5804,7 @@ function renderPack() {
       if (entry.source === 'pack' && markedForSalvage.has(index)) button.classList.add('marked');
 
       const icon = document.createElement('img');
-      icon.src = assetUrl(displayItem.icon);
+      icon.src = assetUrl(spriteForItem(displayItem));
       paintMaterial(icon, displayItem);
       icon.alt = '';
       const copy = document.createElement('span');

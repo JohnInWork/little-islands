@@ -19,12 +19,14 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/weapon/short_sword3.png',
     layer: 'player/hand1/short_sword_slant3.png',
     offhandLayer: 'player/hand2/misc/short_sword_slant2.png',
+    iconVariants: Object.freeze(['item/weapon/short_sword1.png', 'item/weapon/short_sword2.png']),
   }),
   // A body item may add `legsLayer`: trousers drawn under the shirt and boots.
   'worn-tunic': Object.freeze({
     icon: 'item/armour/robe1.png',
     layer: 'player/body/shirt_white1.png',
     legsLayer: 'player/legs/pants_brown.png',
+    iconVariants: Object.freeze(['item/armour/robe2.png']),
   }),
   'bone-dirk': Object.freeze({
     icon: 'item/weapon/dagger3.png',
@@ -40,15 +42,18 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/weapon/club.png',
     layer: 'player/hand1/club_slant.png',
     offhandLayer: 'player/hand2/misc/giant_club_plain.png',
+    iconVariants: Object.freeze(['item/weapon/club2.png']),
   }),
   'iron-mace': Object.freeze({
     icon: 'item/weapon/mace1.png',
     layer: 'player/hand1/mace.png',
     offhandLayer: 'player/hand2/misc/great_mace.png',
+    iconVariants: Object.freeze(['item/weapon/mace2.png', 'item/weapon/mace3.png']),
   }),
   'morning-star': Object.freeze({
     icon: 'item/weapon/morningstar2.png',
     layer: 'player/hand1/morningstar_two.png',
+    iconVariants: Object.freeze(['item/weapon/morningstar1.png', 'item/weapon/morningstar3.png']),
   }),
   'hunting-spear': Object.freeze({
     icon: 'item/weapon/spear1.png',
@@ -62,14 +67,17 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'short-bow': Object.freeze({
     icon: 'item/weapon/ranged/shortbow1.png',
     layer: 'player/hand1/bow_two.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/shortbow2.png', 'item/weapon/ranged/shortbow3.png']),
   }),
   'light-crossbow': Object.freeze({
     icon: 'item/weapon/ranged/hand_crossbow.png',
     layer: 'player/hand1/hand_crossbow.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/hand_crossbow3.png']),
   }),
   arbalest: Object.freeze({
     icon: 'item/weapon/ranged/arbalest1.png',
     layer: 'player/hand1/arbalest_two.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/arbalest2.png', 'item/weapon/ranged/arbalest3.png']),
   }),
   'hand-crossbow': Object.freeze({
     icon: 'item/weapon/ranged/hand_crossbow2.png',
@@ -78,14 +86,17 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   sling: Object.freeze({
     icon: 'item/weapon/ranged/sling1.png',
     layer: 'player/hand1/sling.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/sling2.png']),
   }),
   greatsling: Object.freeze({
     icon: 'item/weapon/ranged/greatsling.png',
     layer: 'player/hand1/greatsling.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/greatsling2.png']),
   }),
   bullwhip: Object.freeze({
     icon: 'item/weapon/bullwhip.png',
     layer: 'player/hand1/whip.png',
+    iconVariants: Object.freeze(['item/weapon/bullwhip2.png']),
   }),
   'barbed-whip': Object.freeze({
     icon: 'item/weapon/bullwhip3.png',
@@ -95,17 +106,21 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/weapon/long_sword1.png',
     layer: 'player/hand1/long_sword_slant2.png',
     offhandLayer: 'player/hand2/misc/short_sword_slant2.png',
+    iconVariants: Object.freeze(['item/weapon/long_sword3.png']),
   }),
   'duelist-rapier': Object.freeze({
     icon: 'item/weapon/rapier1.png',
     layer: 'player/hand1/rapier2.png',
     offhandLayer: 'player/hand2/misc/rapier2.png',
+    iconVariants: Object.freeze(['item/weapon/rapier2.png', 'item/weapon/rapier3.png']),
   }),
   'iron-falchion': Object.freeze({
     icon: 'item/weapon/falchion2.png', layer: 'player/hand1/falchion2.png',
+    iconVariants: Object.freeze(['item/weapon/falchion1.png', 'item/weapon/falchion3.png']),
   }),
   'dungeon-greatsword': Object.freeze({
     icon: 'item/weapon/greatsword1.png', layer: 'player/hand1/great_sword_slant2.png',
+    iconVariants: Object.freeze(['item/weapon/greatsword3.png']),
   }),
   'sword-of-power': Object.freeze({
     icon: 'item/weapon/artefact/spwpn_sword_of_power.png',
@@ -113,15 +128,18 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'executioner-axe': Object.freeze({
     icon: 'item/weapon/hand_axe1.png', layer: 'player/hand1/axe_executioner2.png',
+    iconVariants: Object.freeze(['item/weapon/hand_axe3.png']),
   }),
   'apprentice-staff': Object.freeze({
     icon: 'item/staff/staff01.png', layer: 'player/hand1/quarterstaff.png',
+    iconVariants: Object.freeze(['item/staff/staff02.png', 'item/staff/staff03.png']),
   }),
   'channeling-staff': Object.freeze({
     icon: 'item/staff/i-staff_channeling.png', layer: 'player/hand1/staff_mage.png',
   }),
   'skull-staff': Object.freeze({
     icon: 'item/staff/staff00.png', layer: 'player/hand1/staff_skull.png',
+    iconVariants: Object.freeze(['item/staff/staff04.png', 'item/staff/staff05.png']),
   }),
   'war-axe': Object.freeze({
     icon: 'item/weapon/hand_axe2.png', layer: 'player/hand1/hand_axe2.png',
@@ -135,6 +153,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   longbow: Object.freeze({
     icon: 'item/weapon/ranged/longbow1.png', layer: 'player/hand1/bow_three.png',
+    iconVariants: Object.freeze(['item/weapon/ranged/longbow2.png', 'item/weapon/ranged/longbow3.png']),
   }),
   'heavy-leather': Object.freeze({
     icon: 'item/armour/leather_armour1.png', layer: 'player/body/leather_heavy.png',
@@ -150,6 +169,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'half-plate': Object.freeze({
     icon: 'item/armour/scale_mail1.png', layer: 'player/body/half_plate.png',
+    iconVariants: Object.freeze(['item/armour/scale_mail2.png', 'item/armour/scale_mail3.png']),
   }),
   'blood-robe': Object.freeze({
     icon: 'item/armour/robe_art2.png', layer: 'player/body/robe_red_gold.png',
@@ -162,6 +182,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'iron-helm': Object.freeze({
     icon: 'item/armour/headgear/helmet1.png', layer: 'player/head/fhelm_gray3.png',
+    iconVariants: Object.freeze(['item/armour/headgear/helmet2.png', 'item/armour/headgear/helmet3.png']),
   }),
   'horned-helm': Object.freeze({
     icon: 'item/armour/headgear/helmet_art1.png', layer: 'player/head/fhelm_horn2.png',
@@ -189,6 +210,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'tide-cloak': Object.freeze({
     icon: 'item/armour/cloak2.png', layer: 'player/cloak/blue.png',
+    iconVariants: Object.freeze(['item/armour/cloak4.png']),
   }),
   'dragon-cloak': Object.freeze({
     icon: 'item/armour/cloak3.png', layer: 'player/cloak/dragonskin.png',
@@ -198,6 +220,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'leather-gloves': Object.freeze({
     icon: 'item/armour/glove1.png', layer: 'player/gloves/glove_black.png',
+    iconVariants: Object.freeze(['item/armour/glove4.png']),
   }),
   'iron-gloves': Object.freeze({
     icon: 'item/armour/glove2.png', layer: 'player/gloves/glove_gray.png',
@@ -231,12 +254,15 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'spirit-amulet': Object.freeze({ icon: 'item/amulet/i-spirit.png', layer: null }),
   'wood-buckler': Object.freeze({
     icon: 'item/armour/shields/buckler1.png', layer: 'player/hand2/buckler_green.png',
+    iconVariants: Object.freeze(['item/armour/shields/buckler2.png', 'item/armour/shields/buckler3.png']),
   }),
   'round-shield': Object.freeze({
     icon: 'item/armour/shields/shield1.png', layer: 'player/hand2/shield_knight_gray.png',
+    iconVariants: Object.freeze(['item/armour/shields/shield2.png']),
   }),
   'tower-shield': Object.freeze({
     icon: 'item/armour/shields/large_shield1.png', layer: 'player/hand2/lshield_quartered.png',
+    iconVariants: Object.freeze(['item/armour/shields/large_shield2.png', 'item/armour/shields/large_shield3.png']),
   }),
   'spiked-shield': Object.freeze({
     icon: 'item/armour/shields/shield3.png', layer: 'player/hand2/shield_bullseye.png',
@@ -265,6 +291,17 @@ export function equipmentVisualForItem(item, renderedSlot = item?.slot) {
 export function equipmentVisualProblems(items) {
   const problems = [];
   const ids = new Set();
+  // Two items may never share a silhouette: the icon is how the player tells
+  // one thing from another before opening anything.
+  const claimed = new Map();
+  for (const [id, visual] of Object.entries(EQUIPMENT_VISUALS)) {
+    for (const path of [visual.icon, ...(visual.iconVariants ?? [])].filter(Boolean)) {
+      if (claimed.has(path) && claimed.get(path) !== id) {
+        problems.push(`${id}:sprite-shared-with-${claimed.get(path)}`);
+      }
+      claimed.set(path, id);
+    }
+  }
   for (const item of items) {
     if (!item?.slot) continue;
     ids.add(item.id);
@@ -285,8 +322,42 @@ export function equipmentVisualProblems(items) {
 export function allEquipmentVisualAssetPaths() {
   return [...new Set(Object.values(EQUIPMENT_VISUALS).flatMap((visual) => [
     visual.icon,
+    ...(visual.iconVariants ?? []),
     visual.layer,
     visual.offhandLayer,
     visual.legsLayer,
   ]).filter(Boolean))].sort();
+}
+
+function spriteHash(text) {
+  let value = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    value ^= text.charCodeAt(index);
+    value = Math.imul(value, 0x01000193);
+  }
+  return (value ^ (value >>> 15)) >>> 0;
+}
+
+/**
+ * Which of its silhouettes this particular thing is drawn with. The choice is a
+ * hash of the instance, so it is stable across a reload and never stored: the
+ * uid is already in the save, and one more field would be one more thing to
+ * migrate.
+ */
+export function itemSpriteFor(item) {
+  const variants = itemSpriteVariants(item);
+  if (variants.length <= 1) return variants[0] ?? item?.icon ?? null;
+  const identity = item?.uid ?? item?.instanceId ?? item?.id ?? '';
+  return variants[spriteHash(`${identity}:${item?.id ?? ''}`) % variants.length];
+}
+
+/**
+ * Every silhouette an item can be drawn with, its catalogue icon first. A form
+ * that has alternates is not a different item — it is the same thing forged by
+ * a different hand, so the shape stays inside its own family.
+ */
+export function itemSpriteVariants(item) {
+  const visual = EQUIPMENT_VISUALS[item?.id];
+  if (!visual?.icon) return [];
+  return [visual.icon, ...(visual.iconVariants ?? [])];
 }
