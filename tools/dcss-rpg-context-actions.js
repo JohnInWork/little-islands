@@ -19,6 +19,9 @@ const ACTION_COPY = Object.freeze({
     install: 'Поставить',
     hunt: 'Охотиться',
     tame: 'Приручить',
+    feed: 'Покормить',
+    treat: 'Перевязать',
+    order: 'Приказ',
     cook: 'Приготовить',
     brew: 'Сварить',
     rest: 'Отдохнуть',
@@ -53,6 +56,9 @@ const ACTION_COPY = Object.freeze({
     install: 'Install',
     hunt: 'Hunt',
     tame: 'Tame',
+    feed: 'Feed',
+    treat: 'Bandage',
+    order: 'Order',
     cook: 'Cook',
     brew: 'Brew',
     rest: 'Rest',
@@ -89,6 +95,9 @@ const GLYPHS = Object.freeze({
   install: '◆',
   hunt: '⚔',
   tame: '♥',
+  feed: '◆',
+  treat: '✚',
+  order: '➤',
   cook: '♨',
   brew: '⚗',
   rest: '☾',
@@ -140,6 +149,8 @@ const COPY = Object.freeze({
     campfireEmpty: 'Нужно сырое мясо.',
     wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
     guardDescription: 'Следит за порядком. Удар по нему делает героя преступником.',
+    companionDescription: 'Твой зверь. Он идёт за тобой и дерётся рядом.',
+    companionOrder: (label) => `Приказ: ${label}.`,
     guardWanted: (label, fine) => `${label}. Штраф — ${fine} золота.`,
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `Замок городской тюрьмы. Срок стоит ${fine} золота.`,
@@ -182,6 +193,8 @@ const COPY = Object.freeze({
     campfireEmpty: 'Raw meat required.',
     wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
     guardDescription: 'Keeps the peace. Striking one makes the hero a criminal.',
+    companionDescription: 'Your beast. It follows you and fights beside you.',
+    companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. The fine is ${fine} gold.`,
     cellName: 'Cell door',
     cellDescription: (fine) => `A city jail lock. Your time costs ${fine} gold.`,
@@ -360,6 +373,31 @@ export const INTERACTION_REGISTRY = Object.freeze([
       actions: [
         { id: 'serve' },
         { id: 'pick-lock', enabled: target.canPick === true, hint: target.canPick ? '' : target.hint ?? '' },
+      ],
+    }),
+  }),
+  defineInteraction({
+    // The hero's own beast: fed, patched up and told what to do.
+    id: 'companion',
+    command: 'companion-care',
+    matches: (target) => target?.kind === 'companion'
+      && typeof target.id === 'string'
+      && typeof target.icon === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.wildlife[target.id] ?? target.id,
+      description: target.modeLabel
+        ? copy.companionOrder(target.modeLabel)
+        : copy.companionDescription,
+      icon: target.icon,
+      accent: '#9ad3b8',
+      actions: [
+        ...(target.careKnown
+          ? [{ id: 'feed', enabled: target.canFeed === true, hint: target.canFeed ? '' : target.feedHint ?? '' }]
+          : []),
+        ...(target.treatKnown
+          ? [{ id: 'treat', enabled: target.canTreat === true, hint: target.canTreat ? '' : target.treatHint ?? '' }]
+          : []),
+        ...(target.orderKnown ? [{ id: 'order' }] : []),
       ],
     }),
   }),

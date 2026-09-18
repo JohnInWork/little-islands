@@ -266,6 +266,42 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ tamingRank: 3 }),
     ]),
   }),
+  training: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ trainingRank: 1 }),
+      Object.freeze({ trainingRank: 2 }),
+      Object.freeze({ trainingRank: 3 }),
+    ]),
+  }),
+  'animal-care': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ animalCareRank: 1 }),
+      Object.freeze({ animalCareRank: 2 }),
+      Object.freeze({ animalCareRank: 3 }),
+    ]),
+  }),
+  'beast-bond': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ beastBondRank: 1 }),
+      Object.freeze({ beastBondRank: 2 }),
+      Object.freeze({ beastBondRank: 3 }),
+    ]),
+  }),
+  'pack-leader': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ packLeaderRank: 1 }),
+      Object.freeze({ packLeaderRank: 2 }),
+      Object.freeze({ packLeaderRank: 3 }),
+    ]),
+  }),
   alchemy: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -331,6 +367,10 @@ export const SKILL_SYSTEMS = Object.freeze([
   'alchemy-recipes',
   'animal-taming',
   'companion-limits',
+  'pet-behaviors',
+  'pet-treatment',
+  'companion-shared-vision',
+  'companion-upkeep',
 ]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
@@ -400,6 +440,10 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   salvagingRank: Object.freeze([0, 3]),
   alchemyRank: Object.freeze([0, 3]),
   tamingRank: Object.freeze([0, 3]),
+  trainingRank: Object.freeze([0, 3]),
+  animalCareRank: Object.freeze([0, 3]),
+  beastBondRank: Object.freeze([0, 3]),
+  packLeaderRank: Object.freeze([0, 3]),
   enchantingRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),
   scrollVariantTier: Object.freeze([0, 3]),

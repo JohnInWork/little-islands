@@ -203,6 +203,7 @@ import {
 import { enduranceProfile, enduredDuration } from './dcss-rpg-endurance.js';
 import {
   MINION_FOLLOW_DISTANCE,
+  MINION_LEASH_DISTANCE,
   isMinionSpell,
   minionBlueprint,
   minionCopy,
@@ -211,6 +212,7 @@ import {
   necromancyProfile,
 } from './dcss-rpg-minions.js';
 import {
+  BANDAGE_ITEM_ID,
   bandageRefusalText,
   fieldMedicineProfile,
   resolveBandage,
@@ -235,12 +237,23 @@ import {
 } from './dcss-rpg-scrolls.js';
 import {
   TAME_FOOD_IDS,
+  bondProfile,
+  bondReveal,
+  canFeed,
   canTame,
+  canTreat,
+  careProfile,
+  companionModeLabel,
   companionName,
   companionRefusalText,
   companionStats,
+  feedCompanion,
+  nextCompanionMode,
+  packProfile,
   tameCreature,
   tamingProfile,
+  trainingProfile,
+  treatCompanion,
 } from './dcss-rpg-companions.js';
 import {
   alchemyProfile,
@@ -898,6 +911,9 @@ const lightningArcs = [];
 let lightningArcSequence = 0;
 const spellCooldowns = Object.create(null);
 let spellUiAccumulator = 0;
+// Guards, beasts and wildlife walk up to a standing hero; the button has to
+// notice them, not only the cells the hero steps on.
+let interactionUiAccumulator = 0;
 const combatGlyphs = [];
 const bloodDrops = [];
 const bloodStains = [];
@@ -1327,31 +1343,138 @@ function raiseAlly(spellId) {
  * The tamed beast takes its place beside the hero. Unlike a servant it is not
  * born from a slot: it comes out of the run and keeps the health it had.
  */
-function raiseCompanion() {
-  if (!run.companion) return null;
+function raiseCompanion(index) {
+  const record = run.companions[index];
+  if (!record) return null;
   const stats = companionStats({
-    creatureId: run.companion.id,
+    creatureId: record.id,
     profile: tamingProfile(currentSkillCapabilities()),
   });
   const cell = freeCellNearHero();
   if (!stats || !cell) return null;
   const [beast] = createRuntimeMonsters(dungeon, [{
-    instanceId: 'ally-companion',
-    id: `tamed-${run.companion.id}`,
+    instanceId: `ally-companion-${index}`,
+    id: `tamed-${record.id}`,
     x: cell.x,
     y: cell.y,
   }]);
   if (!beast) return null;
   beast.ally = true;
   beast.companion = true;
+  beast.companionIndex = index;
+  beast.mode = record.mode;
   beast.spellId = null;
   beast.maxHp = stats.maxHp;
-  beast.hp = Math.min(run.companion.hp, stats.maxHp);
+  beast.hp = Math.min(record.hp, stats.maxHp);
   beast.damage = stats.damage;
   beast.xp = 0;
   beast.alerted = beast.pursuit;
-  allies = [...allies.filter((other) => !other.companion), beast];
+  allies = [...allies.filter((other) => other.companionIndex !== index), beast];
   return beast;
+}
+
+/**
+ * A searching beast has a nose of its own: it finds mechanisms near itself
+ * even for a hero who never learned to look for them.
+ */
+function companionSearch(ally) {
+  const profile = trainingProfile(currentSkillCapabilities());
+  if (profile.searchRadius === 0) return false;
+  const next = discoverTraps({
+    traps: trapDefinitions,
+    origin: { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) },
+    capabilities: { trapDetectionRadius: profile.searchRadius, trapDetectionTier: profile.rank },
+    detectedTrapIds: [...detectedTrapIds],
+    resolvedEventIds: run.floor.resolved,
+    hasLineOfSight: (from, to) => hasLineOfSight(world, from, to),
+  });
+  const found = next.filter((id) => !detectedTrapIds.has(id));
+  if (found.length === 0) return false;
+  detectedTrapIds = new Set(next);
+  run.floor.detectedTrapIds = [...detectedTrapIds];
+  addCombatGlyph(ally.x, ally.y, '?', '#d8bd68', -58);
+  persistRun();
+  return true;
+}
+
+/**
+ * Where a searching beast goes: the nearest dark cell still inside the hero's
+ * leash. A beast that only walks where the hero already walked scouts nothing.
+ */
+function searchTargetsFor(ally) {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const reach = MINION_LEASH_DISTANCE;
+  const candidates = [];
+  for (let dy = -reach; dy <= reach; dy += 1) {
+    for (let dx = -reach; dx <= reach; dx += 1) {
+      if (Math.hypot(dx, dy) > reach) continue;
+      const cell = { x: heroCell.x + dx, y: heroCell.y + dy };
+      if (revealed.has(`${cell.x},${cell.y}`) || !isWalkable(cell.x, cell.y)) continue;
+      candidates.push({
+        x: (cell.x + 0.5) * TILE,
+        y: (cell.y + 0.5) * TILE,
+        distance: Math.hypot(cell.x - ally.x / TILE, cell.y - ally.y / TILE),
+      });
+    }
+  }
+  // A handful of the nearest dark cells: one of them will be behind a wall,
+  // and the beast should try the next instead of standing in front of it.
+  return candidates.sort((left, right) => left.distance - right.distance).slice(0, 6);
+}
+
+/** The nearest thing on the floor a fetching beast could carry back. */
+function fetchTargetFor(ally) {
+  const profile = trainingProfile(currentSkillCapabilities());
+  if (profile.fetchRange === 0) return null;
+  const reach = TILE * profile.fetchRange;
+  return lootDefinitions
+    .filter((loot) => Math.hypot(loot.x - hero.x, loot.y - hero.y) <= reach)
+    .sort((left, right) => (
+      Math.hypot(left.x - ally.x, left.y - ally.y) - Math.hypot(right.x - ally.x, right.y - ally.y)
+    ))[0] ?? null;
+}
+
+/** The beast brings what it stood on straight into the hero's bag. */
+function companionFetch(ally) {
+  const index = lootDefinitions.findIndex(
+    (loot) => Math.hypot(loot.x - ally.x, loot.y - ally.y) <= TILE * 0.6,
+  );
+  if (index < 0) return false;
+  const loot = lootDefinitions[index];
+  if (loot.definition.gold) {
+    const reward = Math.max(1, loot.amount ?? 1);
+    lootDefinitions.splice(index, 1);
+    run.floor.collected.push(loot.instanceId);
+    gold += reward;
+    playSound('gold');
+    showLootToast(loot.definition, reward);
+    updateHud();
+    persistRun();
+    return true;
+  }
+  if (!addInventoryItem(loot.definition, loot.instanceId)) return false;
+  lootDefinitions.splice(index, 1);
+  run.floor.collected.push(loot.instanceId);
+  playSound('pickup');
+  burst(ally.x, ally.y - 8, '#9ad3b8', 10);
+  showLootToast(loot.definition, 1);
+  renderPack();
+  persistRun();
+  return true;
+}
+
+/** The beast the hero is standing next to, if it is one of their own. */
+const COMPANION_REACH = MINION_FOLLOW_DISTANCE;
+
+function nearbyCompanion() {
+  if (runStatus !== 'playing' || hero.dead) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return allies.find((ally) => (
+    ally.companion
+    && ally.dead === 0
+    && Math.abs(cell.x - Math.floor(ally.x / TILE))
+      + Math.abs(cell.y - Math.floor(ally.y / TILE)) <= COMPANION_REACH
+  )) ?? null;
 }
 
 /** A cell beside the hero that nothing else stands on. */
@@ -1380,7 +1503,11 @@ function updateAllySlots() {
   const prepared = hero.spells.preparedSpellIds.filter((id) => id && isMinionSpell(id));
   allies = allies.filter((ally) => ally.companion || prepared.includes(ally.spellId));
   // The tamed beast follows the hero down the stairs, health and all.
-  if (run.companion && !allies.some((ally) => ally.companion && ally.dead === 0)) raiseCompanion();
+  // Every beast in the party keeps a place beside the hero, floor after floor.
+  for (const [index] of run.companions.entries()) {
+    if (allies.some((ally) => ally.companionIndex === index && ally.dead === 0)) continue;
+    raiseCompanion(index);
+  }
   const stats = currentHeroStats();
   for (const spellId of prepared) {
     const spell = spellById(spellId);
@@ -1408,8 +1535,10 @@ function damageAlly(ally, amount) {
   ally.dead = 0.01;
   if (ally.companion) {
     // A friend is not a spell: when the beast falls, it stays fallen.
-    const name = companionName(run.companion?.id ?? '', itemDetailLanguage);
-    run.companion = null;
+    const name = companionName(run.companions[ally.companionIndex]?.id ?? '', itemDetailLanguage);
+    run.companions = run.companions.filter((_, index) => index !== ally.companionIndex);
+    // The party closed ranks, so the beasts still standing are raised afresh.
+    allies = allies.filter((other) => !other.companion);
     showLootToast({ path: ally.spritePath, rarity: 2 }, `${name}: ${companionRefusalText('lost', itemDetailLanguage)}`);
     persistRun();
     return;
@@ -1574,9 +1703,13 @@ function findSpritePath(find) {
 function captureRun() {
   run.depth = dungeon.depth;
   run.knowledge = createItemKnowledge(run.knowledge);
-  // The beast carries its wounds down the stairs, not a full bar.
-  const beast = allies.find((ally) => ally.companion && ally.dead === 0);
-  if (run.companion && beast) run.companion = { id: run.companion.id, hp: Math.max(1, Math.round(beast.hp)) };
+  // Every beast carries its wounds and its orders down the stairs.
+  run.companions = run.companions.map((record, index) => {
+    const beast = allies.find((ally) => ally.companionIndex === index && ally.dead === 0);
+    return beast
+      ? { id: record.id, hp: Math.max(1, Math.round(beast.hp)), mode: beast.mode ?? record.mode }
+      : record;
+  });
   run.hero = {
     x: Math.floor(hero.x / TILE),
     y: Math.floor(hero.y / TILE),
@@ -6373,13 +6506,46 @@ function contextModelTarget(entry = contextTarget) {
       hint: crimeRefusalText('no-gold', itemDetailLanguage),
     };
   }
+  if (entry.kind === 'companion') {
+    const beast = entry.value;
+    const record = run.companions[beast.companionIndex];
+    const capabilities = currentSkillCapabilities();
+    const care = careProfile(capabilities);
+    const training = trainingProfile(capabilities);
+    const feed = canFeed({
+      companion: { hp: beast.hp },
+      maxHp: beast.maxHp,
+      profile: care,
+      foodCount: tameFoodCount(),
+    });
+    const treat = canTreat({
+      companion: { hp: beast.hp },
+      effects: beast.effects ?? {},
+      profile: care,
+      bandageCount: interactionResourceCount(BANDAGE_ITEM_ID),
+    });
+    return {
+      kind: 'companion',
+      id: record?.id ?? beast.id.replace('tamed-', ''),
+      icon: beast.spritePath,
+      modeLabel: training.modes.length > 0 ? companionModeLabel(beast.mode, itemDetailLanguage) : '',
+      careKnown: care.rank > 0,
+      canFeed: feed.ok,
+      feedHint: feed.ok ? '' : companionRefusalText(feed.reason, itemDetailLanguage),
+      treatKnown: care.treats,
+      canTreat: treat.ok,
+      treatHint: treat.ok ? '' : companionRefusalText(treat.reason, itemDetailLanguage),
+      orderKnown: training.modes.length > 0,
+    };
+  }
   if (entry.kind === 'wildlife') {
     const profile = tamingProfile(currentSkillCapabilities());
     const decision = canTame({
       creature: entry.value,
       profile,
+      pack: packProfile(currentSkillCapabilities()),
       foodCount: tameFoodCount(),
-      companion: run.companion,
+      party: run.companions,
     });
     return {
       kind: 'wildlife',
@@ -6433,7 +6599,10 @@ function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const propTarget = PROP_INTERACTION_KINDS.has(entry.kind);
-  const pixelActor = entry.kind === 'find' || entry.kind === 'wildlife' || entry.kind === 'guard';
+  const pixelActor = entry.kind === 'find'
+    || entry.kind === 'wildlife'
+    || entry.kind === 'guard'
+    || entry.kind === 'companion';
   const x = propTarget
     ? entry.value.gridX
     : pixelActor
@@ -6453,6 +6622,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'find') return distance <= 1 && findIsInteractable(entry.value);
   if (entry.kind === 'merchant') return distance <= 1;
   if (propTarget) return distance <= 1;
+  if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -7206,9 +7376,23 @@ function nearbyCampfire() {
     .sort((left, right) => left.id.localeCompare(right.id))[0] ?? null;
 }
 
-/** Any real meal in the bag will do to make a friend. */
+/** Any real meal in the bag will do to make — or keep — a friend. */
 function tameFoodCount() {
   return TAME_FOOD_IDS.reduce((total, id) => total + interactionResourceCount(id), 0);
+}
+
+/** Beasts eat what the bag holds, in whatever order it holds it. */
+function spendCompanionFood(amount) {
+  let remaining = Math.max(0, Math.round(amount));
+  for (const id of TAME_FOOD_IDS) {
+    if (remaining <= 0) break;
+    const carried = interactionResourceCount(id);
+    if (carried <= 0) continue;
+    const taken = Math.min(carried, remaining);
+    if (!consumeInteractionResources([{ id, amount: taken }])) return false;
+    remaining -= taken;
+  }
+  return remaining === 0;
 }
 
 /**
@@ -7220,8 +7404,9 @@ function tameNearbyWildlife(creature) {
   const result = tameCreature({
     creature,
     profile: tamingProfile(currentSkillCapabilities()),
+    pack: packProfile(currentSkillCapabilities()),
     foodCount: tameFoodCount(),
-    companion: run.companion,
+    party: run.companions,
   });
   if (!result.ok) {
     showLootToast(
@@ -7230,15 +7415,14 @@ function tameNearbyWildlife(creature) {
     );
     return false;
   }
-  const meal = TAME_FOOD_IDS.find((id) => interactionResourceCount(id) > 0);
-  if (!meal || !consumeInteractionResources([{ id: meal, amount: 1 }])) return false;
-  run.companion = result.companion;
+  if (!spendCompanionFood(result.cost)) return false;
+  run.companions = [...run.companions, result.companion];
   // The tamed beast is no longer part of the floor's wildlife.
   creature.defeated = true;
   creature.hunted = true;
   creature.hp = 0;
   passiveCreatures = passiveCreatures.filter((other) => other !== creature);
-  raiseCompanion();
+  raiseCompanion(run.companions.length - 1);
   playerHasActed = true;
   playSound('eat');
   burst(creature.x, creature.y - 10, '#9ad3b8', 20);
@@ -7248,6 +7432,74 @@ function tameNearbyWildlife(creature) {
   );
   updateHud();
   renderPack();
+  persistRun();
+  return true;
+}
+
+/** A meal for the beast: it mends what a fight took out of it. */
+function feedNearbyCompanion(beast) {
+  const record = run.companions[beast?.companionIndex];
+  if (!record || beast.dead > 0) return false;
+  const result = feedCompanion({
+    companion: { hp: beast.hp },
+    maxHp: beast.maxHp,
+    profile: careProfile(currentSkillCapabilities()),
+    foodCount: tameFoodCount(),
+  });
+  if (!result.ok) {
+    showLootToast({ path: beast.spritePath, rarity: 1 }, companionRefusalText(result.reason, itemDetailLanguage));
+    return false;
+  }
+  if (!spendCompanionFood(result.cost)) return false;
+  beast.hp = result.hp;
+  run.companions[beast.companionIndex] = { ...record, hp: Math.round(result.hp) };
+  playerHasActed = true;
+  playSound('eat');
+  burst(beast.x, beast.y - 8, '#8bc59c', 12);
+  addCombatGlyph(beast.x, beast.y, `+${result.healed}`, '#8bc59c', -58);
+  showLootToast({ path: beast.spritePath, rarity: 2 }, companionRefusalText('fed', itemDetailLanguage));
+  renderPack();
+  persistRun();
+  return true;
+}
+
+/** A dressing for the beast: fire, venom and cold come off with it. */
+function treatNearbyCompanion(beast) {
+  if (!beast || beast.dead > 0) return false;
+  const result = treatCompanion({
+    companion: { hp: beast.hp },
+    effects: beast.effects ?? {},
+    profile: careProfile(currentSkillCapabilities()),
+    bandageCount: interactionResourceCount(BANDAGE_ITEM_ID),
+  });
+  if (!result.ok) {
+    showLootToast({ path: beast.spritePath, rarity: 1 }, companionRefusalText(result.reason, itemDetailLanguage));
+    return false;
+  }
+  if (!consumeInteractionResources([{ id: BANDAGE_ITEM_ID, amount: result.cost }])) return false;
+  beast.effects = createActorEffects(result.effects);
+  playerHasActed = true;
+  playSound('drink');
+  burst(beast.x, beast.y - 8, '#d8c9b4', 12);
+  showLootToast({ path: beast.spritePath, rarity: 2 }, companionRefusalText('treated', itemDetailLanguage));
+  renderPack();
+  persistRun();
+  return true;
+}
+
+/** One tap moves the beast to the next order the handler knows. */
+function orderNearbyCompanion(beast) {
+  const record = run.companions[beast?.companionIndex];
+  if (!record || beast.dead > 0) return false;
+  const mode = nextCompanionMode(beast.mode, trainingProfile(currentSkillCapabilities()));
+  if (!mode) return false;
+  beast.mode = mode;
+  beast.route = [];
+  run.companions[beast.companionIndex] = { ...record, mode };
+  playerHasActed = true;
+  playSound('ui-tap');
+  addCombatGlyph(beast.x, beast.y, '➤', '#9ad3b8', -58);
+  showLootToast({ path: beast.spritePath, rarity: 2 }, companionModeLabel(mode, itemDetailLanguage));
   persistRun();
   return true;
 }
@@ -7381,6 +7633,8 @@ function nearbyContextTarget() {
   if (bedroll) return { kind: 'camp-rest', value: bedroll };
   const campChest = nearbyCampProp('camp-stash');
   if (campChest) return { kind: 'camp-stash', value: campChest };
+  const beast = nearbyCompanion();
+  if (beast) return { kind: 'companion', value: beast };
   const cellDoor = nearbyJailDoor();
   if (cellDoor) return { kind: 'jail-door', value: cellDoor };
   const guard = nearbyGuard();
@@ -7433,6 +7687,13 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'jail-door'({ action }) {
     closeContextActions();
     return action.id === 'serve' ? serveJailSentence() : pickJailLock();
+  },
+  'companion-care'({ target, action }) {
+    const beast = target.value;
+    closeContextActions();
+    if (action.id === 'feed') return feedNearbyCompanion(beast);
+    if (action.id === 'treat') return treatNearbyCompanion(beast);
+    return orderNearbyCompanion(beast);
   },
   'hunt-wildlife'({ target, action }) {
     const creature = target.value;
@@ -10148,7 +10409,33 @@ function damageHero(amount, {
   return result;
 }
 
+/**
+ * The bond: what a beast standing close enough can see, the hero sees on the
+ * map. Out of bond range the beast keeps its own counsel.
+ */
+function revealThroughCompanions() {
+  const profile = bondProfile(currentSkillCapabilities());
+  if (profile.rank === 0) return;
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  let revealedAny = false;
+  for (const ally of allies) {
+    if (!ally.companion || ally.dead > 0) continue;
+    const beastCell = { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) };
+    // The beast reports only when it has actually moved somewhere new.
+    const key = `${beastCell.x},${beastCell.y}`;
+    if (ally.bondCell === key) continue;
+    ally.bondCell = key;
+    const shared = bondReveal({ hero: heroCell, beast: beastCell, profile });
+    if (!shared) continue;
+    if (revealAround(revealed, world, { x: shared.x, y: shared.y }, shared.radius)) revealedAny = true;
+  }
+  if (revealedAny) persistRun();
+}
+
 function resolveWorldInteractions() {
+  // A bonded beast paints the map wherever it walks, not only where the hero
+  // does. The pure runtime tests drive this without the companion module.
+  if (typeof revealThroughCompanions === 'function') revealThroughCompanions();
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const heroCellKey = `${heroCell.x},${heroCell.y}`;
   if (heroCellKey !== lastHeroCell) {
@@ -10729,6 +11016,15 @@ function updateHero(delta) {
     }
   }
   if (runStatus !== 'playing') return;
+  // The pure runtime tests drive updateHero without the HUD, so the clock is
+  // guarded the same way the spell bar's is.
+  if (typeof interactionUiAccumulator !== 'undefined') {
+    interactionUiAccumulator += delta;
+    if (interactionUiAccumulator >= 0.25) {
+      interactionUiAccumulator = 0;
+      if (uiScreen === 'game' && typeof updateInteractionUi === 'function') updateInteractionUi();
+    }
+  }
   updateHunger(delta);
   updateHeroEffects(delta);
   if (hero.dead) return;
@@ -11073,21 +11369,52 @@ function updateAllies(delta) {
       }
       continue;
     }
-    if (intent.mode === 'hold') {
+    // The order decides what the beast does when nothing is already in its
+    // face: a guard chases the fight, a scout and a fetcher mind their errand.
+    const errandMode = ally.companion && (ally.mode === 'search' || ally.mode === 'fetch');
+    const chasing = target !== null && !errandMode;
+    let errands = [];
+    if (errandMode) {
+      if (ally.mode === 'search') {
+        companionSearch(ally);
+        errands = searchTargetsFor(ally);
+      } else {
+        if (companionFetch(ally)) {
+          ally.route = [];
+          continue;
+        }
+        const fetched = fetchTargetFor(ally);
+        errands = fetched ? [fetched] : [];
+      }
+    }
+    if (intent.mode === 'hold' && !chasing && errands.length === 0) {
       ally.route = [];
       continue;
     }
-    const destination = target ?? hero;
     if (ally.repathCooldown === 0 || ally.route.length === 0) {
       ally.repathCooldown = 0.28;
       const cells = new Set(blocked);
       cells.delete(monsterCellKey(ally, TILE));
-      ally.route = findPath(destination.x / TILE, destination.y / TILE, {
+      const routeTo = (point) => findPath(point.x / TILE, point.y / TILE, {
         allowHidden: true,
         start: { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) },
         blockedCells: cells,
       });
-      if (ally.route.length > 0 && !target) ally.route.pop();
+      let route = chasing ? routeTo(target) : [];
+      let onErrand = false;
+      for (const errand of route.length > 0 ? [] : errands) {
+        route = routeTo(errand);
+        if (route.length > 0) {
+          onErrand = true;
+          break;
+        }
+      }
+      // Nothing to chase and nowhere to go: the beast walks back to the hero.
+      if (route.length === 0) {
+        route = routeTo(hero);
+        if (route.length > 0) route.pop();
+      }
+      ally.route = route;
     }
     const step = ally.route[0];
     if (!step) continue;

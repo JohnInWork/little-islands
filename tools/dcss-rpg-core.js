@@ -71,7 +71,7 @@ import {
 import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
-import { createCompanionState, validateCompanionState } from './dcss-rpg-companions.js';
+import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
 import {
@@ -91,10 +91,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 44;
-export const SAVE_KEY = 'dng-codex:rpg:v44';
+export const SAVE_VERSION = 45;
+export const SAVE_KEY = 'dng-codex:rpg:v45';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v44',
   'dng-codex:rpg:v43',
   'dng-codex:rpg:v42',
   'dng-codex:rpg:v41',
@@ -1067,7 +1068,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     camp: { stash: createCampStash() },
     house: createHouseState(),
     crime: createCrimeState(),
-    companion: null,
+    companions: [],
     floors: {},
     floor: createEmptyFloorState(dungeon),
   };
@@ -1248,10 +1249,10 @@ function normalizedFloorArchive(source, currentDepth) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1309,7 +1310,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
-    migrated.companion = createCompanionState(migrated.companion);
+    migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
     // v39 keeps the camp's comfort in the camp itself, so a summoned camp
     // sleeps well for a hero with no camping skill. A v38 camp inherits the
     // value its rank always had.
@@ -1430,7 +1431,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
-    migrated.companion = createCompanionState(migrated.companion);
+    migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1566,7 +1567,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
-    migrated.companion = createCompanionState(migrated.companion);
+    migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
     if (!validateRun(migrated)) {
       throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     }
@@ -1681,7 +1682,7 @@ export function migrateLegacyRun(snapshot) {
   // v43 lets the city keep a record; a migrated hero has none.
   migrated.crime = createCrimeState(migrated.crime);
   // v44 lets a beast walk with the hero; a migrated run walks alone.
-  migrated.companion = createCompanionState(migrated.companion);
+  migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
   return migrated;
 }
@@ -1895,7 +1896,7 @@ export function validateRun(snapshot) {
   if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateHouseState(snapshot.house)) return false;
   if (!validateCrimeState(snapshot.crime)) return false;
-  if (!validateCompanionState(snapshot.companion ?? null)) return false;
+  if (!validateCompanionParty(snapshot.companions ?? [])) return false;
   if (!validateFloorShape(floor, snapshot.depth)) return false;
   // Floors the hero has left keep their own state, each checked against its
   // own depth. The floor underfoot is never in the archive as well.
@@ -2122,7 +2123,7 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
     house: createHouseState(snapshot.house),
     // The city's memory is the run's, not the floor's.
     crime: createCrimeState(snapshot.crime),
-    companion: createCompanionState(snapshot.companion),
+    companions: createCompanionParty(snapshot.companions),
     floor: remembered ?? createEmptyFloorState(dungeon),
     floors,
     commandSequence: snapshot.commandSequence,

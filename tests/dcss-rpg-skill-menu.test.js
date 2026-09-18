@@ -55,6 +55,10 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'salvaging',
     'enchanting',
     'taming',
+    'training',
+    'animal-care',
+    'beast-bond',
+    'pack-leader',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
