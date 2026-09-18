@@ -1532,6 +1532,19 @@ export const LOOT_CATALOG = Object.freeze([
     interactionResource: 'key',
   },
   {
+    // What a broken piece leaves behind, and what a new affix costs.
+    id: 'arcane-essence',
+    icon: 'item/misc/misc_crystal.png',
+    slot: null,
+    kind: 'tool',
+    rarity: 2,
+    weight: 0,
+    minDepth: 1,
+    stack: 9,
+    value: 14,
+    interactionResource: 'essence',
+  },
+  {
     id: 'lockpick-set',
     icon: 'item/weapon/ranged/needle-c.png',
     slot: null,

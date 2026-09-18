@@ -224,6 +224,17 @@ import {
   scrollVariantLabel,
 } from './dcss-rpg-scrolls.js';
 import {
+  ESSENCE_ITEM_ID,
+  canEnchant,
+  craftingCopy,
+  craftingRefusalText,
+  enchantItem,
+  enchantProfile,
+  salvageProfile,
+  salvageYield,
+} from './dcss-rpg-crafting.js';
+import { eligibleItemAffixes } from './dcss-rpg-affixes.js';
+import {
   JAIL_LOCK_TIER,
   arrestHero,
   breakOut,
@@ -1649,6 +1660,91 @@ function variantForItem(item) {
   return scrollVariant(item.id, arcanaProfile(currentSkillCapabilities()));
 }
 
+/** A stable number for one item's next enchantment, fixed by the run and the piece. */
+function enchantSeed(item, affixCount) {
+  let value = (run.seed ^ (affixCount + 1) * 0x9e3779b1) >>> 0;
+  for (const character of item.uid) {
+    value ^= character.codePointAt(0);
+    value = Math.imul(value, 0x01000193) >>> 0;
+  }
+  return value >>> 0;
+}
+
+/** What the enchanter could do to this piece right now, and what it would cost. */
+function enchantDecision(item) {
+  const affixIds = [...(item?.affixIds ?? [])];
+  return canEnchant({
+    item,
+    affixIds,
+    essence: interactionResourceCount(ESSENCE_ITEM_ID),
+    candidates: item?.slot ? eligibleItemAffixes(item, affixIds).map(({ id }) => id) : [],
+    profile: enchantProfile(currentSkillCapabilities()),
+  });
+}
+
+/**
+ * The card's second action. A scroll an arcanist can reread offers the other
+ * reading; a piece of gear an enchanter can improve offers the hand.
+ */
+function secondaryItemAction(selection) {
+  if (!selection?.item) return null;
+  const variant = selection.source === 'pack' ? variantForItem(selection.item) : null;
+  if (variant) {
+    return {
+      kind: 'variant',
+      label: scrollVariantLabel(selection.item.id, itemDetailLanguage),
+      enabled: true,
+      hint: '',
+    };
+  }
+  const decision = enchantDecision(selection.item);
+  // A hero without the school, or an item that was never gear, gets no button.
+  if (decision.reason === 'rank-required' || decision.reason === 'not-equipment') return null;
+  return {
+    kind: 'enchant',
+    label: craftingCopy(itemDetailLanguage).enchant(enchantProfile(currentSkillCapabilities()).essenceCost),
+    enabled: decision.ok,
+    hint: decision.ok ? '' : craftingRefusalText(decision.reason, itemDetailLanguage),
+  };
+}
+
+/** Putting one affix on one piece, paid for in essence. */
+function enchantSelectedItem(item) {
+  const affixIds = [...(item?.affixIds ?? [])];
+  const result = enchantItem({
+    item,
+    affixIds,
+    essence: interactionResourceCount(ESSENCE_ITEM_ID),
+    candidates: item?.slot ? eligibleItemAffixes(item, affixIds).map(({ id }) => id) : [],
+    profile: enchantProfile(currentSkillCapabilities()),
+    seed: enchantSeed(item, affixIds.length),
+  });
+  if (!result.ok) return false;
+  if (!consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])) return false;
+  const state = currentItemState();
+  applyItemState({
+    ...state,
+    items: state.items.map((entry) => (entry.uid === item.uid
+      ? {
+          id: entry.id,
+          uid: entry.uid,
+          affixIds: [...result.affixIds],
+          artifactPowerId: entry.artifactPowerId ?? null,
+          artifactCurseId: entry.artifactCurseId ?? null,
+        }
+      : entry)),
+  });
+  playerHasActed = true;
+  playSound('spell-toggle');
+  updateGearUi();
+  renderPack();
+  const enchanted = itemInstances.get(item.uid);
+  if (enchanted) renderItemDetail(enchanted);
+  showLootToast(enchanted ?? item, craftingRefusalText('enchanted', itemDetailLanguage));
+  persistRun();
+  return true;
+}
+
 function currentAppraisal(item) {
   return appraiseItem({
     knowledge: run.knowledge,
@@ -1988,6 +2084,26 @@ function houseRestDecision() {
     maxHp: currentHeroStats().maxHp,
     hunger: hero.hunger,
   });
+}
+
+/**
+ * Essence arrives by the handful, so it stacks onto what is already carried
+ * instead of taking a slot per crystal.
+ */
+function grantEssence(amount) {
+  if (!Number.isInteger(amount) || amount <= 0) return 0;
+  const definition = lootById(ESSENCE_ITEM_ID);
+  const existing = backpackItems.find((item) => item?.id === ESSENCE_ITEM_ID);
+  if (existing) {
+    existing.stack = (existing.stack ?? 1) + amount;
+    return amount;
+  }
+  if (backpackItems.filter(Boolean).length >= HERO_BACKPACK_CAPACITY) return 0;
+  const uid = `essence-${run.seed}-${run.commandSequence}-${backpackItems.length}`;
+  const item = { ...definition, uid, stack: amount };
+  itemInstances.set(uid, item);
+  backpackItems.push(item);
+  return amount;
 }
 
 /** Puts one authored item straight into the backpack, if there is room for it. */
@@ -2381,14 +2497,20 @@ function renderItemDetail(item) {
       return row;
     }),
   );
-  const variant = selection?.source === 'pack' ? variantForItem(item) : null;
-  itemDetailVariant.hidden = !variant;
-  if (variant) {
-    const label = scrollVariantLabel(item.id, itemDetailLanguage);
-    itemDetailVariant.textContent = label;
+  const secondary = selection && selection.item.uid === item.uid
+    ? secondaryItemAction(selection)
+    : null;
+  itemDetailVariant.hidden = !secondary;
+  if (secondary) {
+    itemDetailVariant.textContent = secondary.label;
+    itemDetailVariant.disabled = !secondary.enabled;
+    itemDetailVariant.dataset.secondary = secondary.kind;
+    const prefix = secondary.kind === 'variant'
+      ? (itemDetailLanguage === 'ru' ? 'Иначе' : 'Alternative')
+      : (itemDetailLanguage === 'ru' ? 'Ремесло' : 'Craft');
     itemDetailVariant.setAttribute(
       'aria-label',
-      itemDetailLanguage === 'ru' ? `Иначе: ${label}` : `Alternative: ${label}`,
+      `${prefix}: ${secondary.label}${secondary.hint ? `. ${secondary.hint}` : ''}`,
     );
   }
   const action = selectedActionModel(selection);
@@ -5185,13 +5307,16 @@ function updateSalvageUi() {
   salvageButton.setAttribute('aria-pressed', String(salvageMode));
   document.body.dataset.salvage = String(salvageMode);
   salvageCount.textContent = String(markedForSalvage.size);
-  salvageConfirm.querySelector('b').textContent = String(
-    [...markedForSalvage].reduce((sum, index) => {
-      const item = backpackItems[index];
-      const displayItem = item ? presentedItem(item) : null;
+  const marked = [...markedForSalvage].map((index) => backpackItems[index]).filter(Boolean);
+  const preview = salvageYield({
+    reward: marked.reduce((sum, item) => {
+      const displayItem = presentedItem(item);
       return sum + (displayItem ? 2 + displayItem.rarity * 4 : 0);
     }, 0),
-  );
+    items: marked,
+    profile: salvageProfile(currentSkillCapabilities()),
+  });
+  salvageConfirm.querySelector('b').textContent = String(preview.gold);
   salvageConfirm.disabled = markedForSalvage.size === 0;
 }
 
@@ -8786,12 +8911,16 @@ function useConsumable(item, index, effectOverride = null) {
   persistRun();
 }
 
-function performSelectedItemAction({ fromDetail = false, variant = false } = {}) {
+function performSelectedItemAction({ fromDetail = false, secondary = false } = {}) {
   const selection = selectedUiItem();
   if (!selection) return false;
-  // Arcana's second reading of a scroll: the same page, a different effect.
-  const variantEffect = variant ? variantForItem(selection.item)?.effect ?? null : null;
-  if (variant && !variantEffect) return false;
+  // The card's second button: an arcanist's other reading, or an enchanter's hand.
+  const second = secondary ? secondaryItemAction(selection) : null;
+  if (secondary && !second?.enabled) return false;
+  // Enchanting keeps the card open: the hero should see what changed.
+  if (second?.kind === 'enchant') return enchantSelectedItem(selection.item);
+  const variantEffect = secondary ? variantForItem(selection.item)?.effect ?? null : null;
+  if (secondary && !variantEffect) return false;
   const appraisal = selection.source === 'pack' ? currentAppraisal(selection.item) : null;
   if (appraisal?.ok) {
     run.knowledge = appraisal.knowledge;
@@ -11759,7 +11888,7 @@ inventory.addEventListener('pointerdown', (event) => {
   if (event.target === inventory) closeInventory();
 });
 itemDetailAction.addEventListener('click', () => performSelectedItemAction({ fromDetail: true }));
-itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, variant: true }));
+itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, secondary: true }));
 salvageButton.addEventListener('click', () => {
   salvageMode = !salvageMode;
   if (salvageMode && inventoryFilter === 'equipped') {
@@ -11773,10 +11902,17 @@ salvageButton.addEventListener('click', () => {
 salvageConfirm.addEventListener('click', () => {
   if (markedForSalvage.size === 0) return;
   const uids = [...markedForSalvage].map((index) => backpackItems[index]?.uid).filter(Boolean);
+  const broken = uids.map((uid) => itemInstances.get(uid)).filter(Boolean);
   const result = salvageInventoryItems(currentItemState(), uids);
   if (!result.ok) return;
+  const yielded = salvageYield({
+    reward: result.reward,
+    items: broken,
+    profile: salvageProfile(currentSkillCapabilities()),
+  });
   applyItemState(result.state);
-  gold += result.reward;
+  const essence = grantEssence(yielded.essence);
+  gold += yielded.gold;
   currencyValue.textContent = String(gold);
   currency.setAttribute(
     'aria-label',
@@ -11786,7 +11922,10 @@ salvageConfirm.addEventListener('click', () => {
   salvageMode = false;
   updateSalvageUi();
   renderPack();
-  showLootToast({ icon: 'item/gold/16.png', rarity: 1 }, result.reward);
+  showLootToast(
+    { icon: 'item/gold/16.png', rarity: 1 },
+    craftingCopy(itemDetailLanguage).salvage(yielded.gold, essence),
+  );
   persistRun();
 });
 restartRunButton.addEventListener('click', restartRun);

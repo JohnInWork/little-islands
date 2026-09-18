@@ -49,7 +49,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
     'camping', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'shield',
-    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'arcana',
+    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'enchanting', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
     'trap-detection', 'camp-rest', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
@@ -59,7 +59,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'fire-spread', 'frost-buildup', 'chain-lightning',
-    'cleansing-ritual', 'scroll-variants',
+    'cleansing-ritual', 'scroll-variants', 'component-salvage', 'enchantment-transfer',
   ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
@@ -206,6 +206,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     shieldBlockChancePercent: 0, shieldBlockStunMs: 0,
     pyromancyRank: 0, cryomancyRank: 0, stormMagicRank: 0,
     cleansingRank: 0, arcanaRank: 0, scrollVariantTier: 0,
+    salvagingRank: 0, enchantingRank: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionTier, 3);

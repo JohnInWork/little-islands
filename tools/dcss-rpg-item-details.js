@@ -8,6 +8,7 @@ const RUSSIAN_NAMES = Object.freeze({
   'short-blade': 'Короткий клинок',
   'camp-kit': 'Походный набор',
   bandage: 'Бинты',
+  'arcane-essence': 'Аркановая эссенция',
   'cleansing-salt': 'Очищающая соль',
   'flame-scroll': 'Свиток пламени',
   'frost-scroll': 'Свиток стужи',
@@ -109,6 +110,7 @@ const RUSSIAN_NAMES = Object.freeze({
 const ENGLISH_NAMES = Object.freeze({
   'camp-kit': 'Camping kit',
   bandage: 'Bandages',
+  'arcane-essence': 'Arcane essence',
   'cleansing-salt': 'Cleansing salt',
   'flame-scroll': 'Scroll of flame',
   'frost-scroll': 'Scroll of frost',

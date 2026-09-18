@@ -136,6 +136,7 @@ const COPY = Object.freeze({
     targetEffect: (effect, duration, range) => `Состояние «${effect}»: ${duration} с · дальность ${range}`,
     key: 'Открывает обычный замок · расходуется',
     lockpick: 'Взлом замка · нужен навык · расходуется',
+    essence: 'Реагент зачарования · остаётся от разобранных вещей',
     trap: 'Установка рядом · нужен Ловушечник I',
     gold: 'При подборе превращается в золото',
     cooking: 'Можно приготовить у костра',
@@ -181,6 +182,7 @@ const COPY = Object.freeze({
     targetEffect: (effect, duration, range) => `Applies “${effect}”: ${duration}s · range ${range}`,
     key: 'Opens an ordinary lock · consumed',
     lockpick: 'Picks a lock · requires skill · consumed',
+    essence: 'Enchanting reagent · left behind by salvaged gear',
     trap: 'Place nearby · requires Trap setting I',
     gold: 'Turns into gold when collected',
     cooking: 'Can be cooked at a campfire',
@@ -441,7 +443,9 @@ function utilityFacts(item, language) {
         ? '⌑'
         : item.interactionResource === 'cooking'
           ? '♨'
-          : '⌁',
+          : item.interactionResource === 'essence'
+            ? '◈'
+            : '⌁',
       text,
       short: text,
     }));

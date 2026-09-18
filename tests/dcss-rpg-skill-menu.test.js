@@ -23,7 +23,7 @@ const firstSkill = (model) => model.groups[0].skills[0];
 test('production menu exposes implemented trap skills, with no empty categories', () => {
   const model = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   assert.equal(model.visible, true);
-  assert.equal(model.groups.length, 4, 'exploration, combat, magic and now survival');
+  assert.equal(model.groups.length, 5, 'exploration, combat, magic, survival and now crafting');
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
     'trap-sense',
     'darkvision',
@@ -51,6 +51,8 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'field-medicine',
     'camping',
     'endurance',
+    'salvaging',
+    'enchanting',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);

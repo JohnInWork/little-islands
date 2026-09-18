@@ -248,6 +248,24 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ cleansingRank: 3 }),
     ]),
   }),
+  salvaging: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ salvagingRank: 1 }),
+      Object.freeze({ salvagingRank: 2 }),
+      Object.freeze({ salvagingRank: 3 }),
+    ]),
+  }),
+  enchanting: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ enchantingRank: 1 }),
+      Object.freeze({ enchantingRank: 2 }),
+      Object.freeze({ enchantingRank: 3 }),
+    ]),
+  }),
   arcana: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -290,6 +308,8 @@ export const SKILL_SYSTEMS = Object.freeze([
   'chain-lightning',
   'cleansing-ritual',
   'scroll-variants',
+  'component-salvage',
+  'enchantment-transfer',
 ]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
@@ -356,6 +376,8 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   cryomancyRank: Object.freeze([0, 3]),
   stormMagicRank: Object.freeze([0, 3]),
   cleansingRank: Object.freeze([0, 3]),
+  salvagingRank: Object.freeze([0, 3]),
+  enchantingRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),
   scrollVariantTier: Object.freeze([0, 3]),
 });
