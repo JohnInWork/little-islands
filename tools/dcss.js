@@ -85,6 +85,7 @@ import {
   biomeThemeFor,
   sceneryOpacity,
   thicketProps,
+  WATER_BED,
   waterTiles,
   BLOOD_FLOOR_PATHS,
   chapterWeather,
@@ -4886,6 +4887,11 @@ function drawWaterlines() {
     });
   }
   context.restore();
+  // The far half of a ripple runs behind the figure standing in it, exactly as
+  // the surface does — a ring painted over somebody's waist is a ring lying on
+  // top of them, which is why this is the last thing the water pass does and
+  // why the whole pass happens before anything is drawn on top of the actors.
+  eraseWashAboveWaterline(waders);
 }
 
 /** Fixed offsets, so the motes read as one column of disturbed air. */
@@ -5200,7 +5206,7 @@ function drawMonster(monster) {
 }
 
 function floorTextureAt(x, y, cell, theme) {
-  if (cell === '~') return waterPaths[hash(x, y, 23) % waterPaths.length];
+  if (cell === '~') return WATER_BED[hash(x, y, 23) % WATER_BED.length];
   const isBlood =
     cell === '.' && theme.bloodModulo > 0 && hash(x, y, 17) % theme.bloodModulo === 0;
   return isBlood
@@ -5260,17 +5266,44 @@ function drawWorld() {
   const minY = Math.max(0, Math.floor((camera.y - viewportHeight / 2) / TILE) - 1);
   const maxY = Math.min(WORLD_HEIGHT - 1, Math.ceil((camera.y + viewportHeight / 2) / TILE) + 1);
 
+  // The shimmer is drawn a pixel wider than its cell so that neighbouring tiles
+  // leave no seam between them — which also means it spills half a tile past
+  // the last one. Inside a lake nobody can tell; at the shore it washed over
+  // the grass and over the tops of the walls standing south of the water, and
+  // those walls looked like glass. So the whole pass is held to the water: the
+  // cells themselves, edge to edge, and not a pixel of anything else.
+  const shore = [];
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
       if (world[y][x] !== '~' || !revealed.has(`${x},${y}`)) continue;
-      const wave = Math.floor(elapsed * 1.5 + hash(x, y)) % waterPaths.length;
-      drawSprite(waterPaths[wave], (x + 0.5) * TILE, (y + 0.5) * TILE, TILE + 1, {
-        alpha: 0.58,
-      });
+      shore.push({ x, y });
     }
   }
-  // Nobody standing in the water comes out of it painted blue to the ears.
-  eraseWashAboveWaterline(wadingActors());
+  if (shore.length === 0) return;
+  context.save();
+  context.beginPath();
+  for (const { x, y } of shore) {
+    const corner = worldToScreen(x * TILE, y * TILE);
+    context.rect(corner.x, corner.y, TILE, TILE);
+  }
+  context.clip();
+  // The world is lit by real lights and dims with distance; this sprite is not,
+  // so far-off water stayed bright daylight blue while the grass beside it went
+  // black — and a wall standing in that water read as a hole cut through it.
+  // The shimmer fades by the same fog the cell is about to be given.
+  const heroCellX = Math.floor(hero.x / TILE);
+  const heroCellY = Math.floor(hero.y / TILE);
+  for (const { x, y } of shore) {
+    const wave = Math.floor(elapsed * 1.5 + hash(x, y)) % waterPaths.length;
+    const fog = fogTileOpacity({
+      known: true,
+      distance: Math.hypot(x - heroCellX, y - heroCellY),
+    });
+    drawSprite(waterPaths[wave], (x + 0.5) * TILE, (y + 0.5) * TILE, TILE + 1, {
+      alpha: 0.58 * Math.max(0, 1 - fog),
+    });
+  }
+  context.restore();
 }
 
 const beltGroundColors = Object.freeze(['#737977', '#78513c', '#687761', '#927543']);
@@ -12914,6 +12947,10 @@ function render() {
   context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
   context.imageSmoothingEnabled = false;
   drawWorld();
+  // Before anything else lands on the overlay: the water pass ends by rubbing
+  // itself off the figures standing in it, and it must not rub off their
+  // health bars and damage numbers along with it.
+  drawWaterlines();
   drawBloodStains();
   drawGroundMist(false);
   drawWallDrips();
@@ -12932,7 +12969,6 @@ function render() {
     if (actor.kind === 'monster') drawMonster(actor.monster);
   }
   drawHeroEffects();
-  drawWaterlines();
   drawLightningArcs();
   drawHeroAttackTrail();
   drawBloodDrops();

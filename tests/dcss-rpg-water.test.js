@@ -248,7 +248,13 @@ test('the runtime wades, conducts, dampens fire and refuses books in water', asy
   assert.match(runtime, /projectile\.spellId === 'ember-bolt' && targetWading[\s\S]*WATER_FIRE_MULTIPLIER/);
   assert.match(runtime, /if \(heroWading\(\)\) \{\s+\/\/ Wet pages/);
   assert.match(runtime, /monster\.waterPath && actorInWater\(world, monster, TILE\) \? monster\.waterPath : monster\.spritePath/);
-  assert.match(runtime, /drawHeroEffects\(\);\s+drawWaterlines\(\);/);
+  // The water pass ends by rubbing itself off the figures standing in it — the
+  // surface and the far half of the ripple both run behind them — so it has to
+  // come before anything is drawn over the actors, or it would rub off their
+  // health bars and damage numbers too.
+  assert.match(runtime, /drawWorld\(\);[\s\S]{0,240}?drawWaterlines\(\);/);
+  assert.match(runtime, /drawWaterlines\(\);[\s\S]*drawPlayer\(\);/);
+  assert.match(runtime, /drawPixelRing\(position\.x, position\.y \+ 6[\s\S]{0,700}?eraseWashAboveWaterline\(waders\);/);
   assert.doesNotMatch(runtime, /cell === '~' \? '\.' : cell/, 'no flight-only water rewrite remains');
   for (const file of ['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png', 'mon/aquatic/electric_eel.png', 'mon/merfolk_impaler_water.png']) {
     assert.ok((await stat(new URL(`../public/assets/dcss-preview/${file}`, import.meta.url))).size > 0, file);

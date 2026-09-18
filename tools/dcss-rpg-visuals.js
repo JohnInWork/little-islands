@@ -449,6 +449,14 @@ export const WATER_TILES = Object.freeze({
   running: numberedPaths('dngn/water/shoals_shallow_water', [0, 2, 4, 6, 8, 10]),
 });
 
+/**
+ * Under the shimmer every body of water is the same dark bed. The bright, lively
+ * frames belong on the surface and not underneath it: laid down as the floor
+ * they lit the whole lake like a lamp, and next to that light the wall standing
+ * at its edge read as a hole cut through the water rather than as a wall.
+ */
+export const WATER_BED = WATER_TILES.still;
+
 export function waterTiles(themeId) {
   const theme = BIOME_THEMES.find((entry) => entry.id === themeId);
   return WATER_TILES[theme?.water ?? 'still'] ?? WATER_TILES.still;
