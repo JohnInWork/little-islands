@@ -15,6 +15,7 @@ import { FIND_ASSET_PATHS } from './dcss-rpg-finds.js';
 import { IDENTIFICATION_APPEARANCE_PATHS } from './dcss-rpg-identification.js';
 import { PASSIVE_CREATURE_PATHS } from './dcss-rpg-passive.js';
 import { MERCHANT_ACTOR_PATH, MERCHANT_ICON_PATH } from './dcss-rpg-merchant.js';
+import { CAMP_ASSET_PATHS } from './dcss-rpg-camp.js';
 
 /** Shallow water: the only liquid in the dungeon, animated between two frames. */
 export const WATER_PATHS = Object.freeze(['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png']);
@@ -43,6 +44,7 @@ export function requiredAssetPaths(extra = []) {
     ...FIND_ASSET_PATHS,
     ...EFFECT_PATHS,
     ...PASSIVE_CREATURE_PATHS,
+    ...CAMP_ASSET_PATHS,
     MERCHANT_ACTOR_PATH,
     MERCHANT_ICON_PATH,
     ...extra,

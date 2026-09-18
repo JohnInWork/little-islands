@@ -1269,6 +1269,18 @@ export const LOOT_CATALOG = Object.freeze([
     bookEffect: { type: 'learn-spell', spellId: 'invisibility' },
   },
   {
+    id: 'book-of-camp-call',
+    icon: 'item/book/light_gray.png',
+    slot: null,
+    kind: 'book',
+    rarity: 3,
+    weight: 1,
+    minDepth: 3,
+    stack: 1,
+    identification: { group: 'book', tier: 3 },
+    bookEffect: { type: 'learn-spell', spellId: 'camp-call' },
+  },
+  {
     id: 'dead-book',
     icon: 'item/book/book_of_the_dead.png',
     slot: 'hand2',

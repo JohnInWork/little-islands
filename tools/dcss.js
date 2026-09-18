@@ -181,6 +181,9 @@ import {
   stealthVisionRadius,
 } from './dcss-rpg-scouting.js';
 import {
+  CAMP_BEDROLL_PATH,
+  CAMP_CHEST_PATH,
+  CAMP_FIRE_FRAMES,
   CAMP_KIT_ITEM_ID,
   CAMP_STASH_CONTAINER_ID,
   campLayout,
@@ -189,6 +192,7 @@ import {
   canPitchCamp,
   createCampState,
   resolveCampRest,
+  summonedCampProfile,
 } from './dcss-rpg-camp.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
@@ -1547,24 +1551,24 @@ function currentCampProfile() {
 /** The camp's furniture: props the hero put there, not the dungeon. */
 const CAMP_PROP_VISUALS = Object.freeze({
   fire: Object.freeze({
-    path: 'dngn/altars/makhleb_flame1.png',
-    frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
+    path: CAMP_FIRE_FRAMES[0],
+    frames: CAMP_FIRE_FRAMES,
     size: 62,
     screenOffsetY: -10,
     light: Object.freeze({ color: '#d88447', radius: 2.35, beam: false }),
     interactionId: 'campfire',
   }),
   bedroll: Object.freeze({
-    path: 'item/armour/cloak2.png',
-    frames: Object.freeze(['item/armour/cloak2.png']),
+    path: CAMP_BEDROLL_PATH,
+    frames: Object.freeze([CAMP_BEDROLL_PATH]),
     size: 58,
     screenOffsetY: -2,
     light: null,
     interactionId: 'camp-rest',
   }),
   chest: Object.freeze({
-    path: 'licensed/cmski-chests/wooden/4.png',
-    frames: Object.freeze(['licensed/cmski-chests/wooden/4.png']),
+    path: CAMP_CHEST_PATH,
+    frames: Object.freeze([CAMP_CHEST_PATH]),
     size: 60,
     screenOffsetY: -6,
     light: null,
@@ -1601,7 +1605,15 @@ function campKitCount() {
 
 /** Spends one kit and puts a camp on the floor, or explains why it cannot. */
 function pitchCamp() {
-  const profile = currentCampProfile();
+  return placeCamp(currentCampProfile(), { needsKit: true });
+}
+
+/** The spell builds the same camp the skill would, and asks for no kit. */
+function summonCamp() {
+  return placeCamp(summonedCampProfile(currentSkillCapabilities()), { needsKit: false });
+}
+
+function placeCamp(profile, { needsKit = true } = {}) {
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const occupied = [
     ...monsters.filter((monster) => monster.dead === 0).map((monster) => monsterCellKey(monster, TILE)),
@@ -1623,12 +1635,18 @@ function pitchCamp() {
       .filter((monster) => monster.dead === 0)
       .map((monster) => ({ x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }))
       .filter((threat) => hasLineOfSight(world, threat, cell)),
+    needsKit,
   });
   if (!decision.ok) {
     addCombatGlyph(hero.x, hero.y, '\u2302', '#b9aaa0', -66);
     return campRefusalText(decision.reason, itemDetailLanguage);
   }
-  run.floor.camp = createCampState({ cell, places: decision.places, rank: profile.rank });
+  run.floor.camp = createCampState({
+    cell,
+    places: decision.places,
+    rank: profile.rank,
+    restPercent: profile.restPercent,
+  });
   applyCampProps();
   for (const place of run.floor.camp.places) {
     revealAround(revealed, world, { x: place.x, y: place.y }, 1);
@@ -1650,7 +1668,6 @@ function nearbyCampProp(interactionId) {
 
 function campRestDecision() {
   return resolveCampRest({
-    profile: currentCampProfile(),
     camp: run.floor.camp,
     hp: hero.hp,
     maxHp: currentHeroStats().maxHp,
@@ -8396,13 +8413,13 @@ function nearestSpellTarget(spell) {
   return spellTargetCandidates(spell)[0] ?? null;
 }
 
-function rejectSpellUse(slotIndex, reason) {
+function rejectSpellUse(slotIndex, reason, text = '') {
   const button = spellActionButtons[slotIndex];
   button?.classList.remove('rejected');
   requestAnimationFrame(() => button?.classList.add('rejected'));
   window.setTimeout(() => button?.classList.remove('rejected'), 240);
   const glyph = reason === 'full-health' ? '♥' : reason === 'no-target' ? '?' : '!';
-  addCombatGlyph(hero.x, hero.y, glyph, '#b9aaa0', -62);
+  addCombatGlyph(hero.x, hero.y, text === '' ? glyph : text, '#b9aaa0', -62);
 }
 
 const SPELL_CAST_SOUNDS = Object.freeze({
@@ -8454,6 +8471,20 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, toggled.active ? 58 : 34, 0);
     addCombatGlyph(hero.x, hero.y, toggled.active ? '◆' : '◇', usedSpell.color, -62);
+  } else if (usedSpell.kind === 'camp') {
+    const refusal = summonCamp();
+    if (refusal !== '') {
+      rejectSpellUse(slotIndex, 'camp-refused', refusal);
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.3);
+    hero.attackDuration = 0.3;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.34);
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    burst(hero.x, hero.y - 12, usedSpell.color, 24);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
   } else if (usedSpell.kind === 'heal') {
     hero.path = [];
     hero.attack = Math.max(hero.attack, 0.28);

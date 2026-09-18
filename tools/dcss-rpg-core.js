@@ -83,10 +83,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 38;
-export const SAVE_KEY = 'dng-codex:rpg:v38';
+export const SAVE_VERSION = 39;
+export const SAVE_KEY = 'dng-codex:rpg:v39';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v38',
   'dng-codex:rpg:v37',
   'dng-codex:rpg:v36',
   'dng-codex:rpg:v35',
@@ -1155,11 +1156,14 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
   migrated.floor = createEmptyFloorState(dungeon);
 }
 
+/** What a night was worth at each camp rank before v39 wrote it into the save. */
+const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
+
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1209,6 +1213,15 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
+    // v39 keeps the camp's comfort in the camp itself, so a summoned camp
+    // sleeps well for a hero with no camping skill. A v38 camp inherits the
+    // value its rank always had.
+    if (migrated.floor.camp && !Number.isInteger(migrated.floor.camp.restPercent)) {
+      migrated.floor.camp = {
+        ...migrated.floor.camp,
+        restPercent: LEGACY_CAMP_REST_PERCENT[migrated.floor.camp.rank] ?? 0,
+      };
+    }
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     return migrated;
   }

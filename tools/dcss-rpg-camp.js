@@ -14,10 +14,25 @@ export { CAMP_STASH_CONTAINER_ID };
 
 export const CAMP_KIT_ITEM_ID = 'camp-kit';
 export const CAMP_FEATURE_IDS = Object.freeze(['fire', 'bedroll', 'chest']);
+
+/** The camp's own sprites, listed here so the packager ships them. */
+export const CAMP_FIRE_FRAMES = Object.freeze(
+  Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`),
+);
+export const CAMP_BEDROLL_PATH = 'item/armour/cloak2.png';
+export const CAMP_CHEST_PATH = 'licensed/cmski-chests/wooden/4.png';
+export const CAMP_ASSET_PATHS = Object.freeze([
+  ...CAMP_FIRE_FRAMES,
+  CAMP_BEDROLL_PATH,
+  CAMP_CHEST_PATH,
+]);
 /** No camp within this many cells of anything alive that can see the spot. */
 export const CAMP_SAFE_DISTANCE = 6;
 /** Sleeping costs a real bite of the hunger bar, which is 3600 seconds wide. */
 export const CAMP_REST_HUNGER_COST = 420;
+/** The summoning spell brings a fire and a bedroll even to a hero who never learned to pitch one. */
+export const CAMP_SPELL_RANK = 2;
+export const CAMP_SPELL_REST_PERCENT = 30;
 
 const EMPTY_PROFILE = Object.freeze({
   rank: 0,
@@ -59,6 +74,21 @@ export function campProfile(capabilities = {}) {
   });
 }
 
+/**
+ * What the spell builds: never less than a fire and a bedroll, never less
+ * comfortable than 30 percent, and the chest only for a hero who earned it.
+ */
+export function summonedCampProfile(capabilities = {}) {
+  const learned = campProfile(capabilities);
+  const rank = Math.max(CAMP_SPELL_RANK, learned.rank);
+  return Object.freeze({
+    rank,
+    features: campFeaturesForRank(rank),
+    restPercent: Math.max(CAMP_SPELL_REST_PERCENT, learned.restPercent),
+    stashSlots: learned.stashSlots,
+  });
+}
+
 function isOpenCell(grid, x, y) {
   return grid?.[y]?.[x] === '.';
 }
@@ -95,9 +125,12 @@ export function canPitchCamp({
   cell,
   occupied = [],
   threats = [],
+  needsKit = true,
 } = {}) {
   if (!profile || profile.rank === 0) return Object.freeze({ ok: false, reason: 'no-skill' });
-  if (!Number.isInteger(kits) || kits < 1) return Object.freeze({ ok: false, reason: 'no-kit' });
+  if (needsKit && (!Number.isInteger(kits) || kits < 1)) {
+    return Object.freeze({ ok: false, reason: 'no-kit' });
+  }
   if (camp) return Object.freeze({ ok: false, reason: 'already-pitched' });
   if (!cell || !isOpenCell(grid, cell.x, cell.y)) return Object.freeze({ ok: false, reason: 'unsafe-ground' });
   const near = threats.some((threat) => (
@@ -110,11 +143,17 @@ export function canPitchCamp({
   return Object.freeze({ ok: true, reason: 'ready', places });
 }
 
-export function createCampState({ cell, places = [], rank = 1 } = {}) {
+/**
+ * The camp carries its own comfort, so a camp the spell summoned still sleeps
+ * well for a hero with no camping skill, and a learned camp is unaffected by
+ * what the hero studies afterwards.
+ */
+export function createCampState({ cell, places = [], rank = 1, restPercent = 0 } = {}) {
   return Object.freeze({
     x: cell.x,
     y: cell.y,
     rank: boundedInteger(rank, 1, 3),
+    restPercent: boundedInteger(restPercent, 0, 100),
     rested: false,
     places: Object.freeze(places.map((place) => Object.freeze({ ...place }))),
   });
@@ -124,7 +163,8 @@ export function validateCampState(camp) {
   if (camp === null || camp === undefined) return true;
   if (typeof camp !== 'object' || Array.isArray(camp)) return false;
   const keys = Object.keys(camp).sort();
-  if (keys.join(',') !== 'places,rank,rested,x,y') return false;
+  if (keys.join(',') !== 'places,rank,restPercent,rested,x,y') return false;
+  if (!Number.isInteger(camp.restPercent) || camp.restPercent < 0 || camp.restPercent > 100) return false;
   if (!Number.isInteger(camp.x) || camp.x < 0 || camp.x > 200) return false;
   if (!Number.isInteger(camp.y) || camp.y < 0 || camp.y > 200) return false;
   if (!Number.isInteger(camp.rank) || camp.rank < 1 || camp.rank > 3) return false;
@@ -142,9 +182,11 @@ export function validateCampState(camp) {
  * One sleep per camp: health back for hunger spent. A hero too hungry to
  * afford the sleep is told so instead of waking up starving.
  */
-export function resolveCampRest({ profile = EMPTY_PROFILE, camp, hp, maxHp, hunger } = {}) {
+export function resolveCampRest({ camp, hp, maxHp, hunger } = {}) {
   if (!camp) return Object.freeze({ ok: false, reason: 'no-camp' });
-  if (!profile || profile.restPercent <= 0) return Object.freeze({ ok: false, reason: 'no-bedroll' });
+  if (!Number.isInteger(camp.restPercent) || camp.restPercent <= 0) {
+    return Object.freeze({ ok: false, reason: 'no-bedroll' });
+  }
   if (camp.rested) return Object.freeze({ ok: false, reason: 'already-rested' });
   if (!Number.isFinite(hp) || !Number.isFinite(maxHp) || maxHp < 1) {
     return Object.freeze({ ok: false, reason: 'invalid' });
@@ -153,7 +195,7 @@ export function resolveCampRest({ profile = EMPTY_PROFILE, camp, hp, maxHp, hung
     return Object.freeze({ ok: false, reason: 'too-hungry' });
   }
   if (hp >= maxHp) return Object.freeze({ ok: false, reason: 'nothing-to-heal' });
-  const healed = Math.min(maxHp - hp, Math.max(1, Math.round((maxHp * profile.restPercent) / 100)));
+  const healed = Math.min(maxHp - hp, Math.max(1, Math.round((maxHp * camp.restPercent) / 100)));
   return Object.freeze({
     ok: true,
     reason: 'rested',

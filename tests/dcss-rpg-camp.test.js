@@ -3,9 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  CAMP_ASSET_PATHS,
   CAMP_KIT_ITEM_ID,
   CAMP_REST_HUNGER_COST,
   CAMP_SAFE_DISTANCE,
+  CAMP_SPELL_RANK,
+  CAMP_SPELL_REST_PERCENT,
   CAMP_STASH_CONTAINER_ID,
   campFeaturesForRank,
   campLayout,
@@ -15,9 +18,12 @@ import {
   createCampStash,
   createCampState,
   resolveCampRest,
+  summonedCampProfile,
   validateCampRunState,
   validateCampState,
 } from '../tools/dcss-rpg-camp.js';
+import { spellById } from '../tools/dcss-rpg-spells.js';
+import { requiredAssetPaths } from '../tools/dcss-rpg-required-assets.js';
 import { CHEST_CONTAINER_CAPACITY, storeChestItem, takeChestItem } from '../tools/dcss-rpg-chest-containers.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import {
@@ -96,25 +102,36 @@ test('sleeping trades hunger for health, once per camp', () => {
   const grid = openGrid();
   const cell = { x: 5, y: 5 };
   const second = campProfile(capabilitiesAt(2));
-  const camp = createCampState({ cell, places: canPitchCamp({ profile: second, kits: 1, grid, cell }).places, rank: 2 });
+  const camp = createCampState({
+    cell,
+    places: canPitchCamp({ profile: second, kits: 1, grid, cell }).places,
+    rank: 2,
+    restPercent: second.restPercent,
+  });
   assert.equal(validateCampState(camp), true);
   assert.equal(validateCampState(null), true, 'a floor without a camp is valid');
   assert.equal(validateCampState({ x: 1, y: 1 }), false);
   assert.equal(validateCampState({ ...camp, places: [] }), false, 'one place per rank');
+  assert.equal(validateCampState({ ...camp, restPercent: 140 }), false, 'comfort is a percentage');
 
-  const rested = resolveCampRest({ profile: second, camp, hp: 20, maxHp: 60, hunger: 3000 });
+  const rested = resolveCampRest({ camp, hp: 20, maxHp: 60, hunger: 3000 });
   assert.equal(rested.ok, true);
   assert.equal(rested.healed, 15);
   assert.equal(rested.hp, 35);
   assert.equal(rested.hunger, 3000 - CAMP_REST_HUNGER_COST);
   assert.equal(rested.camp.rested, true);
-  assert.equal(resolveCampRest({ profile: second, camp: rested.camp, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'already-rested');
-  assert.equal(resolveCampRest({ profile: second, camp, hp: 20, maxHp: 60, hunger: 100 }).reason, 'too-hungry');
-  assert.equal(resolveCampRest({ profile: second, camp, hp: 60, maxHp: 60, hunger: 3000 }).reason, 'nothing-to-heal');
-  assert.equal(resolveCampRest({ profile: campProfile(capabilitiesAt(1)), camp, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'no-bedroll');
-  assert.equal(resolveCampRest({ profile: second, camp: null, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'no-camp');
+  assert.equal(resolveCampRest({ camp: rested.camp, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'already-rested');
+  assert.equal(resolveCampRest({ camp, hp: 20, maxHp: 60, hunger: 100 }).reason, 'too-hungry');
+  assert.equal(resolveCampRest({ camp, hp: 60, maxHp: 60, hunger: 3000 }).reason, 'nothing-to-heal');
+  assert.equal(
+    resolveCampRest({ camp: { ...camp, restPercent: 0 }, hp: 20, maxHp: 60, hunger: 3000 }).reason,
+    'no-bedroll',
+    'a camp with only a fire has nowhere to sleep',
+  );
+  assert.equal(resolveCampRest({ camp: null, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'no-camp');
   const third = campProfile(capabilitiesAt(3));
-  assert.equal(resolveCampRest({ profile: third, camp, hp: 20, maxHp: 60, hunger: 3000 }).healed, 24, 'a better camp sleeps deeper');
+  const deeper = createCampState({ cell, places: camp.places, rank: 2, restPercent: third.restPercent });
+  assert.equal(resolveCampRest({ camp: deeper, hp: 20, maxHp: 60, hunger: 3000 }).healed, 24, 'a better camp sleeps deeper');
 });
 
 test('the camping kit is a real item the dungeon and the merchants hand out', () => {
@@ -161,7 +178,7 @@ test('the camp chest is an ordinary container that belongs to the run, not the f
   assert.deepEqual(taken.state.inventory, ['potion-1']);
 });
 
-test('save v38 carries the stash down the stairs and leaves the camp behind', () => {
+test('save v39 carries the stash down the stairs and leaves the camp behind', () => {
   const run = createRun(3808);
   assert.equal(run.floor.camp, null);
   assert.deepEqual(run.camp.stash.items, []);
@@ -172,6 +189,7 @@ test('save v38 carries the stash down the stairs and leaves the camp behind', ()
     cell: { x: run.hero.x, y: run.hero.y },
     places: [{ feature: 'fire', x: run.hero.x, y: run.hero.y - 1 }],
     rank: 1,
+    restPercent: 0,
   });
   assert.equal(validateRun(run), true);
   const next = advanceRunFloor(run);
@@ -181,17 +199,39 @@ test('save v38 carries the stash down the stairs and leaves the camp behind', ()
   assert.notEqual(next.camp.stash.items, run.camp.stash.items, 'and it is a copy, not a shared reference');
   assert.equal(validateRun(next), true);
   assert.equal(validateRun({ ...run, camp: undefined }), false);
-  assert.equal(validateRun({ ...run, floor: { ...run.floor, camp: { x: -1, y: 0, rank: 1, rested: false, places: [] } } }), false);
+  assert.equal(validateRun({
+    ...run,
+    floor: { ...run.floor, camp: { x: -1, y: 0, rank: 1, restPercent: 0, rested: false, places: [] } },
+  }), false);
 
   const legacy = structuredClone(createRun(3809));
   legacy.version = 37;
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 38);
+  assert.equal(migrated.version, 39);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
+
+  // A v38 camp knew only its rank; v39 gives it the comfort that rank always had.
+  const camped = structuredClone(createRun(3810));
+  camped.version = 38;
+  camped.floor.camp = {
+    x: camped.hero.x,
+    y: camped.hero.y,
+    rank: 3,
+    rested: false,
+    places: [
+      { feature: 'fire', x: camped.hero.x, y: camped.hero.y - 1 },
+      { feature: 'bedroll', x: camped.hero.x + 1, y: camped.hero.y },
+      { feature: 'chest', x: camped.hero.x, y: camped.hero.y + 1 },
+    ],
+  };
+  const movedIn = migrateLegacyRun(camped);
+  assert.equal(movedIn.version, 39);
+  assert.equal(movedIn.floor.camp.restPercent, 40);
+  assert.equal(validateRun(movedIn), true);
 });
 
 test('the runtime pitches from the bag and puts the camp on the floor', async () => {
@@ -260,4 +300,66 @@ test('the camp chest names itself apart from dungeon chests', async () => {
     runtime,
     /const plainTitle = container\.findId === CAMP_STASH_CONTAINER_ID \? copy\.campTitle : copy\.title;/,
   );
+});
+
+test('the summoning spell brings its own camp, kit or no kit', () => {
+  const noSkill = summonedCampProfile({});
+  assert.equal(noSkill.rank, CAMP_SPELL_RANK, 'a mage who never camped still gets a bedroll');
+  assert.deepEqual([...noSkill.features], ['fire', 'bedroll']);
+  assert.equal(noSkill.restPercent, CAMP_SPELL_REST_PERCENT);
+  assert.equal(noSkill.stashSlots, 0, 'the chest stays the skill’s reward');
+
+  const master = summonedCampProfile(capabilitiesAt(3));
+  assert.equal(master.rank, 3, 'a camper summons the camp they know how to build');
+  assert.equal(master.restPercent, 40);
+  assert.equal(master.stashSlots, 8);
+
+  const grid = openGrid();
+  const cell = { x: 5, y: 5 };
+  assert.equal(canPitchCamp({ profile: noSkill, kits: 0, grid, cell }).reason, 'no-kit');
+  const summoned = canPitchCamp({ profile: noSkill, kits: 0, grid, cell, needsKit: false });
+  assert.equal(summoned.ok, true, 'the spell replaces the kit, not the safety rules');
+  assert.equal(summoned.places.length, 2);
+  assert.equal(
+    canPitchCamp({ profile: noSkill, kits: 0, grid, cell, needsKit: false, threats: [{ x: 6, y: 6 }] }).reason,
+    'enemies-near',
+    'a spell cannot hide the camp from something that watches it',
+  );
+});
+
+test('Call of the Camp is a real spell with a book to learn it from', () => {
+  const spell = spellById('camp-call');
+  assert.ok(spell, 'the spell is in the catalog');
+  assert.equal(spell.kind, 'camp');
+  assert.equal(spell.schoolId, 'arcana');
+  assert.equal(spell.name.ru, 'Зов лагеря');
+  assert.equal(spell.name.en, 'Call of the Camp');
+  assert.ok(spell.minimumIntelligence >= 8, 'it is meant to be a late spell');
+  assert.ok(spell.cooldown >= 60, 'and never a routine one');
+
+  const book = lootById('book-of-camp-call');
+  assert.ok(book, 'the book is in the catalog');
+  assert.deepEqual(book.bookEffect, { type: 'learn-spell', spellId: 'camp-call' });
+  assert.equal(itemDetails(book, 'ru').name, 'Книга зова лагеря');
+  assert.equal(itemDetails(book, 'en').name, 'Book of the Camp Call');
+});
+
+test('the packager ships the camp’s own sprites', () => {
+  const paths = requiredAssetPaths();
+  for (const path of CAMP_ASSET_PATHS) {
+    assert.ok(paths.includes(path), `${path} must reach the itch.io build`);
+  }
+  assert.ok(paths.includes(spellById('camp-call').icon), 'the spell icon too');
+});
+
+test('the runtime summons a camp from the spell bar', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /function summonCamp\(\) \{\s+return placeCamp\(summonedCampProfile\(currentSkillCapabilities\(\)\), \{ needsKit: false \}\);/);
+  assert.match(runtime, /function pitchCamp\(\) \{\s+return placeCamp\(currentCampProfile\(\), \{ needsKit: true \}\);/);
+  assert.match(
+    runtime,
+    /usedSpell\.kind === 'camp'[\s\S]*const refusal = summonCamp\(\);[\s\S]*rejectSpellUse\(slotIndex, 'camp-refused', refusal\)/,
+    'a refused summon says why and keeps the cooldown',
+  );
+  assert.match(runtime, /restPercent: profile\.restPercent,/, 'the camp stores the comfort it was built with');
 });
