@@ -693,6 +693,7 @@ const hungerMeter = document.querySelector('#hunger-meter');
 const hungerFill = document.querySelector('#hunger-fill');
 const combatIndicators = [...document.querySelectorAll('.ailments i')];
 const heroEffectsHud = document.querySelector('#hero-effects');
+const hudGold = document.querySelector('#hud-gold');
 const depthBadge = document.querySelector('.depth');
 const floorMap = document.querySelector('#floor-map');
 const floorMapCanvas = document.querySelector('#floor-map-canvas');
@@ -6832,6 +6833,10 @@ function updateHud() {
   healthSegments.forEach((segment, index) => segment.classList.toggle('empty', index >= filled));
   combatIndicators[0].textContent = combatGlyph[combat.style] ?? '·';
   combatIndicators[1].textContent = combat.guard > 0 ? '▣' : String(combat.range);
+  // What you are carrying belongs on the screen you are carrying it on. It was
+  // only ever visible inside the bag, which is the one place you do not need to
+  // be told: the decision to spend or to go one floor deeper is taken out here.
+  hudGold.textContent = String(gold);
   depthBadge.querySelector('span').textContent = romanDepth(dungeon.depth);
   refreshFloorMapCopy();
   bagButton.querySelector('b').textContent = String(

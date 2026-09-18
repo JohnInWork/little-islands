@@ -861,9 +861,11 @@ body {
 }
 
 .skill-points-badge:not([hidden]) {
+  /* Inside the frame: a badge hanging off the edge reads as a rendering fault,
+     and on a 360px screen it hung over the world. */
   position: absolute;
-  right: -8px;
-  bottom: -12px;
+  right: 4px;
+  top: 4px;
   display: grid;
   place-items: center;
   min-width: 28px;
@@ -1015,6 +1017,32 @@ body {
   font-style: normal;
 }
 
+/* The purse rides in the status bar, where the decision to spend is taken. */
+.purse {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 10px;
+  margin-left: 2px;
+  border-left: 2px solid #2d3739;
+}
+
+.purse-coin {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+
+.purse b {
+  /* Four digits without the row jumping, and clear of the skill badge above. */
+  min-width: 44px;
+  padding-top: 10px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
 .hero-effects {
   position: absolute;
   top: calc(100% + 8px);
@@ -1154,13 +1182,28 @@ body {
   box-shadow: 2px 2px 0 var(--frame-black);
 }
 
+/*
+ * The thumb dock. Everything reachable without looking sits on one of three
+ * columns — bag and actions on the left, the stick in the middle, spells on the
+ * right — and every button on a column is the same size, on the same edge, a
+ * fixed step apart. Before this they were 66, 72 and 102 wide on three
+ * different left edges, which is what made the screen feel like a pile.
+ */
+:root {
+  --dock-button: 66px;
+  --dock-gap: 8px;
+  --dock-edge: max(12px, env(safe-area-inset-left));
+  --dock-floor: max(12px, env(safe-area-inset-bottom));
+  --dock-step: calc(var(--dock-button) + var(--dock-gap));
+}
+
 .bag-button {
   position: fixed;
   z-index: 6;
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(12px, env(safe-area-inset-bottom));
-  width: 66px;
-  height: 66px;
+  left: var(--dock-edge);
+  bottom: var(--dock-floor);
+  width: var(--dock-button);
+  height: var(--dock-button);
   padding: 0;
   display: grid;
   place-items: center;
@@ -1247,10 +1290,10 @@ body {
   --context-accent: var(--gold);
   position: fixed;
   z-index: 7;
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
-  width: 72px;
-  height: 72px;
+  left: var(--dock-edge);
+  bottom: calc(var(--dock-floor) + var(--dock-step));
+  width: var(--dock-button);
+  height: var(--dock-button);
   padding: 4px;
   place-items: center;
   color: #efe5c8;
@@ -1312,11 +1355,11 @@ body {
   left: 50%;
   /* Below the HUD and the guardian bar, never inside the thumb dock. */
   top: max(158px, calc(env(safe-area-inset-top) + 150px));
-  width: min(380px, calc(100vw - 24px));
-  min-height: 84px;
-  padding: 8px 10px;
+  width: min(340px, calc(100vw - 24px));
+  min-height: 56px;
+  padding: 6px 10px;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   color: #d2cbb7;
@@ -1561,8 +1604,10 @@ body {
 }
 
 .loot-toast img {
-  width: 56px;
-  height: 56px;
+  /* Matches the toast's own icon column: a 56px picture in a 36px slot is what
+     made a one-line message as tall as three. */
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   image-rendering: pixelated;
   filter: drop-shadow(2px 2px #000) var(--material-filter, );
@@ -1640,11 +1685,11 @@ body {
   position: fixed;
   z-index: 8;
   left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  width: 152px;
-  height: 152px;
+  bottom: var(--dock-floor);
+  width: 144px;
+  height: 144px;
   display: grid;
-  grid-template: repeat(3, 48px) / repeat(3, 48px);
+  grid-template: repeat(3, 46px) / repeat(3, 46px);
   grid-template-areas:
     '. up .'
     'left stick right'
@@ -1674,10 +1719,10 @@ body {
   position: fixed;
   z-index: 9;
   right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  bottom: var(--dock-floor);
   display: grid;
-  grid-template-rows: repeat(3, 56px);
-  gap: 6px;
+  grid-template-rows: repeat(3, var(--dock-button));
+  gap: var(--dock-gap);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -3678,14 +3723,15 @@ body {
 .sanctuary-action {
   position: fixed;
   z-index: 7;
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(170px, calc(env(safe-area-inset-bottom) + 170px));
+  left: var(--dock-edge);
+  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
   display: grid;
-  grid-template-columns: 34px auto;
+  grid-template-columns: 24px auto;
   place-items: center;
-  min-width: 102px;
-  min-height: 74px;
-  padding: 8px 12px;
+  min-width: var(--dock-button);
+  width: var(--dock-button);
+  height: var(--dock-button);
+  padding: 4px 4px;
   color: #d1c16e;
   cursor: pointer;
   touch-action: manipulation;
@@ -6628,32 +6674,37 @@ body {
  * Thumb dock — final responsive authority for the game screen's bottom zone.
  * Tracks (portrait and landscape alike):
  *   left   : sanctuary heal / interact / bag, stacked from the bottom
- *   centre : joystick, 152px, always centred
+ *   centre : joystick, always centred
  *   right  : three prepared spells, one column
- * Sizes are chosen so a 320px-wide viewport keeps ≥16px between tracks.
+ *
+ * Every button on a track is one size (`--dock-button`) on one edge, a fixed
+ * step apart (`--dock-step`). It used to be 66, 72 and 102 wide on three
+ * different left edges at 12, 88 and 170 from the floor — near enough to look
+ * deliberate and far enough off to read as a pile. One rhythm is the whole fix.
+ * Sizes keep ≥16px between tracks on a 320px viewport.
  * Toasts sit under the HUD at the top instead of above the joystick.
  */
 @media (max-width: 900px) {
   .bag-button {
-    left: max(12px, env(safe-area-inset-left));
+    left: var(--dock-edge);
     right: auto;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    bottom: var(--dock-floor);
   }
 
   .interact-action {
-    left: max(12px, env(safe-area-inset-left));
+    left: var(--dock-edge);
     right: auto;
-    bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
+    bottom: calc(var(--dock-floor) + var(--dock-step));
   }
 
   .sanctuary-action {
-    left: max(12px, env(safe-area-inset-left));
-    bottom: max(170px, calc(env(safe-area-inset-bottom) + 170px));
+    left: var(--dock-edge);
+    bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
   }
 
   .spell-bar {
     right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
+    bottom: var(--dock-floor);
     transform: none;
   }
 
@@ -6664,21 +6715,14 @@ body {
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
-  .bag-button {
-    bottom: max(10px, env(safe-area-inset-bottom));
-  }
-
-  .interact-action {
-    bottom: max(86px, calc(env(safe-area-inset-bottom) + 86px));
+  :root {
+    --dock-button: 60px;
+    --dock-gap: 6px;
+    --dock-floor: max(10px, env(safe-area-inset-bottom));
   }
 
   .sanctuary-action {
-    bottom: max(168px, calc(env(safe-area-inset-bottom) + 168px));
-    min-height: 66px;
-  }
-
-  .spell-bar {
-    bottom: max(10px, env(safe-area-inset-bottom));
+    min-height: var(--dock-button);
   }
 
   .loot-toast {
@@ -6698,20 +6742,18 @@ body {
   }
 }
 
+/* Narrow phones shrink the track rather than let two tracks touch. */
 @media (max-width: 344px) {
+  :root {
+    --dock-button: 60px;
+    --dock-gap: 6px;
+    --dock-edge: max(8px, env(safe-area-inset-left));
+  }
+
   .bag-button,
   .interact-action {
-    width: 60px;
-    height: 60px;
-  }
-
-  .bag-button {
-    left: max(8px, env(safe-area-inset-left));
-  }
-
-  .interact-action {
-    left: max(8px, env(safe-area-inset-left));
-    bottom: max(82px, calc(env(safe-area-inset-bottom) + 82px));
+    width: var(--dock-button);
+    height: var(--dock-button);
   }
 
   .interact-action > img {
@@ -6720,9 +6762,9 @@ body {
   }
 
   .sanctuary-action {
-    left: max(8px, env(safe-area-inset-left));
-    bottom: max(152px, calc(env(safe-area-inset-bottom) + 152px));
-    min-width: 88px;
+    min-width: var(--dock-button);
+    width: var(--dock-button);
+    height: var(--dock-button);
   }
 }
 

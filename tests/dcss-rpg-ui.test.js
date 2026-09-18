@@ -98,20 +98,24 @@ test('the thumb dock keeps spells, movement and object actions in three separate
   const css = await readFile(cssUrl, 'utf8');
   const dock = css.slice(css.indexOf('Thumb dock — final responsive authority'));
   assert.ok(dock.length > 0, 'the dock block must close the stylesheet');
-  // Left track: bag at the bottom, interact above it, sanctuary heal above both.
-  assert.match(dock, /\.bag-button\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(12px/s);
-  assert.match(dock, /\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(88px/s);
-  assert.match(dock, /\.sanctuary-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(170px/s);
+  // Left track: bag at the bottom, interact above it, sanctuary heal above both
+  // — one size, one edge, one step apart. The numbers live in tokens now, so
+  // the promise the test keeps is the rhythm and not three literal offsets.
+  assert.match(css, /--dock-button:\s*66px/);
+  assert.match(css, /--dock-step:\s*calc\(var\(--dock-button\) \+ var\(--dock-gap\)\)/);
+  assert.match(dock, /\.bag-button\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*var\(--dock-floor\)/s);
+  assert.match(dock, /\.interact-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*calc\(var\(--dock-floor\) \+ var\(--dock-step\)\)/s);
+  assert.match(dock, /\.sanctuary-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*calc\(var\(--dock-floor\) \+ var\(--dock-step\) \* 2\)/s);
   // Right track: one spell column; centre track stays the centred joystick.
-  assert.match(dock, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*max\(12px[^}]*transform:\s*none/s);
+  assert.match(dock, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*var\(--dock-floor\)[^}]*transform:\s*none/s);
   assert.doesNotMatch(css, /\.spell-bar\s*{[^}]*right:\s*50%/s);
   assert.doesNotMatch(css, /\.spell-bar\s*{[^}]*grid-template-columns:\s*repeat\(3/s);
   // Feedback leaves the thumb zone: toasts sit under the HUD at the top.
   assert.match(css, /\.loot-toast\s*{[^}]*top:\s*max\(158px/s);
   assert.doesNotMatch(css, /\.loot-toast\s*{[^}]*bottom:\s*max\(1\dpx/s);
   // Narrow phones shrink the side buttons instead of letting tracks touch.
-  assert.match(dock, /@media \(max-width: 344px\)[\s\S]*\.bag-button,\s*\.interact-action\s*{[^}]*width:\s*60px/s);
-  assert.match(dock, /@media \(orientation: landscape\) and \(max-height: 520px\)[\s\S]*\.spell-bar\s*{[^}]*bottom:\s*max\(10px/s);
+  assert.match(dock, /@media \(max-width: 344px\)[\s\S]*--dock-button:\s*60px/s);
+  assert.match(dock, /@media \(orientation: landscape\) and \(max-height: 520px\)[\s\S]*--dock-floor:\s*max\(10px/s);
 });
 
 test('the dungeon background uses a real WebGL layer instead of painted wall extrusion', async () => {
@@ -174,7 +178,9 @@ test('loot and inventory expose translated item identity before opening full det
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.doesNotMatch(html, /id=["']item-detail-language["']/);
-  assert.match(css, /\.loot-toast\s*{[^}]*width:\s*min\(380px, calc\(100vw - 24px\)\)/s);
+  // A toast is a line of news, not a third of the screen.
+  assert.match(css, /\.loot-toast\s*{[^}]*width:\s*min\(340px, calc\(100vw - 24px\)\)/s);
+  assert.match(css, /\.loot-toast\s*{[^}]*min-height:\s*56px/s);
   assert.match(css, /\.pack-item-copy\s*{/);
   assert.match(css, /\.pack-item\.inventory-row\s*{[^}]*grid-template-columns:\s*56px minmax\(0, 1fr\) auto/s);
   assert.match(runtime, /itemPresentation\(displayItem, itemDetailLanguage/);
@@ -264,7 +270,7 @@ test('a thumb-reachable contextual button appears for any adjacent registered ob
   ]);
 
   assert.match(html, /id="interact-action"[\s\S]*id="interact-action-icon"/);
-  assert.match(css, /\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(88px[^}]*width:\s*72px[^}]*height:\s*72px/s);
+  assert.match(css, /\.interact-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*width:\s*var\(--dock-button\)[^}]*height:\s*var\(--dock-button\)/s);
   assert.match(css, /\[data-screen='game'\] \.interact-action:not\(\[hidden\]\)/);
   assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(86px/s);
   assert.match(runtime, /function updateInteractionUi\(\)/);
@@ -284,7 +290,7 @@ test('three manual spell buttons and every modal close action live in the thumb 
   assert.equal((html.match(/data-spell-slot="[0-2]"/g) ?? []).length, 3);
   assert.match(html, /id="spell-bar"[\s\S]*data-spell-slot="0"[\s\S]*data-spell-slot="1"[\s\S]*data-spell-slot="2"/);
   assert.match(html, /id="spell-bar"[^>]*data-empty="true"/);
-  assert.match(css, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*max\(12px[^}]*grid-template-rows:\s*repeat\(3, 56px\)/s);
+  assert.match(css, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*var\(--dock-floor\)[^}]*grid-template-rows:\s*repeat\(3, var\(--dock-button\)\)/s);
   assert.match(css, /\.spell-bar\[data-empty='true'\]\s*{[^}]*display:\s*none/s);
   assert.match(runtime, /spellBar\.dataset\.empty = String\(model\.slots\.every\(\(slot\) => slot\.empty\)\)/);
   assert.match(runtime, /button\.addEventListener\('click', \(\) => castPreparedSpell/);
