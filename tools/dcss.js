@@ -1,6 +1,7 @@
 import { canCloseDoor } from './dcss-rpg-doors.js';
 import {
   ARTIFACT_PATH,
+  ASCENT_PATH,
   CONTENT_PATHS,
   EXIT_PATH,
   FINAL_GATE_PATH,
@@ -15,6 +16,7 @@ import {
   LEGACY_SAVE_KEYS,
   SAVE_KEY,
   advanceRunFloor,
+  retreatRunFloor,
   travelRunToDepth,
   createRun,
   findGridPath,
@@ -651,6 +653,7 @@ const waterPaths = WATER_PATHS;
 
 const sanctuaryVisual = runtimeVisual('system', 'sanctuary', 'world', SANCTUARY_PATH, 1, -5);
 const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
+const ascentVisual = runtimeVisual('system', 'ascent', 'world', ASCENT_PATH, 1, 0);
 const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GATE_PATH, 1, 0);
 const artifactVisual = runtimeVisual('system', 'artifact', 'world', ARTIFACT_PATH, 1, -8);
 const armedPlayerTrapVisual = runtimeVisual('trap', 'player-armed', 'world', PLAYER_TRAP_PATH, 1, 5);
@@ -740,6 +743,8 @@ let eventDefinitions = createEventDefinitions(dungeon);
 let findDefinitions = createFindDefinitions(dungeon);
 let trapDefinitions = trapsFromDungeon(dungeon);
 let detectedTrapIds = new Set(run.floor.detectedTrapIds);
+// Stairs under the hero on arrival must not fire until they step off them.
+let stairsArmed = false;
 let hazardInputState = createHazardInputState();
 let permittedHazardCell = null;
 let inputGesture = 0;
@@ -4270,6 +4275,16 @@ function drawEvents() {
       {
         offsetY: visual.offsetY + pulse,
       },
+    );
+  }
+  // The stair the hero came down by; below the first floor it leads back up.
+  if (dungeon.depth > 1 && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)) {
+    drawSprite(
+      ascentVisual.path,
+      (dungeon.spawn.x + 0.5) * TILE,
+      (dungeon.spawn.y + 0.5) * TILE,
+      64 * ascentVisual.scale,
+      { offsetY: ascentVisual.offsetY },
     );
   }
 }
@@ -9367,7 +9382,18 @@ function resolveWorldInteractions() {
     if (hero.dead) return;
   }
 
-  if (hero.dead || heroCell.x !== dungeon.exit.x || heroCell.y !== dungeon.exit.y) return;
+  const onStair = (cell) => heroCell.x === cell.x && heroCell.y === cell.y;
+  if (hero.dead) return;
+  if (!onStair(dungeon.exit) && !onStair(dungeon.spawn)) {
+    stairsArmed = true;
+    return;
+  }
+  if (!stairsArmed) return;
+  if (onStair(dungeon.spawn) && dungeon.depth > 1 && runStatus === 'playing') {
+    climbFloor();
+    return;
+  }
+  if (!onStair(dungeon.exit)) return;
   if (!canLeaveDungeonFloor({
     depth: dungeon.depth,
     status: runStatus,
@@ -9419,74 +9445,18 @@ function healAtSanctuary() {
   persistRun();
 }
 
+/**
+ * Loads the floor the run is standing on. The run has already decided what
+ * that floor is — freshly built or remembered from an earlier visit — so this
+ * hydrates the same way loading a save does, and never invents a new floor.
+ */
 function replaceFloor(nextDepth, arrival = null) {
-  dungeon = generateDungeon({
-    seed: run.seed,
-    depth: nextDepth,
-    scalingVersion: run.scalingVersion,
-    difficulty: run.difficulty,
-    lootAbundance: run.lootAbundance,
-  });
+  run.depth = nextDepth;
+  dungeon = hydrateDungeon(run);
   world = dungeon.grid;
   startAmbient(biomeThemeForDepth(dungeon.depth).palette);
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
-  const generatedChestIds = dungeon.finds
-    .filter(({ id }) => id === 'sealed-cache')
-    .map(({ instanceId }) => instanceId)
-    .sort();
-  const persistedChestIds = Array.isArray(run.floor?.chests)
-    ? run.floor.chests.map(({ findId }) => findId).sort()
-    : [];
-  const keepPersistedChests = run.depth === nextDepth
-    && generatedChestIds.length === persistedChestIds.length
-    && generatedChestIds.every((id, index) => id === persistedChestIds[index]);
-  const nextChests = keepPersistedChests
-    ? run.floor.chests.map((container) => ({
-        ...container,
-        items: container.items.map((item) => ({ ...item })),
-      }))
-    : [...createChestContainerStates({
-        seed: dungeon.seed,
-        depth: dungeon.depth,
-        finds: dungeon.finds,
-        lootAbundance: run.lootAbundance,
-      })];
-  const generatedMerchantIds = dungeon.merchants.map(({ instanceId }) => instanceId).sort();
-  const persistedMerchantIds = Array.isArray(run.floor?.merchants)
-    ? run.floor.merchants.map(({ merchantId }) => merchantId).sort()
-    : [];
-  const keepPersistedMerchants = run.depth === nextDepth
-    && generatedMerchantIds.length === persistedMerchantIds.length
-    && generatedMerchantIds.every((id, index) => id === persistedMerchantIds[index]);
-  const nextMerchants = keepPersistedMerchants
-    ? run.floor.merchants.map((merchantState) => ({
-        merchantId: merchantState.merchantId,
-        gold: merchantState.gold,
-        purchasedEntryIds: [...merchantState.purchasedEntryIds],
-        buyback: merchantState.buyback.map(({ record, price }) => ({
-          price,
-          record: { ...record, ...(record.affixIds ? { affixIds: [...record.affixIds] } : {}) },
-        })),
-      }))
-    : [...createMerchantStates({ merchants: dungeon.merchants, depth: dungeon.depth })];
-  run.depth = nextDepth;
-  run.floor = {
-    revealed: [],
-    defeated: [],
-    collected: [],
-    resolved: [],
-    resolvedFindIds: [],
-    opened: [],
-    triggered: [],
-    monsters: [],
-    passives: [],
-    detectedTrapIds: [],
-    disarmedTrapIds: [],
-    placedTraps: [],
-    merchants: nextMerchants,
-    chests: nextChests,
-  };
   monsters = createMonsters(dungeon);
   passiveCreatures = createPassiveCreatures(dungeon);
   lootDefinitions = createLootDefinitions(dungeon);
@@ -9494,8 +9464,9 @@ function replaceFloor(nextDepth, arrival = null) {
   findDefinitions = createFindDefinitions(dungeon);
   visibleSecretIds.clear();
   trapDefinitions = trapsFromDungeon(dungeon);
-  placedTraps = [];
-  detectedTrapIds = new Set();
+  // Traps the hero already found and laid are part of the floor's memory.
+  placedTraps = run.floor.placedTraps.map((trap) => ({ ...trap }));
+  detectedTrapIds = new Set(run.floor.detectedTrapIds);
   hazardInputState = createHazardInputState();
   permittedHazardCell = null;
   doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
@@ -9507,12 +9478,7 @@ function replaceFloor(nextDepth, arrival = null) {
   // are added on top of the environment the floor just built.
   applyCampProps();
   revealed.clear();
-  revealAround(
-    revealed,
-    world,
-    { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
-    currentRevealRadius(),
-  );
+  for (const cell of run.floor.revealed) revealed.add(cell);
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
   hero.y = (dungeon.spawn.y + 0.5) * TILE;
   if (arrival && isWalkable(arrival.x, arrival.y)) {
@@ -9541,6 +9507,15 @@ function replaceFloor(nextDepth, arrival = null) {
   runStatus = 'playing';
   run.status = 'playing';
   lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
+  revealAround(
+    revealed,
+    world,
+    { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    currentRevealRadius(),
+  );
+  // Both stairs are under the hero the moment they arrive; they only work once
+  // the hero has stepped off them.
+  stairsArmed = false;
   camera.x = hero.x;
   camera.y = hero.y;
   sceneStartedAt = elapsed;
@@ -9631,6 +9606,17 @@ function descendFloor() {
   replaceFloor(run.depth);
   playSound('descend');
   showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+}
+
+/** The way back up. The floor above is the one the hero left, not a new one. */
+function climbFloor() {
+  if (isTerminalRunStatus(runStatus) || dungeon.depth <= 1) return;
+  run = retreatRunFloor(captureRun());
+  hero.hp = run.hero.hp;
+  hero.hunger = run.hero.hunger;
+  replaceFloor(run.depth);
+  playSound('descend');
+  showLootToast({ path: ASCENT_PATH, rarity: 2 }, romanDepth(run.depth));
 }
 
 function restartRun() {

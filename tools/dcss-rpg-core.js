@@ -89,10 +89,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 41;
-export const SAVE_KEY = 'dng-codex:rpg:v41';
+export const SAVE_VERSION = 42;
+export const SAVE_KEY = 'dng-codex:rpg:v42';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v41',
   'dng-codex:rpg:v40',
   'dng-codex:rpg:v39',
   'dng-codex:rpg:v38',
@@ -1054,6 +1055,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     inventory: [],
     camp: { stash: createCampStash() },
     house: createHouseState(),
+    floors: {},
     floor: createEmptyFloorState(dungeon),
   };
 }
@@ -1219,11 +1221,24 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 /** What a night was worth at each camp rank before v39 wrote it into the save. */
 const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
 
+/** Keeps only well-formed floors, and never the one the hero stands on. */
+function normalizedFloorArchive(source, currentDepth) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  const archive = {};
+  for (const [key, floor] of Object.entries(source)) {
+    const depth = Number(key);
+    if (!isFiniteInteger(depth, 1, FINAL_DEPTH) || depth === currentDepth) continue;
+    if (!validateFloorShape(floor, depth)) continue;
+    archive[key] = floor;
+  }
+  return archive;
+}
+
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1277,6 +1292,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
+    // v42 remembers the floors the hero has left; a migrated run remembers none.
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     // v39 keeps the camp's comfort in the camp itself, so a summoned camp
     // sleeps well for a hero with no camping skill. A v38 camp inherits the
     // value its rank always had.
@@ -1393,6 +1410,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
+    // v42 remembers the floors the hero has left; a migrated run remembers none.
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
@@ -1524,6 +1543,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
+    // v42 remembers the floors the hero has left; a migrated run remembers none.
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
     if (!validateRun(migrated)) {
       throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     }
@@ -1633,6 +1654,8 @@ export function migrateLegacyRun(snapshot) {
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
   migrated.house = createHouseState(migrated.house);
+  // v42 remembers the floors the hero has left; a migrated run remembers none.
+  migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
   return migrated;
 }
@@ -1650,6 +1673,101 @@ function isFiniteInteger(value, min, max) {
 const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
   new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+)$`)
 );
+
+/**
+ * One floor's own state: ids that belong to its depth, actors inside the map,
+ * nothing counted twice. The run keeps several of these now, so the check
+ * takes the depth it belongs to instead of reading the hero's.
+ */
+function validateFloorShape(floor, depth) {
+  if (
+    !floor ||
+    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'passives', 'merchants', 'chests'].every(
+      (key) => Array.isArray(floor[key]),
+    )
+  )
+    return false;
+  if (!validateCampState(floor.camp)) return false;
+  if (!validateChestContainerStates(floor.chests, { depth: depth })) return false;
+  if (!validateMerchantStateShape(floor.merchants, depth)) return false;
+  if (
+    floor.revealed.length > MAP_WIDTH * MAP_HEIGHT ||
+    floor.revealed.some((cell) => {
+      if (!/^\d{1,2},\d{1,2}$/.test(cell)) return true;
+      const [x, y] = cell.split(',').map(Number);
+      return x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT;
+    })
+  )
+    return false;
+  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered']) {
+    if (new Set(floor[key]).size !== floor[key].length) return false;
+  }
+  if (
+    floor.defeated.some(
+      (id) => !MONSTER_INSTANCE_ID_PATTERN(depth).test(id),
+    )
+  ) return false;
+  if (floor.collected.some((id) => !new RegExp(`^loot-${depth}-\\d+$`).test(id))) return false;
+  if (floor.resolved.some((id) => !new RegExp(`^event-${depth}-\\d+$`).test(id))) return false;
+  if (
+    floor.resolvedFindIds.length > MAX_FINDS_PER_FLOOR ||
+    floor.resolvedFindIds.some(
+      (id) => typeof id !== 'string' || !new RegExp(`^find-${depth}-\\d+$`).test(id),
+    )
+  ) return false;
+  // Cheap autosave validation; hydrateDungeon resolves exact blade-trap IDs from
+  // the generated floor, as it already does for other event/actor references.
+  if (floor.detectedTrapIds.length > MAP_WIDTH * MAP_HEIGHT || floor.detectedTrapIds.some(
+    (id) => typeof id !== 'string' || !new RegExp(`^event-${depth}-\\d+$`).test(id),
+  )) return false;
+  if (
+    floor.disarmedTrapIds.length > floor.detectedTrapIds.length
+    || floor.disarmedTrapIds.some((id) =>
+      !floor.detectedTrapIds.includes(id) || !floor.resolved.includes(id))
+  ) return false;
+  if (!validatePlacedTraps(floor.placedTraps, { depth: depth })) return false;
+  if (floor.opened.some((id) => !new RegExp(`^door-${depth}-\\d+$`).test(id))) return false;
+  if (floor.triggered.some((id) => !new RegExp(`^surprise-${depth}-\\d+$`).test(id))) return false;
+  if (floor.monsters.length > 24) return false;
+  if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
+    return false;
+  if (
+    floor.monsters.some(
+      (monster) =>
+        !monster ||
+        !MONSTER_INSTANCE_ID_PATTERN(depth).test(monster.instanceId) ||
+        !Number.isFinite(monster.x) ||
+        !Number.isFinite(monster.y) ||
+        monster.x < 0 || monster.y < 0 || monster.x >= MAP_WIDTH || monster.y >= MAP_HEIGHT ||
+        !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000 ||
+        !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000) ||
+        !validateActorEffects(monster.effects),
+    )
+  ) return false;
+  const passiveStates = floor.passives;
+  if (passiveStates.length > 5) return false;
+  if (new Set(passiveStates.map((creature) => creature?.instanceId)).size !== passiveStates.length)
+    return false;
+  if (
+    passiveStates.some(
+      (creature) =>
+        !creature ||
+        !new RegExp(`^passive-${depth}-\\d+$`).test(creature.instanceId) ||
+        !Number.isFinite(creature.x) ||
+        !Number.isFinite(creature.y) ||
+        creature.x < 0 || creature.y < 0 || creature.x >= MAP_WIDTH || creature.y >= MAP_HEIGHT ||
+        !isFiniteInteger(creature.wanderStep, 0, 1_000_000_000) ||
+        ![-1, 1].includes(creature.facing) ||
+        typeof creature.hunted !== 'boolean' ||
+        typeof creature.defeated !== 'boolean' ||
+        !Number.isFinite(creature.hp) || creature.hp < 0 || creature.hp > 100000 ||
+        (creature.defeated !== (creature.hp === 0)) ||
+        (!creature.hunted && creature.defeated) ||
+        !isFiniteInteger(creature.attackSequence, 0, 1_000_000_000),
+    )
+  ) return false;
+  return true;
+}
 
 export function validateRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== SAVE_VERSION) return false;
@@ -1748,22 +1866,29 @@ export function validateRun(snapshot) {
   ));
   if (hero.hp > deriveHeroStats(hero, snapshot.equipment, items).maxHp) return false;
   const floor = snapshot.floor;
-  if (
-    !floor ||
-    !['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'placedTraps', 'opened', 'triggered', 'monsters', 'passives', 'merchants', 'chests'].every(
-      (key) => Array.isArray(floor[key]),
-    )
-  )
-    return false;
-  if (!validateCampState(floor.camp)) return false;
   if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateHouseState(snapshot.house)) return false;
-  if (!validateChestContainerStates(floor.chests, { depth: snapshot.depth })) return false;
-  if (!validateMerchantStateShape(floor.merchants, snapshot.depth)) return false;
+  if (!validateFloorShape(floor, snapshot.depth)) return false;
+  // Floors the hero has left keep their own state, each checked against its
+  // own depth. The floor underfoot is never in the archive as well.
+  if (!snapshot.floors || typeof snapshot.floors !== 'object' || Array.isArray(snapshot.floors)) {
+    return false;
+  }
+  const archivedDepths = Object.keys(snapshot.floors);
+  if (archivedDepths.length > FINAL_DEPTH) return false;
+  for (const key of archivedDepths) {
+    const archivedDepth = Number(key);
+    if (!isFiniteInteger(archivedDepth, 1, FINAL_DEPTH)) return false;
+    if (archivedDepth === snapshot.depth) return false;
+    if (!validateFloorShape(snapshot.floors[key], archivedDepth)) return false;
+  }
+  const everyFloor = [floor, ...archivedDepths.map((key) => snapshot.floors[key])];
   const storedItemRecords = [
     ...snapshot.camp.stash.items,
-    ...floor.chests.flatMap(({ items: storedItems }) => storedItems),
-    ...floor.merchants.flatMap(({ buyback }) => buyback.map(({ record }) => record)),
+    ...everyFloor.flatMap(({ chests }) => chests.flatMap((container) => container.items)),
+    ...everyFloor.flatMap(({ merchants }) => merchants.flatMap(
+      ({ buyback }) => buyback.map(({ record }) => record),
+    )),
   ];
   const storedItemUids = storedItemRecords.map(({ uid }) => uid);
   if (
@@ -1783,82 +1908,6 @@ export function validateRun(snapshot) {
       || !validateProceduralArtifactState(lootById(item.id), item)
       || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
     ))
-  ) return false;
-  if (
-    floor.revealed.length > MAP_WIDTH * MAP_HEIGHT ||
-    floor.revealed.some((cell) => {
-      if (!/^\d{1,2},\d{1,2}$/.test(cell)) return true;
-      const [x, y] = cell.split(',').map(Number);
-      return x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT;
-    })
-  )
-    return false;
-  for (const key of ['revealed', 'defeated', 'collected', 'resolved', 'resolvedFindIds', 'detectedTrapIds', 'disarmedTrapIds', 'opened', 'triggered']) {
-    if (new Set(floor[key]).size !== floor[key].length) return false;
-  }
-  if (
-    floor.defeated.some(
-      (id) => !MONSTER_INSTANCE_ID_PATTERN(snapshot.depth).test(id),
-    )
-  ) return false;
-  if (floor.collected.some((id) => !new RegExp(`^loot-${snapshot.depth}-\\d+$`).test(id))) return false;
-  if (floor.resolved.some((id) => !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id))) return false;
-  if (
-    floor.resolvedFindIds.length > MAX_FINDS_PER_FLOOR ||
-    floor.resolvedFindIds.some(
-      (id) => typeof id !== 'string' || !new RegExp(`^find-${snapshot.depth}-\\d+$`).test(id),
-    )
-  ) return false;
-  // Cheap autosave validation; hydrateDungeon resolves exact blade-trap IDs from
-  // the generated floor, as it already does for other event/actor references.
-  if (floor.detectedTrapIds.length > MAP_WIDTH * MAP_HEIGHT || floor.detectedTrapIds.some(
-    (id) => typeof id !== 'string' || !new RegExp(`^event-${snapshot.depth}-\\d+$`).test(id),
-  )) return false;
-  if (
-    floor.disarmedTrapIds.length > floor.detectedTrapIds.length
-    || floor.disarmedTrapIds.some((id) =>
-      !floor.detectedTrapIds.includes(id) || !floor.resolved.includes(id))
-  ) return false;
-  if (!validatePlacedTraps(floor.placedTraps, { depth: snapshot.depth })) return false;
-  if (floor.opened.some((id) => !new RegExp(`^door-${snapshot.depth}-\\d+$`).test(id))) return false;
-  if (floor.triggered.some((id) => !new RegExp(`^surprise-${snapshot.depth}-\\d+$`).test(id))) return false;
-  if (floor.monsters.length > 24) return false;
-  if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
-    return false;
-  if (
-    floor.monsters.some(
-      (monster) =>
-        !monster ||
-        !MONSTER_INSTANCE_ID_PATTERN(snapshot.depth).test(monster.instanceId) ||
-        !Number.isFinite(monster.x) ||
-        !Number.isFinite(monster.y) ||
-        monster.x < 0 || monster.y < 0 || monster.x >= MAP_WIDTH || monster.y >= MAP_HEIGHT ||
-        !Number.isFinite(monster.hp) || monster.hp <= 0 || monster.hp > 100000 ||
-        !isFiniteInteger(monster.attackSequence ?? 0, 0, 1_000_000_000) ||
-        !validateActorEffects(monster.effects),
-    )
-  ) return false;
-  const passiveStates = floor.passives;
-  if (passiveStates.length > 5) return false;
-  if (new Set(passiveStates.map((creature) => creature?.instanceId)).size !== passiveStates.length)
-    return false;
-  if (
-    passiveStates.some(
-      (creature) =>
-        !creature ||
-        !new RegExp(`^passive-${snapshot.depth}-\\d+$`).test(creature.instanceId) ||
-        !Number.isFinite(creature.x) ||
-        !Number.isFinite(creature.y) ||
-        creature.x < 0 || creature.y < 0 || creature.x >= MAP_WIDTH || creature.y >= MAP_HEIGHT ||
-        !isFiniteInteger(creature.wanderStep, 0, 1_000_000_000) ||
-        ![-1, 1].includes(creature.facing) ||
-        typeof creature.hunted !== 'boolean' ||
-        typeof creature.defeated !== 'boolean' ||
-        !Number.isFinite(creature.hp) || creature.hp < 0 || creature.hp > 100000 ||
-        (creature.defeated !== (creature.hp === 0)) ||
-        (!creature.hunted && creature.defeated) ||
-        !isFiniteInteger(creature.attackSequence, 0, 1_000_000_000),
-    )
   ) return false;
   if (
     snapshot.status === 'victory' &&
@@ -1999,6 +2048,17 @@ export function travelRunToDepth(snapshot, depth, arrival = null) {
   if (!Number.isInteger(depth) || depth < 1 || depth > FINAL_DEPTH) {
     throw new Error('Travel needs a depth inside the dungeon');
   }
+  if (depth === snapshot.depth) return snapshot;
+  return moveRunToFloor(snapshot, depth, arrival);
+}
+
+/**
+ * Moving between floors, in either direction. The floor the hero leaves goes
+ * into the archive exactly as it was, and the floor they arrive on comes back
+ * out of it if they have been there before. A floor the run never saw is built
+ * fresh. Nothing regenerates behind the hero's back.
+ */
+function moveRunToFloor(snapshot, depth, arrival = null) {
   const dungeon = generateDungeon({
     seed: snapshot.seed,
     depth,
@@ -2006,6 +2066,10 @@ export function travelRunToDepth(snapshot, depth, arrival = null) {
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,
   });
+  const floors = { ...snapshot.floors };
+  floors[String(snapshot.depth)] = snapshot.floor;
+  const remembered = floors[String(depth)] ?? null;
+  delete floors[String(depth)];
   const landing = arrival && isWalkableCell(dungeon.grid, arrival.x, arrival.y)
     ? { x: arrival.x, y: arrival.y }
     : { x: dungeon.spawn.x, y: dungeon.spawn.y };
@@ -2024,9 +2088,12 @@ export function travelRunToDepth(snapshot, depth, arrival = null) {
     equipment: { ...snapshot.equipment },
     items: snapshot.items.map((item) => ({ ...item })),
     inventory: [...snapshot.inventory],
+    // The pitched camp belongs to the floor; the stash inside it belongs to the run.
     camp: { stash: { ...snapshot.camp.stash, items: snapshot.camp.stash.items.map((item) => ({ ...item })) } },
+    // The deed, the furniture and the way home all belong to the run.
     house: createHouseState(snapshot.house),
-    floor: createEmptyFloorState(dungeon),
+    floor: remembered ?? createEmptyFloorState(dungeon),
+    floors,
     commandSequence: snapshot.commandSequence,
   };
 }
@@ -2035,7 +2102,6 @@ export function advanceRunFloor(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot descend after the run has ended');
   if (snapshot.depth >= FINAL_DEPTH) throw new Error('Final dungeon floor reached');
-
   const depth = snapshot.depth + 1;
   const dungeon = generateDungeon({
     seed: snapshot.seed,
@@ -2044,29 +2110,26 @@ export function advanceRunFloor(snapshot) {
     difficulty: snapshot.difficulty,
     lootAbundance: snapshot.lootAbundance,
   });
-  return {
-    ...snapshot,
+  return moveRunToFloor(snapshot, depth, dungeon.spawn);
+}
+
+/**
+ * Climbing back. The hero comes up onto the stair they went down by, and the
+ * floor is the one they left: the same open doors, the same emptied chests.
+ */
+export function retreatRunFloor(snapshot) {
+  if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
+  if (snapshot.status !== 'playing') throw new Error('Cannot climb after the run has ended');
+  if (snapshot.depth <= 1) throw new Error('There is nothing above the first floor');
+  const depth = snapshot.depth - 1;
+  const dungeon = generateDungeon({
+    seed: snapshot.seed,
     depth,
-    knowledge: createItemKnowledge(snapshot.knowledge),
-    hero: {
-      ...snapshot.hero,
-      x: dungeon.spawn.x,
-      y: dungeon.spawn.y,
-      hp: snapshot.hero.hp,
-      skills: cloneSkillState(snapshot.hero.skills),
-      skillStudy: createBookStudy(snapshot.hero.skillStudy),
-      spells: createSpellState(snapshot.hero.spells),
-    },
-    equipment: { ...snapshot.equipment },
-    items: snapshot.items.map((item) => ({ ...item })),
-    inventory: [...snapshot.inventory],
-    // The pitched camp belongs to the floor; the stash inside it belongs to the run.
-    camp: { stash: { ...snapshot.camp.stash, items: snapshot.camp.stash.items.map((item) => ({ ...item })) } },
-    // The deed, the furniture and the way home all belong to the run.
-    house: createHouseState(snapshot.house),
-    floor: createEmptyFloorState(dungeon),
-    commandSequence: snapshot.commandSequence,
-  };
+    scalingVersion: snapshot.scalingVersion,
+    difficulty: snapshot.difficulty,
+    lootAbundance: snapshot.lootAbundance,
+  });
+  return moveRunToFloor(snapshot, depth, dungeon.exit);
 }
 
 export function assertCatalogReferences() {

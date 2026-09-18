@@ -158,8 +158,8 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
   legacyArtifactRun.hero.hp = 82;
   const artifactMigration = migrateLegacyRun(legacyArtifactRun);
   const migratedArtifact = artifactMigration.items.find(({ uid }) => uid === 'starter-sword');
-  assert.equal(SAVE_VERSION, 41);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v41');
+  assert.equal(SAVE_VERSION, 42);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v42');
   assert.equal(artifactMigration.gold, 13);
   assert.equal(Object.hasOwn(artifactMigration, 'shards'), false);
   assert.equal(migratedArtifact.artifactPowerId, 'vampirism');

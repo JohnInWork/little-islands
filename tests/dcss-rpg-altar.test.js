@@ -425,7 +425,7 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   legacy.floor.merchantPurchases = [];
   delete legacy.floor.merchants;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 41);
+  assert.equal(migrated.version, 42);
   const restored = hydrateDungeon(migrated);
   const altar = restored.finds.find((find) => isLandmarkFind(find));
   assert.ok(altar);

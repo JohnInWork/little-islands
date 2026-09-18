@@ -1484,6 +1484,11 @@ export const EVENT_CATALOG = Object.freeze([
 ]);
 
 export const EXIT_PATH = 'dngn/gateways/sealed_stairs_down.png';
+/**
+ * The way back up. Deliberately not the twin of the down stair: the two sit on
+ * one floor, and a player must never confuse them at a glance on a phone.
+ */
+export const ASCENT_PATH = 'dngn/gateways/return_depths.png';
 export const FINAL_GATE_PATH = 'dngn/gateways/enter_zot_closed.png';
 export const SANCTUARY_PATH = 'dngn/altars/generic.png';
 export const ARTIFACT_PATH = 'item/misc/misc_orb2.png';
@@ -1493,6 +1498,7 @@ export const CONTENT_PATHS = Object.freeze([
   ...LOOT_CATALOG.map(({ icon }) => icon),
   ...EVENT_CATALOG.map(({ path }) => path),
   EXIT_PATH,
+  ASCENT_PATH,
   FINAL_GATE_PATH,
   SANCTUARY_PATH,
   ARTIFACT_PATH,

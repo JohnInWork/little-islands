@@ -58,6 +58,8 @@
   рангам, личный сундук между этажами и заклинание «Зов лагеря».
 - [2D-SURVIVAL-SKILLS.md](2D-SURVIVAL-SKILLS.md) — Кулинария с блюдами и
   временным усилением, Полевая медицина с бинтами, Выносливость.
+- [2D-FLOOR-MEMORY.md](2D-FLOOR-MEMORY.md) — память покинутых этажей и
+  лестница наверх: забег больше не дорога в один конец.
 - [2D-CITY.md](2D-CITY.md) — город на IV этаже: кварталы, лавки, стража, дом с
   обустройством и камень возвращения; розыск и тюрьма продуманы, но не сделаны.
 - [2D-VISUAL-WORKSHOP.md](2D-VISUAL-WORKSHOP.md) — локальный выбор спрайтов для
@@ -251,6 +253,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Разведка | `tools/dcss-rpg-scouting.js`; тайник в `dcss-rpg-finds.js`, [контракт](2D-SCOUTING.md) |
 | Лагерь | `tools/dcss-rpg-camp.js`; `placeCamp` и предметы лагеря в `dcss.js`, [контракт](2D-CAMP.md) |
 | Выживание | `tools/dcss-rpg-{cooking,field-medicine,endurance}.js`; `hero.meal` в `dcss-rpg-core.js`, [контракт](2D-SURVIVAL-SKILLS.md) |
+| Память этажей и лестницы | `moveRunToFloor`, `retreatRunFloor`, `validateFloorShape` в `dcss-rpg-core.js`; `climbFloor` в `dcss.js`, [контракт](2D-FLOOR-MEMORY.md) |
 | Город | `tools/dcss-rpg-city.js`; ветка в `generateDungeon`, патруль и панель стражи в `dcss.js`, [контракт](2D-CITY.md) |
 | Дом и камень | `tools/dcss-rpg-house.js`; `run.house` и `travelRunToDepth` в `dcss-rpg-core.js`, [контракт](2D-CITY.md) |
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |

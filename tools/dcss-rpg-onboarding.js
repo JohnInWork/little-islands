@@ -67,7 +67,7 @@ const HINT_COPY = Object.freeze({
     }),
     exit: Object.freeze({
       title: 'Лестница найдена',
-      text: 'Спуск ведёт на следующий этаж, назад пути нет. Плитка глубины наверху открывает карту.',
+      text: 'Спуск ведёт ниже, а лестница, на которой ты появился, — обратно наверх. Плитка глубины: карта.',
     }),
     city: Object.freeze({
       title: 'Город',
@@ -96,7 +96,7 @@ const HINT_COPY = Object.freeze({
     }),
     exit: Object.freeze({
       title: 'Stairs found',
-      text: 'The descent leads to the next floor with no way back. The depth tile up top opens the map.',
+      text: 'The descent leads down; the stair you arrived on leads back up. The depth tile opens the map.',
     }),
     city: Object.freeze({
       title: 'The city',
