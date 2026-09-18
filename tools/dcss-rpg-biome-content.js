@@ -75,6 +75,66 @@ export const BIOME_CONTENT = Object.freeze({
     element: Object.freeze({ fire: 2.2, ice: 0.45 }),
     loot: Object.freeze({ weapon: 1.6, jewellery: 1.2, armour: 0.7, tool: 0.75, potion: 0.8 }),
   }),
+  'catacomb-tiers': Object.freeze({
+    kin: Object.freeze({ undead: 2, oddity: 1.3, demon: 0.8, humanoid: 0.8, dragon: 0.7, beast: 0.5 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ book: 1.4, jewellery: 1.3, weapon: 0.8 }),
+  }),
+  'crystal-hollow': Object.freeze({
+    kin: Object.freeze({ oddity: 1.8, dragon: 1.3, beast: 1.2, humanoid: 0.8, undead: 0.8, demon: 0.7 }),
+    element: Object.freeze({ ice: 1.5, fire: 0.7 }),
+    loot: Object.freeze({ jewellery: 1.8, armour: 1.2, tool: 0.7 }),
+  }),
+  'drowned-palace': Object.freeze({
+    kin: Object.freeze({ humanoid: 1.5, oddity: 1.4, undead: 1.2, dragon: 0.8, beast: 0.8, demon: 0.6 }),
+    element: Object.freeze({ ice: 1.3, fire: 0.6 }),
+    loot: Object.freeze({ jewellery: 1.5, armour: 1.3, potion: 1.2, tool: 0.7 }),
+  }),
+  'bone-fields': Object.freeze({
+    kin: Object.freeze({ undead: 2.2, beast: 1.1, oddity: 0.9, demon: 0.8, humanoid: 0.7, dragon: 0.6 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ book: 1.5, scroll: 1.3, weapon: 0.8 }),
+  }),
+  'flesh-deep': Object.freeze({
+    kin: Object.freeze({ demon: 1.8, undead: 1.4, beast: 1.1, oddity: 0.9, dragon: 0.8, humanoid: 0.5 }),
+    element: Object.freeze({ fire: 1.4, ice: 0.6 }),
+    loot: Object.freeze({ potion: 1.6, scroll: 1.3, armour: 0.8 }),
+  }),
+  'overgrown-ruin': Object.freeze({
+    kin: Object.freeze({ beast: 2, oddity: 1.2, humanoid: 1, dragon: 0.8, undead: 0.7, demon: 0.5 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ tool: 1.5, potion: 1.3, book: 0.7 }),
+  }),
+  'cobalt-mine': Object.freeze({
+    kin: Object.freeze({ humanoid: 1.7, oddity: 1.3, beast: 1, dragon: 0.8, undead: 0.8, demon: 0.7 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ tool: 1.7, weapon: 1.3, book: 0.6 }),
+  }),
+  'magma-shelf': Object.freeze({
+    kin: Object.freeze({ demon: 2.2, dragon: 1.7, undead: 0.9, humanoid: 0.8, beast: 0.7, oddity: 0.7 }),
+    element: Object.freeze({ fire: 2.2, ice: 0.45 }),
+    loot: Object.freeze({ weapon: 1.6, armour: 0.8, scroll: 0.8 }),
+  }),
+  'beast-lair': Object.freeze({
+    kin: Object.freeze({ beast: 2.2, dragon: 1.2, humanoid: 0.8, oddity: 0.8, undead: 0.6, demon: 0.5 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ armour: 1.4, tool: 1.3, book: 0.6 }),
+  }),
+  'orc-stronghold': Object.freeze({
+    kin: Object.freeze({ humanoid: 2.2, beast: 1.2, oddity: 0.9, demon: 0.8, undead: 0.7, dragon: 0.7 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ weapon: 1.7, armour: 1.3, book: 0.5 }),
+  }),
+  'funeral-hall': Object.freeze({
+    kin: Object.freeze({ undead: 1.9, oddity: 1.4, humanoid: 0.9, demon: 0.8, dragon: 0.7, beast: 0.5 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ jewellery: 1.6, scroll: 1.4, weapon: 0.7 }),
+  }),
+  'deep-mine': Object.freeze({
+    kin: Object.freeze({ humanoid: 1.6, oddity: 1.4, beast: 1.1, undead: 0.9, dragon: 0.7, demon: 0.6 }),
+    element: Object.freeze({  }),
+    loot: Object.freeze({ tool: 1.8, weapon: 1.2, jewellery: 0.7 }),
+  }),
 });
 
 /**

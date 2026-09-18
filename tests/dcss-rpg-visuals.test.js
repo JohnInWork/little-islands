@@ -35,7 +35,8 @@ test('a chapter keeps one place for three floors, but which place is the run\'s 
       assert.equal(biomeAt(seed, first + 1), chapter, `seed ${seed}, floor ${first + 1}`);
       assert.equal(biomeAt(seed, first + 2), chapter, `seed ${seed}, floor ${first + 2}`);
     }
-    // And one place is left out of every run: four themes, three chapters.
+    // A run shows three places and never the same one twice: sixteen themes,
+    // three chapters, so most of the world stays behind on any given run.
     const met = new Set([1, 4, 7].map((depth) => biomeAt(seed, depth).id));
     assert.equal(met.size, 3, `seed ${seed} repeats a place`);
   }
@@ -50,10 +51,12 @@ test('every place the game ships is actually met, the infernal core included', (
     for (const depth of [1, 4, 7]) met.add(biomeAt(seed, depth).id);
     openings.add(biomeAt(seed, 1).id);
   }
-  // Four themes ship; before the shuffle the fourth sat at a chapter index nine
-  // floors never reach, so nobody had ever seen the infernal core.
+  // Everything the game ships has to be reachable. Before the shuffle the
+  // fourth theme sat at a chapter index nine floors never reach, so nobody had
+  // ever seen the infernal core; now sixteen places all turn up, the town aside.
   assert.equal(met.size, BIOME_THEMES.length - 1, 'a biome is still unreachable');
   assert.ok(met.has('infernal-core'), 'the infernal core is still shipped and never met');
+  assert.ok(met.has('flesh-deep') && met.has('crystal-hollow') && met.has('deep-mine'));
   // And the run does not always open in the same place.
   assert.equal(openings.size, met.size, 'the first floor is always the same place');
 });

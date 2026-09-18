@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
+import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
 import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
@@ -86,7 +88,7 @@ test('the whole floor agrees on where it is: surfaces, rooms and finds', () => {
       const archetype = roomArchetypeById(plan.archetypeId);
       assert.ok(archetype, `${plan.archetypeId} is not a known room`);
       assert.ok(
-        archetype.environmentThemeIds[dungeon.themeId],
+        environmentThemeFor(archetype, dungeon.themeId),
         `${plan.archetypeId} has no look for ${dungeon.themeId}`,
       );
     }

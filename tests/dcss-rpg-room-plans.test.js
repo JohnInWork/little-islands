@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
+
 import { chestFramesForSkin, chestVisualFrames } from '../tools/dcss-rpg-chests.js';
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
@@ -76,7 +78,7 @@ test('room plans are deterministic, semantic and schedule one merchant per chapt
         && plan.dungeonThemeId === theme.id
         && plan.surfaceSetId === theme.surfaceSetId
         && archetype?.implemented
-        && plan.environmentThemeId === archetype.environmentThemeIds[theme.id]
+        && plan.environmentThemeId === environmentThemeFor(archetype, theme.id)
         && plan.dangerBudget >= 0
         && plan.rewardBudget >= 0
       );

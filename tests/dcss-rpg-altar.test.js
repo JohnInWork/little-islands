@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
+
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
@@ -134,7 +136,7 @@ test('every floor places at most one landmark in its own quiet room without bloc
     assert.equal(plan.archetypeId, archetypeId);
     assert.equal(
       plan.environmentThemeId,
-      roomArchetypeById(archetypeId).environmentThemeIds[dungeon.themeId],
+      environmentThemeFor(roomArchetypeById(archetypeId), dungeon.themeId),
     );
     const blocked = dungeon.grid.map((row) => [...row]);
     for (const find of dungeon.finds) blocked[find.y][find.x] = '#';

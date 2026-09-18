@@ -57,7 +57,103 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
   }),
+  defineDungeonTheme({
+    id: 'catacomb-tiers',
+    surfaceSetId: 'catacomb-tiers',
+    atmosphereId: 'bone',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'crystal-hollow',
+    surfaceSetId: 'crystal-hollow',
+    atmosphereId: 'prism',
+    chestSkinIds: ['jade-ruby'],
+    roomArchetypeIds: ['fallen-hall', 'drowned-chapel', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'drowned-palace',
+    surfaceSetId: 'drowned-palace',
+    atmosphereId: 'verdigris',
+    chestSkinIds: ['jade-ruby', 'pirate'],
+    roomArchetypeIds: ['fallen-hall', 'drowned-chapel', 'forgotten-crypt', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'bone-fields',
+    surfaceSetId: 'bone-fields',
+    atmosphereId: 'mold',
+    chestSkinIds: ['wooden', 'pharaoh'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'flesh-deep',
+    surfaceSetId: 'flesh-deep',
+    atmosphereId: 'viscera',
+    chestSkinIds: ['pirate'],
+    roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'fungal-hollow', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'overgrown-ruin',
+    surfaceSetId: 'overgrown-ruin',
+    atmosphereId: 'moss',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'cobalt-mine',
+    surfaceSetId: 'cobalt-mine',
+    atmosphereId: 'cobalt',
+    chestSkinIds: ['wooden', 'jade-ruby'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'magma-shelf',
+    surfaceSetId: 'magma-shelf',
+    atmosphereId: 'magma',
+    chestSkinIds: ['jade-ruby', 'pirate'],
+    roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'beast-lair',
+    surfaceSetId: 'beast-lair',
+    atmosphereId: 'loam',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'orc-stronghold',
+    surfaceSetId: 'orc-stronghold',
+    atmosphereId: 'iron',
+    chestSkinIds: ['wooden', 'pirate'],
+    roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'funeral-hall',
+    surfaceSetId: 'funeral-hall',
+    atmosphereId: 'sepia',
+    chestSkinIds: ['pharaoh'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'deep-mine',
+    surfaceSetId: 'deep-mine',
+    atmosphereId: 'coal',
+    chestSkinIds: ['wooden'],
+    roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
+  }),
 ]);
+
+/**
+ * `environmentThemeIds` holds only the places where a room looks different from
+ * its usual self; `defaultEnvironmentThemeId` is that usual self. Before this,
+ * an unlisted theme silently borrowed ashen-vault's look — which meant a new
+ * place looked finished while quietly wearing the first one's clothes, and
+ * adding a biome meant editing fourteen maps.
+ */
+export function environmentThemeFor(archetype, themeId) {
+  if (!archetype) return null;
+  return archetype.environmentThemeIds[themeId] ?? archetype.defaultEnvironmentThemeId;
+}
 
 const defineRoomArchetype = (definition) => deepFreeze({
   implemented: true,
@@ -90,6 +186,7 @@ const COMMON_ENVIRONMENT = Object.freeze({
 export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   defineRoomArchetype({
     id: 'wayfarer-refuge',
+    defaultEnvironmentThemeId: 'wayfarer-refuge',
     role: 'start',
     environmentThemeIds: {
       'ashen-vault': 'wayfarer-refuge',
@@ -102,6 +199,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'descent-chamber',
+    defaultEnvironmentThemeId: 'fallen-hall',
     role: 'exit',
     environmentThemeIds: COMMON_ENVIRONMENT,
     dangerMultiplier: 1.2,
@@ -109,6 +207,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'treasure-vault',
+    defaultEnvironmentThemeId: 'fallen-hall',
     role: 'treasure',
     requiresDoor: true,
     environmentThemeIds: {
@@ -124,6 +223,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'forgotten-crypt',
+    defaultEnvironmentThemeId: 'forgotten-crypt',
     role: 'discovery',
     weight: 4,
     environmentThemeIds: {
@@ -139,6 +239,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'crystal-grotto',
+    defaultEnvironmentThemeId: 'drowned-chapel',
     role: 'discovery',
     weight: 3,
     environmentThemeIds: {
@@ -154,6 +255,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'altar-niche',
+    defaultEnvironmentThemeId: 'altar-niche',
     role: 'discovery',
     weight: 0,
     environmentThemeIds: {
@@ -169,6 +271,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'fountain-court',
+    defaultEnvironmentThemeId: 'fountain-court',
     role: 'discovery',
     environmentThemeIds: {
       'ashen-vault': 'fountain-court',
@@ -183,6 +286,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'rune-vault',
+    defaultEnvironmentThemeId: 'rune-vault',
     role: 'discovery',
     environmentThemeIds: {
       'ashen-vault': 'rune-vault',
@@ -197,6 +301,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'ambush-chamber',
+    defaultEnvironmentThemeId: 'fallen-hall',
     role: 'encounter',
     environmentThemeIds: COMMON_ENVIRONMENT,
     content: { surpriseType: 'horde' },
@@ -206,6 +311,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'fallen-hall',
+    defaultEnvironmentThemeId: 'fallen-hall',
     role: 'ambient',
     weight: 5,
     environmentThemeIds: {
@@ -218,6 +324,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'ashen-shrine',
+    defaultEnvironmentThemeId: 'ashen-shrine',
     role: 'ambient',
     weight: 3,
     environmentThemeIds: {
@@ -230,6 +337,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'drowned-chapel',
+    defaultEnvironmentThemeId: 'drowned-chapel',
     role: 'ambient',
     minDepth: 2,
     weight: 2,
@@ -243,6 +351,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'fungal-hollow',
+    defaultEnvironmentThemeId: 'fungal-hollow',
     role: 'ambient',
     weight: 3,
     environmentThemeIds: {
@@ -255,6 +364,7 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
   }),
   defineRoomArchetype({
     id: 'merchant-alcove',
+    defaultEnvironmentThemeId: 'fallen-hall',
     role: 'service',
     implemented: true,
     minDepth: 2,
@@ -504,8 +614,7 @@ export function createDungeonRoomPlans(level) {
       ? roomArchetypeById(semantic.get(roomIndex))
       : weightedArchetype(theme, level.depth, level.seed, roomIndex);
     if (!archetype?.implemented) throw new Error(`Room archetype is not playable: ${archetype?.id}`);
-    const environmentThemeId = archetype.environmentThemeIds[theme.id]
-      ?? archetype.environmentThemeIds['ashen-vault'];
+    const environmentThemeId = environmentThemeFor(archetype, theme.id);
     if (!environmentThemeId) throw new Error(`Room archetype ${archetype.id} has no ${theme.id} visuals`);
     const variantId = semanticVariant(level, roomIndex, archetype)
       ?? archetype.variants[

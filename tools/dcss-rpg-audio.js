@@ -58,6 +58,18 @@ export const AMBIENT_SAMPLES = Object.freeze({
   ice: sample('ambience/dungeon-loop.mp3', 0.1),
   ember: sample('ambience/dungeon-loop.mp3', 0.16),
   town: sample('ambience/dungeon-loop.mp3', 0.1),
+  bone: sample('ambience/dungeon-loop.mp3', 0.11),
+  prism: sample('ambience/dungeon-loop.mp3', 0.09),
+  verdigris: sample('ambience/dungeon-loop.mp3', 0.13),
+  mold: sample('ambience/dungeon-loop.mp3', 0.12),
+  viscera: sample('ambience/dungeon-loop.mp3', 0.17),
+  moss: sample('ambience/dungeon-loop.mp3', 0.11),
+  cobalt: sample('ambience/dungeon-loop.mp3', 0.12),
+  magma: sample('ambience/dungeon-loop.mp3', 0.18),
+  loam: sample('ambience/dungeon-loop.mp3', 0.13),
+  iron: sample('ambience/dungeon-loop.mp3', 0.15),
+  sepia: sample('ambience/dungeon-loop.mp3', 0.12),
+  coal: sample('ambience/dungeon-loop.mp3', 0.14),
 });
 
 export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([

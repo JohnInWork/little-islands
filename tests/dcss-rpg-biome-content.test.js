@@ -22,8 +22,11 @@ const itemOf = new Map(LOOT_CATALOG.map((item) => [item.id, item]));
 /** One sweep, reused by every measurement below; generation is seeded, so it is stable. */
 const survey = (() => {
   const themes = new Map();
-  for (let seed = 1; seed <= 200; seed += 1) {
-    for (const depth of [3, 4, 5, 6]) {
+  // The whole run, not a slice of it: a dragon is tier six and never turns up
+  // on a shallow floor, so a sweep that skips the deep ones would report an
+  // empty place where there is only a shallow sample.
+  for (let seed = 1; seed <= 260; seed += 1) {
+    for (let depth = 1; depth <= 9; depth += 1) {
       const dungeon = generateDungeon({ seed, depth });
       const entry = themes.get(dungeon.themeId)
         ?? { floors: 0, monsters: 0, kin: new Map(), loot: 0, category: new Map(), nutrition: 0 };
@@ -121,15 +124,25 @@ test('the place decides what is left lying there', () => {
 
 /**
  * The bread has already rotted once: a promise resting on pool weights loses to
- * every content addition. Supplies are therefore outside this system, and this
- * is the test that keeps them there.
+ * every content addition. Supplies are therefore outside this system — checked
+ * at the mechanism, because an average over places is too noisy to catch a leak
+ * and gets noisier with every place added.
  */
 test('no biome is the hungry one', () => {
-  assert.ok(Object.values(BIOME_CONTENT).every((content) => content.loot.supply === undefined));
-  assert.equal(lootBiomeWeight(itemOf.get('bread'), 'infernal-core'), 1);
+  for (const [themeId, content] of Object.entries(BIOME_CONTENT)) {
+    assert.equal(content.loot.supply, undefined, `${themeId} puts a hand on the larder`);
+    for (const item of LOOT_CATALOG) {
+      if (lootCategory(item) !== 'supply') continue;
+      assert.equal(lootBiomeWeight(item, themeId), 1, `${item.id} in ${themeId}`);
+    }
+  }
+  // And the floors of every place still feed the hero at about the same rate.
   const perFloor = [...survey.values()].map((entry) => entry.nutrition / entry.floors);
   const mean = perFloor.reduce((sum, value) => sum + value, 0) / perFloor.length;
   for (const value of perFloor) {
-    assert.ok(Math.abs(value - mean) / mean < 0.3, `a floor of one place feeds ${value} against ${mean}`);
+    assert.ok(
+      Math.abs(value - mean) / mean < 0.45,
+      `a floor of one place feeds ${value.toFixed(0)} against ${mean.toFixed(0)}`,
+    );
   }
 });

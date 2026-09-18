@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import test from 'node:test';
 
+import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
+
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
@@ -86,7 +88,7 @@ test('three landmarks share one contract: skins, lights, rolled outcomes and bil
     const archetype = roomArchetypeById(archetypeId);
     assert.equal(archetype.content.findId, landmark.id);
     for (const themeId of THEME_IDS) {
-      const environmentThemeId = archetype.environmentThemeIds[themeId];
+      const environmentThemeId = environmentThemeFor(archetype, themeId);
       assert.ok(ENVIRONMENT_ROOM_THEMES.some(({ id }) => id === environmentThemeId), `${environmentThemeId} exists`);
     }
   }
