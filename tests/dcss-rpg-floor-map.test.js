@@ -164,7 +164,7 @@ test('map copy is bilingual and the runtime binds the map through the depth tile
     readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
     readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(html, /<button id="floor-map-button" class="depth pixel-frame" type="button"/);
+  assert.match(html, /<button id="floor-map-button" class="depth pixel-frame tappable" type="button"/);
   assert.match(html, /id="floor-map"[\s\S]*id="floor-map-canvas"[\s\S]*class="floor-map-actions"[\s\S]*id="close-floor-map"[\s\S]*id="floor-map-center"[\s\S]*id="floor-map-zoom-out"[\s\S]*id="floor-map-zoom-in"/);
   assert.match(runtime, /function openFloorMap\(\)/);
   assert.match(runtime, /function closeFloorMap\(\{ restoreFocus = true \} = \{\}\)/);

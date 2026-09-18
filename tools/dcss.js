@@ -694,6 +694,7 @@ const hungerFill = document.querySelector('#hunger-fill');
 const combatIndicators = [...document.querySelectorAll('.ailments i')];
 const heroEffectsHud = document.querySelector('#hero-effects');
 const hudGold = document.querySelector('#hud-gold');
+const characterSheetFace = document.querySelector('#character-sheet-face');
 const depthBadge = document.querySelector('.depth');
 const floorMap = document.querySelector('#floor-map');
 const floorMapCanvas = document.querySelector('#floor-map-canvas');
@@ -1287,6 +1288,8 @@ function renderMainMenu() {
   editAppearanceLabel.textContent = labels.appearance;
   editAppearanceButton.setAttribute('aria-label', labels.openAppearance);
   menuAppearanceIcon.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
+  // Your own face on the key that opens your own sheet.
+  characterSheetFace.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
   newRunFromMenuLabel.textContent = labels.newRun;
   newRunFromMenuButton.setAttribute('aria-label', labels.newRun);
   newRunFromMenuButton.hidden = isTerminalRunStatus(runStatus)

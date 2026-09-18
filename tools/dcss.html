@@ -164,19 +164,22 @@
         <div id="hero-effects" class="hero-effects" aria-live="polite" hidden></div>
         <button
           id="character-sheet-button"
-          class="character-sheet-button"
+          class="character-sheet-button tappable"
           type="button"
           aria-label="Открыть характеристики персонажа"
           disabled
-        ><b id="skill-points-badge" class="skill-points-badge" aria-hidden="true" hidden></b></button>
+        >
+          <img id="character-sheet-face" alt="" src="../assets/dcss-preview/player/base/human_m.png" />
+          <b id="skill-points-badge" class="skill-points-badge" aria-hidden="true" hidden></b>
+        </button>
       </header>
 
-      <button id="floor-map-button" class="depth pixel-frame" type="button" aria-label="Открыть карту этажа I">
+      <button id="floor-map-button" class="depth pixel-frame tappable" type="button" aria-label="Открыть карту этажа I">
         <span>I</span>
         <i aria-hidden="true"></i>
       </button>
 
-      <button id="pause-game" class="pause-game pixel-frame" type="button" aria-label="Пауза" disabled>
+      <button id="pause-game" class="pause-game pixel-frame tappable" type="button" aria-label="Пауза" disabled>
         <svg viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
           <path d="M1 1h2v5H1zM4 1h2v5H4z" />
         </svg>
@@ -191,23 +194,23 @@
         aria-hidden="true"
         inert
       >
-        <button class="move-direction move-up" type="button" data-move="up" aria-label="Вверх">
+        <button class="move-direction move-up tappable" type="button" data-move="up" aria-label="Вверх">
           <svg viewBox="0 0 5 5" shape-rendering="crispEdges" aria-hidden="true">
             <path d="M2 0h1v1h1v1h1v1H3v2H2V3H0V2h1V1h1Z" />
           </svg>
         </button>
-        <button class="move-direction move-left" type="button" data-move="left" aria-label="Влево">
+        <button class="move-direction move-left tappable" type="button" data-move="left" aria-label="Влево">
           <svg viewBox="0 0 5 5" shape-rendering="crispEdges" aria-hidden="true">
             <path d="M2 0h1v1h1v1h1v1H3v2H2V3H0V2h1V1h1Z" />
           </svg>
         </button>
         <span id="move-stick" class="move-stick" aria-hidden="true"><i></i></span>
-        <button class="move-direction move-right" type="button" data-move="right" aria-label="Вправо">
+        <button class="move-direction move-right tappable" type="button" data-move="right" aria-label="Вправо">
           <svg viewBox="0 0 5 5" shape-rendering="crispEdges" aria-hidden="true">
             <path d="M2 0h1v1h1v1h1v1H3v2H2V3H0V2h1V1h1Z" />
           </svg>
         </button>
-        <button class="move-direction move-down" type="button" data-move="down" aria-label="Вниз">
+        <button class="move-direction move-down tappable" type="button" data-move="down" aria-label="Вниз">
           <svg viewBox="0 0 5 5" shape-rendering="crispEdges" aria-hidden="true">
             <path d="M2 0h1v1h1v1h1v1H3v2H2V3H0V2h1V1h1Z" />
           </svg>
@@ -215,13 +218,13 @@
       </div>
 
       <nav id="spell-bar" class="spell-bar" aria-label="Подготовленные заклинания" aria-hidden="true" data-empty="true" inert>
-        <button class="spell-action pixel-frame" type="button" data-spell-slot="0" aria-label="Пустой слот" disabled>
+        <button class="spell-action pixel-frame tappable" type="button" data-spell-slot="0" aria-label="Пустой слот" disabled>
           <img alt="" /><i></i><b>1</b><output></output>
         </button>
-        <button class="spell-action pixel-frame" type="button" data-spell-slot="1" aria-label="Пустой слот" disabled>
+        <button class="spell-action pixel-frame tappable" type="button" data-spell-slot="1" aria-label="Пустой слот" disabled>
           <img alt="" /><i></i><b>2</b><output></output>
         </button>
-        <button class="spell-action pixel-frame" type="button" data-spell-slot="2" aria-label="Пустой слот" disabled>
+        <button class="spell-action pixel-frame tappable" type="button" data-spell-slot="2" aria-label="Пустой слот" disabled>
           <img alt="" /><i></i><b>3</b><output></output>
         </button>
       </nav>
@@ -264,7 +267,7 @@
         </span>
       </output>
 
-      <button id="bag" class="bag-button pixel-frame" type="button" aria-label="Открыть рюкзак" disabled>
+      <button id="bag" class="bag-button pixel-frame tappable" type="button" aria-label="Открыть рюкзак" disabled>
         <svg
           class="bag-glyph"
           aria-hidden="true"
@@ -294,7 +297,7 @@
 
       <button
         id="interact-action"
-        class="interact-action pixel-frame"
+        class="interact-action pixel-frame tappable"
         type="button"
         aria-label="Взаимодействовать"
         hidden
@@ -319,7 +322,7 @@
 
       <button
         id="sanctuary-action"
-        class="sanctuary-action pixel-frame"
+        class="sanctuary-action pixel-frame tappable"
         type="button"
         aria-label="Исцелиться за три золота"
         hidden
@@ -725,7 +728,7 @@
           />
           <h2 id="run-end-title" class="run-end-title">Забег окончен</h2>
           <dl id="run-summary" class="run-summary"></dl>
-          <button id="restart-run" class="restart-run pixel-frame" type="button" aria-label="Начать новый забег">
+          <button id="restart-run" class="restart-run pixel-frame tappable" type="button" aria-label="Начать новый забег">
             <span aria-hidden="true">↻</span>
           </button>
         </div>

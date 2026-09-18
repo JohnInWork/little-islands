@@ -826,11 +826,68 @@ body {
   box-shadow: 4px 4px 0 var(--frame-black);
 }
 
+/*
+ * One rule for the whole screen: if it can be pressed, it is built like a key —
+ * a lit border, light catching the top of the face, and a lip of shadow it
+ * stands on that collapses under the thumb. If it cannot be pressed, it is a
+ * flat panel and has none of that.
+ *
+ * Before this the bar that shows your health and the button that opens your bag
+ * wore exactly the same frame, so there was nothing to tell one from the other
+ * except knowing already.
+ */
+.tappable {
+  --tap-edge: #9db0a8;
+  --tap-lip: #05090a;
+  border: var(--pixel-unit) solid var(--tap-edge);
+  background: #1b2528;
+  box-shadow:
+    inset 0 3px 0 rgb(240 255 250 / 12%),
+    inset 0 -5px 0 rgb(0 0 0 / 42%),
+    0 4px 0 var(--tap-lip),
+    4px 8px 0 var(--frame-black);
+  transition:
+    transform 60ms steps(2, end),
+    box-shadow 60ms steps(2, end);
+}
+
+.tappable:active,
+.tappable[data-active='true'] {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 -2px 0 rgb(0 0 0 / 42%),
+    0 0 0 var(--tap-lip),
+    4px 4px 0 var(--frame-black);
+}
+
+.tappable:disabled,
+.tappable[aria-disabled='true'] {
+  --tap-edge: #4b5556;
+  box-shadow:
+    0 2px 0 var(--tap-lip),
+    4px 6px 0 var(--frame-black);
+  opacity: 0.5;
+}
+
+.tappable:focus-visible {
+  outline: 4px solid #d1c078;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tappable {
+    transition: none;
+  }
+}
+
 .hud {
   position: fixed;
   z-index: 5;
   top: max(12px, env(safe-area-inset-top));
   left: max(12px, env(safe-area-inset-left));
+  /* The floor tile and the pause key own the right corner; the status strip
+     stops before them rather than sliding underneath. */
+  max-width: calc(100vw - 96px - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)));
   height: 68px;
   display: flex;
   align-items: center;
@@ -840,32 +897,41 @@ body {
   pointer-events: auto;
 }
 
+/*
+ * It used to be the whole panel: a button with no border, no face and no name,
+ * covering the health bar. Nobody presses what looks like a readout, so the way
+ * into the character sheet was effectively hidden. Now it is a key with your own
+ * face on it, sitting at the end of the row where a portrait belongs.
+ */
 .character-sheet-button {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-left: 8px;
   padding: 0;
-  border: 0;
-  background: transparent;
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 
-.hud:has(.character-sheet-button:focus-visible) {
-  outline: 4px solid #d1c078;
-  outline-offset: 4px;
+#character-sheet-face {
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
 }
+
+
 
 .character-sheet-button:disabled {
   cursor: default;
 }
 
 .skill-points-badge:not([hidden]) {
-  /* Inside the frame: a badge hanging off the edge reads as a rendering fault,
-     and on a 360px screen it hung over the world. */
+  /* On the character key itself, which is what the points are waiting for. */
   position: absolute;
-  right: 4px;
-  top: 4px;
+  right: -8px;
+  top: -10px;
   display: grid;
   place-items: center;
   min-width: 28px;
@@ -909,7 +975,9 @@ body {
 }
 
 .vitals {
-  width: clamp(168px, 46vw, 224px);
+  min-width: 0;
+  flex: 1;
+  width: clamp(120px, 36vw, 224px);
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 7px 8px;
@@ -1034,9 +1102,8 @@ body {
 }
 
 .purse b {
-  /* Four digits without the row jumping, and clear of the skill badge above. */
+  /* Four digits without the row jumping. */
   min-width: 44px;
-  padding-top: 10px;
   font-size: 15px;
   line-height: 1;
   color: var(--gold);
