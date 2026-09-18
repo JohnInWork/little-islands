@@ -232,6 +232,18 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'wood-buckler': Object.freeze({
     icon: 'item/armour/shields/buckler1.png', layer: 'player/hand2/buckler_green.png',
   }),
+  'round-shield': Object.freeze({
+    icon: 'item/armour/shields/shield1.png', layer: 'player/hand2/shield_knight_gray.png',
+  }),
+  'tower-shield': Object.freeze({
+    icon: 'item/armour/shields/large_shield1.png', layer: 'player/hand2/lshield_quartered.png',
+  }),
+  'spiked-shield': Object.freeze({
+    icon: 'item/armour/shields/shield3.png', layer: 'player/hand2/shield_bullseye.png',
+  }),
+  // An amulet is not drawn on the hero; the paperdoll has no neck layer.
+  'copper-charm': Object.freeze({ icon: 'item/amulet/celtic_red.png', layer: null }),
+  'hush-amulet': Object.freeze({ icon: 'item/amulet/eye_cyan.png', layer: null }),
   'dead-book': Object.freeze({
     icon: 'item/book/book_of_the_dead.png', layer: 'player/hand2/misc/book_red.png',
   }),

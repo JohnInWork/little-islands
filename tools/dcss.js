@@ -31,6 +31,7 @@ import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
   canWeaponAttack,
+  EQUIPMENT_SLOTS,
   REACH_STYLES,
   combatDamage,
   createMonsterStates,
@@ -183,6 +184,12 @@ import {
   selectPiercedTargets,
 } from './dcss-rpg-marksmanship.js';
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
+import {
+  armourProfile,
+  focusedCooldown,
+  frugalHungerSeconds,
+  thornsDamage,
+} from './dcss-rpg-armour.js';
 import { whipCopy, whipPull } from './dcss-rpg-whips.js';
 import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
 import {
@@ -2144,8 +2151,22 @@ function currentDarkvisionProfile() {
   return darkvisionProfile(currentSkillCapabilities());
 }
 
+/** Everything worn, folded once: the armour traits the hero is carrying. */
+function currentArmourProfile() {
+  return armourProfile(EQUIPMENT_SLOTS.map((slot) => equippedItem(slot)).filter(Boolean));
+}
+
 function currentStealthProfile() {
-  return stealthProfile(currentSkillCapabilities());
+  const skill = stealthProfile(currentSkillCapabilities());
+  const quiet = currentArmourProfile().quiet;
+  if (quiet === 0) return skill;
+  // Quiet armour works on its own; with the skill the two add up, bounded by
+  // the same ceiling the skill already respects.
+  return Object.freeze({
+    rank: skill.rank,
+    visionPercent: Math.min(60, (skill.visionPercent ?? 0) + quiet),
+    noisePercent: skill.noisePercent ?? 0,
+  });
 }
 
 function currentSecretSearchProfile() {
@@ -10077,6 +10098,23 @@ function triggerPlacedTrapForMonster(monster) {
   return true;
 }
 
+/**
+ * Spiked plate and clawed gloves answer for themselves. A blow that the shield
+ * ate never reached the spikes, so a blocked hit gets nothing back.
+ */
+function returnThorns(attacker, hit) {
+  if (!attacker || !hit || hit.blocked || hit.damage <= 0) return;
+  const damage = thornsDamage(currentArmourProfile(), hit.damage);
+  if (damage <= 0) return;
+  damageMonster(attacker, damage, '#c9b98a', {
+    style: 'blade',
+    sourceX: hero.x,
+    sourceY: hero.y,
+    vampiric: false,
+  });
+  addCombatGlyph(attacker.x, attacker.y, '\u2736', '#c9b98a', -54);
+}
+
 let whipRefusalAt = -Infinity;
 
 /**
@@ -10211,7 +10249,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       return false;
     }
     hero.spells = toggled.state;
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
     if (usedSpell.id === 'invisibility' && toggled.active) hero.invisibilityReveal = 0;
     playSound('spell-toggle');
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
@@ -10237,7 +10275,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       const copy = minionCopy(usedSpell.id, itemDetailLanguage);
       if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called);
     }
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
   } else if (usedSpell.kind === 'camp') {
     const refusal = summonCamp();
     if (refusal !== '') {
@@ -10249,7 +10287,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.attackDuration = 0.3;
     hero.attackStyle = 'staff';
     hero.attackCooldown = Math.max(hero.attackCooldown, 0.34);
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
   } else if (usedSpell.kind === 'burst') {
@@ -10277,7 +10315,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
         monster.effects = applyActorEffect(monster.effects, status.id, status.duration).effects;
       }
     }
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
   } else if (usedSpell.kind === 'purge') {
     const ritual = resolveCleansing({
       effects: hero.effects,
@@ -10303,7 +10341,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.effects = ritual.effects;
     for (const id of ritual.cleared) showEffectRelief(id);
     renderHeroEffectsHud();
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -10319,7 +10357,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       stats.maxHp - hero.hp,
     );
     hero.hp += amount;
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -10367,7 +10405,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       stormMagicRank: skillCapabilities.stormMagicRank ?? 0,
       status: spellStatus(usedSpell.id, stats.intelligence),
     });
-    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
     burst(hero.x + Math.cos(angle) * 20, hero.y + Math.sin(angle) * 20 - 8, usedSpell.color, 10);
   }
   playerHasActed = true;
@@ -11192,7 +11230,7 @@ function updateHunger(delta) {
   hungerAccumulator -= activeSeconds;
   run.stats.activeSeconds += activeSeconds;
   const before = hero.hunger;
-  hero.hunger = advanceHunger(hero.hunger, activeSeconds);
+  hero.hunger = advanceHunger(hero.hunger, frugalHungerSeconds(activeSeconds, currentArmourProfile()));
   if (hero.hunger === before) return;
 
   const nextStageId = hungerStage(hero.hunger).id;
@@ -11272,7 +11310,7 @@ function updateHero(delta) {
           HERO_BASE_MOVE_SPEED *
           currentHeroStats().moveSpeed *
           actorEffectModifiers(hero.effects).moveSpeed *
-          terrainSpeedMultiplier({ inWater: heroWading() }) *
+          terrainSpeedMultiplier({ inWater: heroWading() && !currentArmourProfile().surefooted }) *
           dodgeSpeedMultiplier(heroDodgeBoost, currentMobilityProfile()),
       );
       if (distance > 0) {
@@ -11423,7 +11461,10 @@ function updatePassiveCreatures(delta) {
             attackSequence,
           }),
         });
-        damageHero(creature.damage, { blocked: block.blocked, source: `wildlife:${creature.id}` });
+        returnThorns(
+          creature,
+          damageHero(creature.damage, { blocked: block.blocked, source: `wildlife:${creature.id}` }),
+        );
       }
       occupied.add(currentKey);
       continue;
@@ -11749,6 +11790,7 @@ function updateWorld(delta) {
             terrain: monster.terrain,
           })));
           const hit = damageHero(strikeDamage, { blocked: block.blocked, source: monster.id });
+          returnThorns(monster, hit);
           if (hit && monster.shock) shockWetActorsAround(monster);
             if (hit && monster.pull > 0) dragHeroToward(monster);
           if (block.stunSeconds > 0) {

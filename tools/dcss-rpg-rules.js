@@ -1,3 +1,4 @@
+import { validateArmourBlock } from './dcss-rpg-armour.js';
 import { mealStatModifiers } from './dcss-rpg-cooking.js';
 import { lootById, monsterById } from './dcss-rpg-content.js';
 import { floorScaling, monsterTier } from './dcss-rpg-scaling.js';
@@ -513,6 +514,10 @@ export function assertEquipmentCatalog(items) {
     }
     if (item.offhandKind !== undefined && !['shield', 'focus'].includes(item.offhandKind)) {
       throw new Error(`Invalid off-hand kind for ${item.id}`);
+    }
+    // Armour traits belong to armour: a weapon's character lives in its family.
+    if (!validateArmourBlock(item.armour) || (item.armour && item.slot === 'hand1')) {
+      throw new Error(`Invalid armour traits for ${item.id}`);
     }
   }
   return true;

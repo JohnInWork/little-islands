@@ -206,7 +206,7 @@ test('the runtime wades, conducts, dampens fire and refuses books in water', asy
   assert.match(runtime, /\(world\[y\]\[x\] === '\.' \|\| world\[y\]\[x\] === '~'\)/, 'monsters and wildlife too');
   assert.match(runtime, /function updateHeroTerrain\(\)[\s\S]*applyActorEffect\(hero\.effects, 'wet', WATER_WET_DURATION\)[\s\S]*playSound\('splash'\)/);
   assert.match(runtime, /updateDoorOpening\(delta\);\s+updateHeroTerrain\(\);/);
-  assert.match(runtime, /terrainSpeedMultiplier\(\{ inWater: heroWading\(\) \}\)/);
+  assert.match(runtime, /terrainSpeedMultiplier\(\{ inWater: heroWading\(\) && !currentArmourProfile\(\)\.surefooted \}\)/);
   assert.match(runtime, /terrainSpeedMultiplier\(\{ inWater: actorInWater\(world, monster, TILE\), terrain: monster\.terrain \}\)/);
   assert.match(runtime, /terrainMeleeMultiplier\(\{ inWater: heroWading\(\) \}\)/);
   assert.match(runtime, /if \(hit && monster\.shock\) shockWetActorsAround\(monster\);/);

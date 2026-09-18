@@ -1,10 +1,11 @@
+import { ARMOUR_TRAITS, armourTraitText, armourTraits } from './dcss-rpg-armour.js';
 import { mealById } from './dcss-rpg-cooking.js';
 import { ACTOR_EFFECTS } from './dcss-rpg-effects.js';
 import { artifactCurseById, artifactCursePresentation } from './dcss-rpg-artifacts.js';
 import { INVISIBILITY_REVEAL_SECONDS, VAMPIRISM_RATIO } from './dcss-rpg-magic.js';
 import { spellById } from './dcss-rpg-spells.js';
 
-export const ITEM_DESCRIPTION_VERSION = 4;
+export const ITEM_DESCRIPTION_VERSION = 5;
 
 const freezeFact = (fact) => Object.freeze(fact);
 const locale = (requested) => requested === 'en' ? 'en' : 'ru';
@@ -266,6 +267,24 @@ function combatFacts(item, language) {
     }),
     ...familyFacts(item, language),
   ];
+}
+
+/**
+ * A helmet that only adds defence is the same helmet as every other helmet.
+ * What the piece promises beyond numbers is the reason to wear it, so it gets
+ * its own line — in the order the traits are declared, not insertion order.
+ */
+const ARMOUR_ICONS = Object.freeze({
+  quiet: '◌', surefooted: '⌒', thorns: '✶', frugal: '◑', focused: '✧',
+});
+
+function armourFacts(item, language) {
+  const traits = armourTraits(item);
+  if (!traits) return [];
+  return ARMOUR_TRAITS.filter((trait) => traits[trait] > 0).map((trait) => {
+    const text = armourTraitText(trait, traits[trait], language);
+    return freezeFact({ id: `armour:${trait}`, kind: 'armour', icon: ARMOUR_ICONS[trait], text, short: text });
+  });
 }
 
 /**
@@ -575,8 +594,9 @@ export function generatedItemDescription(item, requestedLanguage = 'ru') {
   const magic = magicFacts(item, language);
   const artifactCurses = artifactCurseFacts(item, language);
   const combat = combatFacts(item, language);
+  const armour = armourFacts(item, language);
   const rules = handednessFact(item, language);
-  const facts = [...magic, ...artifactCurses, ...utility, ...stats, ...combat, ...rules];
+  const facts = [...magic, ...artifactCurses, ...utility, ...stats, ...armour, ...combat, ...rules];
   if (facts.length === 0) {
     throw new Error(`Item has no describable gameplay data: ${item.id}`);
   }
