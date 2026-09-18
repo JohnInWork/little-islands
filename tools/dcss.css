@@ -7479,3 +7479,93 @@ body {
   border-color: #f0dda0;
   font-size: 13px;
 }
+
+/*
+ * The same key language inside the panels. The game screen got it first; the
+ * bag, the sheet, the shop and every dialog kept flat rectangles, so a button
+ * there still looked like a label. Only the edge and the lip are set here —
+ * each panel keeps its own size and colours, because those already mean things
+ * (a gold «Купить», a red «Напасть»).
+ */
+.records-card button,
+.outfit-card button,
+.outfit-detail-card button,
+.character-sheet-card button,
+.inventory-shell button,
+.item-detail-card button,
+.context-action-card button,
+.merchant-shop-card button,
+.chest-container-card button,
+.floor-map-card button,
+.run-end-card button,
+.new-run-confirm-card button,
+.appearance-editor button,
+.onboarding-hint button {
+  border-style: solid;
+  border-width: var(--pixel-unit);
+  box-shadow:
+    inset 0 3px 0 rgb(240 255 250 / 10%),
+    inset 0 -5px 0 rgb(0 0 0 / 34%),
+    0 4px 0 #05090a;
+  transition:
+    transform 60ms steps(2, end),
+    box-shadow 60ms steps(2, end);
+}
+
+.records-card button:active,
+.outfit-card button:active,
+.outfit-detail-card button:active,
+.character-sheet-card button:active,
+.inventory-shell button:active,
+.item-detail-card button:active,
+.context-action-card button:active,
+.merchant-shop-card button:active,
+.chest-container-card button:active,
+.floor-map-card button:active,
+.run-end-card button:active,
+.new-run-confirm-card button:active,
+.appearance-editor button:active,
+.onboarding-hint button:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 -2px 0 rgb(0 0 0 / 34%),
+    0 0 0 #05090a;
+}
+
+.records-card button:disabled,
+.outfit-card button:disabled,
+.outfit-detail-card button:disabled,
+.character-sheet-card button:disabled,
+.inventory-shell button:disabled,
+.item-detail-card button:disabled,
+.context-action-card button:disabled,
+.merchant-shop-card button:disabled,
+.chest-container-card button:disabled,
+.floor-map-card button:disabled,
+.run-end-card button:disabled,
+.new-run-confirm-card button:disabled,
+.appearance-editor button:disabled,
+.onboarding-hint button:disabled {
+  box-shadow: 0 2px 0 #05090a;
+  opacity: 0.45;
+}
+
+/* The backdrop is a way out, not a key: it must stay invisible. */
+#context-action-backdrop {
+  border: 0;
+  box-shadow: none;
+}
+
+/*
+ * When nothing is within reach the interact key is hidden, and the heal key
+ * used to stay on its own rung with a hole under it. A column with a gap in it
+ * reads as something missing, so the rest of the column steps down.
+ */
+[data-interact='off'] .sanctuary-action {
+  bottom: calc(var(--dock-floor) + var(--dock-step));
+}
+
+/* The last row of the sheet was sliding under its own footer. */
+.character-sheet-body {
+  padding-bottom: 16px;
+}

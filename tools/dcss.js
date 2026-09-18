@@ -692,7 +692,6 @@ const levelUpPoints = document.querySelector('#level-up-points');
 const healthSegments = [...document.querySelectorAll('.health i')];
 const hungerMeter = document.querySelector('#hunger-meter');
 const hungerFill = document.querySelector('#hunger-fill');
-const combatIndicators = [...document.querySelectorAll('.ailments i')];
 const heroEffectsHud = document.querySelector('#hero-effects');
 const hudGold = document.querySelector('#hud-gold');
 const characterSheetFace = document.querySelector('#character-sheet-face');
@@ -808,15 +807,6 @@ const ACTOR_SIZE = 82;
 const WORLD_WIDTH = MAP_WIDTH;
 const WORLD_HEIGHT = MAP_HEIGHT;
 const rarityGlow = ['#9da39c', '#66b47a', '#62a9dc', '#d0b45e'];
-const combatGlyph = Object.freeze({
-  unarmed: '·',
-  blade: '⚔',
-  heavy: '◆',
-  spear: '↟',
-  staff: '✦',
-  bow: '➶',
-});
-
 /** The water of the place the run is standing in; still and dark by default. */
 let waterPaths = WATER_PATHS;
 
@@ -6837,8 +6827,10 @@ function updateHud() {
   skillPointsBadge.textContent = `+${hero.skills.points}`;
   skillPointsBadge.title = itemDetailLanguage === 'ru' ? 'Очки навыков' : 'Skill points';
   healthSegments.forEach((segment, index) => segment.classList.toggle('empty', index >= filled));
-  combatIndicators[0].textContent = combatGlyph[combat.style] ?? '·';
-  combatIndicators[1].textContent = combat.guard > 0 ? '▣' : String(combat.range);
+  // Style and reach used to sit here as two 12px pictograms with no label —
+  // crossed swords at that size read as a typo, and nothing said what the
+  // number meant. The character sheet spells both out in words, one tap away
+  // on the key with the hero's own face on it.
   // What you are carrying belongs on the screen you are carrying it on. It was
   // only ever visible inside the bag, which is the one place you do not need to
   // be told: the decision to spend or to go one floor deeper is taken out here.
@@ -7406,6 +7398,8 @@ function updateInteractionUi() {
     interactActionButton.hidden = true;
     interactActionButton.disabled = true;
     delete interactActionButton.dataset.interaction;
+    // The column above it closes the gap rather than leaving a hole.
+    document.body.dataset.interact = 'off';
     return false;
   }
   const model = contextActionModel({
@@ -7416,6 +7410,7 @@ function updateInteractionUi() {
   });
   interactActionButton.hidden = false;
   interactActionButton.disabled = false;
+  document.body.dataset.interact = 'on';
   interactActionButton.dataset.interaction = model.interactionId;
   interactActionButton.style.setProperty('--context-accent', model.accent);
   interactActionButton.setAttribute('aria-label', model.triggerLabel);
