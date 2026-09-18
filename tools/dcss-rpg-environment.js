@@ -159,6 +159,65 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     ],
     floorAccents: numberedPaths('dngn/floor/grey_dirt', [4, 5, 6, 7]),
   }),
+  // Outside. A tree is a thing standing on the ground, not a texture stretched
+  // over a wall block — which is what it was, and why it looked wrong.
+  roomTheme({
+    id: 'open-wood',
+    features: [
+      prop('dngn/trees/tree1_yellow.png', { size: 96, screenOffsetY: -22 }),
+      prop('dngn/trees/tree2_red.png', { size: 96, screenOffsetY: -22 }),
+      prop('dngn/trees/tree1_lightred.png', { size: 92, screenOffsetY: -20 }),
+    ],
+    details: [
+      prop('mon/fungi_plants/bush4.png', { size: 60, screenOffsetY: -3 }),
+      prop('mon/fungi_plants/briar_patch.png', { size: 58, screenOffsetY: -2 }),
+      prop('dngn/trees/tree2_yellow.png', { size: 88, screenOffsetY: -18 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/grass/grass', [0, 1, 2]),
+  }),
+  roomTheme({
+    id: 'mangrove-shallows',
+    features: [
+      prop('dngn/trees/mangrove1.png', { size: 92, screenOffsetY: -20 }),
+      prop('dngn/trees/mangrove2.png', { size: 92, screenOffsetY: -20 }),
+      prop('dngn/trees/mangrove3.png', { size: 92, screenOffsetY: -20 }),
+    ],
+    details: [
+      prop('mon/fungi_plants/bush2.png', { size: 58, screenOffsetY: -3 }),
+      prop('mon/fungi_plants/wandering_mushroom.png', { size: 56, screenOffsetY: -2 }),
+      prop('mon/fungi_plants/briar_patch.png', { size: 58, screenOffsetY: -2 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/swamp', [0, 1, 2, 3]),
+  }),
+  // A graveyard with no graves in it is a lawn.
+  roomTheme({
+    id: 'boneyard',
+    features: [
+      prop('dngn/vaults/sarcophagus_pedestal_left.png', { size: 72, screenOffsetY: -9 }),
+      prop('dngn/statues/statue_angel.png', { size: 76, screenOffsetY: -12 }),
+      prop('dngn/vaults/sarcophagus_pedestal_right.png', { size: 72, screenOffsetY: -9 }),
+    ],
+    details: [
+      prop('dngn/statues/crumbled_column_1.png', { size: 62 }),
+      prop('dngn/statues/crumbled_column_4.png', { size: 60 }),
+      prop('dngn/trees/tree1_red.png', { size: 88, screenOffsetY: -18 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/moss', [0, 1, 2, 3]),
+  }),
+  roomTheme({
+    id: 'ruined-yard',
+    features: [
+      prop('dngn/statues/crumbled_column_2.png', { size: 66 }),
+      prop('dngn/vaults/brick_dark_skeleton.png', { size: 70, screenOffsetY: -8 }),
+      prop('dngn/statues/crumbled_column_5.png', { size: 66 }),
+    ],
+    details: [
+      prop('mon/fungi_plants/bush3.png', { size: 58, screenOffsetY: -3 }),
+      prop('dngn/trees/tree2_lightred.png', { size: 86, screenOffsetY: -18 }),
+      prop('dngn/statues/crumbled_column_3.png', { size: 60 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/grey_dirt_b_', [0, 1, 2, 3]),
+  }),
 ]);
 
 const START_ROOM_THEME = roomTheme({

@@ -703,11 +703,8 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/grass/grass2.png',
     ]),
     walls: numberedPaths('dngn/wall/pebble_red', [0, 1, 2, 3]),
-    accentWalls: [
-      'dngn/trees/tree1_yellow.png',
-      'dngn/trees/tree2_red.png',
-    ],
-    accentModulo: 9,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#fdf6e6',
@@ -730,11 +727,8 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/swamp3.png',
     ]),
     walls: numberedPaths('dngn/wall/shoals_wall', [1, 2, 3, 4]),
-    accentWalls: [
-      'dngn/trees/mangrove1.png',
-      'dngn/trees/mangrove3.png',
-    ],
-    accentModulo: 11,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#ffffff',
@@ -762,10 +756,8 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/grass/grass_flowers_yellow3.png',
     ]),
     walls: numberedPaths('dngn/wall/brick_brown-vines', [1, 2, 3, 4]),
-    accentWalls: [
-      'dngn/trees/tree2_yellow.png',
-    ],
-    accentModulo: 13,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#fdfcec',
@@ -788,10 +780,8 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/moss3.png',
     ]),
     walls: numberedPaths('dngn/wall/undead_brown', [0, 1, 2, 3]),
-    accentWalls: [
-      'dngn/trees/tree1_red.png',
-    ],
-    accentModulo: 15,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#ffffff',
@@ -818,10 +808,8 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/grey_dirt_b_7.png',
     ]),
     walls: numberedPaths('dngn/wall/stone2_brown', [0, 1, 2, 3]),
-    accentWalls: [
-      'dngn/trees/tree1_lightred.png',
-    ],
-    accentModulo: 17,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 37,
     world3d: Object.freeze({
       floorTint: '#fbf6ea',
@@ -867,8 +855,8 @@ export const BIOME_THEMES = Object.freeze([
     palette: 'frost',
     floors: numberedPaths('dngn/floor/white_marble', [0, 1, 2, 4, 5, 6, 7, 9]),
     walls: numberedPaths('dngn/wall/stone2_gray', [0, 1, 2, 3]),
-    accentWalls: ['dngn/trees/tree2_lightred.png'],
-    accentModulo: 19,
+    accentWalls: [],
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#f6fbff',

@@ -123,3 +123,44 @@ test('a surface floor is a floor: reachable exit, valid run, no crashes', () => 
     }
   }
 });
+
+/**
+ * A tree stretched over a wall block is what "деревья плохо отображаются"
+ * looks like: the cube lights and shadows a texture that was drawn to stand
+ * on its own. Trees belong in the prop pass, with the statues and the bushes.
+ */
+test('nothing growing is painted onto a wall', async () => {
+  const { BIOME_THEMES } = await import('../tools/dcss-rpg-visuals.js');
+  const { ENVIRONMENT_ROOM_THEMES } = await import('../tools/dcss-rpg-environment.js');
+  for (const theme of BIOME_THEMES) {
+    for (const path of [...theme.walls, ...theme.accentWalls]) {
+      assert.ok(!path.includes('dngn/trees/'), `${theme.id} paints a tree on a wall`);
+    }
+  }
+  const outdoors = ENVIRONMENT_ROOM_THEMES.filter(({ id }) => (
+    ['open-wood', 'mangrove-shallows', 'boneyard', 'ruined-yard'].includes(id)
+  ));
+  assert.equal(outdoors.length, 4, 'the outdoors ships four kinds of ground cover');
+  assert.ok(
+    outdoors.some(({ features, details }) => (
+      [...features, ...details].some(({ path }) => path.includes('dngn/trees/'))
+    )),
+    'trees have to stand somewhere',
+  );
+  // And a graveyard has graves in it, not statuary borrowed from a hall.
+  const boneyard = outdoors.find(({ id }) => id === 'boneyard');
+  assert.ok(boneyard.features.some(({ path }) => path.includes('sarcophagus')));
+});
+
+/** Every place outside is decorated as a place outside. */
+test('no crypt statue ever stands in a meadow', async () => {
+  const { DUNGEON_THEME_CATALOG, ROOM_ARCHETYPE_CATALOG, environmentThemeFor } =
+    await import('../tools/dcss-rpg-room-plans.js');
+  const outdoors = new Set(['open-wood', 'mangrove-shallows', 'boneyard', 'ruined-yard']);
+  for (const theme of DUNGEON_THEME_CATALOG.filter(({ branch }) => branch === 'surface')) {
+    for (const archetype of ROOM_ARCHETYPE_CATALOG) {
+      const look = environmentThemeFor(archetype, theme.id);
+      assert.ok(outdoors.has(look), `${archetype.id} in ${theme.id} is decorated as ${look}`);
+    }
+  }
+});
