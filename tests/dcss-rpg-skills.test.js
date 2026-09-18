@@ -46,11 +46,14 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS));
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
-    'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes', 'shield',
+    'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
+    'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
-    'trap-detection', 'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
+    'trap-detection', 'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
+    'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
+    'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'fire-spread', 'frost-buildup', 'chain-lightning',
   ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
@@ -182,6 +185,11 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
+    daggerRank: 0, daggerAmbushPercent: 0, daggerBackstabPercent: 0,
+    bluntRank: 0, bluntArmorBreakPercent: 0, bluntArmorBreakSeconds: 0, bluntInterruptStunMs: 0,
+    spearRank: 0, spearInterceptPercent: 0, spearHoldMs: 0, spearInterceptCooldownMs: 0,
+    marksmanRank: 0, marksmanAimMs: 0, marksmanAimBonusPercent: 0, marksmanPierceTargets: 0,
+    mobilityRank: 0, mobilityDodgeSpeedPercent: 0, mobilityDodgeMs: 0,
     swordRhythmBonusPercent: 0, axeCleaveRank: 0,
     axeCleaveTwoHandDamagePercent: 0, axeCleaveTwoHandTargets: 0,
     axeCleaveOneHandDamagePercent: 0, axeCleaveOneHandTargets: 0,

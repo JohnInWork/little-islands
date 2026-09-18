@@ -26,6 +26,47 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     layer: 'player/body/shirt_white1.png',
     legsLayer: 'player/legs/pants_brown.png',
   }),
+  'bone-dirk': Object.freeze({
+    icon: 'item/weapon/dagger3.png',
+    layer: 'player/hand1/dagger_slant.png',
+    offhandLayer: 'player/hand2/misc/dagger.png',
+  }),
+  'spriggan-knife': Object.freeze({
+    icon: 'item/weapon/artefact/urand_spriggans_knife.png',
+    layer: 'player/hand1/artefact/spriggans_knife.png',
+    offhandLayer: 'player/hand2/misc/dagger.png',
+  }),
+  'oak-club': Object.freeze({
+    icon: 'item/weapon/club.png',
+    layer: 'player/hand1/club_slant.png',
+    offhandLayer: 'player/hand2/misc/giant_club_plain.png',
+  }),
+  'iron-mace': Object.freeze({
+    icon: 'item/weapon/mace1.png',
+    layer: 'player/hand1/mace.png',
+    offhandLayer: 'player/hand2/misc/great_mace.png',
+  }),
+  'morning-star': Object.freeze({
+    icon: 'item/weapon/morningstar2.png',
+    layer: 'player/hand1/morningstar_two.png',
+  }),
+  'hunting-spear': Object.freeze({
+    icon: 'item/weapon/spear1.png',
+    layer: 'player/hand1/spear.png',
+    offhandLayer: 'player/hand2/misc/dagger.png',
+  }),
+  'war-pike': Object.freeze({
+    icon: 'item/weapon/spear2.png',
+    layer: 'player/hand1/spear_two.png',
+  }),
+  'short-bow': Object.freeze({
+    icon: 'item/weapon/ranged/shortbow1.png',
+    layer: 'player/hand1/bow_two.png',
+  }),
+  'light-crossbow': Object.freeze({
+    icon: 'item/weapon/ranged/hand_crossbow.png',
+    layer: 'player/hand1/hand_crossbow.png',
+  }),
   'long-sword': Object.freeze({
     icon: 'item/weapon/long_sword1.png',
     layer: 'player/hand1/long_sword_slant2.png',

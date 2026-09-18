@@ -6,6 +6,15 @@ import { proceduralArtifactName } from './dcss-rpg-artifacts.js';
 
 const RUSSIAN_NAMES = Object.freeze({
   'short-blade': 'Короткий клинок',
+  'bone-dirk': 'Костяной кинжал',
+  'spriggan-knife': 'Нож спригана',
+  'oak-club': 'Дубовая палица',
+  'iron-mace': 'Железная булава',
+  'morning-star': 'Моргенштерн',
+  'hunting-spear': 'Охотничье копьё',
+  'war-pike': 'Боевая пика',
+  'short-bow': 'Короткий лук',
+  'light-crossbow': 'Лёгкий арбалет',
   'long-sword': 'Длинный меч',
   'duelist-rapier': 'Рапира дуэлянта',
   'iron-falchion': 'Железный фальшион',
@@ -83,6 +92,15 @@ const RUSSIAN_NAMES = Object.freeze({
 });
 
 const ENGLISH_NAMES = Object.freeze({
+  'bone-dirk': 'Bone dirk',
+  'spriggan-knife': 'Spriggan knife',
+  'oak-club': 'Oak club',
+  'iron-mace': 'Iron mace',
+  'morning-star': 'Morning star',
+  'hunting-spear': 'Hunting spear',
+  'war-pike': 'War pike',
+  'short-bow': 'Short bow',
+  'light-crossbow': 'Light crossbow',
   'mystery-potion': 'Potion of Might',
   'mending-potion': 'Potion of Mending',
   'cleansing-potion': 'Potion of Cleansing',

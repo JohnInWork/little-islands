@@ -50,6 +50,8 @@
   всех, проводимость молнии, угорь и мерфолк.
 - [2D-CHAPTERS.md](2D-CHAPTERS.md) — лицо главы: своя погода, своё существо
   со своей механикой и посадка из отдельного потока.
+- [2D-WEAPON-SKILLS.md](2D-WEAPON-SKILLS.md) — восемь боевых техник: по одной
+  на семейство оружия плюс Манёвренность.
 - [2D-VISUAL-WORKSHOP.md](2D-VISUAL-WORKSHOP.md) — локальный выбор спрайтов для
   предметов, существ и интерактивных объектов без изменения игровых ID.
 - [2D-RPG-PLAN.md](2D-RPG-PLAN.md) — долгосрочное направление, не список готового.
@@ -238,6 +240,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Экран итогов забега | `tools/dcss-rpg-run-summary.js`; `run.stats` в `dcss-rpg-core.js`; связывание в `dcss.js` |
 | Звук и фон | `tools/dcss-rpg-audio.js`; WebAudio-адаптер в `dcss.js`, [контракт](2D-AUDIO.md) |
 | Обучение первых минут | `tools/dcss-rpg-onboarding.js`; сигналы и панель в `dcss.js`, [контракт](2D-ONBOARDING.md) |
+| Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |
 | Список нужных спрайтов и упаковка | `tools/dcss-rpg-required-assets.js`; `scripts/package-itch.mjs`, [выпуск](RELEASE.md) |

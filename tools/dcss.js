@@ -153,6 +153,22 @@ import {
   zoomFloorMapView,
 } from './dcss-rpg-floor-map.js';
 import { runSummaryModel } from './dcss-rpg-run-summary.js';
+import { applyStrikeBonus, daggerProfile, resolveDaggerStrike } from './dcss-rpg-daggers.js';
+import {
+  armorBreakMultiplier,
+  bluntProfile,
+  refreshArmorBreak,
+  resolveBluntStrike,
+  tickArmorBreak,
+} from './dcss-rpg-blunt.js';
+import { interceptionDamage, spearInterception, spearProfile } from './dcss-rpg-spears.js';
+import {
+  accumulateSteadiness,
+  marksmanProfile,
+  resolveMarksmanShot,
+  selectPiercedTargets,
+} from './dcss-rpg-marksmanship.js';
+import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -766,6 +782,10 @@ let voidStarLayers = createVoidStars(dungeon);
 const renderShake = { x: 0, y: 0, amount: 0 };
 let hitStop = 0;
 let swordRhythmState = createSwordRhythmState();
+// Weapon-technique transients: how long the hero has stood still for an aimed
+// shot, and how long a dodge still speeds them up. Neither belongs in the save.
+let heroSteadySeconds = 0;
+let heroDodgeBoost = 0;
 
 let viewportWidth = innerWidth;
 let viewportHeight = innerHeight;
@@ -1461,6 +1481,28 @@ function currentHeroCombat() {
 
 function currentHeroCleave() {
   return axeCleaveProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
+}
+
+// Weapon techniques read the equipped item, not the combat profile: the family
+// lives on the item, exactly as the sword rhythm and the axe cleave expect.
+function currentDaggerProfile() {
+  return daggerProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
+}
+
+function currentBluntProfile() {
+  return bluntProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
+}
+
+function currentSpearProfile() {
+  return spearProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
+}
+
+function currentMarksmanProfile() {
+  return marksmanProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
+}
+
+function currentMobilityProfile() {
+  return mobilityProfile(currentSkillCapabilities());
 }
 
 function combatTempo(cooldown) {
@@ -7762,6 +7804,67 @@ function addBloodImpact(actor, sourceX, sourceY, lethal = false) {
   if (bloodStains.length > 36) bloodStains.shift();
 }
 
+/** A mace leaves the target open and, from rank two, holds it where it stands. */
+function applyBluntAftermath(monster, profile) {
+  const outcome = resolveBluntStrike({ profile, targetWindingUp: monster.attackWindup > 0 });
+  if (outcome.armorBreakPercent === 0) return;
+  monster.armorBreak = refreshArmorBreak(monster.armorBreak, outcome);
+  addCombatGlyph(monster.x, monster.y, '\u25a2', '#d0b45e', -52);
+  if (!outcome.interrupt) return;
+  monster.attackWindup = 0;
+  monster.attackRecovery = Math.max(monster.attackRecovery, outcome.stunSeconds);
+  monster.shieldStun = Math.max(monster.shieldStun ?? 0, outcome.stunSeconds);
+  addImpactWave(monster.x, monster.y - 8, '#e0c778', 52, 2);
+}
+
+/** An ambush or a blade in the back reads differently from an honest swing. */
+function showDaggerStrikeImpact(monster, bonus) {
+  const ambush = bonus.kind === 'ambush';
+  burst(monster.x, monster.y - 9, ambush ? '#c8e0a8' : '#e0b8c8', ambush ? 22 : 16);
+  addImpactWave(monster.x, monster.y - 8, ambush ? '#d8f0b8' : '#f0c8d8', ambush ? 62 : 48, 2);
+  addCombatGlyph(monster.x, monster.y, ambush ? '\u2726' : '\u2727', '#f2e2c2', -70);
+  beginHitStop(0.05);
+}
+
+/** The spear answers a creature that just stepped into its reach. */
+function resolveSpearGuard(monster, previousDistance, distance) {
+  if (hero.dead || runStatus !== 'playing' || monster.dead > 0) return;
+  const profile = currentSpearProfile();
+  if (profile.rank === 0) return;
+  const result = spearInterception({
+    profile,
+    previousDistance,
+    distance,
+    cooldownRemaining: monster.spearGuardCooldown ?? 0,
+  });
+  if (!result.triggered) return;
+  const combat = currentHeroCombat();
+  if (!canHeroAttack(monster, combat)) return;
+  monster.spearGuardCooldown = result.cooldownSeconds;
+  monster.attackRecovery = Math.max(monster.attackRecovery, result.holdSeconds);
+  monster.route = [];
+  hero.facing = monster.x < hero.x ? -1 : 1;
+  addCombatGlyph(monster.x, monster.y, '\u2191', '#cfd8c0', -60);
+  damageMonster(
+    monster,
+    interceptionDamage(combatDamage(currentHeroStats(), combat), result.damagePercent),
+    '#cfd8c0',
+    { style: 'spear', sourceX: hero.x, sourceY: hero.y, vampiric: currentHeroMagic().vampirism },
+  );
+}
+
+/** Reading a telegraph and stepping out of it is worth a burst of speed. */
+function rewardHeroEvasion() {
+  if (hero.dead || runStatus !== 'playing') return;
+  const profile = currentMobilityProfile();
+  if (profile.rank === 0) return;
+  const before = heroDodgeBoost;
+  heroDodgeBoost = refreshDodgeBoost(heroDodgeBoost, profile);
+  if (heroDodgeBoost <= before) return;
+  addCombatGlyph(hero.x, hero.y, '\u00bb', '#a9d8c0', -70);
+  burst(hero.x, hero.y - 6, '#a9d8c0', 10);
+}
+
 function showSwordRhythmImpact(monster, result) {
   if (!result?.empowered) return;
   const rank = Math.max(1, Math.min(3, result.rank));
@@ -7866,7 +7969,14 @@ function damageMonster(
   monster,
   damage,
   color,
-  { style = 'blade', projectile = false, sourceX = hero.x, sourceY = hero.y, vampiric = false } = {},
+  {
+    style = 'blade',
+    projectile = false,
+    sourceX = hero.x,
+    sourceY = hero.y,
+    vampiric = false,
+    blunt = null,
+  } = {},
 ) {
   if (monster?.actorKind === 'wildlife') {
     damageWildlife(monster, damage, color, { style, projectile, sourceX, sourceY, vampiric });
@@ -7875,6 +7985,9 @@ function damageMonster(
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (!monster || monster.dead > 0) return;
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
+  // Broken armour amplifies every later source, not just the mace that made it.
+  const amplified = Math.max(1, Math.round(damage * armorBreakMultiplier(monster.armorBreak)));
+  damage = amplified;
   const dealt = Math.min(monster.hp, damage);
   monster.hit = 0.19;
   playSound(projectile ? 'hit-projectile' : style === 'heavy' ? 'hit-heavy' : 'hit-blade');
@@ -7904,6 +8017,7 @@ function damageMonster(
     monster.attackRecovery = 0.18;
     addCombatGlyph(monster.x, monster.y, '!', '#e0c778', -66);
   }
+  if (blunt && monster.hp > 0) applyBluntAftermath(monster, blunt);
   if (monster.hp <= 0) defeatMonster(monster);
   else if (monster.boss) updateBossHud();
 }
@@ -7947,7 +8061,7 @@ function triggerPlacedTrapForMonster(monster) {
   return true;
 }
 
-function launchHeroProjectile(monster, damage, combat, color) {
+function launchHeroProjectile(monster, damage, combat, color, shot = null) {
   const angle = Math.atan2(monster.y - hero.y, monster.x - hero.x);
   projectiles.push({
     x: hero.x + Math.cos(angle) * 22,
@@ -7960,6 +8074,9 @@ function launchHeroProjectile(monster, damage, combat, color) {
     color: combat.projectile === 'arcane' ? '#78c9c5' : color,
     kind: combat.projectile,
     style: combat.style,
+    pierceTargets: shot?.pierceTargets ?? 0,
+    originX: hero.x,
+    originY: hero.y,
     vampiric: currentHeroMagic().vampirism,
   });
 }
@@ -8132,7 +8249,13 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     || !canHeroAttack(monster, pending.combat)
   ) return;
   if (pending.combat.projectile) {
-    launchHeroProjectile(monster, pending.damage, pending.combat, pending.color);
+    const shot = resolveMarksmanShot({ profile: pending.marksman, steadySeconds: heroSteadySeconds });
+    const shotDamage = applyStrikeBonus(pending.damage, shot.bonusPercent);
+    launchHeroProjectile(monster, shotDamage, pending.combat, pending.color, shot);
+    if (shot.aimed) {
+      heroSteadySeconds = 0;
+      addCombatGlyph(hero.x, hero.y, '\u25ce', '#dcc98a', -70);
+    }
     return;
   }
   const cleaveTargets = selectAxeCleaveTargets({
@@ -8159,12 +8282,22 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     swordRhythmState = primarySwordResult.state;
     primaryDamage = primarySwordResult.damage;
   }
+  const daggerBonus = resolveDaggerStrike({
+    profile: pending.dagger,
+    awareOfAttacker: (monster.alerted ?? 0) > 0,
+    attackerX: hero.x,
+    targetX: monster.x,
+    targetFacing: monster.facing,
+  });
+  primaryDamage = applyStrikeBonus(primaryDamage, daggerBonus.percent);
   damageMonster(monster, primaryDamage, pending.color, {
     style: pending.combat.style,
     sourceX: hero.x,
     sourceY: hero.y,
     vampiric: pending.vampiric,
+    blunt: pending.blunt,
   });
+  if (daggerBonus.kind) showDaggerStrikeImpact(monster, daggerBonus);
   if (primarySwordResult?.empowered) showSwordRhythmImpact(monster, primarySwordResult);
   if (pending.secondary && (monster.actorKind === 'wildlife' ? !monster.defeated : monster.dead === 0)) {
     let secondaryDamage = pending.secondary.damage;
@@ -8713,6 +8846,8 @@ function updateHero(delta) {
   hero.hurt = Math.max(0, hero.hurt - delta);
   hero.guardFlash = Math.max(0, hero.guardFlash - delta);
   hero.invisibilityReveal = Math.max(0, hero.invisibilityReveal - delta);
+  heroSteadySeconds = accumulateSteadiness(heroSteadySeconds, delta, hero.path.length > 0);
+  heroDodgeBoost = tickDodgeBoost(heroDodgeBoost, delta);
   if (typeof spellCooldowns !== 'undefined' && typeof spellUiAccumulator !== 'undefined') {
     let cooldownChanged = false;
     for (const [spellId, remaining] of Object.entries(spellCooldowns)) {
@@ -8756,7 +8891,8 @@ function updateHero(delta) {
           HERO_BASE_MOVE_SPEED *
           currentHeroStats().moveSpeed *
           actorEffectModifiers(hero.effects).moveSpeed *
-          terrainSpeedMultiplier({ inWater: heroWading() }),
+          terrainSpeedMultiplier({ inWater: heroWading() }) *
+          dodgeSpeedMultiplier(heroDodgeBoost, currentMobilityProfile()),
       );
       if (distance > 0) {
         const next = constrainActorMovement({
@@ -8836,6 +8972,9 @@ function updateHero(delta) {
       color,
       combat: { ...combat },
       cleave: currentHeroCleave(),
+    dagger: currentDaggerProfile(),
+    blunt: currentBluntProfile(),
+    marksman: currentMarksmanProfile(),
       sword: swordSource
         ? {
             slot: swordSource.slot,
@@ -9056,6 +9195,8 @@ function updateWorld(delta) {
     monster.crowdPressure = Math.max(0, (monster.crowdPressure ?? 0) - delta);
     monster.trapStun = Math.max(0, (monster.trapStun ?? 0) - delta);
     monster.shieldStun = Math.max(0, (monster.shieldStun ?? 0) - delta);
+    monster.spearGuardCooldown = Math.max(0, (monster.spearGuardCooldown ?? 0) - delta);
+    monster.armorBreak = tickArmorBreak(monster.armorBreak, delta);
     const previousWindup = monster.attackWindup;
     monster.attackWindup = Math.max(0, monster.attackWindup - delta);
     if (monster.dead > 0) {
@@ -9124,6 +9265,7 @@ function updateWorld(delta) {
             0,
           );
           addCombatGlyph(monster.attackTargetX, monster.attackTargetY, '!', '#899392');
+          rewardHeroEvasion();
         }
       }
       continue;
@@ -9244,8 +9386,12 @@ function updateWorld(delta) {
         tileSize: TILE,
       });
       const travelled = Math.hypot(next.x - monster.x, next.y - monster.y);
+      const guardDistanceBefore = Math.hypot(monster.x - hero.x, monster.y - hero.y) / TILE;
       monster.x = next.x;
       monster.y = next.y;
+      if (travelled > 0.01) {
+        resolveSpearGuard(monster, guardDistanceBefore, Math.hypot(monster.x - hero.x, monster.y - hero.y) / TILE);
+      }
       if (travelled > 0.01) {
         monster.stride = (monster.stride ?? 0) + travelled / TILE;
         monster.movePulse = 0.12;
@@ -9317,6 +9463,26 @@ function updateWorld(delta) {
         sourceY: projectile.y,
         vampiric: projectile.vampiric,
       });
+    }
+    if (projectileDamage > 0 && projectile.pierceTargets > 0) {
+      const pierced = selectPiercedTargets({
+        origin: { x: projectile.originX ?? projectile.x, y: projectile.originY ?? projectile.y },
+        target,
+        candidates: monsters,
+        pierceTargets: projectile.pierceTargets,
+        tolerance: TILE * 0.55,
+        range: TILE * 4,
+      });
+      for (const behind of pierced) {
+        addLightningArc(target, behind);
+        damageMonster(behind, projectileDamage, projectile.color, {
+          style: projectile.style,
+          projectile: true,
+          sourceX: target.x,
+          sourceY: target.y,
+          vampiric: projectile.vampiric,
+        });
+      }
     }
     if (projectile.status && (target.actorKind === 'wildlife' ? !target.defeated : target.dead === 0)) {
       const preparedEffects = cryomancy?.shatter
