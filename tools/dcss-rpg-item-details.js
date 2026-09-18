@@ -7,6 +7,7 @@ import { proceduralArtifactName } from './dcss-rpg-artifacts.js';
 const RUSSIAN_NAMES = Object.freeze({
   'short-blade': 'Короткий клинок',
   'camp-kit': 'Походный набор',
+  bandage: 'Бинты',
   'bone-dirk': 'Костяной кинжал',
   'spriggan-knife': 'Нож спригана',
   'oak-club': 'Дубовая палица',
@@ -95,6 +96,7 @@ const RUSSIAN_NAMES = Object.freeze({
 
 const ENGLISH_NAMES = Object.freeze({
   'camp-kit': 'Camping kit',
+  bandage: 'Bandages',
   'bone-dirk': 'Bone dirk',
   'spriggan-knife': 'Spriggan knife',
   'oak-club': 'Oak club',

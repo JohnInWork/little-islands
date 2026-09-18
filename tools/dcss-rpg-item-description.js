@@ -121,6 +121,7 @@ const COPY = Object.freeze({
     minutes: 'мин',
     power: 'Сила до конца забега',
     camp: 'Разбивает лагерь',
+    bandage: 'Перевязка ран',
     cleanse: 'Снимает все состояния',
     venom: 'Отравление',
     seconds: 'с',
@@ -159,6 +160,7 @@ const COPY = Object.freeze({
     minutes: 'min',
     power: 'Run power',
     camp: 'Pitches a camp',
+    bandage: 'Dresses wounds',
     cleanse: 'Clears all statuses',
     venom: 'Poison',
     seconds: 's',
@@ -294,6 +296,10 @@ function effectFact(effect, language, source) {
   if (effect.type === 'camp') {
     const text = COPY[language].camp;
     return freezeFact({ id: `${source}:camp`, kind: 'use', icon: '\u2302', text, short: text });
+  }
+  if (effect.type === 'bandage') {
+    const text = COPY[language].bandage;
+    return freezeFact({ id: `${source}:bandage`, kind: 'use', icon: '\u271a', text, short: text });
   }
   if (effect.type === 'cleanse') {
     const text = COPY[language].cleanse;

@@ -95,6 +95,24 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
     ]),
   }),
+  'field-medicine': Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ fieldMedicineRank: 1 }),
+      Object.freeze({ fieldMedicineRank: 2 }),
+      Object.freeze({ fieldMedicineRank: 3 }),
+    ]),
+  }),
+  endurance: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ enduranceRank: 1 }),
+      Object.freeze({ enduranceRank: 2 }),
+      Object.freeze({ enduranceRank: 3 }),
+    ]),
+  }),
   darkvision: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -208,6 +226,8 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
   'camp-rest',
+  'medical-treatment',
+  'condition-duration-scaling',
   'darkness-vision',
   'secret-discovery',
   'stealth-detection',
@@ -262,6 +282,8 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   campRank: Object.freeze([0, 3]),
   campRestPercent: Object.freeze([0, 100]),
   campStashSlots: Object.freeze([0, 12]),
+  fieldMedicineRank: Object.freeze([0, 3]),
+  enduranceRank: Object.freeze([0, 3]),
   darkvisionRank: Object.freeze([0, 3]),
   darkvisionRadiusBonus: Object.freeze([0, 6]),
   secretSearchRank: Object.freeze([0, 3]),

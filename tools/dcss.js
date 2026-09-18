@@ -180,6 +180,12 @@ import {
   stealthProfile,
   stealthVisionRadius,
 } from './dcss-rpg-scouting.js';
+import { enduranceProfile, enduredDuration } from './dcss-rpg-endurance.js';
+import {
+  bandageRefusalText,
+  fieldMedicineProfile,
+  resolveBandage,
+} from './dcss-rpg-field-medicine.js';
 import {
   CAMP_BEDROLL_PATH,
   CAMP_CHEST_PATH,
@@ -7960,6 +7966,24 @@ function useConsumable(item, index) {
       showLootToast(item, refusal);
       return;
     }
+  } else if (item.useEffect?.type === 'bandage') {
+    const treatment = resolveBandage({
+      profile: fieldMedicineProfile(currentSkillCapabilities()),
+      hp: hero.hp,
+      maxHp,
+      effects: hero.effects,
+    });
+    if (!treatment.ok) {
+      showLootToast(item, bandageRefusalText(treatment.reason, itemDetailLanguage));
+      return;
+    }
+    hero.hp = treatment.hp;
+    hero.effects = treatment.effects;
+    for (const id of treatment.cleared) showWardPulse(id);
+    playSound('drink');
+    burst(hero.x, hero.y - 10, '#d8c9b4', 18);
+    addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
+    feedback = `+${treatment.healed}`;
   } else if (item.useEffect?.type === 'power') {
     hero.power += item.useEffect.amount;
     feedback = `+${item.useEffect.amount}`;
@@ -8254,7 +8278,10 @@ function damageWildlife(
 
 function applyHeroStatus(id, duration) {
   const previousDuration = hero.effects[id] ?? 0;
-  const result = applyWardedEffect(hero.effects, id, duration, currentHeroMagic());
+  // Endurance shortens what the hero suffers, and only what reaches the hero:
+  // the same blow puts the same state on a monster for its full length.
+  const endured = enduredDuration(duration, enduranceProfile(currentSkillCapabilities()));
+  const result = applyWardedEffect(hero.effects, id, endured, currentHeroMagic());
   hero.effects = result.effects;
   if (result.blocked) {
     showWardPulse(result.blocked);

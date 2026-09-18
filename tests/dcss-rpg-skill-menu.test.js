@@ -44,7 +44,9 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'pyromancy',
     'cryomancy',
     'storm-magic',
+    'field-medicine',
     'camping',
+    'endurance',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
