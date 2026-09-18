@@ -254,7 +254,7 @@ test('the runtime wades, conducts, dampens fire and refuses books in water', asy
   // health bars and damage numbers too.
   assert.match(runtime, /drawWorld\(\);[\s\S]{0,240}?drawWaterlines\(\);/);
   assert.match(runtime, /drawWaterlines\(\);[\s\S]*drawPlayer\(\);/);
-  assert.match(runtime, /drawPixelRing\(position\.x, position\.y \+ 6[\s\S]{0,700}?eraseWashAboveWaterline\(waders\);/);
+  assert.match(runtime, /drawPixelRing\(position\.x, position\.y \+ 6[\s\S]{0,900}?eraseWashFromStanding\(standingInFrontOfWater\(\)\);/);
   assert.doesNotMatch(runtime, /cell === '~' \? '\.' : cell/, 'no flight-only water rewrite remains');
   for (const file of ['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png', 'mon/aquatic/electric_eel.png', 'mon/merfolk_impaler_water.png']) {
     assert.ok((await stat(new URL(`../public/assets/dcss-preview/${file}`, import.meta.url))).size > 0, file);

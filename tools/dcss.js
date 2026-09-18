@@ -4334,12 +4334,15 @@ function ghostActor3D() {
   };
 }
 
+/** The last frame's standing billboards, as the world was told to draw them. */
+let standingBillboards = null;
+
 function syncWorldActors3D() {
   const motion = playerMotion();
   const deathProgress = hero.dead ? 1 - Math.max(0, deathTimer) / 1.35 : 0;
   const heroMagic = currentHeroMagic();
   const concealed = heroMagic.invisibility && hero.invisibilityReveal <= 0;
-  dungeonWorld3D.syncActors({
+  const frame = {
     hero: {
       layers: playerLayers(),
       x: hero.x + motion.dx,
@@ -4518,7 +4521,11 @@ function syncWorldActors3D() {
     ],
     imageForPath: image,
     spriteFilter: VISIBILITY_TUNING.spriteFilter,
-  });
+  };
+  dungeonWorld3D.syncActors(frame);
+  // Kept for the water pass, which has to rub its own paint back off whatever
+  // is standing in front of the water — see `eraseWashFromStanding`.
+  standingBillboards = frame;
 }
 
 function drawPlayer() {
@@ -4829,33 +4836,83 @@ function wadingActors() {
 }
 
 /**
+ * Whether the shimmer of some water cell can reach this one. A sprite stands
+ * taller than its own tile, so the water a step or two to the north paints over
+ * its head — which is how a sheep on the bank ended up with a waterline across
+ * its back, and how the tops of walls at the edge of a lake looked like glass.
+ */
+function underWaterWash(cellX, cellY) {
+  for (let back = 0; back <= 2; back += 1) {
+    const key = `${cellX},${cellY - back}`;
+    if (world[cellY - back]?.[cellX] === '~' && revealed.has(key)) return true;
+  }
+  return false;
+}
+
+/**
+ * Everything the world drew standing up, that the shimmer can reach. Each one
+ * knows how to paint its own silhouette and where its waterline is: a figure in
+ * the water keeps the wash below the line, because that is the part that should
+ * look submerged, and everything on dry land keeps none of it at all.
+ */
+function standingInFrontOfWater() {
+  if (!standingBillboards) return [];
+  const standing = [];
+  const add = (actor, paint) => {
+    const cellX = Math.floor(actor.x / TILE);
+    const cellY = Math.floor(actor.y / TILE);
+    if (!underWaterWash(cellX, cellY) || (actor.opacity ?? 1) <= 0.02) return;
+    standing.push({ x: actor.x, y: actor.y, paint, wading: world[cellY]?.[cellX] === '~' });
+  };
+  const motion = playerMotion();
+  add(standingBillboards.hero, () => {
+    const silhouette = dungeonWorld3D.heroSilhouette();
+    if (!silhouette) return;
+    const position = worldToScreen(hero.x + motion.dx, hero.y + motion.dy);
+    context.save();
+    context.globalAlpha = standingBillboards.hero.opacity ?? 1;
+    context.translate(Math.round(position.x), Math.round(position.y - 13 + motion.bob));
+    context.scale(hero.facing < 0 ? -1 : 1, 1);
+    context.drawImage(silhouette, -ACTOR_SIZE / 2, -ACTOR_SIZE / 2, ACTOR_SIZE, ACTOR_SIZE);
+    context.restore();
+  });
+  for (const actor of [...standingBillboards.monsters, ...standingBillboards.decorations]) {
+    if (!actor.path) continue;
+    add(actor, () => drawSprite(actor.path, actor.x, actor.y, actor.size, {
+      flip: (actor.facing ?? 1) < 0,
+      offsetY: actor.screenOffsetY ?? 0,
+      scaleX: actor.scaleX ?? 1,
+      scaleY: actor.scaleY ?? 1,
+      alpha: actor.opacity ?? 1,
+    }));
+  }
+  return standing;
+}
+
+/**
  * The surface is painted on the overlay, which sits above every actor, so it
- * used to wash a wading figure blue from head to foot. Water does not do that:
- * above the line you are simply out of it. So the wash is rubbed off each
- * figure's own silhouette — `destination-out` with the very sprite the world
- * drew — and only above the waterline, because below it the wash is exactly
- * what should be there.
+ * used to wash whatever stood in it — or merely in front of it — from head to
+ * foot. Water does not do that: above the line you are simply out of it, and if
+ * you are on the bank you were never in it at all. So the wash is rubbed off
+ * each figure's own silhouette — `destination-out` with the very sprite the
+ * world drew — down to its waterline, or all the way if it is standing dry.
  *
  * A rectangular hole was tried first and was worse: the floor under the wash is
- * lit by the biome and much darker than the wash makes it look, so every wader
- * carried a dark box around their head.
+ * lit by the biome and much darker than the wash makes it look, so everything
+ * carried a dark box around its head.
  */
-function eraseWashAboveWaterline(waders) {
-  if (waders.length === 0) return;
+function eraseWashFromStanding(standing) {
+  if (standing.length === 0) return;
   context.save();
   context.globalCompositeOperation = 'destination-out';
-  for (const wader of waders) {
-    const position = worldToScreen(wader.x, wader.y);
+  for (const actor of standing) {
+    const position = worldToScreen(actor.x, actor.y);
+    const cut = actor.wading ? WADE_SURFACE_Y : TILE;
     context.save();
     context.beginPath();
-    context.rect(
-      position.x - TILE,
-      position.y - WADE_HEAD_ROOM,
-      TILE * 2,
-      WADE_HEAD_ROOM + WADE_SURFACE_Y,
-    );
+    context.rect(position.x - TILE, position.y - WADE_HEAD_ROOM, TILE * 2, WADE_HEAD_ROOM + cut);
     context.clip();
-    wader.paint();
+    actor.paint();
     context.restore();
   }
   context.restore();
@@ -4864,7 +4921,6 @@ function eraseWashAboveWaterline(waders) {
 /** A ripple across the legs of everyone wading, so a sunken sprite reads as water. */
 function drawWaterlines() {
   const waders = wadingActors();
-  if (waders.length === 0) return;
   for (const wader of waders) {
     const skirt = WADE_SKIRT * wader.size;
     const wave = Math.floor(elapsed * 1.5 + hash(Math.floor(wader.x), Math.floor(wader.y)))
@@ -4891,7 +4947,9 @@ function drawWaterlines() {
   // the surface does — a ring painted over somebody's waist is a ring lying on
   // top of them, which is why this is the last thing the water pass does and
   // why the whole pass happens before anything is drawn on top of the actors.
-  eraseWashAboveWaterline(waders);
+  // Everything else the shimmer can reach goes with it: a sheep on the bank is
+  // in front of the water, not under it.
+  eraseWashFromStanding(standingInFrontOfWater());
 }
 
 /** Fixed offsets, so the motes read as one column of disturbed air. */
