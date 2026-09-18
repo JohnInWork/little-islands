@@ -64,7 +64,8 @@ test('a city is a lattice of streets, and every street reaches every other', () 
     assert.ok(plan.blocks.length >= 6, 'a city needs blocks');
     assert.ok(plan.blocks.some(({ kind }) => kind === 'plaza'));
     assert.ok(plan.blocks.some(({ kind }) => kind === 'market'));
-    assert.equal(plan.blocks.filter(({ kind }) => kind === 'shop').length, 2);
+    // One shop per trader, and every trader keeps a shop.
+    assert.equal(plan.blocks.filter(({ kind }) => kind === 'shop').length, 4);
   }
 });
 

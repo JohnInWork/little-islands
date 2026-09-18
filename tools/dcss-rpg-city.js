@@ -198,7 +198,10 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
   }, { block: blocks[0], score: Number.POSITIVE_INFINITY }).block;
 
   const others = shuffled(blocks.filter((block) => block !== centre), rng);
-  const roles = ['market', 'shop', 'shop', 'barracks', 'jail', 'plot'];
+  // Four shops, because there are four traders and every one of them keeps a
+  // shop. Two of them used to stand out on the market square with no walls
+  // around them, which is a stall, not a merchant.
+  const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'barracks', 'jail', 'plot'];
   const records = [{ kind: 'plaza', rect: { ...centre }, door: null, interior: { ...centre } }];
 
   for (const [index, block] of others.entries()) {
@@ -245,21 +248,17 @@ function firstStreetCell(grid, from, step) {
   throw new Error('The city plan has no street on the gate row');
 }
 
-/** Where the merchants stand: inside their shops, and out on the market. */
+/**
+ * Where the merchants stand: each one inside his own shop, behind his own door.
+ * The market square keeps its ground and loses its traders — a man standing in
+ * the open with no walls around him is a stall, and the city has shops.
+ */
 export function cityMerchantSpots(plan) {
   const spots = [];
   for (const block of plan.blocks) {
     if (block.kind === 'shop' && block.interior) {
       spots.push({ kind: 'shop', ...centreOf(block.interior) });
     }
-  }
-  const market = plan.blocks.find((block) => block.kind === 'market');
-  if (market) {
-    const corners = [
-      { x: market.rect.x + 1, y: market.rect.y + 1 },
-      { x: market.rect.x + market.rect.w - 2, y: market.rect.y + market.rect.h - 2 },
-    ];
-    for (const corner of corners) spots.push({ kind: 'market', ...corner });
   }
   return spots;
 }

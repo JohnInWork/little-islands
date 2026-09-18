@@ -149,3 +149,47 @@ test('a place belongs to one road and the shuffle never crosses over', () => {
     'a place belongs to no road',
   );
 });
+
+/**
+ * «Поднялся наверх, попал в город — нет пути назад в подземелье.»
+ *
+ * The gate greyed out the road the run was already on. It was meant to say
+ * «you are here»; what it said was «you cannot go back», and a hero who climbed
+ * out of the caves found the way down shut. Both roads are always open — the
+ * gate is a fork, not a one-way turnstile — and the way you came in is the way
+ * you can leave.
+ */
+test('the gate never shuts the road the hero arrived by', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  for (const branch of ['deep', 'surface']) {
+    const model = contextActionModel({ target: { kind: 'city-gate', branch, canRetire: true } });
+    const byId = new Map(model.actions.map((action) => [action.id, action]));
+    assert.ok(byId.has('goDeep') && byId.has('goSurface'), `${branch}: the gate lost a road`);
+    assert.notEqual(byId.get('goDeep').enabled, false, `${branch}: the way down is shut`);
+    assert.notEqual(byId.get('goSurface').enabled, false, `${branch}: the way out is shut`);
+  }
+});
+
+/** Every trader keeps a shop; none of them stands in the open. */
+test('the city puts its merchants indoors', async () => {
+  const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const city = generateDungeon({ seed, depth: 0 });
+    const indoors = new Set();
+    for (const block of city.city.blocks) {
+      if (block.kind !== 'shop' || !block.interior) continue;
+      for (let y = block.interior.y; y < block.interior.y + block.interior.h; y += 1) {
+        for (let x = block.interior.x; x < block.interior.x + block.interior.w; x += 1) {
+          indoors.add(`${x},${y}`);
+        }
+      }
+    }
+    assert.ok(city.merchants.length >= 1, `seed ${seed} has a city with no trade`);
+    for (const merchant of city.merchants) {
+      assert.ok(
+        indoors.has(`${merchant.x},${merchant.y}`),
+        `seed ${seed}: a merchant at ${merchant.x},${merchant.y} is standing in the street`,
+      );
+    }
+  }
+});

@@ -385,8 +385,11 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: 'dngn/gateways/stone_stairs_down.png',
       accent: '#d8bf68',
       actions: [
-        { id: 'goDeep', enabled: target.branch !== 'deep' },
-        { id: 'goSurface', enabled: target.branch !== 'surface' },
+        // Both roads are always open. They used to grey out the one the run was
+        // already on — meant as «you are here», read as «you cannot go back»,
+        // and a hero who climbed up out of the caves found no way down again.
+        { id: 'goDeep' },
+        { id: 'goSurface' },
         // The third road out of the gate is the one that keeps the purse.
         { id: 'retire', enabled: target.canRetire === true },
       ],
