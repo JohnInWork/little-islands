@@ -153,8 +153,10 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     showSwordRhythmImpact: () => {},
     defeatMonster: (monster) => { monster.dead = 0.001; },
     choosePassiveWanderTarget: () => null, passiveWanderPause: () => 2,
-    // This sandbox is about collision, not armour: nothing here wears thorns.
+    // This sandbox is about collision, not gear: nothing here wears thorns and
+    // nobody carries a staff.
     returnThorns: () => {},
+    currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     projectiles: [], sparks: [], bloodDrops: [], combatGlyphs: [], impactWaves: [],
     renderShake: { amount: 0 }, camera: { x: 96, y: 96 },
   });

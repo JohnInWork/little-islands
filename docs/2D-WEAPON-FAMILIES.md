@@ -54,14 +54,31 @@
 У кнута свой стиль анимации `whip`: контакт позже (0.66 вместо 0.5 у копья),
 выпада почти нет, а след — длинная гнущаяся плеть вместо ряда точек от укола.
 
+## Навыки семейств
+
+Раньше кнут и посох были единственными семействами без своего навыка. Теперь
+навык есть у обоих, и оба лежат в общем контракте боевых техник
+([2D-WEAPON-SKILLS.md](2D-WEAPON-SKILLS.md)).
+
+**Кнутовой бой** превращает рывок в средство контроля: на I ранге он сбивает
+занесённый удар, на II плеть достаёт на три клетки, на III тащит врага на две.
+Длинный рывок идёт по клетке за раз и останавливается о стену или чужое тело —
+сквозь них никого не протаскивает.
+
+**Посох** не делает посох сильнее, он делает попадание полезным кастеру: каждый
+прилетевший болт снимает 0,35/0,7/1,2 секунды со всех откатов заклинаний. Со II
+ранга болт летит на клетку дальше, с III проходит сквозь первое тело.
+
 ## Что где лежит
 
 Чистые модули:
 
 - `tools/dcss-rpg-ranged.js` — `RANGED_TRAITS`, `isRangedWeapon`,
   `rangedTraits`, `resolveRangedShot({ weapon, shot })`.
-- `tools/dcss-rpg-whips.js` — `WHIP_REACH`, `isWhip`,
-  `whipPull({ weapon, attacker, target, isFree })`, `whipCopy`.
+- `tools/dcss-rpg-whips.js` — `WHIP_REACH`, `isWhip`, `whipProfile`,
+  `whipPull({ weapon, attacker, target, isFree, profile })`, `whipCopy`.
+- `tools/dcss-rpg-staves.js` — `isStaff`, `staffProfile`,
+  `channelSpellCooldowns(cooldowns, profile)`.
 - `tools/dcss-rpg-rules.js` — `WEAPON_FAMILIES`, `RANGED_WEAPON_FAMILIES`,
   `REACH_STYLES` (`['spear','whip']`, единственный источник правды о том, кто
   достаёт дальше вытянутой руки).

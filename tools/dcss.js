@@ -190,7 +190,8 @@ import {
   frugalHungerSeconds,
   thornsDamage,
 } from './dcss-rpg-armour.js';
-import { whipCopy, whipPull } from './dcss-rpg-whips.js';
+import { whipCopy, whipProfile, whipPull } from './dcss-rpg-whips.js';
+import { channelSpellCooldowns, staffProfile } from './dcss-rpg-staves.js';
 import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
 import {
   darkvisionProfile,
@@ -2112,13 +2113,29 @@ function isHeroConcealed() {
 }
 
 function currentHeroCombat() {
-  const combat = weaponCombatProfile(equippedItem('hand1'), equippedItem('hand2'));
+  const primary = equippedItem('hand1');
+  const combat = weaponCombatProfile(primary, equippedItem('hand2'));
   const attackSpeed = currentHeroStats().attackSpeed;
+  const capabilities = currentSkillCapabilities();
+  // Two skills lengthen a weapon rather than sharpen it, so the reach they buy
+  // belongs here, where every range check already reads from.
+  const reach = combat.style === 'whip'
+    ? Math.max(combat.range, whipProfile(capabilities).reach)
+    : combat.range + staffProfile(primary, capabilities).rangeBonus;
   return {
     ...combat,
+    range: reach,
     cooldown: combat.cooldown / attackSpeed,
     attackDuration: combat.attackDuration / Math.sqrt(attackSpeed),
   };
+}
+
+function currentWhipProfile() {
+  return whipProfile(currentSkillCapabilities());
+}
+
+function currentStaffProfile() {
+  return staffProfile(currentWeaponLoadout().primary, currentSkillCapabilities());
 }
 
 function currentHeroCleave() {
@@ -10132,6 +10149,7 @@ function yankWithWhip(monster, weapon) {
     isFree: (x, y) => isWalkable(x, y)
       && !occupied.has(`${x},${y}`)
       && !(Math.floor(hero.x / TILE) === x && Math.floor(hero.y / TILE) === y),
+    profile: currentWhipProfile(),
   });
   if (pull.reason === 'too-heavy') {
     // Said once, not on every swing: a boss is hit many times a fight.
@@ -10146,6 +10164,12 @@ function yankWithWhip(monster, weapon) {
   monster.y = (pull.cell.y + 0.5) * TILE;
   monster.route = [];
   monster.repathCooldown = Math.max(monster.repathCooldown ?? 0, 0.25);
+  if (pull.interrupt && monster.attackWindup > 0) {
+    // Pulled off its feet mid-swing: the blow it had raised never lands.
+    monster.attackWindup = 0;
+    monster.attackRecovery = Math.max(monster.attackRecovery ?? 0, 0.35);
+    addCombatGlyph(monster.x, monster.y, '!', '#e0c778', -72);
+  }
   addCombatGlyph(monster.x, monster.y, '\u21d0', '#e0c778', -60);
   burst(monster.x, monster.y - 8, '#e0c778', 10);
 }
@@ -10165,6 +10189,7 @@ function launchHeroProjectile(monster, damage, combat, color, shot = null) {
     style: combat.style,
     pierceTargets: shot?.pierceTargets ?? 0,
     staggerSeconds: shot?.staggerSeconds ?? 0,
+    channelSeconds: shot?.channelSeconds ?? 0,
     originX: hero.x,
     originY: hero.y,
     vampiric: currentHeroMagic().vampirism,
@@ -10432,10 +10457,16 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     || !canHeroAttack(monster, pending.combat)
   ) return;
   if (pending.combat.projectile) {
-    const shot = resolveRangedShot({
+    const ranged = resolveRangedShot({
       weapon: pending.weapon,
       shot: resolveMarksmanShot({ profile: pending.marksman, steadySeconds: heroSteadySeconds }),
     });
+    // A staff answers to its own skill, not to Marksmanship: the bolt carries
+    // the channel it will hand back, and from rank III it passes through a body.
+    const staff = pending.staff ?? null;
+    const shot = staff && staff.rank > 0
+      ? { ...ranged, pierceTargets: Math.max(ranged.pierceTargets, staff.pierceTargets), channelSeconds: staff.channelSeconds }
+      : ranged;
     const shotDamage = applyStrikeBonus(pending.damage, shot.bonusPercent);
     launchHeroProjectile(monster, shotDamage, pending.combat, pending.color, shot);
     if (shot.aimed) {
@@ -11397,6 +11428,7 @@ function updateHero(delta) {
       blunt: currentBluntProfile(),
       marksman: currentMarksmanProfile(),
       weapon: currentWeaponLoadout().primary,
+      staff: currentStaffProfile(),
       sword: swordSource
         ? {
             slot: swordSource.slot,
@@ -12016,6 +12048,15 @@ function updateWorld(delta) {
         sourceY: projectile.y,
         vampiric: projectile.vampiric,
       });
+    }
+    if (projectileDamage > 0 && projectile.channelSeconds > 0) {
+      const channelled = channelSpellCooldowns(spellCooldowns, { channelSeconds: projectile.channelSeconds });
+      if (channelled.changed) {
+        for (const id of Object.keys(spellCooldowns)) delete spellCooldowns[id];
+        Object.assign(spellCooldowns, channelled.cooldowns);
+        addCombatGlyph(hero.x, hero.y, '\u273f', '#9fd7d2', -74);
+        renderSpellBar();
+      }
     }
     if (
       projectile.staggerSeconds > 0

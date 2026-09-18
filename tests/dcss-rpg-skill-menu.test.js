@@ -39,6 +39,8 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'blunt-weapons',
     'spears',
     'marksmanship',
+    'whip-control',
+    'staff-channeling',
     'shield',
     'mobility',
     'pyromancy',

@@ -154,6 +154,24 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['aimed-shots', 'piercing-shots'],
   },
   {
+    id: 'whip-control', category: 'combat', mode: 'passive',
+    name: { ru: 'Кнутовой бой', en: 'Whip control' },
+    description: {
+      ru: 'Рывок кнутом сбивает занесённый удар. На II ранге плеть достаёт на три клетки, на III тащит врага на две.',
+      en: 'A whip yank breaks a raised attack. At rank II the lash reaches three cells; at rank III it drags two.',
+    },
+    requiresSystems: ['whip-control'],
+  },
+  {
+    id: 'staff-channeling', category: 'combat', mode: 'passive',
+    name: { ru: 'Посох', en: 'Staff channeling' },
+    description: {
+      ru: 'Попадание посохом сокращает откат заклинаний. На II ранге болт летит дальше, на III пробивает первого насквозь.',
+      en: 'A staff hit shortens spell cooldowns. At rank II the bolt flies further; at rank III it passes through the first body.',
+    },
+    requiresSystems: ['staff-channeling'],
+  },
+  {
     id: 'shield', category: 'combat', mode: 'passive',
     name: { ru: 'Щит', en: 'Shield' },
     description: {

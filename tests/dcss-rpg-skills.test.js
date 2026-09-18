@@ -48,7 +48,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
     'camping', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
-    'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'shield',
+    'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'training', 'animal-care', 'beast-bond', 'pack-leader',
     'alchemy', 'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
   ]);
@@ -59,7 +59,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
     'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
-    'weapon-cleave', 'shield-blocking', 'fire-spread', 'frost-buildup', 'chain-lightning',
+    'weapon-cleave', 'shield-blocking', 'whip-control', 'staff-channeling', 'fire-spread', 'frost-buildup', 'chain-lightning',
     'cleansing-ritual', 'scroll-variants', 'component-salvage', 'enchantment-transfer', 'alchemy-recipes',
     'weapon-coatings', 'poison-bait', 'weapon-reforging', 'armor-reforging',
     'animal-taming', 'companion-limits', 'pet-behaviors', 'pet-treatment',
@@ -204,6 +204,8 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     spearRank: 0, spearInterceptPercent: 0, spearHoldMs: 0, spearInterceptCooldownMs: 0,
     marksmanRank: 0, marksmanAimMs: 0, marksmanAimBonusPercent: 0, marksmanPierceTargets: 0,
     mobilityRank: 0, mobilityDodgeSpeedPercent: 0, mobilityDodgeMs: 0,
+    whipRank: 0, whipInterrupt: 0, whipReach: 0, whipPullCells: 0,
+    staffRank: 0, staffChannelMs: 0, staffRangeBonus: 0, staffPierceTargets: 0,
     swordRhythmBonusPercent: 0, axeCleaveRank: 0,
     axeCleaveTwoHandDamagePercent: 0, axeCleaveTwoHandTargets: 0,
     axeCleaveOneHandDamagePercent: 0, axeCleaveOneHandTargets: 0,

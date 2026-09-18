@@ -11,6 +11,28 @@
 export const WHIP_FAMILY = 'whip';
 export const WHIP_REACH = 2;
 
+const EMPTY_PROFILE = Object.freeze({ rank: 0, interrupt: false, reach: WHIP_REACH, pullCells: 1 });
+
+function boundedInteger(value, min, max) {
+  return Number.isInteger(value) ? Math.max(min, Math.min(max, value)) : min;
+}
+
+/**
+ * What the Whip control skill adds on top of the weapon. Without it a whip
+ * still reaches and still pulls — the skill makes the pull a real answer to a
+ * raised attack, then lengthens the lash, then drags twice as far.
+ */
+export function whipProfile(capabilities = {}) {
+  const rank = boundedInteger(capabilities.whipRank, 0, 3);
+  if (rank === 0) return EMPTY_PROFILE;
+  return Object.freeze({
+    rank,
+    interrupt: boundedInteger(capabilities.whipInterrupt, 0, 1) === 1,
+    reach: Math.max(WHIP_REACH, boundedInteger(capabilities.whipReach, 0, 4)),
+    pullCells: Math.max(1, boundedInteger(capabilities.whipPullCells, 0, 3)),
+  });
+}
+
 const NO_PULL = Object.freeze({ ok: false, reason: 'no-pull', cell: null });
 
 function cellOf(point) {
@@ -27,7 +49,7 @@ export function isWhip(weapon) {
  *
  * `isFree(x, y)` answers for the world: walkable, and nobody standing there.
  */
-export function whipPull({ weapon, attacker, target, isFree } = {}) {
+export function whipPull({ weapon, attacker, target, isFree, profile = EMPTY_PROFILE } = {}) {
   if (!isWhip(weapon) || !attacker || !target) return NO_PULL;
   const dx = attacker.x - target.x;
   const dy = attacker.y - target.y;
@@ -46,7 +68,27 @@ export function whipPull({ weapon, attacker, target, isFree } = {}) {
   if (typeof isFree === 'function' && !isFree(step.x, step.y)) {
     return Object.freeze({ ok: false, reason: 'blocked', cell: null });
   }
-  return Object.freeze({ ok: true, reason: 'pulled', cell: Object.freeze(step) });
+  // A trained hand drags further, one cell at a time: the second step is taken
+  // only if the first landed somewhere real, so nothing is ever pulled through
+  // a wall or into another body.
+  let cell = step;
+  const cells = Math.max(1, profile?.pullCells ?? 1);
+  for (let extra = 1; extra < cells; extra += 1) {
+    const next = {
+      x: cell.x + Math.sign(Math.round(dx)),
+      y: cell.y + Math.sign(Math.round(dy)),
+    };
+    const closer = Math.hypot(attacker.x - (next.x + 0.5), attacker.y - (next.y + 0.5));
+    if (closer < 1) break;
+    if (typeof isFree === 'function' && !isFree(next.x, next.y)) break;
+    cell = next;
+  }
+  return Object.freeze({
+    ok: true,
+    reason: 'pulled',
+    cell: Object.freeze(cell),
+    interrupt: profile?.interrupt === true,
+  });
 }
 
 const COPY = Object.freeze({
