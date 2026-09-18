@@ -19,6 +19,7 @@ import {
   validateDisarmedTrapIds,
 } from './dcss-rpg-traps.js';
 import { createActorEffects, validateActorEffects } from './dcss-rpg-effects.js';
+import { validateMealState } from './dcss-rpg-cooking.js';
 import {
   PASSIVE_CREATURE_CATALOG,
   passiveCreatureById,
@@ -83,10 +84,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 39;
-export const SAVE_KEY = 'dng-codex:rpg:v39';
+export const SAVE_VERSION = 40;
+export const SAVE_KEY = 'dng-codex:rpg:v40';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v39',
   'dng-codex:rpg:v38',
   'dng-codex:rpg:v37',
   'dng-codex:rpg:v36',
@@ -966,6 +968,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
       xp: 0,
       power: 1,
       hunger: HUNGER_MAX,
+      meal: null,
       effects: createActorEffects(),
       skills: createSkillState(),
       skillStudy: createBookStudy(),
@@ -1160,10 +1163,10 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38].includes(snapshot.version)) {
+  if ([31, 32, 33, 34, 35, 36, 37, 38, 39].includes(snapshot.version)) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1211,6 +1214,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.generatorVersion = GENERATOR_VERSION;
     // Every migrated run gets the camp fields v38 introduced: no pitched camp
     // on the floor and an empty stash in the run.
+    // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
+    migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v39 keeps the camp's comfort in the camp itself, so a summoned camp
@@ -1323,6 +1328,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.stats = createRunStats(migrated.stats);
     // Every migrated run gets the camp fields v38 introduced: no pitched camp
     // on the floor and an empty stash in the run.
+    // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
+    migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
@@ -1450,6 +1457,8 @@ export function migrateLegacyRun(snapshot) {
     delete migrated.shards;
     // Every migrated run gets the camp fields v38 introduced: no pitched camp
     // on the floor and an empty stash in the run.
+    // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
+    migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.floor.camp = migrated.floor.camp ?? null;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     if (!validateRun(migrated)) {
@@ -1555,6 +1564,8 @@ export function migrateLegacyRun(snapshot) {
   delete migrated.shards;
   // Every migrated run gets the camp fields v38 introduced: no pitched camp
   // on the floor and an empty stash in the run.
+  // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
+  migrated.hero.meal = migrated.hero.meal ?? null;
   migrated.floor.camp = migrated.floor.camp ?? null;
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
@@ -1601,6 +1612,7 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.intelligence, 0, 999)) return false;
   if (!validateHunger(hero.hunger)) return false;
   if (!validateActorEffects(hero.effects)) return false;
+  if (!validateMealState(hero.meal)) return false;
   if (!validateSkillState(hero.skills, hero.level)) return false;
   if (!validateBookStudy(hero.skillStudy)) return false;
   if (!validateSpellState(hero.spells)) return false;

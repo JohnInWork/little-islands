@@ -209,7 +209,7 @@ test('save v39 carries the stash down the stairs and leaves the camp behind', ()
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 39);
+  assert.equal(migrated.version, 40);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
@@ -229,7 +229,7 @@ test('save v39 carries the stash down the stairs and leaves the camp behind', ()
     ],
   };
   const movedIn = migrateLegacyRun(camped);
-  assert.equal(movedIn.version, 39);
+  assert.equal(movedIn.version, 40);
   assert.equal(movedIn.floor.camp.restPercent, 40);
   assert.equal(validateRun(movedIn), true);
 });

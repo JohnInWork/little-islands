@@ -1,3 +1,4 @@
+import { mealById } from './dcss-rpg-cooking.js';
 import { ACTOR_EFFECTS } from './dcss-rpg-effects.js';
 import { artifactCurseById, artifactCursePresentation } from './dcss-rpg-artifacts.js';
 import { INVISIBILITY_REVEAL_SECONDS, VAMPIRISM_RATIO } from './dcss-rpg-magic.js';
@@ -122,6 +123,7 @@ const COPY = Object.freeze({
     power: 'Сила до конца забега',
     camp: 'Разбивает лагерь',
     bandage: 'Перевязка ран',
+    meal: (name, duration) => `Блюдо «${name}»: ${duration} с`,
     cleanse: 'Снимает все состояния',
     venom: 'Отравление',
     seconds: 'с',
@@ -161,6 +163,7 @@ const COPY = Object.freeze({
     power: 'Run power',
     camp: 'Pitches a camp',
     bandage: 'Dresses wounds',
+    meal: (name, duration) => `Dish “${name}”: ${duration} s`,
     cleanse: 'Clears all statuses',
     venom: 'Poison',
     seconds: 's',
@@ -286,7 +289,10 @@ function effectFact(effect, language, source) {
   ) {
     const minutes = Math.ceil(effect.nutrition / 60);
     const healing = effect.healing > 0 ? ` · ${COPY[language].heal}: +${effect.healing}` : '';
-    const text = `${COPY[language].satiety}: +${minutes} ${COPY[language].minutes}${healing}`;
+    // A cooked dish also says what it does after the last bite.
+    const meal = mealById(effect.mealId);
+    const bonus = meal ? ` · ${COPY[language].meal(meal.labels[language], meal.duration)}` : '';
+    const text = `${COPY[language].satiety}: +${minutes} ${COPY[language].minutes}${healing}${bonus}`;
     return freezeFact({ id: `${source}:food`, kind: 'use', icon: '◆', text, short: text });
   }
   if (effect.type === 'power' && Number.isFinite(effect.amount) && effect.amount > 0) {

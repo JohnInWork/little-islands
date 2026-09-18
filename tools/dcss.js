@@ -180,6 +180,14 @@ import {
   stealthProfile,
   stealthVisionRadius,
 } from './dcss-rpg-scouting.js';
+import {
+  activeMeal,
+  cookedItemId,
+  cookingProfile,
+  createMealState,
+  startMeal,
+  tickMeal,
+} from './dcss-rpg-cooking.js';
 import { enduranceProfile, enduredDuration } from './dcss-rpg-endurance.js';
 import {
   bandageRefusalText,
@@ -735,6 +743,7 @@ const hero = {
   xp: run.hero.xp,
   power: run.hero.power,
   hunger: run.hero.hunger,
+  meal: createMealState(run.hero.meal),
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
   skillStudy: createBookStudy(run.hero.skillStudy),
@@ -1310,6 +1319,7 @@ function captureRun() {
     xp: hero.xp,
     power: hero.power,
     hunger: hero.hunger,
+    meal: createMealState(hero.meal),
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
     skillStudy: createBookStudy(hero.skillStudy),
@@ -5193,7 +5203,12 @@ function romanDepth(value) {
 }
 
 function renderHeroEffectsHud() {
-  const effects = activeActorEffects(hero.effects, itemDetailLanguage);
+  // The dish sits beside the states, because it is one: a good one with a timer.
+  const meal = activeMeal(hero.meal, itemDetailLanguage);
+  const effects = [
+    ...(meal ? [{ ...meal, duration: meal.remaining }] : []),
+    ...activeActorEffects(hero.effects, itemDetailLanguage),
+  ];
   const secondsLabel = itemDetailLanguage === 'ru' ? 'сек.' : 'sec.';
   heroEffectsHud.setAttribute(
     'aria-label',
@@ -6396,13 +6411,15 @@ function cookAtCampfire(site) {
   if (amount < 1) return false;
   const command = nextGameCommand(SURVIVAL_COMMANDS.cook, site.id, { amount });
   const current = currentItemState();
+  const outputId = cookedItemId(cookingProfile(currentSkillCapabilities()));
   const result = cookMeat({
     command,
     siteId: site.id,
     items: current.items,
     inventory: current.inventory,
     amount,
-    outputUid: `cooked-meat-${dungeon.depth}-${command.sequence}`,
+    outputId,
+    outputUid: `${outputId}-${dungeon.depth}-${command.sequence}`,
   });
   if (!result.ok) return false;
   applySurvivalItemState(result.state);
@@ -7959,6 +7976,13 @@ function useConsumable(item, index) {
     currentHungerStageId = hungerStage(hero.hunger).id;
     hungerAutosaveElapsed = 0;
     playerHasActed = true;
+    // A cooked dish leaves something behind; a second dish replaces the first.
+    const meal = startMeal(item.useEffect.mealId);
+    if (meal) {
+      hero.meal = meal;
+      renderHeroEffectsHud();
+      burst(hero.x, hero.y - 12, activeMeal(meal, itemDetailLanguage).color, 16);
+    }
     feedback = `+${Math.ceil(result.restored / 60)}′`;
   } else if (item.useEffect?.type === 'camp') {
     const refusal = pitchCamp();
@@ -7979,7 +8003,9 @@ function useConsumable(item, index) {
     }
     hero.hp = treatment.hp;
     hero.effects = treatment.effects;
-    for (const id of treatment.cleared) showWardPulse(id);
+    // The bandage's own toast reports the treatment; the states only flash.
+    for (const id of treatment.cleared) showEffectRelief(id);
+    renderHeroEffectsHud();
     playSound('drink');
     burst(hero.x, hero.y - 10, '#d8c9b4', 18);
     addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
@@ -8205,11 +8231,16 @@ function showSwordRhythmImpact(monster, result) {
   playSwordRhythmAccent(rank);
 }
 
-function showWardPulse(id) {
+/** The flash an ended state leaves behind; the toast is the caller's business. */
+function showEffectRelief(id) {
   const definition = ACTOR_EFFECTS[id];
   burst(hero.x, hero.y - 8, definition.color, 7);
   addImpactWave(hero.x, hero.y - 6, definition.color, 44, 0);
-  showLootToast({ icon: definition.icon, rarity: 1 }, '◇');
+}
+
+function showWardPulse(id) {
+  showEffectRelief(id);
+  showLootToast({ icon: ACTOR_EFFECTS[id].icon, rarity: 1 }, '◇');
 }
 
 function cleanseEquippedWards() {
@@ -9115,6 +9146,7 @@ function restartRun() {
   hero.xp = run.hero.xp;
   hero.power = run.hero.power;
   hero.hunger = run.hero.hunger;
+  hero.meal = createMealState(run.hero.meal);
   hero.intelligence = run.hero.intelligence;
   hero.spells = createSpellState(run.hero.spells);
   hungerAccumulator = 0;
@@ -9135,7 +9167,19 @@ function restartRun() {
   renderPack();
 }
 
+/** A dish wears off on its own clock, and the hero is told when it does. */
+function updateHeroMeal(delta) {
+  if (!playerHasActed || runStatus !== 'playing' || hero.dead || !hero.meal) return;
+  const tick = tickMeal(hero.meal, Math.min(1, delta));
+  hero.meal = tick.meal;
+  if (!tick.expired) return;
+  renderHeroEffectsHud();
+  renderCharacterSheet();
+  persistRun();
+}
+
 function updateHeroEffects(delta) {
+  updateHeroMeal(delta);
   if (cleanseEquippedWards()) {
     updateHud();
     persistRun();

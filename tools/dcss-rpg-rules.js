@@ -1,3 +1,4 @@
+import { mealStatModifiers } from './dcss-rpg-cooking.js';
 import { lootById, monsterById } from './dcss-rpg-content.js';
 import { floorScaling, monsterTier } from './dcss-rpg-scaling.js';
 import { deriveSkillModifiers } from './dcss-rpg-skills.js';
@@ -178,6 +179,10 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
     for (const key of EQUIPMENT_STAT_KEYS) bonus[key] += skillBonus[key];
   }
   const hunger = hungerStatModifiers(hero.hunger);
+  // A cooked dish works like gear that wears off: flat attack, a little speed.
+  const meal = mealStatModifiers(hero.meal);
+  bonus.attack += meal.attack;
+  bonus.moveSpeed += meal.moveSpeed;
   const attack = Math.max(1, Math.round((1 + hero.power + bonus.attack) * hunger.attack));
   const defense = Math.max(0, Math.round(bonus.defense * hunger.defense));
   return {

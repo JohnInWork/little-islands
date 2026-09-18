@@ -155,21 +155,34 @@ export function transactStackItems({
   });
 }
 
-export function cookMeat({ command, siteId, items, inventory, amount, outputUid } = {}) {
+/**
+ * The fire always turns raw meat into something edible. A cook turns it into
+ * a dish instead, which is the only thing the skill changes here.
+ */
+export function cookMeat({
+  command,
+  siteId,
+  items,
+  inventory,
+  amount,
+  outputUid,
+  outputId = COOKED_MEAT_ITEM_ID,
+} = {}) {
   if (!commandTargets(command, SURVIVAL_COMMANDS.cook, siteId)) {
     return commandRejected(command, 'invalid-target');
   }
   if (!Number.isInteger(amount) || amount < 1) return commandRejected(command, 'missing-meat');
+  const cooked = typeof outputId === 'string' && outputId.length > 0 ? outputId : COOKED_MEAT_ITEM_ID;
   const transaction = transactStackItems({
     items,
     inventory,
     consume: { id: RAW_MEAT_ITEM_ID, amount },
-    produce: { id: COOKED_MEAT_ITEM_ID, amount, uid: outputUid },
+    produce: { id: cooked, amount, uid: outputUid },
   });
   if (!transaction.ok) return commandRejected(command, transaction.reason);
   return commandAccepted(command, transaction.state, [
     gameEvent(command, 0, 'meat-cooked', {
-      itemId: COOKED_MEAT_ITEM_ID,
+      itemId: cooked,
       amount,
     }),
   ]);

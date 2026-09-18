@@ -9,7 +9,7 @@ import {
 } from '../tools/dcss-rpg-item-details.js';
 
 test('every inventory item has complete readable details in Russian and English', () => {
-  assert.equal(LOOT_CATALOG.length, 87);
+  assert.equal(LOOT_CATALOG.length, 90);
   assert.deepEqual(itemDetailLanguages, ['ru', 'en']);
   for (const item of LOOT_CATALOG) {
     for (const language of itemDetailLanguages) {

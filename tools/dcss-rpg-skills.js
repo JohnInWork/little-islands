@@ -95,6 +95,15 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
     ]),
   }),
+  cooking: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ cookingRank: 1 }),
+      Object.freeze({ cookingRank: 2 }),
+      Object.freeze({ cookingRank: 3 }),
+    ]),
+  }),
   'field-medicine': Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -226,6 +235,8 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
   'camp-rest',
+  'cooking-recipes',
+  'food-buffs',
   'medical-treatment',
   'condition-duration-scaling',
   'darkness-vision',
@@ -282,6 +293,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   campRank: Object.freeze([0, 3]),
   campRestPercent: Object.freeze([0, 100]),
   campStashSlots: Object.freeze([0, 12]),
+  cookingRank: Object.freeze([0, 3]),
   fieldMedicineRank: Object.freeze([0, 3]),
   enduranceRank: Object.freeze([0, 3]),
   darkvisionRank: Object.freeze([0, 3]),
