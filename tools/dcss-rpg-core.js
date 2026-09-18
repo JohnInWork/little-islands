@@ -53,7 +53,6 @@ import {
 import {
   guaranteedArtifactDepth,
   materializeProceduralArtifact,
-  rollFloorArtifact,
   validateProceduralArtifactState,
 } from './dcss-rpg-artifacts.js';
 import { MAX_FINDS_PER_FLOOR, createDungeonFinds } from './dcss-rpg-finds.js';
@@ -144,7 +143,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 11;
+export const GENERATOR_VERSION = 12;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -505,6 +504,7 @@ function generateCityDungeon({ floorSeed, depth, width, height, scaling }) {
   }));
   return {
     seed: floorSeed,
+    artifactFloor: false,
     depth,
     scaling,
     width,
@@ -553,6 +553,9 @@ export function generateDungeon({
     lootAbundance,
   );
   const floorSeed = mixSeed(seed, depth);
+  // The floor that owes the run its artefact: its cache is always sealed, and
+  // its cache is always the one that pays.
+  const artifactFloor = depth === guaranteedArtifactDepth(seed, FINAL_DEPTH);
   // The city is a floor of a different kind, built by its own plan. It returns
   // the same shape every other floor returns, so nothing downstream cares.
   if (isCityDepth(depth)) return generateCityDungeon({ floorSeed, depth, width, height, scaling });
@@ -758,37 +761,28 @@ export function generateDungeon({
     count: 1 + lootCells.length,
     qualityBudget: scaling.rewards.qualityBudget,
   }).picks;
-  const floorArtifact = rollFloorArtifact({
-    seed,
-    depth,
-    items: selectedLoot,
-    guaranteed: depth === guaranteedArtifactDepth(seed, FINAL_DEPTH),
-  });
-  const equipmentSpawnState = (definition, instanceId, itemIndex) => {
+  // Nothing on the open floor is ever an artefact. The floor asks nothing of the
+  // hero — they walk over it — and an artefact has to be earned. The run's one
+  // artefact lives inside a sealed cache that cost something to open; the rule
+  // is `rollCacheArtifact`.
+  const equipmentSpawnState = (definition, instanceId) => {
     if (!definition.slot) return {};
-    const artifactPowerId = floorArtifact?.itemIndex === itemIndex
-      ? floorArtifact.artifactPowerId
-      : null;
-    const artifactCurseId = artifactPowerId ? floorArtifact.artifactCurseId : null;
-    const affixIds = artifactPowerId
-      ? []
-      : rollItemAffixes({
-          seed: floorSeed,
-          depth,
-          instanceId,
-          item: definition,
-        });
     return {
-      affixIds: [...affixIds],
-      artifactPowerId,
-      artifactCurseId,
+      affixIds: [...rollItemAffixes({
+        seed: floorSeed,
+        depth,
+        instanceId,
+        item: definition,
+      })],
+      artifactPowerId: null,
+      artifactCurseId: null,
     };
   };
   const loot = [
     {
       instanceId: `loot-${depth}-0`,
       id: selectedLoot[0].id,
-      ...equipmentSpawnState(selectedLoot[0], `loot-${depth}-0`, 0),
+      ...equipmentSpawnState(selectedLoot[0], `loot-${depth}-0`),
       ...starterLootCell,
     },
     ...lootCells.map((position, index) => {
@@ -797,7 +791,7 @@ export function generateDungeon({
       return {
         instanceId,
         id: definition.id,
-        ...equipmentSpawnState(definition, instanceId, index + 1),
+        ...equipmentSpawnState(definition, instanceId),
         ...position,
       };
     }),
@@ -928,6 +922,7 @@ export function generateDungeon({
       rooms,
       exit,
       surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
+      sealedCache: artifactFloor,
     },
     rng: findRng,
     landmarkRng,
@@ -974,6 +969,11 @@ export function generateDungeon({
   });
   return {
     seed: floorSeed,
+    // `seed` above is the FLOOR seed (`mixSeed(seed, depth)`), so nothing
+    // downstream can recover the run seed from it. The one question that needs
+    // the run seed — is this the floor that owes the run its artefact — is
+    // answered here and carried.
+    artifactFloor,
     depth,
     scaling,
     width,
@@ -1108,6 +1108,7 @@ function createEmptyFloorState(dungeon = null) {
           depth: dungeon.depth,
           finds: dungeon.finds,
           lootAbundance: dungeon.scaling?.lootAbundance ?? DEFAULT_LOOT_ABUNDANCE,
+          guaranteedArtifact: dungeon.artifactFloor === true,
         })]
       : [],
   };
@@ -1286,6 +1287,7 @@ export function migrateLegacyRun(snapshot) {
         finds: dungeon.finds,
         lootAbundance: migrated.lootAbundance,
         resolvedFindIds: migrated.floor.resolvedFindIds,
+        guaranteedArtifact: dungeon.artifactFloor === true,
       })];
     }
     if (snapshot.version < 34) {
@@ -1565,6 +1567,7 @@ export function migrateLegacyRun(snapshot) {
       depth,
       finds: dungeon.finds,
       lootAbundance,
+          guaranteedArtifact: dungeon.artifactFloor === true,
     })];
     delete migrated.shards;
     // Every migrated run gets the camp fields v38 introduced: no pitched camp
@@ -1680,6 +1683,7 @@ export function migrateLegacyRun(snapshot) {
     depth,
     finds: dungeon.finds,
     lootAbundance: DEFAULT_LOOT_ABUNDANCE,
+      guaranteedArtifact: dungeon.artifactFloor === true,
   })];
   delete migrated.shards;
   // Every migrated run gets the camp fields v38 introduced: no pitched camp

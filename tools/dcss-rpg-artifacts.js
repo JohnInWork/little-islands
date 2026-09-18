@@ -4,6 +4,23 @@ export const MIN_ARTIFACT_RATE = 0;
 export const MAX_ARTIFACT_RATE = 3;
 export const CURSED_ARTIFACT_CHANCE = 0.2;
 
+/**
+ * An artefact is not something you trip over. It lives behind a cost: a lock
+ * that wants a pick, a trap that wants a steady hand, a curse that takes
+ * something on the way out, or a chest that turns out to be a mouth. A plain
+ * unlocked cache never holds one, and neither does the open floor.
+ */
+export const ARTIFACT_CACHE_VARIANTS = Object.freeze(['locked', 'trapped', 'cursed', 'mimic']);
+
+/** The first floor teaches; it does not hand out the run's best item. */
+export const ARTIFACT_MIN_DEPTH = 2;
+
+export function cacheCanHoldArtifact({ depth, cacheVariant } = {}) {
+  return Number.isInteger(depth)
+    && depth >= ARTIFACT_MIN_DEPTH
+    && ARTIFACT_CACHE_VARIANTS.includes(cacheVariant);
+}
+
 const freezePower = (power) => Object.freeze({
   ...power,
   tags: Object.freeze([...power.tags]),
@@ -202,22 +219,41 @@ export function rollProceduralArtifact({
   });
 }
 
-// The floor decides whether an artefact exists before choosing its base. This
-// keeps abundance from multiplying the chance: a floor can create at most one.
-export function rollFloorArtifact({ seed, depth, items, guaranteed = false, rate = DEFAULT_ARTIFACT_RATE } = {}) {
-  if (!Array.isArray(items)) throw new TypeError('Floor artifact roll requires loot items');
+/**
+ * The cache decides whether an artefact exists before choosing which of its
+ * contents becomes one. Abundance cannot multiply the chance: one cache makes
+ * at most one artefact, and only a cache that cost something to open.
+ */
+export function rollCacheArtifact({
+  seed,
+  depth,
+  findId,
+  cacheVariant,
+  items,
+  guaranteed = false,
+  rate = DEFAULT_ARTIFACT_RATE,
+} = {}) {
+  if (!Array.isArray(items)) throw new TypeError('Cache artifact roll requires container items');
+  if (typeof findId !== 'string' || findId.length === 0) {
+    throw new TypeError('Cache artifact roll requires a stable find id');
+  }
+  if (!cacheCanHoldArtifact({ depth, cacheVariant })) return null;
   const eligibleIndexes = items.flatMap((item, index) => item?.slot ? [index] : []);
   if (eligibleIndexes.length === 0 || rate === 0) return null;
   const random = createStableRng(stableHash(
-    `artifact-floor-v${PROCEDURAL_ARTIFACT_VERSION}`,
+    `artifact-cache-v${PROCEDURAL_ARTIFACT_VERSION}`,
     seed,
     depth,
+    findId,
   ));
-  const floorChance = Math.min(0.38, (0.07 + Math.min(12, depth) * 0.015) * rate);
-  if (!guaranteed && random() >= floorChance) return null;
+  // One artefact is promised per run; anything beyond it should feel like luck,
+  // not like a schedule. Across eight eligible floors these odds add up to about
+  // half an extra artefact, so most runs end with one and some with two.
+  const cacheChance = Math.min(0.14, (0.015 + Math.min(12, depth) * 0.006) * rate);
+  if (!guaranteed && random() >= cacheChance) return null;
   const itemIndex = eligibleIndexes[Math.floor(random() * eligibleIndexes.length)];
   const item = items[itemIndex];
-  const instanceId = `loot-${depth}-${itemIndex}`;
+  const instanceId = `${findId}-item-${itemIndex}`;
   return Object.freeze({
     itemIndex,
     ...rollProceduralArtifact({ seed, depth, item, instanceId, guaranteed: true, rate }),

@@ -1,3 +1,4 @@
+import { rollCacheArtifact } from './dcss-rpg-artifacts.js';
 import { LOOT_CATALOG, lootById } from './dcss-rpg-content.js';
 import {
   materializeItemAffixes,
@@ -72,7 +73,7 @@ function validItemRecord(item) {
   );
 }
 
-function itemRecord({ seed, depth, find, definition, index }) {
+function itemRecord({ seed, depth, find, definition, index, artifact = null }) {
   const uid = `chest-${depth}-${find.roomIndex}-${index}`;
   if (!definition.slot) {
     const maximum = Math.max(1, Math.min(3, definition.stack ?? 1));
@@ -80,6 +81,16 @@ function itemRecord({ seed, depth, find, definition, index }) {
       id: definition.id,
       uid,
       stack: 1 + (stableHash(seed, depth, find.instanceId, index, definition.id) % maximum),
+    });
+  }
+  // An artefact carries its own power instead of ordinary affixes.
+  if (artifact?.artifactPowerId) {
+    return Object.freeze({
+      id: definition.id,
+      uid,
+      affixIds: Object.freeze([]),
+      artifactPowerId: artifact.artifactPowerId,
+      artifactCurseId: artifact.artifactCurseId ?? null,
     });
   }
   return Object.freeze({
@@ -111,6 +122,7 @@ export function createChestContainerStates({
   finds,
   lootAbundance = 1,
   resolvedFindIds = [],
+  guaranteedArtifact = false,
 } = {}) {
   if (
     !Number.isInteger(seed)
@@ -178,13 +190,30 @@ export function createChestContainerStates({
         ids.add(next.id);
       }
 
+      // Whatever is inside is decided first; only then does the cache decide
+      // whether one of those things is the run's artefact.
+      const artifact = rollCacheArtifact({
+        seed,
+        depth,
+        findId: find.instanceId,
+        cacheVariant: find.cacheVariant,
+        items: selected,
+        guaranteed: guaranteedArtifact,
+      });
       return Object.freeze({
         findId: find.instanceId,
         opened: false,
         destroyed: false,
         gold: find.rewardGold,
         items: Object.freeze(selected.map((definition, index) => (
-          itemRecord({ seed, depth, find, definition, index })
+          itemRecord({
+            seed,
+            depth,
+            find,
+            definition,
+            index,
+            artifact: artifact?.itemIndex === index ? artifact : null,
+          })
         ))),
       });
     }));

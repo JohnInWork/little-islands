@@ -57,6 +57,8 @@
   выбором, а не скином.
 - [2D-ARMOUR.md](2D-ARMOUR.md) — пять свойств брони вместо столбца чисел,
   четыре щита и правило «в слоте не больше одной пустой вещи».
+- [2D-ARTIFACT-SOURCE.md](2D-ARTIFACT-SOURCE.md) — почему артефакт не лежит на
+  полу и как обещание «один за забег» держится без броска монеты.
 - [2D-SCOUTING.md](2D-SCOUTING.md) — разведка: Темнозрение, Скрытность и
   тайник, который существует только для того, кто его ищет.
 - [2D-CAMP.md](2D-CAMP.md) — лагерь: походный набор, костёр и спальник по
@@ -272,6 +274,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Семейства оружия | `tools/dcss-rpg-{ranged,whips}.js`; `WEAPON_FAMILIES`/`REACH_STYLES` в правилах, `yankWithWhip` в `dcss.js`, [контракт](2D-WEAPON-FAMILIES.md) |
 | Свойства брони | `tools/dcss-rpg-armour.js`; `currentArmourProfile` и `returnThorns` в `dcss.js`, [контракт](2D-ARMOUR.md) |
+| Источник артефактов | `rollCacheArtifact` в `dcss-rpg-artifacts.js`; `artifactFloor` на этаже, `sealed` у тайника, [контракт](2D-ARTIFACT-SOURCE.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |
 | Список нужных спрайтов и упаковка | `tools/dcss-rpg-required-assets.js`; `scripts/package-itch.mjs`, [выпуск](RELEASE.md) |

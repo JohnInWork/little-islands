@@ -204,7 +204,7 @@ test('the city is the surface above the ladder, not a floor of it', () => {
 });
 
 test('a run walks into the city and out the other side', () => {
-  assert.equal(GENERATOR_VERSION, 11, 'the city changed what a floor can be');
+  assert.equal(GENERATOR_VERSION, 12, 'artifacts moved off the floor and into sealed caches');
   let run = createRun(891);
   // The city is above the ladder now: the hero climbs out of the first floor.
   run = retreatRunFloor(run);

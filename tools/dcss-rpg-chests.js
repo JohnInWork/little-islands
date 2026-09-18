@@ -150,7 +150,7 @@ export function chestVisualFrames({ seed = 0, depth, roomIndex, skinIds = null }
   return skins[index].frames;
 }
 
-function weightedVariant(roll, depth) {
+function weightedVariant(roll, depth, skipPlain = false) {
   const pressure = clampTier(depth);
   const tables = {
     1: [
@@ -163,8 +163,12 @@ function weightedVariant(roll, depth) {
       ['unlocked', 10], ['locked', 28], ['trapped', 27], ['cursed', 21], ['mimic', 14],
     ],
   };
-  let cursor = roll % 100;
-  for (const [variant, weight] of tables[pressure]) {
+  const table = skipPlain
+    ? tables[pressure].filter(([variant]) => variant !== 'unlocked')
+    : tables[pressure];
+  const span = table.reduce((sum, [, weight]) => sum + weight, 0);
+  let cursor = roll % span;
+  for (const [variant, weight] of table) {
     if (cursor < weight) return variant;
     cursor -= weight;
   }
@@ -175,7 +179,7 @@ function weightedVariant(roll, depth) {
  * Chest identity uses its own stable hash instead of the shared find RNG. That
  * keeps rooms and later finds unchanged when new chest variants are added.
  */
-export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold } = {}) {
+export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold, sealed = false } = {}) {
   if (
     !Number.isInteger(seed)
     || seed < 0
@@ -187,7 +191,10 @@ export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold } = 
     || rewardGold < 1
   ) throw new TypeError('Chest profile requires stable floor data and reward');
   const hash = stableHash(seed >>> 0, depth, roomIndex);
-  const cacheVariant = weightedVariant(hash, depth);
+  // A sealed cache is the one the run's artefact was promised to. It must never
+  // come up plain, or the promise turns into a coin flip.
+  const rolled = weightedVariant(hash, depth);
+  const cacheVariant = sealed && rolled === 'unlocked' ? weightedVariant(hash, depth, true) : rolled;
   const tier = clampTier(depth);
   const rewardMultipliers = {
     unlocked: 1,

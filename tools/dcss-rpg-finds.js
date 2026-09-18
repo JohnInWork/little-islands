@@ -610,6 +610,7 @@ export function createDungeonFinds({
             depth: level.depth,
             roomIndex,
             rewardGold: outcome.rewardGold,
+            sealed: level.sealedCache === true,
           })
         : {}),
     });

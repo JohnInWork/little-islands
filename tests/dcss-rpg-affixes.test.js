@@ -117,7 +117,9 @@ test('the production generator yields mostly ordinary gear and some enchanted ge
   assert.ok(counts[0] / total > 0.5);
   assert.ok(counts[1] > 200);
   assert.equal(counts[2], 0);
-  assert.ok(counts[3] > 0);
+  // Nothing an artefact-tier item does is earned by walking over it, so the open
+  // floor never carries one. They live in sealed caches; see the artifact tests.
+  assert.equal(counts[3], 0);
 });
 
 test('v19 migration preserves tuning and gear power without inventing affixes', () => {

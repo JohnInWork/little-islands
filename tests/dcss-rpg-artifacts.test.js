@@ -13,7 +13,10 @@ import {
   guaranteedArtifactDepth,
   materializeProceduralArtifact,
   proceduralArtifactName,
-  rollFloorArtifact,
+  ARTIFACT_CACHE_VARIANTS,
+  ARTIFACT_MIN_DEPTH,
+  cacheCanHoldArtifact,
+  rollCacheArtifact,
   rollProceduralArtifact,
   validateProceduralArtifactState,
 } from '../tools/dcss-rpg-artifacts.js';
@@ -75,26 +78,77 @@ test('artifact rolls are seeded, varied and use one fixed power plus at most one
   assert.throws(() => rollProceduralArtifact({ ...input, rate: 3.01 }), /Artifact rate/);
 });
 
-test('a floor creates at most one artifact and every complete nine-floor run guarantees one', () => {
+test('an artifact is never lying on the floor: it is always inside a cache that cost something', () => {
+  let runsWithOne = 0;
+  let totalArtifacts = 0;
+  let runs = 0;
   for (let seed = 1; seed <= 180; seed += 1) {
     const scheduledDepth = guaranteedArtifactDepth(seed, FINAL_DEPTH);
-    assert.ok(scheduledDepth >= 2 && scheduledDepth <= FINAL_DEPTH);
+    assert.ok(scheduledDepth >= ARTIFACT_MIN_DEPTH && scheduledDepth <= FINAL_DEPTH);
     let runArtifacts = 0;
     for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
       // The city sells; it does not scatter artifacts on the street.
       if (isCityDepth(depth)) continue;
       const dungeon = generateDungeon({ seed, depth });
-      const artifacts = dungeon.loot.filter(({ artifactPowerId }) => artifactPowerId);
-      assert.ok(artifacts.length <= 1, `seed ${seed}, floor ${depth}`);
-      assert.ok(artifacts.every(({ affixIds }) => affixIds.length === 0));
-      if (depth === scheduledDepth) assert.equal(artifacts.length, 1);
-      runArtifacts += artifacts.length;
+      // The complaint this rule answers: an artifact in the first room, free.
+      assert.equal(
+        dungeon.loot.filter(({ artifactPowerId }) => artifactPowerId).length,
+        0,
+        `seed ${seed}, floor ${depth}: an artifact was lying on the floor`,
+      );
+      // Read the caches the way the game does. Building them by hand here once
+      // hid a real bug: `dungeon.seed` is the FLOOR seed, so the schedule
+      // computed from it pointed at the wrong floor and the promise went unpaid.
+      const caches = createRun(seed, dungeon).floor.chests;
+      assert.equal(dungeon.artifactFloor, depth === scheduledDepth, `seed ${seed}, floor ${depth}`);
+      let here = 0;
+      for (const cache of caches) {
+        const found = (cache.items ?? []).filter(({ artifactPowerId }) => artifactPowerId);
+        assert.ok(found.length <= 1, `seed ${seed}, floor ${depth}: one cache, one artifact`);
+        assert.ok(found.every(({ affixIds }) => affixIds.length === 0));
+        if (found.length === 0) continue;
+        // The container it came out of must be one that asked something of the
+        // hero: a lock, a trap, a curse, or a mouth with teeth.
+        const find = dungeon.finds.find(({ instanceId }) => instanceId === cache.findId);
+        assert.ok(
+          ARTIFACT_CACHE_VARIANTS.includes(find.cacheVariant),
+          `seed ${seed}, floor ${depth}: artifact in a ${find.cacheVariant} cache`,
+        );
+        assert.ok(depth >= ARTIFACT_MIN_DEPTH, 'the first floor never holds an artifact');
+        here += 1;
+      }
+      // The floor that owes the run its artifact always pays.
+      if (depth === scheduledDepth) assert.equal(here, 1, `seed ${seed}: the promise went unpaid`);
+      runArtifacts += here;
     }
-    assert.ok(runArtifacts >= 1 && runArtifacts <= FINAL_DEPTH);
+    assert.ok(runArtifacts >= 1, `seed ${seed}: a run with no artifact at all`);
+    if (runArtifacts === 1) runsWithOne += 1;
+    totalArtifacts += runArtifacts;
+    runs += 1;
   }
+  // One is promised; a second is luck, not a schedule.
+  assert.ok(runsWithOne / runs > 0.6, `only ${runsWithOne} of ${runs} runs found exactly one`);
+  assert.ok(totalArtifacts / runs < 1.6, `artifacts are still routine: ${(totalArtifacts / runs).toFixed(2)} per run`);
+});
 
+test('the cache rule refuses every container that asked nothing of the hero', () => {
   const bases = [lootById('long-sword'), lootById('fire-ring')];
-  assert.deepEqual(rollFloorArtifact({ seed: 9, depth: 2, items: bases, rate: 0 }), null);
+  const input = { seed: 9, depth: 4, findId: 'find-4-2', items: bases };
+  assert.equal(rollCacheArtifact({ ...input, cacheVariant: 'locked', rate: 0 }), null);
+  assert.equal(rollCacheArtifact({ ...input, cacheVariant: 'unlocked', guaranteed: true }), null);
+  assert.equal(rollCacheArtifact({ ...input, depth: 1, cacheVariant: 'locked', guaranteed: true }), null);
+  for (const variant of ARTIFACT_CACHE_VARIANTS) {
+    const rolled = rollCacheArtifact({ ...input, cacheVariant: variant, guaranteed: true });
+    assert.ok(rolled?.artifactPowerId, `${variant} must be able to hold one`);
+  }
+  // A cache with nothing wearable in it has nothing to turn into an artifact.
+  assert.equal(
+    rollCacheArtifact({ ...input, items: [lootById('bread-ration')], cacheVariant: 'mimic', guaranteed: true }),
+    null,
+  );
+  assert.equal(cacheCanHoldArtifact({ depth: 4, cacheVariant: 'trapped' }), true);
+  assert.equal(cacheCanHoldArtifact({ depth: 4, cacheVariant: 'unlocked' }), false);
+  assert.throws(() => rollCacheArtifact({ ...input, cacheVariant: 'locked', findId: '' }), /find id/);
 });
 
 test('materialization generates gold-tier bilingual gear without handwritten item lore', () => {
