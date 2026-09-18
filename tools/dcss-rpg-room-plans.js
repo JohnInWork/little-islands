@@ -316,14 +316,50 @@ export function roomArchetypeById(id) {
   return ROOM_ARCHETYPES_BY_ID.get(id) ?? null;
 }
 
-export function dungeonThemeForDepth(depth) {
+function themeOrderHash(seed, index) {
+  let value = ((seed >>> 0) ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
+  value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+  return (value ^ (value >>> 15)) >>> 0;
+}
+
+/**
+ * The order the run meets its places in. It used to be no order at all: floors
+ * 1-3 were always the ashen vault, 4-6 always the buried sanctum, and the
+ * infernal core — a finished theme shipped with the game — sat at chapter index
+ * three, which nine floors never reach. Nobody ever saw it.
+ *
+ * Now the run seed shuffles the catalogue, so a chapter still keeps its
+ * identity for three floors but which place that is changes between runs, and
+ * with four themes across three chapters one of them is always left out.
+ */
+export function chapterThemeOrder(seed) {
+  if (!Number.isInteger(seed) || seed < 0) throw new TypeError('Theme order requires a run seed');
+  const order = [...DUNGEON_THEME_CATALOG];
+  // Fisher-Yates from the run seed: deterministic, and adding a theme later
+  // reshuffles nothing that came before it in the list.
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swap = themeOrderHash(seed, index) % (index + 1);
+    [order[index], order[swap]] = [order[swap], order[index]];
+  }
+  return Object.freeze(order);
+}
+
+/**
+ * Which place a floor is. Takes the RUN seed, never the floor seed: the floor
+ * seed is `mixSeed(seed, depth)` and cannot be turned back into the run.
+ */
+export function dungeonThemeFor(seed, depth) {
   if (isCityDepth(depth)) return CITY_DUNGEON_THEME;
   if (!Number.isInteger(depth) || depth < 1) {
     throw new TypeError('Dungeon theme depth must be a positive integer');
   }
+  const order = chapterThemeOrder(seed);
   const chapterIndex = Math.floor((depth - 1) / FLOORS_PER_CHAPTER);
-  return DUNGEON_THEME_CATALOG[chapterIndex % DUNGEON_THEME_CATALOG.length];
+  return order[chapterIndex % order.length];
 }
+
+
 
 function stableHash(seed, depth, roomIndex, salt = 0) {
   let value = (seed ^ Math.imul(depth + 1, 0x9e3779b1)) >>> 0;
@@ -461,7 +497,7 @@ export function createDungeonRoomPlans(level) {
     || !level.exit
   ) throw new TypeError('Room plans require a generated dungeon');
 
-  const theme = dungeonThemeForDepth(level.depth);
+  const theme = dungeonThemeById(level.themeId);
   const semantic = semanticArchetypes(level);
   const plans = level.rooms.map((room, roomIndex) => {
     const archetype = semantic.has(roomIndex)

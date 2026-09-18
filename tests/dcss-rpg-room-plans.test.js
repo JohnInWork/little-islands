@@ -10,11 +10,13 @@ import {
   FLOORS_PER_CHAPTER,
   ROOM_ARCHETYPE_CATALOG,
   createDungeonRoomPlans,
-  dungeonThemeForDepth,
+  chapterThemeOrder,
+  dungeonThemeById,
+  dungeonThemeFor,
   roomArchetypeById,
 } from '../tools/dcss-rpg-room-plans.js';
 import { floorScaling } from '../tools/dcss-rpg-scaling.js';
-import { biomeThemeForDepth } from '../tools/dcss-rpg-visuals.js';
+import { biomeThemeFor } from '../tools/dcss-rpg-visuals.js';
 
 test('dungeon themes own compatible surfaces, chests and room families', () => {
   assert.equal(FLOORS_PER_CHAPTER, 3);
@@ -33,21 +35,24 @@ test('dungeon themes own compatible surfaces, chests and room families', () => {
 });
 
 test('visual theme and difficulty chapter advance on the same depth boundary', () => {
-  for (let depth = 1; depth <= 32; depth += 1) {
-    // The city keeps its own surfaces and belongs to no chapter rotation.
-    if (isCityDepth(depth)) {
-      assert.equal(dungeonThemeForDepth(depth).id, 'gate-town');
-      assert.equal(biomeThemeForDepth(depth).id, 'gate-town');
-      continue;
+  for (const seed of [0, 3, 97]) {
+    const order = chapterThemeOrder(seed);
+    assert.equal(new Set(order).size, DUNGEON_THEME_CATALOG.length, 'the shuffle lost a theme');
+    for (let depth = 1; depth <= 32; depth += 1) {
+      // The city keeps its own surfaces and belongs to no chapter rotation.
+      if (isCityDepth(depth)) {
+        assert.equal(dungeonThemeFor(seed, depth).id, 'gate-town');
+        assert.equal(biomeThemeFor('gate-town').id, 'gate-town');
+        continue;
+      }
+      const scaling = floorScaling(depth);
+      const theme = dungeonThemeFor(seed, depth);
+      // The boundary is still the chapter boundary; only which place sits in
+      // each chapter is the run's own.
+      assert.equal(theme, order[(scaling.chapter - 1) % order.length]);
+      assert.equal(biomeThemeFor(theme.id).id, theme.surfaceSetId);
+      assert.ok(scaling.floorInChapter >= 1 && scaling.floorInChapter <= FLOORS_PER_CHAPTER);
     }
-    const scaling = floorScaling(depth);
-    const theme = dungeonThemeForDepth(depth);
-    assert.equal(
-      theme,
-      DUNGEON_THEME_CATALOG[(scaling.chapter - 1) % DUNGEON_THEME_CATALOG.length],
-    );
-    assert.equal(biomeThemeForDepth(depth).id, theme.surfaceSetId);
-    assert.ok(scaling.floorInChapter >= 1 && scaling.floorInChapter <= FLOORS_PER_CHAPTER);
   }
 });
 
@@ -57,7 +62,7 @@ test('room plans are deterministic, semantic and schedule one merchant per chapt
     if (isCityDepth(depth)) continue;
     const dungeon = generateDungeon({ seed, depth });
     const again = createDungeonRoomPlans(dungeon);
-    const theme = dungeonThemeForDepth(depth);
+    const theme = dungeonThemeById(dungeon.themeId);
     assert.deepEqual(again, dungeon.roomPlans);
     assert.equal(dungeon.roomPlans.length, dungeon.rooms.length);
     assert.equal(new Set(dungeon.roomPlans.map(({ id }) => id)).size, dungeon.rooms.length);

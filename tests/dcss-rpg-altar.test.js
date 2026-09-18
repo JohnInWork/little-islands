@@ -31,7 +31,6 @@ import {
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
 import {
-  dungeonThemeForDepth,
   roomArchetypeById,
   roomArchetypeIdForFind,
 } from '../tools/dcss-rpg-room-plans.js';
@@ -113,7 +112,7 @@ test('every floor places at most one landmark in its own quiet room without bloc
     placed += 1;
     const [altar] = landmarks;
     assert.equal(altar.instanceId, `find-${depth}-${altar.roomIndex}`);
-    assert.equal(altar.themeId, dungeonThemeForDepth(depth).id);
+    assert.equal(altar.themeId, dungeon.themeId);
     assert.equal(isLandmarkFind(altar), true);
     assert.equal(dungeon.grid[altar.y][altar.x], '.');
     assert.ok(altar.roomIndex > 0);
@@ -135,7 +134,7 @@ test('every floor places at most one landmark in its own quiet room without bloc
     assert.equal(plan.archetypeId, archetypeId);
     assert.equal(
       plan.environmentThemeId,
-      roomArchetypeById(archetypeId).environmentThemeIds[dungeonThemeForDepth(depth).id],
+      roomArchetypeById(archetypeId).environmentThemeIds[dungeon.themeId],
     );
     const blocked = dungeon.grid.map((row) => [...row]);
     for (const find of dungeon.finds) blocked[find.y][find.x] = '#';
@@ -161,7 +160,8 @@ test('the landmark stream never moves the three core finds', () => {
   }
   rows.push('#'.repeat(36));
   const rooms = Array.from({ length: 5 }, (_, index) => ({ x: 1 + index * 7, y: 1, width: 5, height: 5 }));
-  const level = { seed: 11, depth: 3, grid: rows, rooms, exit: { x: 3, y: 3 }, surprises: [] };
+  // A hand-built level must say which place it is, exactly like a generated one.
+  const level = { seed: 11, depth: 3, themeId: 'ashen-vault', grid: rows, rooms, exit: { x: 3, y: 3 }, surprises: [] };
   const coreOnly = createDungeonFinds({ level, rng: createRng(5) });
   const withLandmark = createDungeonFinds({ level, rng: createRng(5), landmarkRng: createRng(9) });
   assert.equal(coreOnly.length, 3);

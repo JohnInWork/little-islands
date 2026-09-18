@@ -11,7 +11,7 @@ import {
   clearActorEffects,
   createActorEffects,
 } from './dcss-rpg-effects.js';
-import { dungeonThemeForDepth } from './dcss-rpg-room-plans.js';
+import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 import { WATER_CELL } from './dcss-rpg-terrain.js';
 
 const freezeCopy = (value) => Object.freeze({ ...value });
@@ -527,7 +527,7 @@ function placeSecrets({ level, rng, roomEntries, occupied, avoided, usedRooms })
  */
 function placeLandmarks({ level, rng, roomEntries, occupied, avoided, usedRooms }) {
   if (!isSeededRng(rng) || LANDMARK_CATALOG.length === 0) return [];
-  const themeId = dungeonThemeForDepth(level.depth).id;
+  const themeId = dungeonThemeById(level.themeId).id;
   const rooms = shuffle(
     rng,
     roomEntries.filter(({ roomIndex }) => !usedRooms.has(roomIndex)),
@@ -578,9 +578,12 @@ export function createDungeonFinds({
     !Number.isInteger(level.depth) ||
     !Array.isArray(level.grid) ||
     !Array.isArray(level.rooms) ||
+    // Which place a floor is cannot be read off its depth any more: the run
+    // seed decides it. A level without a theme is a level nobody decided.
+    !dungeonThemeById(level.themeId) ||
     !isSeededRng(rng)
   ) {
-    throw new TypeError('Dungeon finds require a generated level and seeded RNG');
+    throw new TypeError('Dungeon finds require a generated level with a theme and seeded RNG');
   }
   const occupied = new Set(occupiedCells);
   const avoided = new Set(avoidCells);

@@ -11,7 +11,7 @@ import { RUN_END_SOURCE_NAMES } from '../tools/dcss-rpg-run-summary.js';
 import { floorScaling, monsterEligibleForFloor } from '../tools/dcss-rpg-scaling.js';
 import { ACTOR_EFFECT_IDS } from '../tools/dcss-rpg-effects.js';
 import { CHAPTER_WEATHER, chapterWeather } from '../tools/dcss-rpg-visuals.js';
-import { DUNGEON_THEME_CATALOG, dungeonThemeForDepth } from '../tools/dcss-rpg-room-plans.js';
+import { DUNGEON_THEME_CATALOG, dungeonThemeFor } from '../tools/dcss-rpg-room-plans.js';
 
 const chapterOf = (depth) => Math.floor((depth - 1) / FLOORS_PER_CHAPTER) + 1;
 const signatures = MONSTER_CATALOG.filter(({ chapter }) => Number.isInteger(chapter));
@@ -77,11 +77,21 @@ test('each chapter breathes its own air', () => {
   for (const theme of DUNGEON_THEME_CATALOG) {
     assert.ok(CHAPTER_WEATHER[theme.atmosphereId], `weather for ${theme.atmosphereId}`);
   }
-  const chapters = [1, 5, 7].map((depth) => chapterWeather(dungeonThemeForDepth(depth).atmosphereId));
-  assert.deepEqual(chapters.map(({ id }) => id), ['ash', 'sand', 'snow']);
-  assert.equal(new Set(chapters.map(({ driftX, driftY }) => `${driftX}:${driftY}`)).size, 3, 'three different winds');
-  assert.ok(chapters[1].driftX > chapters[0].driftX, 'sand races sideways');
-  assert.ok(chapters[2].driftY > chapters[1].driftY, 'snow falls');
+  // Which air a chapter breathes is now the run's own, so the promise is that
+  // the three chapters of a run never breathe the same air — not that floor one
+  // is always ash.
+  for (const seed of [0, 5, 31, 404]) {
+    const chapters = [1, 5, 7].map((depth) => chapterWeather(dungeonThemeFor(seed, depth).atmosphereId));
+    assert.equal(
+      new Set(chapters.map(({ driftX, driftY }) => `${driftX}:${driftY}`)).size,
+      3,
+      `seed ${seed}: two chapters share a wind`,
+    );
+  }
+  const sand = chapterWeather('ochre');
+  const snow = chapterWeather('ice');
+  assert.ok(sand.driftX > chapterWeather('slate').driftX, 'sand races sideways');
+  assert.ok(snow.driftY > sand.driftY, 'snow falls');
   for (const weather of Object.values(CHAPTER_WEATHER)) {
     assert.ok(weather.sway >= 0 && weather.sway <= 40);
     assert.ok(weather.alpha > 0 && weather.alpha <= 2);
@@ -97,7 +107,7 @@ test('the runtime blooms the death cloud, answers the song and paints the weathe
   assert.match(runtime, /function dragHeroToward\(source\)[\s\S]*hero\.path = \[\{ x: \(cell\.x \+ 0\.5\) \* TILE, y: \(cell\.y \+ 0\.5\) \* TILE \}\]/);
   assert.match(runtime, /if \(hit && monster\.pull > 0\) dragHeroToward\(monster\);/);
   assert.match(runtime, /isHeroWalkable\(x, y\)\s+&& !heroBlockingCells\(\)\.has/, 'the pull respects walls and bodies');
-  assert.match(runtime, /const weather = chapterWeather\(biomeThemeForDepth\(dungeon\.depth\)\.palette\);/);
+  assert.match(runtime, /const weather = chapterWeather\(biomeThemeFor\(dungeon\.themeId\)\.palette\);/);
   assert.match(runtime, /drift \* weather\.driftX[\s\S]*drift \* weather\.driftY \+ sway/);
   assert.match(runtime, /\* weather\.alpha;/);
 });

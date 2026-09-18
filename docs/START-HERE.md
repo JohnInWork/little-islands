@@ -61,6 +61,8 @@
   полу и как обещание «один за забег» держится без броска монеты.
 - [2D-MATERIALS.md](2D-MATERIALS.md) — форма и материал как две оси: глубина
   решает, насколько вещь хороша, сид — как она выглядит и называется.
+- [2D-BIOME-SHUFFLE.md](2D-BIOME-SHUFFLE.md) — порядок мест решает сид забега, а
+  не номер этажа; инфернальное ядро наконец попадает в игру.
 - [2D-SCOUTING.md](2D-SCOUTING.md) — разведка: Темнозрение, Скрытность и
   тайник, который существует только для того, кто его ищет.
 - [2D-CAMP.md](2D-CAMP.md) — лагерь: походный набор, костёр и спальник по
@@ -278,6 +280,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Свойства брони | `tools/dcss-rpg-armour.js`; `currentArmourProfile` и `returnThorns` в `dcss.js`, [контракт](2D-ARMOUR.md) |
 | Источник артефактов | `rollCacheArtifact` в `dcss-rpg-artifacts.js`; `artifactFloor` на этаже, `sealed` у тайника, [контракт](2D-ARTIFACT-SOURCE.md) |
 | Форма и материал вещи | `tools/dcss-rpg-materials.js`; `form` в каталоге, `materialId` в записи предмета, [контракт](2D-MATERIALS.md) |
+| Порядок биомов | `chapterThemeOrder`/`dungeonThemeFor` в `dcss-rpg-room-plans.js`; `themeId` на этаже, [контракт](2D-BIOME-SHUFFLE.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |
 | Список нужных спрайтов и упаковка | `tools/dcss-rpg-required-assets.js`; `scripts/package-itch.mjs`, [выпуск](RELEASE.md) |

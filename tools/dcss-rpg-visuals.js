@@ -1,4 +1,4 @@
-import { dungeonThemeForDepth } from './dcss-rpg-room-plans.js';
+import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 
 const numberedPaths = (prefix, values) => values.map((value) => `${prefix}${value}.png`);
 
@@ -187,16 +187,21 @@ export const BIOME_THEMES = Object.freeze([
   }),
 ]);
 
-export function biomeThemeForDepth(depth) {
-  if (!Number.isInteger(depth) || depth < 0) throw new Error('Depth must be a positive integer');
-  const dungeonTheme = dungeonThemeForDepth(depth);
+/**
+ * The surfaces a floor is built from. Keyed by the floor's own theme, because
+ * which place a floor is now depends on the run seed and cannot be read off its
+ * depth any more.
+ */
+export function biomeThemeFor(themeId) {
+  const dungeonTheme = dungeonThemeById(themeId);
+  if (!dungeonTheme) throw new Error(`Unknown dungeon theme: ${themeId}`);
   const biome = BIOME_THEMES.find(({ id }) => id === dungeonTheme.surfaceSetId);
   if (!biome) throw new Error(`Missing biome surfaces for ${dungeonTheme.surfaceSetId}`);
   return biome;
 }
 
-export function atmosphereThemeForDepth(depth) {
-  return ATMOSPHERE_THEMES[biomeThemeForDepth(depth).palette];
+export function atmosphereThemeFor(themeId) {
+  return ATMOSPHERE_THEMES[biomeThemeFor(themeId).palette];
 }
 
 export function deterministicAtmosphereMote(seed, index, width, height) {

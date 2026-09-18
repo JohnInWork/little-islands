@@ -77,8 +77,8 @@ import {
 } from './dcss-rpg-appearance.js';
 import {
   allBiomeAssetPaths,
-  atmosphereThemeForDepth,
-  biomeThemeForDepth,
+  atmosphereThemeFor,
+  biomeThemeFor,
   BLOOD_FLOOR_PATHS,
   chapterWeather,
   deterministicAtmosphereMote,
@@ -4688,7 +4688,7 @@ function drawMonster(monster) {
 
   if (monster.dead > 0) {
     const dissolve = Math.min(1, monster.dead / 0.72);
-    const color = atmosphereThemeForDepth(dungeon.depth).dust;
+    const color = atmosphereThemeFor(dungeon.themeId).dust;
     context.save();
     context.fillStyle = color;
     context.globalAlpha = Math.max(0, 0.72 - dissolve * 0.68);
@@ -4806,7 +4806,7 @@ function wallTextureAt(x, y, cell, theme) {
 }
 
 function rebuildDungeonWorld3D() {
-  const theme = biomeThemeForDepth(dungeon.depth);
+  const theme = biomeThemeFor(dungeon.themeId);
   dungeonWorld3D.rebuild({
     grid: world,
     doors: doorDefinitions,
@@ -5043,9 +5043,9 @@ function drawEvents() {
 }
 
 function drawMotes(layer = 1) {
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   // Each chapter breathes differently: ash drifts, sand races, snow falls.
-  const weather = chapterWeather(biomeThemeForDepth(dungeon.depth).palette);
+  const weather = chapterWeather(biomeThemeFor(dungeon.themeId).palette);
   const worldPixelWidth = WORLD_WIDTH * TILE;
   const worldPixelHeight = WORLD_HEIGHT * TILE;
   context.save();
@@ -5092,7 +5092,7 @@ function isVoidAtScreen(screenX, screenY) {
 function drawVoidSky() {
   const width = voidSkyCanvas.width;
   const height = voidSkyCanvas.height;
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   const cameraCellX = reducedMotion ? 0 : camera.x / TILE;
   const cameraCellY = reducedMotion ? 0 : camera.y / TILE;
   voidSkyContext.setTransform(1, 0, 0, 1, 0, 0);
@@ -5137,7 +5137,7 @@ function drawVoidSky() {
 }
 
 function drawGroundMist(foreground = false) {
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   resetAtmosphereBuffer();
   atmosphereContext.save();
@@ -5196,7 +5196,7 @@ function drawGroundMist(foreground = false) {
 }
 
 function drawWallDrips() {
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   const minX = Math.max(0, Math.floor((camera.x - viewportWidth / 2) / TILE) - 1);
   const maxX = Math.min(WORLD_WIDTH - 1, Math.ceil((camera.x + viewportWidth / 2) / TILE) + 1);
   const minY = Math.max(0, Math.floor((camera.y - viewportHeight / 2) / TILE) - 1);
@@ -5408,7 +5408,7 @@ function drawImpactWaves() {
 }
 
 function atmosphereLightSources() {
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   const sources = [
     {
       id: 'refuge-shaft',
@@ -5551,7 +5551,7 @@ function currentRevealRadius() {
 }
 
 function drawLighting() {
-  const theme = atmosphereThemeForDepth(dungeon.depth);
+  const theme = atmosphereThemeFor(dungeon.themeId);
   const heroPosition = worldToScreen(hero.x, hero.y);
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const sources = atmosphereLightSources();
@@ -5953,7 +5953,7 @@ function unlockLevelUpAudio() {
     levelUpAudio = new AudioContextConstructor();
     preloadAudioSamples(levelUpAudio);
   }
-  const begin = () => startAmbient(biomeThemeForDepth(dungeon.depth).palette);
+  const begin = () => startAmbient(biomeThemeFor(dungeon.themeId).palette);
   if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
   else begin();
   return levelUpAudio;
@@ -10935,7 +10935,7 @@ function replaceFloor(nextDepth, arrival = null) {
   run.depth = nextDepth;
   dungeon = hydrateDungeon(run);
   world = dungeon.grid;
-  startAmbient(biomeThemeForDepth(dungeon.depth).palette);
+  startAmbient(biomeThemeFor(dungeon.themeId).palette);
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
   monsters = createMonsters(dungeon);
@@ -12560,8 +12560,8 @@ async function initialize() {
     discoverNearbyTraps({ feedback: false });
     sceneStartedAt = elapsed;
     if (!reducedMotion) {
-      burst(hero.x, hero.y - 8, atmosphereThemeForDepth(dungeon.depth).heroLight, 18);
-      addImpactWave(hero.x, hero.y - 8, atmosphereThemeForDepth(dungeon.depth).heroLight, 54, 0);
+      burst(hero.x, hero.y - 8, atmosphereThemeFor(dungeon.themeId).heroLight, 18);
+      addImpactWave(hero.x, hero.y - 8, atmosphereThemeFor(dungeon.themeId).heroLight, 54, 0);
     }
     updateGearUi();
     renderPack();

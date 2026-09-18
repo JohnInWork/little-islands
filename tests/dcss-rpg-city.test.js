@@ -33,7 +33,7 @@ import { createDungeonEnvironment } from '../tools/dcss-rpg-environment.js';
 import { monsterById } from '../tools/dcss-rpg-content.js';
 import { floorScaling, monsterEligibleForFloor } from '../tools/dcss-rpg-scaling.js';
 import { createMonsterStates } from '../tools/dcss-rpg-rules.js';
-import { biomeThemeForDepth } from '../tools/dcss-rpg-visuals.js';
+import { biomeThemeFor } from '../tools/dcss-rpg-visuals.js';
 import { requiredAssetPaths } from '../tools/dcss-rpg-required-assets.js';
 import { MAX_MERCHANTS_PER_FLOOR } from '../tools/dcss-rpg-merchant.js';
 import { FINAL_DEPTH, canLeaveDungeonFloor } from '../tools/dcss-rpg-run.js';
@@ -178,7 +178,7 @@ test('the city furnishes itself and ships its own sprites', async () => {
     assert.ok(required.includes(path), `${path} must reach the build`);
     await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
   }
-  const town = biomeThemeForDepth(cityDepth);
+  const town = biomeThemeFor('gate-town');
   assert.equal(town.id, 'gate-town');
   for (const path of [...town.floors, ...town.walls, ...town.accentWalls]) {
     await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
@@ -204,7 +204,7 @@ test('the city is the surface above the ladder, not a floor of it', () => {
 });
 
 test('a run walks into the city and out the other side', () => {
-  assert.equal(GENERATOR_VERSION, 12, 'artifacts moved off the floor and into sealed caches');
+  assert.equal(GENERATOR_VERSION, 13, 'the run seed now decides which place each chapter is');
   let run = createRun(891);
   // The city is above the ladder now: the hero climbs out of the first floor.
   run = retreatRunFloor(run);

@@ -18,7 +18,6 @@ import {
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
 import {
-  dungeonThemeForDepth,
   roomArchetypeById,
   roomArchetypeIdForFind,
 } from '../tools/dcss-rpg-room-plans.js';
@@ -136,7 +135,7 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
     if (landmarks.length === 0) continue;
     const [landmark] = landmarks;
     seen.set(landmark.id, (seen.get(landmark.id) ?? 0) + 1);
-    assert.equal(landmark.themeId, dungeonThemeForDepth(depth).id);
+    assert.equal(landmark.themeId, level.themeId);
     if (level.floodedRoomIndex === null) continue;
     flooded += 1;
     if (landmark.id !== 'sunken-fountain') continue;

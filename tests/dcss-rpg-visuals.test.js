@@ -12,37 +12,50 @@ import {
   PIXEL_EFFECT_SCALE,
   VISIBILITY_TUNING,
   allBiomeAssetPaths,
-  atmosphereThemeForDepth,
-  biomeThemeForDepth,
+  atmosphereThemeFor,
+  biomeThemeFor,
   deterministicAtmosphereMote,
   fogAnchorsForDungeon,
 } from '../tools/dcss-rpg-visuals.js';
+import { dungeonThemeFor } from '../tools/dcss-rpg-room-plans.js';
 
-test('the complete nine-floor run uses three coherent three-floor biome chapters', () => {
-  const ash = biomeThemeForDepth(1);
-  // The city sits above the ladder now, so all nine floors are dungeon again.
-  const buried = biomeThemeForDepth(4);
-  const frozen = biomeThemeForDepth(7);
-  assert.equal(biomeThemeForDepth(0).id, 'gate-town', 'the surface keeps the town');
-  assert.equal(biomeThemeForDepth(2), ash);
-  assert.equal(biomeThemeForDepth(3), ash);
-  assert.equal(biomeThemeForDepth(5), buried);
-  assert.equal(biomeThemeForDepth(6), buried);
-  assert.equal(biomeThemeForDepth(9), frozen);
-  assert.equal(ash.id, 'ashen-vault');
-  assert.equal(buried.id, 'buried-sanctum');
-  assert.equal(ash.accentModulo, 0);
-  assert.equal(buried.accentModulo, 0);
-  assert.ok(ash.floors.every((path) => path.startsWith('dngn/floor/cobble_blood')));
-  assert.ok(ash.walls.every((path) => path.startsWith('dngn/wall/brick_gray')));
-  assert.ok(buried.floors.every((path) => path.startsWith('dngn/floor/sand')));
-  assert.ok(buried.walls.every((path) => path.startsWith('dngn/wall/sandstone_wall')));
-  assert.ok(ash.floors.every((path) => !BLOOD_FLOOR_PATHS.includes(path)));
+const biomeAt = (seed, depth) => biomeThemeFor(dungeonThemeFor(seed, depth).id);
+
+test('a chapter keeps one place for three floors, but which place is the run\'s own', () => {
+  for (const seed of [1, 7, 42, 4242]) {
+    // Three floors of one place, then somewhere else: the chapter is still a
+    // chapter, it simply is not the same chapter every run.
+    for (const first of [1, 4, 7]) {
+      const chapter = biomeAt(seed, first);
+      assert.equal(biomeAt(seed, first + 1), chapter, `seed ${seed}, floor ${first + 1}`);
+      assert.equal(biomeAt(seed, first + 2), chapter, `seed ${seed}, floor ${first + 2}`);
+    }
+    // And one place is left out of every run: four themes, three chapters.
+    const met = new Set([1, 4, 7].map((depth) => biomeAt(seed, depth).id));
+    assert.equal(met.size, 3, `seed ${seed} repeats a place`);
+  }
+  // The surface is never shuffled: the town is the town.
+  assert.equal(biomeThemeFor('gate-town').id, 'gate-town');
+});
+
+test('every place the game ships is actually met, the infernal core included', () => {
+  const met = new Set();
+  const openings = new Set();
+  for (let seed = 0; seed < 400; seed += 1) {
+    for (const depth of [1, 4, 7]) met.add(biomeAt(seed, depth).id);
+    openings.add(biomeAt(seed, 1).id);
+  }
+  // Four themes ship; before the shuffle the fourth sat at a chapter index nine
+  // floors never reach, so nobody had ever seen the infernal core.
+  assert.equal(met.size, BIOME_THEMES.length - 1, 'a biome is still unreachable');
+  assert.ok(met.has('infernal-core'), 'the infernal core is still shipped and never met');
+  // And the run does not always open in the same place.
+  assert.equal(openings.size, met.size, 'the first floor is always the same place');
 });
 
 test('biome themes are deterministic, bounded and reference local assets', async () => {
-  assert.throws(() => biomeThemeForDepth(-1), /positive integer/);
-  assert.equal(biomeThemeForDepth(9), BIOME_THEMES[2]);
+  assert.throws(() => biomeThemeFor('nonsense'), /Unknown dungeon theme/);
+  assert.equal(biomeAt(0, 9), biomeThemeFor(dungeonThemeFor(0, 9).id));
   const paths = allBiomeAssetPaths();
   assert.equal(new Set(paths).size, paths.length);
   await Promise.all(
@@ -55,9 +68,10 @@ test('biome themes are deterministic, bounded and reference local assets', async
 test('atmosphere keeps a four-pixel render grid and a complete biome palette', () => {
   assert.equal(PIXEL_EFFECT_SCALE, 4);
   for (let depth = 1; depth <= 8; depth += 1) {
-    const biome = biomeThemeForDepth(depth);
-    assert.equal(atmosphereThemeForDepth(depth), ATMOSPHERE_THEMES[biome.palette]);
-    assert.match(atmosphereThemeForDepth(depth).fog, /^#[0-9a-f]{6}$/i);
+    const biome = biomeAt(11, depth);
+    const themeId = dungeonThemeFor(11, depth).id;
+    assert.equal(atmosphereThemeFor(themeId), ATMOSPHERE_THEMES[biome.palette]);
+    assert.match(atmosphereThemeFor(themeId).fog, /^#[0-9a-f]{6}$/i);
     assert.match(biome.world3d.actorTint, /^#[0-9a-f]{6}$/i);
     assert.ok(Object.values(biome.world3d).every((value) => typeof value === 'number' || /^#[0-9a-f]{6}$/i.test(value)));
   }

@@ -56,7 +56,11 @@ import {
   validateProceduralArtifactState,
 } from './dcss-rpg-artifacts.js';
 import { MAX_FINDS_PER_FLOOR, createDungeonFinds } from './dcss-rpg-finds.js';
-import { createDungeonRoomPlans } from './dcss-rpg-room-plans.js';
+import {
+  CITY_DUNGEON_THEME,
+  createDungeonRoomPlans,
+  dungeonThemeFor,
+} from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
 import {
   MERCHANT_ACTOR_PATH,
@@ -144,7 +148,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 12;
+export const GENERATOR_VERSION = 13;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -506,6 +510,7 @@ function generateCityDungeon({ floorSeed, depth, width, height, scaling }) {
   return {
     seed: floorSeed,
     artifactFloor: false,
+    themeId: CITY_DUNGEON_THEME.id,
     depth,
     scaling,
     width,
@@ -557,6 +562,9 @@ export function generateDungeon({
   // The floor that owes the run its artefact: its cache is always sealed, and
   // its cache is always the one that pays.
   const artifactFloor = depth === guaranteedArtifactDepth(seed, FINAL_DEPTH);
+  // Which place this floor is. Decided from the RUN seed, then carried: the
+  // floor seed below cannot be turned back into the run it came from.
+  const themeId = dungeonThemeFor(seed, depth).id;
   // The city is a floor of a different kind, built by its own plan. It returns
   // the same shape every other floor returns, so nothing downstream cares.
   if (isCityDepth(depth)) return generateCityDungeon({ floorSeed, depth, width, height, scaling });
@@ -926,6 +934,7 @@ export function generateDungeon({
       exit,
       surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
       sealedCache: artifactFloor,
+      themeId,
     },
     rng: findRng,
     landmarkRng,
@@ -935,6 +944,7 @@ export function generateDungeon({
   });
   const roomPlans = createDungeonRoomPlans({
     seed: floorSeed,
+    themeId,
     depth,
     scaling,
     grid,
@@ -953,6 +963,7 @@ export function generateDungeon({
   });
   const roomContent = materializeDungeonRoomContent({
     seed: floorSeed,
+    themeId,
     depth,
     scaling,
     grid,
@@ -973,10 +984,11 @@ export function generateDungeon({
   return {
     seed: floorSeed,
     // `seed` above is the FLOOR seed (`mixSeed(seed, depth)`), so nothing
-    // downstream can recover the run seed from it. The one question that needs
-    // the run seed — is this the floor that owes the run its artefact — is
-    // answered here and carried.
+    // downstream can recover the run seed from it. Everything that needs the
+    // run seed is answered here and carried: which floor owes the artefact, and
+    // which place this floor is.
     artifactFloor,
+    themeId,
     depth,
     scaling,
     width,
