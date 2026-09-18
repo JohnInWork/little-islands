@@ -134,7 +134,7 @@ const RUSSIAN_NAMES = Object.freeze({
   'iron-key': 'Железный ключ',
   'lockpick-set': 'Набор отмычек',
   'hunter-trap': 'Охотничий капкан',
-  'coin-cache': 'Тайник с золотом',
+  'coin-cache': 'Тайник с реальным золотом',
 });
 
 const ENGLISH_NAMES = Object.freeze({

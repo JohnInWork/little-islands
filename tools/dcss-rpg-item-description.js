@@ -62,7 +62,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     key: 'Ключ',
     tool: 'Инструмент',
     trap: 'Ловушка',
-    currency: 'Золото',
+    currency: 'Реальное золото',
   }),
   en: Object.freeze({
     potion: 'Potion',
@@ -74,7 +74,7 @@ const ITEM_KIND_TYPES = Object.freeze({
     key: 'Key',
     tool: 'Tool',
     trap: 'Trap',
-    currency: 'Gold',
+    currency: 'Real gold',
   }),
 });
 
@@ -151,7 +151,7 @@ const COPY = Object.freeze({
     trap: 'Установка рядом · нужен Ловушечник I',
     bait: 'Установка рядом · нужны «Ядовитые составы»',
     coat: 'Смазывает клинок ядом · нужны «Ядовитые составы»',
-    gold: 'При подборе превращается в золото',
+    gold: 'При подборе превращается в реальное золото',
     cooking: 'Можно приготовить у костра',
     bookStudy: 'Случайный навык получает +1 ранг до конца забега',
     bookForget: 'Случайный действующий навык теряет 1 ранг до конца забега',
@@ -203,7 +203,7 @@ const COPY = Object.freeze({
     trap: 'Place nearby · requires Trap setting I',
     bait: 'Placed nearby · requires Poisoncraft',
     coat: 'Coats the blade with venom · requires Poisoncraft',
-    gold: 'Turns into gold when collected',
+    gold: 'Turns into real gold when collected',
     cooking: 'Can be cooked at a campfire',
     bookStudy: 'One random skill gains +1 rank for this run',
     bookForget: 'One random active skill loses 1 rank for this run',

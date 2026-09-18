@@ -147,7 +147,7 @@ const COPY = Object.freeze({
   ru: Object.freeze({
     wanted: ['', 'Разыскивается', 'Опасный преступник', 'Враг города'],
     'not-wanted': 'Ты чист перед городом',
-    'no-gold': 'Не хватает золота на штраф',
+    'no-gold': 'Не хватает реального золота на штраф',
     'lock-too-good': 'Замок не по зубам',
     'not-jailed': 'Ты не в камере',
     'in-cell': 'Из камеры так не уйти',
@@ -156,7 +156,7 @@ const COPY = Object.freeze({
     escaped: 'Ты выбрался, и это заметили',
     served: 'Срок отбыт, город тебя отпустил',
     paid: 'Штраф уплачен',
-    fine: (gold) => `Штраф: ${gold} золота`,
+    fine: (gold) => `Штраф: ${gold} реального золота`,
   }),
   en: Object.freeze({
     wanted: ['', 'Wanted', 'Dangerous criminal', 'Enemy of the city'],

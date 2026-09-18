@@ -151,7 +151,7 @@ test('the stone is an item the deed hands over, never found and never sold', () 
   assert.equal(itemDetails(stone, 'ru').name, 'Камень возвращения');
   assert.equal(itemDetails(stone, 'en').name, 'Homing stone');
   assert.match(itemDetails(stone, 'ru').description, /Дорога домой/);
-  assert.equal(houseRefusalText('no-gold', 'ru'), 'Не хватает золота');
+  assert.equal(houseRefusalText('no-gold', 'ru'), 'Не хватает реального золота');
   assert.equal(houseRefusalText('enemies-near', 'en'), 'Enemies are near');
   assert.equal(houseRefusalText('ready', 'ru'), '');
 });
