@@ -62,6 +62,8 @@ export const FLOOR_MAP_COLORS = Object.freeze({
 export const FLOOR_MAP_MARKER_SHAPES = Object.freeze({
   hero: 'hero',
   exit: 'stairs',
+  // The way back up: the same shape, because it is the same kind of place.
+  ascent: 'stairs',
   door: 'door',
   'door-open': 'door',
   monster: 'dot',

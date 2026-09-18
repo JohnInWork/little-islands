@@ -317,10 +317,10 @@ export function roomArchetypeById(id) {
 }
 
 export function dungeonThemeForDepth(depth) {
+  if (isCityDepth(depth)) return CITY_DUNGEON_THEME;
   if (!Number.isInteger(depth) || depth < 1) {
     throw new TypeError('Dungeon theme depth must be a positive integer');
   }
-  if (isCityDepth(depth)) return CITY_DUNGEON_THEME;
   const chapterIndex = Math.floor((depth - 1) / FLOORS_PER_CHAPTER);
   return DUNGEON_THEME_CATALOG[chapterIndex % DUNGEON_THEME_CATALOG.length];
 }

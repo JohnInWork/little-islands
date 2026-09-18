@@ -193,8 +193,10 @@ export function validPlacedTrap(trap, depth = null) {
 }
 
 export function validatePlacedTraps(placedTraps, { depth, grid = null, reservedCells = [] } = {}) {
+  // Depth zero is the surface: no traps are laid in a street, and an empty
+  // list there is still a valid floor.
   if (!Array.isArray(placedTraps) || placedTraps.length > MAX_PLACED_TRAPS
-    || !Number.isInteger(depth) || depth < 1 || depth > 999) return false;
+    || !Number.isInteger(depth) || depth < 0 || depth > 999) return false;
   if (!Array.isArray(reservedCells) || reservedCells.some((cell) => typeof cell !== 'string')) return false;
   const ids = new Set();
   const cells = new Set();

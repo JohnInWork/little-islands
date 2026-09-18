@@ -7,6 +7,7 @@ import {
   CONTENT_PATHS,
 } from '../tools/dcss-rpg-content.js';
 import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import {
   SAVE_VERSION,
   advanceRunFloor,
@@ -67,7 +68,11 @@ test('the archive never holds the floor underfoot, and refuses nonsense', () => 
 
 test('climbing and descending are the same move in two directions', () => {
   let run = createRun(7009);
-  assert.throws(() => retreatRunFloor(run), /nothing above the first floor/);
+  // The first floor now has somewhere to climb to: the city on the surface.
+  const surface = retreatRunFloor(run);
+  assert.equal(surface.depth, CITY_DEPTH);
+  assert.throws(() => retreatRunFloor(surface), /nothing above the city/);
+  assert.equal(advanceRunFloor(surface).depth, 1, 'and the gate leads back down');
   for (let step = 1; step < FINAL_DEPTH; step += 1) run = advanceRunFloor(run);
   assert.equal(run.depth, FINAL_DEPTH);
   assert.equal(Object.keys(run.floors).length, FINAL_DEPTH - 1, 'every floor above is remembered');

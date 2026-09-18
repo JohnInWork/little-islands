@@ -1,4 +1,3 @@
-import { isCityDepth } from './dcss-rpg-city.js';
 export const PROCEDURAL_ARTIFACT_VERSION = 1;
 export const DEFAULT_ARTIFACT_RATE = 1;
 export const MIN_ARTIFACT_RATE = 0;
@@ -154,14 +153,10 @@ export function guaranteedArtifactDepth(seed, finalDepth = 3) {
   }
   if (finalDepth === 1) return 1;
   const firstEligibleDepth = Math.min(2, finalDepth);
-  // The city scatters nothing on its streets, so the promised artifact is
-  // scheduled among the floors that can actually hold one.
-  const eligible = [];
-  for (let depth = firstEligibleDepth; depth <= finalDepth; depth += 1) {
-    if (!isCityDepth(depth)) eligible.push(depth);
-  }
-  if (eligible.length === 0) return firstEligibleDepth;
-  return eligible[stableHash('artifact-depth-v1', seed) % eligible.length];
+  // Every floor of the dungeon can hold the promised artifact: the city is not
+  // one of them any more, it is the surface above the ladder.
+  const span = finalDepth - firstEligibleDepth + 1;
+  return firstEligibleDepth + (stableHash('artifact-depth-v1', seed) % span);
 }
 
 function validateRoll({ seed, depth, item, instanceId, rate }) {

@@ -208,6 +208,7 @@ import {
 } from './dcss-rpg-field-medicine.js';
 import {
   CITY_CAPTAIN_ID,
+  CITY_DEPTH,
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
   CITY_REVEAL_RADIUS,
@@ -4597,8 +4598,9 @@ function drawEvents() {
       },
     );
   }
-  // The stair the hero came down by; below the first floor it leads back up.
-  if (dungeon.depth > 1 && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)) {
+  // The stair the hero came down by. It leads up everywhere below the surface,
+  // and on the first floor that means out of the dungeon and into the city.
+  if (dungeon.depth > CITY_DEPTH && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)) {
     drawSprite(
       ascentVisual.path,
       (dungeon.spawn.x + 0.5) * TILE,
@@ -5830,6 +5832,8 @@ function showLevelUpCelebration(progression) {
 }
 
 function romanDepth(value) {
+  // The surface has no number: the badge shows the town instead of a numeral.
+  if (isCityDepth(value)) return itemDetailLanguage === 'ru' ? 'ГОРОД' : 'TOWN';
   const symbols = [
     [10, 'X'],
     [9, 'IX'],
@@ -7600,6 +7604,9 @@ function currentFloorMapMarkers() {
   };
   return [
     { kind: 'exit', x: dungeon.exit.x, y: dungeon.exit.y },
+    ...(dungeon.depth > CITY_DEPTH
+      ? [{ kind: 'ascent', x: dungeon.spawn.x, y: dungeon.spawn.y }]
+      : []),
     ...(dungeon.sanctuary ? [{ kind: 'sanctuary', x: dungeon.sanctuary.x, y: dungeon.sanctuary.y }] : []),
     ...doorDefinitions.map((door) => ({
       kind: run.floor.opened.includes(door.instanceId) ? 'door-open' : 'door',
@@ -9901,7 +9908,7 @@ function resolveWorldInteractions() {
     return;
   }
   if (!stairsArmed) return;
-  if (onStair(dungeon.spawn) && dungeon.depth > 1 && runStatus === 'playing') {
+  if (onStair(dungeon.spawn) && dungeon.depth > CITY_DEPTH && runStatus === 'playing') {
     climbFloor();
     return;
   }
@@ -10241,7 +10248,7 @@ function descendFloor() {
 
 /** The way back up. The floor above is the one the hero left, not a new one. */
 function climbFloor() {
-  if (isTerminalRunStatus(runStatus) || dungeon.depth <= 1) return;
+  if (isTerminalRunStatus(runStatus) || dungeon.depth <= CITY_DEPTH) return;
   run = retreatRunFloor(captureRun());
   hero.hp = run.hero.hp;
   hero.hunger = run.hero.hunger;

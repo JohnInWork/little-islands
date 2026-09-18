@@ -378,9 +378,11 @@ export function canWeaponAttack(grid, attacker, target, combat, lineOfSight = tr
   return true;
 }
 
-export function monsterThreatAtDepth(monster, depth, scaling = floorScaling(depth)) {
-  if (!monster?.threat || !Number.isInteger(depth) || depth < 1) {
-    throw new TypeError('Monster threat requires a definition and positive depth');
+export function monsterThreatAtDepth(monster, depth, scaling = floorScaling(Math.max(1, depth))) {
+  // The city watch stands on the surface, at depth zero, and is read the same
+  // way as any other creature — it simply gets the first floor's curve.
+  if (!monster?.threat || !Number.isInteger(depth) || depth < 0) {
+    throw new TypeError('Monster threat requires a definition and a floor depth');
   }
   const monsterCurve = scaling.monsters;
   const bossCurve = monster.boss ? scaling.boss : null;

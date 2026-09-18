@@ -151,8 +151,10 @@ export function merchantBuybackPrice(item, economy = MERCHANT_ECONOMY) {
 }
 
 export function merchantStartingGold(merchant, depth, economy = MERCHANT_ECONOMY) {
-  if (!merchant || !Number.isInteger(depth) || depth < 1) {
-    throw new TypeError('Merchant purse requires a merchant and positive depth');
+  // The surface is depth zero and still trades: a town trader is simply the
+  // poorest one, because the purse grows with the floor below.
+  if (!merchant || !Number.isInteger(depth) || depth < 0) {
+    throw new TypeError('Merchant purse requires a merchant and a floor depth');
   }
   return economy.startingGold
     + depth * economy.goldPerDepth
@@ -175,8 +177,8 @@ function merchantItemRecord({ seed, depth, roomIndex, item, index }) {
 }
 
 export function createMerchantStock({ seed, depth, roomIndex, variantId } = {}) {
-  if (!Number.isInteger(seed) || seed < 0 || !Number.isInteger(depth) || depth < 1) {
-    throw new TypeError('Merchant stock requires a seed and positive depth');
+  if (!Number.isInteger(seed) || seed < 0 || !Number.isInteger(depth) || depth < 0) {
+    throw new TypeError('Merchant stock requires a seed and a floor depth');
   }
   if (!Number.isInteger(roomIndex) || roomIndex < 0 || !MERCHANT_VARIANTS[variantId]) {
     throw new TypeError('Merchant stock requires a room and known variant');
@@ -240,8 +242,8 @@ export function merchantPresentation(variantId, language = 'ru') {
 }
 
 export function createMerchantStates({ merchants, depth, purchasedIds = [] } = {}) {
-  if (!Array.isArray(merchants) || !Number.isInteger(depth) || depth < 1 || !Array.isArray(purchasedIds)) {
-    throw new TypeError('Merchant states require generated merchants and positive depth');
+  if (!Array.isArray(merchants) || !Number.isInteger(depth) || depth < 0 || !Array.isArray(purchasedIds)) {
+    throw new TypeError('Merchant states require generated merchants and a floor depth');
   }
   return Object.freeze(merchants.map((merchant) => {
     const purchases = merchant.stock
@@ -266,7 +268,8 @@ export function validateMerchantStateShape(states, depth) {
   if (
     !Array.isArray(states)
     || !Number.isInteger(depth)
-    || depth < 1
+    // The town trades on the surface, which is depth zero.
+    || depth < 0
     || states.length > MAX_MERCHANTS_PER_FLOOR
   ) return false;
   const merchantIds = states.map(({ merchantId } = {}) => merchantId);

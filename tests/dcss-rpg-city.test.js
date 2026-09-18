@@ -15,12 +15,14 @@ import {
   generateCityPlan,
   isCityDepth,
   reachableCells,
+  CITY_DEPTH,
 } from '../tools/dcss-rpg-city.js';
 import {
   GENERATOR_VERSION,
   MAP_HEIGHT,
   MAP_WIDTH,
   advanceRunFloor,
+  retreatRunFloor,
   createRun,
   createRng,
   findGridPath,
@@ -34,6 +36,8 @@ import { createMonsterStates } from '../tools/dcss-rpg-rules.js';
 import { biomeThemeForDepth } from '../tools/dcss-rpg-visuals.js';
 import { requiredAssetPaths } from '../tools/dcss-rpg-required-assets.js';
 import { MAX_MERCHANTS_PER_FLOOR } from '../tools/dcss-rpg-merchant.js';
+import { FINAL_DEPTH, canLeaveDungeonFloor } from '../tools/dcss-rpg-run.js';
+import { guaranteedArtifactDepth } from '../tools/dcss-rpg-artifacts.js';
 
 const cityDepth = CITY_DEPTHS[0];
 const planFor = (seed) => {
@@ -93,7 +97,7 @@ test('the city floor keeps the shape every other floor has', () => {
   for (let seed = 1; seed <= 25; seed += 1) {
     const level = generateDungeon({ seed, depth: cityDepth });
     assert.equal(level.depth, cityDepth);
-    assert.deepEqual(level.scaling, floorScaling(cityDepth));
+    assert.deepEqual(level.scaling, floorScaling(1), 'the surface borrows the first floor curve');
     assert.equal(level.grid.length, MAP_HEIGHT);
     assert.ok(level.rooms.length >= 6);
     assert.ok(level.rooms.every(({ width, height }) => width > 0 && height > 0));
@@ -181,10 +185,29 @@ test('the city furnishes itself and ships its own sprites', async () => {
   }
 });
 
+test('the city is the surface above the ladder, not a floor of it', () => {
+  assert.equal(CITY_DEPTH, 0);
+  assert.equal(isCityDepth(0), true);
+  assert.equal(isCityDepth(4), false, 'the fourth floor is dungeon again');
+  // Nine dungeon floors, and the town gate is always open.
+  assert.equal(canLeaveDungeonFloor({ depth: CITY_DEPTH, status: 'playing', guardianDefeated: false }), true);
+  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+    assert.equal(isCityDepth(depth), false, `floor ${depth} is dungeon`);
+    assert.notEqual(generateDungeon({ seed: 515, depth }).city, undefined === null);
+  }
+  // The promised artifact is scheduled among real floors, with nothing skipped.
+  const depths = new Set();
+  for (let seed = 0; seed < 200; seed += 1) depths.add(guaranteedArtifactDepth(seed, FINAL_DEPTH));
+  assert.equal(Math.min(...depths), 2);
+  assert.equal(Math.max(...depths), FINAL_DEPTH);
+  assert.equal(depths.size, FINAL_DEPTH - 1, 'every floor from the second down can hold it');
+});
+
 test('a run walks into the city and out the other side', () => {
-  assert.equal(GENERATOR_VERSION, 10, 'the city changed what a floor can be');
+  assert.equal(GENERATOR_VERSION, 11, 'the city changed what a floor can be');
   let run = createRun(891);
-  while (run.depth < cityDepth) run = advanceRunFloor(run);
+  // The city is above the ladder now: the hero climbs out of the first floor.
+  run = retreatRunFloor(run);
   assert.equal(run.depth, cityDepth);
   assert.equal(validateRun(run), true);
   assert.equal(run.floor.chests.length, 0, 'a city has no buried chests');

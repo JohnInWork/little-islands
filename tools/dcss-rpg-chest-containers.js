@@ -116,7 +116,8 @@ export function createChestContainerStates({
     !Number.isInteger(seed)
     || seed < 0
     || !Number.isInteger(depth)
-    || depth < 1
+    // Depth zero is the surface: it has no chests, and that is a valid floor.
+    || depth < 0
     || !Array.isArray(finds)
     || !validateLootAbundance(lootAbundance)
     || !Array.isArray(resolvedFindIds)
@@ -194,7 +195,7 @@ export function validateChestContainerStates(containers, { depth, findIds = null
     !Array.isArray(containers)
     || containers.length > 3
     || !Number.isInteger(depth)
-    || depth < 1
+    || depth < 0
   ) return false;
   const known = findIds ? new Set(findIds) : null;
   const ids = containers.map(({ findId } = {}) => findId);

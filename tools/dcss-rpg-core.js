@@ -68,7 +68,7 @@ import {
   validateMerchantStateShape,
   validateMerchantStates,
 } from './dcss-rpg-merchant.js';
-import { buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
+import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
@@ -137,7 +137,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 10;
+export const GENERATOR_VERSION = 11;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -534,10 +534,17 @@ export function generateDungeon({
   waterChance = WATER_ROOM_CHANCE,
 }) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
-  if (!Number.isInteger(depth) || depth < 1)
+  if (!Number.isInteger(depth) || depth < CITY_DEPTH)
     throw new Error('Dungeon depth must be a positive integer');
   if (width < 24 || height < 18) throw new Error('Dungeon dimensions are too small');
-  const scaling = floorScaling(depth, scalingVersion, difficulty, lootAbundance);
+  // The surface has no difficulty curve of its own; it borrows the first floor's
+  // numbers so every consumer still sees a complete scaling record.
+  const scaling = floorScaling(
+    isCityDepth(depth) ? 1 : depth,
+    scalingVersion,
+    difficulty,
+    lootAbundance,
+  );
   const floorSeed = mixSeed(seed, depth);
   // The city is a floor of a different kind, built by its own plan. It returns
   // the same shape every other floor returns, so nothing downstream cares.
@@ -1230,7 +1237,7 @@ function normalizedFloorArchive(source, currentDepth) {
   const archive = {};
   for (const [key, floor] of Object.entries(source)) {
     const depth = Number(key);
-    if (!isFiniteInteger(depth, 1, FINAL_DEPTH) || depth === currentDepth) continue;
+    if (!isFiniteInteger(depth, CITY_DEPTH, FINAL_DEPTH) || depth === currentDepth) continue;
     if (!validateFloorShape(floor, depth)) continue;
     archive[key] = floor;
   }
@@ -1793,7 +1800,7 @@ export function validateRun(snapshot) {
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
-    !isFiniteInteger(snapshot.depth, 1, FINAL_DEPTH)
+    !isFiniteInteger(snapshot.depth, CITY_DEPTH, FINAL_DEPTH)
   )
     return false;
   const hero = snapshot.hero;
@@ -1887,10 +1894,10 @@ export function validateRun(snapshot) {
     return false;
   }
   const archivedDepths = Object.keys(snapshot.floors);
-  if (archivedDepths.length > FINAL_DEPTH) return false;
+  if (archivedDepths.length > FINAL_DEPTH + 1) return false;
   for (const key of archivedDepths) {
     const archivedDepth = Number(key);
-    if (!isFiniteInteger(archivedDepth, 1, FINAL_DEPTH)) return false;
+    if (!isFiniteInteger(archivedDepth, CITY_DEPTH, FINAL_DEPTH)) return false;
     if (archivedDepth === snapshot.depth) return false;
     if (!validateFloorShape(snapshot.floors[key], archivedDepth)) return false;
   }
@@ -2057,7 +2064,7 @@ export function hydrateDungeon(snapshot) {
 export function travelRunToDepth(snapshot, depth, arrival = null) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot travel after the run has ended');
-  if (!Number.isInteger(depth) || depth < 1 || depth > FINAL_DEPTH) {
+  if (!Number.isInteger(depth) || depth < CITY_DEPTH || depth > FINAL_DEPTH) {
     throw new Error('Travel needs a depth inside the dungeon');
   }
   if (depth === snapshot.depth) return snapshot;
@@ -2134,7 +2141,7 @@ export function advanceRunFloor(snapshot) {
 export function retreatRunFloor(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot climb after the run has ended');
-  if (snapshot.depth <= 1) throw new Error('There is nothing above the first floor');
+  if (snapshot.depth <= CITY_DEPTH) throw new Error('There is nothing above the city');
   const depth = snapshot.depth - 1;
   const dungeon = generateDungeon({
     seed: snapshot.seed,

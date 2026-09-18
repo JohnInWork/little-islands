@@ -20,12 +20,13 @@ import {
 
 test('the complete nine-floor run uses three coherent three-floor biome chapters', () => {
   const ash = biomeThemeForDepth(1);
-  // Depth 4 is the city and keeps its own surfaces; the chapter runs 5-6.
-  const buried = biomeThemeForDepth(5);
+  // The city sits above the ladder now, so all nine floors are dungeon again.
+  const buried = biomeThemeForDepth(4);
   const frozen = biomeThemeForDepth(7);
-  assert.equal(biomeThemeForDepth(4).id, 'gate-town');
+  assert.equal(biomeThemeForDepth(0).id, 'gate-town', 'the surface keeps the town');
   assert.equal(biomeThemeForDepth(2), ash);
   assert.equal(biomeThemeForDepth(3), ash);
+  assert.equal(biomeThemeForDepth(5), buried);
   assert.equal(biomeThemeForDepth(6), buried);
   assert.equal(biomeThemeForDepth(9), frozen);
   assert.equal(ash.id, 'ashen-vault');
@@ -40,7 +41,7 @@ test('the complete nine-floor run uses three coherent three-floor biome chapters
 });
 
 test('biome themes are deterministic, bounded and reference local assets', async () => {
-  assert.throws(() => biomeThemeForDepth(0), /positive integer/);
+  assert.throws(() => biomeThemeForDepth(-1), /positive integer/);
   assert.equal(biomeThemeForDepth(9), BIOME_THEMES[2]);
   const paths = allBiomeAssetPaths();
   assert.equal(new Set(paths).size, paths.length);

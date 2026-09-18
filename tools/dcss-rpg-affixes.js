@@ -151,8 +151,9 @@ function createStableRng(seed) {
 }
 
 function validateRollInput({ seed, depth, instanceId, item, rate }) {
-  if (!Number.isInteger(seed) || seed < 0 || !Number.isInteger(depth) || depth < 1) {
-    throw new TypeError('Affix roll requires a seed and positive depth');
+  // Depth zero is the surface, where town stock is rolled the same way.
+  if (!Number.isInteger(seed) || seed < 0 || !Number.isInteger(depth) || depth < 0) {
+    throw new TypeError('Affix roll requires a seed and a floor depth');
   }
   if (typeof instanceId !== 'string' || instanceId.length === 0 || !item?.slot) {
     throw new TypeError('Affix roll requires stable equipment identity');

@@ -9,10 +9,16 @@
  */
 
 /** Which floors of the run are a city. One for now, easy to move. */
-export const CITY_DEPTHS = Object.freeze([4]);
+/**
+ * The city is not a floor of the dungeon: it is the surface above it. Depth
+ * zero keeps it out of the ladder entirely, so all nine floors below stay
+ * dungeon and every "on every floor" promise applies to every one of them.
+ */
+export const CITY_DEPTH = 0;
+export const CITY_DEPTHS = Object.freeze([CITY_DEPTH]);
 
 export function isCityDepth(depth) {
-  return Number.isInteger(depth) && CITY_DEPTHS.includes(depth);
+  return depth === CITY_DEPTH;
 }
 
 /** A town is lit: the hero sees the street, not a torch-lit corridor. */

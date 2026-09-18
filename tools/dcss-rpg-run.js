@@ -42,8 +42,10 @@ export function canClaimFinalArtifact({ depth, status, bossDefeated }) {
 }
 
 export function canLeaveDungeonFloor({ depth, status, guardianDefeated }) {
-  if (!Number.isInteger(depth) || depth < 1 || depth > FINAL_DEPTH) return false;
+  // Depth zero is the town gate: nothing guards it, and it is always open.
+  if (!Number.isInteger(depth) || depth < 0 || depth > FINAL_DEPTH) return false;
   if (status !== 'playing') return false;
+  if (depth === 0) return true;
   return !chapterGuardianForDepth(depth) || guardianDefeated === true;
 }
 
