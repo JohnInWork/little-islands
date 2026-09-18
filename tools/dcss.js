@@ -85,6 +85,8 @@ import {
   fogAnchorsForDungeon,
   PIXEL_EFFECT_SCALE,
   VISIBILITY_TUNING,
+  combatGlyphDrift,
+  fogTileOpacity,
 } from './dcss-rpg-visuals.js';
 import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
@@ -5351,10 +5353,11 @@ function drawCombatGlyphs() {
     const position = worldToScreen(glyph.x, glyph.y);
     const progress = 1 - glyph.life / glyph.maxLife;
     const alpha = Math.min(1, glyph.life / 0.2);
+    const travel = reducedMotion ? 0 : progress;
     drawPixelGlyphText(
       glyph.text,
-      position.x,
-      position.y + glyph.offsetY - progress * (reducedMotion ? 0 : 24),
+      position.x + (glyph.drift?.dx ?? 0) * travel,
+      position.y + glyph.offsetY + (glyph.drift?.dy ?? 0) * travel - travel * 24,
       glyph.color,
       alpha,
     );
@@ -5634,6 +5637,9 @@ function drawLighting() {
 function drawFog() {
   const heroX = Math.floor(hero.x / TILE);
   const heroY = Math.floor(hero.y / TILE);
+  // The dark belongs to the place it is in: the infernal core is not unlit in
+  // the same colour as the frozen depths.
+  const darkness = atmosphereThemeFor(dungeon.themeId).darkness;
   const minX = Math.max(0, Math.floor((camera.x - viewportWidth / 2) / TILE) - 1);
   const maxX = Math.min(WORLD_WIDTH - 1, Math.ceil((camera.x + viewportWidth / 2) / TILE) + 1);
   const minY = Math.max(0, Math.floor((camera.y - viewportHeight / 2) / TILE) - 1);
@@ -5641,16 +5647,14 @@ function drawFog() {
   context.save();
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
+      const opacity = fogTileOpacity({
+        known: revealed.has(`${x},${y}`),
+        distance: Math.hypot(x - heroX, y - heroY),
+      });
+      if (opacity <= 0) continue;
       const position = worldToScreen(x * TILE, y * TILE);
-      if (!revealed.has(`${x},${y}`)) {
-        context.fillStyle = '#020405';
-        context.globalAlpha = 0.96;
-      } else if (Math.hypot(x - heroX, y - heroY) > 5.2) {
-        context.fillStyle = '#020405';
-        context.globalAlpha = VISIBILITY_TUNING.distantFogOpacity;
-      } else {
-        continue;
-      }
+      context.fillStyle = darkness;
+      context.globalAlpha = opacity;
       context.fillRect(Math.floor(position.x), Math.floor(position.y), TILE + 1, TILE + 1);
     }
   }
@@ -6492,7 +6496,7 @@ function interactNearbyFind(preferredFind = null, action = null) {
     hero.hurt = 0.24;
     burst(hero.x, hero.y - 8, '#b45c58', 12);
     addImpactWave(hero.x, hero.y - 6, '#b45c58', 48, 2);
-    addCombatGlyph(hero.x, hero.y, result.damage, '#c76a63');
+    addCombatGlyph(hero.x, hero.y, result.damage, '#c76a63', -48, { x: find.x, y: find.y });
     addBloodImpact({ ...hero, bloodColor: '#6a302b' }, find.x, find.y, false);
     beginHitStop(0.05);
   }
@@ -9836,8 +9840,11 @@ function beginHitStop(duration) {
   if (!reducedMotion) hitStop = Math.max(hitStop, duration);
 }
 
-function addCombatGlyph(x, y, text, color, offsetY = -48) {
-  combatGlyphs.push({ x, y, text: String(text), color, offsetY, life: 0.62, maxLife: 0.62 });
+function addCombatGlyph(x, y, text, color, offsetY = -48, from = null) {
+  const drift = from ? combatGlyphDrift({ x, y, sourceX: from.x, sourceY: from.y }) : { dx: 0, dy: 0 };
+  combatGlyphs.push({
+    x, y, text: String(text), color, offsetY, drift, life: 0.62, maxLife: 0.62,
+  });
 }
 
 function addBloodImpact(actor, sourceX, sourceY, lethal = false) {
@@ -10089,7 +10096,7 @@ function damageMonster(
   const lethal = monster.hp <= 0;
   burst(monster.x, monster.y - 8, color, profile.particles);
   addImpactWave(monster.x, monster.y - 8, color, profile.waveSize, profile.shake);
-  addCombatGlyph(monster.x, monster.y, dealt, color);
+  addCombatGlyph(monster.x, monster.y, dealt, color, -48, { x: sourceX, y: sourceY });
   addBloodImpact(monster, sourceX, sourceY, lethal);
   if (vampiric) {
     const recovery = resolveVampiricRecovery({
@@ -10681,6 +10688,10 @@ function damageHero(amount, {
   subtle = false,
   blocked = false,
   source = null,
+  // Where the blow came from, when the caller knows. It only steers the damage
+  // number away from the attacker, so a hero and a monster on the same tile do
+  // not stack their numbers on one spot.
+  from = null,
 } = {}) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return null;
   const combat = currentHeroCombat();
@@ -10714,7 +10725,7 @@ function damageHero(amount, {
     fullyBlocked || subtle ? 0 : 3,
   );
   if (!subtle) {
-    addCombatGlyph(hero.x, hero.y, result.damage, color);
+    addCombatGlyph(hero.x, hero.y, result.damage, color, -48, from);
     if (!fullyBlocked) {
       addBloodImpact({ ...hero, bloodColor: '#6a302b' }, hero.x - Math.cos(hero.targetAngle) * TILE, hero.y - Math.sin(hero.targetAngle) * TILE, result.dead);
     }
@@ -11539,7 +11550,11 @@ function updatePassiveCreatures(delta) {
         });
         returnThorns(
           creature,
-          damageHero(creature.damage, { blocked: block.blocked, source: `wildlife:${creature.id}` }),
+          damageHero(creature.damage, {
+            blocked: block.blocked,
+            source: `wildlife:${creature.id}`,
+            from: creature,
+          }),
         );
       }
       occupied.add(currentKey);
@@ -11865,7 +11880,11 @@ function updateWorld(delta) {
             inWater: actorInWater(world, monster, TILE),
             terrain: monster.terrain,
           })));
-          const hit = damageHero(strikeDamage, { blocked: block.blocked, source: monster.id });
+          const hit = damageHero(strikeDamage, {
+            blocked: block.blocked,
+            source: monster.id,
+            from: monster,
+          });
           returnThorns(monster, hit);
           if (hit && monster.shock) shockWetActorsAround(monster);
             if (hit && monster.pull > 0) dragHeroToward(monster);

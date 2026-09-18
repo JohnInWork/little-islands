@@ -138,8 +138,8 @@ test('the runtime counts kills and active seconds, remembers the killer and rend
   assert.match(runtime, /run\.floor\.defeated\.push\(monster\.instanceId\);\s+run\.stats\.kills \+= 1;/);
   assert.match(runtime, /hungerAccumulator -= activeSeconds;\s+run\.stats\.activeSeconds \+= activeSeconds;/);
   assert.match(runtime, /run\.stats\.killerId = typeof source === 'string' \? source : null;/);
-  assert.match(runtime, /damageHero\(strikeDamage, \{ blocked: block\.blocked, source: monster\.id \}\)/);
-  assert.match(runtime, /damageHero\(creature\.damage, \{ blocked: block\.blocked, source: `wildlife:\$\{creature\.id\}` \}\)/);
+  assert.match(runtime, /damageHero\(strikeDamage, \{\s*blocked: block\.blocked,\s*source: monster\.id,/);
+  assert.match(runtime, /damageHero\(creature\.damage, \{\s*blocked: block\.blocked,\s*source: `wildlife:\$\{creature\.id\}`,/);
   assert.match(runtime, /source: tick\.pulses\.burning \? 'effect:burning' : 'effect:poison'/);
   assert.match(runtime, /runSummaryModel\(\{/);
   assert.match(html, /id="run-end-title"[\s\S]*<dl id="run-summary" class="run-summary"><\/dl>[\s\S]*id="restart-run"/);

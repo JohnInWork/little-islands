@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
@@ -12,7 +13,11 @@ import {
   PIXEL_EFFECT_SCALE,
   VISIBILITY_TUNING,
   allBiomeAssetPaths,
+  COMBAT_GLYPH_DRIFT,
+  FOG_TUNING,
+  combatGlyphDrift,
   atmosphereThemeFor,
+  fogTileOpacity,
   biomeThemeFor,
   deterministicAtmosphereMote,
   fogAnchorsForDungeon,
@@ -152,4 +157,62 @@ test('the shadow budget is a named pair, sized for a phone', async () => {
   assert.match(world3d, /export const WORLD_SHADOW_EXTENT = 7;/);
   assert.match(world3d, /keyLight\.shadow\.mapSize\.set\(WORLD_SHADOW_MAP_SIZE, WORLD_SHADOW_MAP_SIZE\);/);
   assert.match(world3d, /keyLight\.shadow\.camera\.left = -WORLD_SHADOW_EXTENT;/);
+});
+
+test('the dark beyond the light is a place, not a hole', () => {
+  const near = fogTileOpacity({ known: true, distance: 1 });
+  assert.equal(near, 0, 'ground the hero is standing on is not fogged');
+  // Remembered ground dims with distance instead of stepping down at one radius.
+  const steps = [6, 8, 10, 12].map((distance) => fogTileOpacity({ known: true, distance }));
+  for (let index = 1; index < steps.length; index += 1) {
+    assert.ok(steps[index] > steps[index - 1], `remembered fog is flat at ${index}`);
+  }
+  assert.ok(steps.at(-1) <= VISIBILITY_TUNING.distantFogOpacity + 1e-9, 'remembered ground never goes black');
+
+  // Just past the edge of sight the dark is thinner, so a room reads as
+  // continuing rather than ending.
+  const edge = fogTileOpacity({ known: false, distance: FOG_TUNING.nearRadius });
+  const deep = fogTileOpacity({ known: false, distance: 40 });
+  assert.ok(edge > 0 && edge < deep, 'the edge of knowledge still cuts');
+  assert.ok(edge / deep > 0.4 && edge / deep < 0.8, 'the softening is either invisible or a hole');
+  assert.equal(deep, FOG_TUNING.unknownOpacity);
+  // Unknown ground is always darker than remembered ground at the same distance.
+  for (const distance of [6, 9, 14]) {
+    assert.ok(
+      fogTileOpacity({ known: false, distance }) > fogTileOpacity({ known: true, distance }),
+      `unknown and remembered look the same at ${distance}`,
+    );
+  }
+  assert.equal(fogTileOpacity({}), fogTileOpacity({ known: false, distance: 0 }));
+});
+
+test('every biome owns its own darkness instead of one shared black', () => {
+  // The fog used to be a hard-coded near-black, so the infernal core was unlit
+  // in exactly the colour of the frozen depths.
+  const darks = Object.values(ATMOSPHERE_THEMES).map(({ darkness }) => darkness);
+  assert.equal(new Set(darks).size, darks.length, 'two biomes share a darkness');
+  for (const dark of darks) assert.match(dark, /^#[0-9a-f]{6}$/i);
+  const source = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const fog = source.slice(source.indexOf('function drawFog()'));
+  assert.match(fog.slice(0, 900), /atmosphereThemeFor\(dungeon\.themeId\)\.darkness/);
+  assert.doesNotMatch(fog.slice(0, 900), /#020405/, 'the fog still paints a hard-coded black');
+});
+
+test('two actors on one tile no longer stack their numbers on one spot', () => {
+  // The hero is struck from the left; the monster is struck from the right.
+  const heroDrift = combatGlyphDrift({ x: 100, y: 100, sourceX: 40, sourceY: 100 });
+  const monsterDrift = combatGlyphDrift({ x: 100, y: 100, sourceX: 160, sourceY: 100 });
+  assert.ok(heroDrift.dx > 0 && monsterDrift.dx < 0, 'both numbers still go the same way');
+  assert.ok(Math.abs(heroDrift.dx - monsterDrift.dx) > COMBAT_GLYPH_DRIFT.sideways, 'they barely separate');
+  // The drift is a direction, not a distance: a blow from far away pushes the
+  // number exactly as far as a blow from next door.
+  const near = combatGlyphDrift({ x: 0, y: 0, sourceX: -10, sourceY: 0 });
+  const far = combatGlyphDrift({ x: 0, y: 0, sourceX: -900, sourceY: 0 });
+  assert.equal(near.dx, far.dx);
+  assert.equal(Math.round(Math.hypot(near.dx, near.dy)), COMBAT_GLYPH_DRIFT.sideways);
+  // A blow with no direction — a trap underfoot, a poison tick — still rises
+  // straight up, because there is nothing to move away from.
+  assert.deepEqual(combatGlyphDrift({ x: 5, y: 5, sourceX: 5, sourceY: 5 }), { dx: 0, dy: 0 });
+  assert.deepEqual(combatGlyphDrift({ x: 5, y: 5 }), { dx: 0, dy: 0 });
+  assert.deepEqual(combatGlyphDrift(), { dx: 0, dy: 0 });
 });

@@ -15,6 +15,72 @@ export const VISIBILITY_TUNING = Object.freeze({
   spriteFilter: 'brightness(0.88) saturate(0.78) contrast(0.94)',
 });
 
+/**
+ * What the dark beyond the light looks like. It used to be one flat near-black
+ * painted at one opacity on every unseen tile, which reads as *nothing* rather
+ * than as *darkness*: on a tall phone that turned the lower half of the screen
+ * into a hole.
+ *
+ * Two changes make it a place instead of a hole. The edge of knowledge fades
+ * rather than cuts — just past the hero's sight the gloom is thinner, so a room
+ * reads as continuing into the dark — and remembered ground dims with distance
+ * instead of stepping down at one radius.
+ */
+export const FOG_TUNING = Object.freeze({
+  nearRadius: 5.2,
+  farRadius: 12,
+  unknownOpacity: 0.96,
+  unknownEdgeShare: 0.58,
+  unknownSoftRadius: 8.5,
+});
+
+const clamp01 = (value) => Math.min(1, Math.max(0, value));
+
+/**
+ * How much dark sits on one tile. `known` is whether the hero has ever seen it,
+ * `distance` is in tiles from the hero.
+ */
+export function fogTileOpacity({ known, distance } = {}) {
+  const span = Number.isFinite(distance) && distance > 0 ? distance : 0;
+  const {
+    nearRadius, farRadius, unknownOpacity, unknownEdgeShare, unknownSoftRadius,
+  } = FOG_TUNING;
+  if (!known) {
+    const soft = clamp01((span - nearRadius) / Math.max(0.001, unknownSoftRadius - nearRadius));
+    return unknownOpacity * (unknownEdgeShare + (1 - unknownEdgeShare) * soft);
+  }
+  if (span <= nearRadius) return 0;
+  const ramp = clamp01((span - nearRadius) / Math.max(0.001, farRadius - nearRadius));
+  return VISIBILITY_TUNING.distantFogOpacity * ramp;
+}
+
+/**
+ * Where a damage number goes. They all used to rise straight up from the actor
+ * they belonged to, so two actors standing on the same tile — which is exactly
+ * what fighting means — stacked their numbers on one spot and neither could be
+ * read.
+ *
+ * A number now leaves along the line the blow travelled, away from whoever
+ * struck. Two actors trading hits throw their numbers in opposite directions,
+ * which is the cheapest possible way to tell them apart.
+ */
+export const COMBAT_GLYPH_DRIFT = Object.freeze({ sideways: 30, lift: 26 });
+
+export function combatGlyphDrift({ x, y, sourceX, sourceY } = {}) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return Object.freeze({ dx: 0, dy: 0 });
+  if (!Number.isFinite(sourceX) || !Number.isFinite(sourceY)) return Object.freeze({ dx: 0, dy: 0 });
+  const dx = x - sourceX;
+  const dy = y - sourceY;
+  const length = Math.hypot(dx, dy);
+  // A blow with no direction — a trap underfoot, a poison tick — keeps rising
+  // straight up, because there is nothing to move away from.
+  if (length < 0.001) return Object.freeze({ dx: 0, dy: 0 });
+  return Object.freeze({
+    dx: (dx / length) * COMBAT_GLYPH_DRIFT.sideways,
+    dy: (dy / length) * COMBAT_GLYPH_DRIFT.lift,
+  });
+}
+
 const atmosphere = (values) => Object.freeze(values);
 
 export const ATMOSPHERE_THEMES = Object.freeze({
