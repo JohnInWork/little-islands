@@ -193,6 +193,15 @@ import {
 } from './dcss-rpg-cooking.js';
 import { enduranceProfile, enduredDuration } from './dcss-rpg-endurance.js';
 import {
+  MINION_FOLLOW_DISTANCE,
+  isMinionSpell,
+  minionBlueprint,
+  minionCopy,
+  minionIntent,
+  minionStats,
+  necromancyProfile,
+} from './dcss-rpg-minions.js';
+import {
   bandageRefusalText,
   fieldMedicineProfile,
   resolveBandage,
@@ -745,6 +754,8 @@ let trapDefinitions = trapsFromDungeon(dungeon);
 let detectedTrapIds = new Set(run.floor.detectedTrapIds);
 // Stairs under the hero on arrival must not fire until they step off them.
 let stairsArmed = false;
+/** Raised servants: one per prepared summoning spell, never in the save. */
+let allies = [];
 let hazardInputState = createHazardInputState();
 let permittedHazardCell = null;
 let inputGesture = 0;
@@ -1196,6 +1207,104 @@ function createRuntimeMonsters(level, spawns) {
       visualOffsetY: visual.offsetY,
     };
   });
+}
+
+/**
+ * Raising a servant. It is built from the same catalog every monster comes
+ * from, so it walks, bleeds and dies through the code that already exists;
+ * only its strength comes from the caster instead of the floor.
+ */
+function raiseAlly(spellId) {
+  const blueprint = minionBlueprint(spellId);
+  if (!blueprint) return null;
+  const cell = freeCellNearHero();
+  if (!cell) return null;
+  const [ally] = createRuntimeMonsters(dungeon, [{
+    instanceId: `ally-${spellId}`,
+    id: blueprint.monsterId,
+    x: cell.x,
+    y: cell.y,
+  }]);
+  if (!ally) return null;
+  const stats = minionStats({
+    blueprint,
+    intelligence: currentHeroStats().intelligence,
+    profile: necromancyProfile(currentSkillCapabilities()),
+  });
+  ally.ally = true;
+  ally.spellId = spellId;
+  ally.maxHp = stats.maxHp;
+  ally.hp = stats.maxHp;
+  ally.damage = stats.damage;
+  ally.xp = 0;
+  ally.alerted = ally.pursuit;
+  allies = [...allies.filter((other) => other.spellId !== spellId), ally];
+  burst(ally.x, ally.y - 10, '#9ad3b8', 18);
+  addImpactWave(ally.x, ally.y - 6, '#9ad3b8', 52, 0);
+  playSound('spell-toggle');
+  return ally;
+}
+
+/** A cell beside the hero that nothing else stands on. */
+function freeCellNearHero() {
+  const origin = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const taken = new Set([
+    ...occupiedMonsterCells(monsters, TILE),
+    ...allies.filter(({ dead }) => dead === 0).map((ally) => monsterCellKey(ally, TILE)),
+    `${origin.x},${origin.y}`,
+  ]);
+  const ring = [
+    { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+    { x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 },
+  ];
+  for (const offset of ring) {
+    const cell = { x: origin.x + offset.x, y: origin.y + offset.y };
+    if (!isWalkable(cell.x, cell.y) || taken.has(`${cell.x},${cell.y}`)) continue;
+    return cell;
+  }
+  return null;
+}
+
+/** Every prepared summoning spell wants a servant standing; this keeps it so. */
+function updateAllySlots() {
+  if (runStatus !== 'playing' || hero.dead) return;
+  const prepared = hero.spells.preparedSpellIds.filter((id) => id && isMinionSpell(id));
+  allies = allies.filter((ally) => prepared.includes(ally.spellId));
+  const stats = currentHeroStats();
+  for (const spellId of prepared) {
+    const spell = spellById(spellId);
+    if (!spell || stats.intelligence < spell.minimumIntelligence) continue;
+    if (allies.some((ally) => ally.spellId === spellId && ally.dead === 0)) continue;
+    if ((spellCooldowns[spellId] ?? 0) > 0) continue;
+    raiseAlly(spellId);
+  }
+}
+
+function allyInMeleeOf(monster) {
+  return allies.find((ally) => ally.dead === 0 && canActorsMelee(monster, ally)) ?? null;
+}
+
+/** A servant dies like anything else, and its slot starts counting it back. */
+function damageAlly(ally, amount) {
+  if (!ally || ally.dead > 0) return;
+  const dealt = Math.max(1, Math.round(amount));
+  ally.hp -= dealt;
+  ally.hit = 0.19;
+  burst(ally.x, ally.y - 8, ally.bloodColor ?? '#cfc6ad', 8);
+  addCombatGlyph(ally.x, ally.y, dealt, '#d8b6a6');
+  if (ally.hp > 0) return;
+  ally.hp = 0;
+  ally.dead = 0.01;
+  const blueprint = minionBlueprint(ally.spellId);
+  const seconds = minionStats({
+    blueprint,
+    intelligence: currentHeroStats().intelligence,
+    profile: necromancyProfile(currentSkillCapabilities()),
+  })?.respawnSeconds ?? 60;
+  spellCooldowns[ally.spellId] = seconds;
+  const copy = minionCopy(ally.spellId, itemDetailLanguage);
+  if (copy) showLootToast({ icon: spellById(ally.spellId)?.icon, rarity: 2 }, copy.fell);
+  renderSpellBar();
 }
 
 function createMonsters(level) {
@@ -3420,6 +3529,27 @@ function syncWorldActors3D() {
             scaleX: motion.scaleX * (walking && !reducedMotion ? 1 + walkCycle * 0.025 : 1),
             scaleY: motion.scaleY * (walking && !reducedMotion ? 1 - walkCycle * 0.025 : 1),
             hit: monster.hit > 0,
+          };
+        }),
+      // Raised servants ride the same billboard pass as everything else alive.
+      ...allies
+        .filter((ally) => ally.dead <= 0.72
+          && revealed.has(`${Math.floor(ally.x / TILE)},${Math.floor(ally.y / TILE)}`))
+        .map((ally) => {
+          const motion = monsterMotion(ally);
+          const bob = reducedMotion ? 0 : Math.sin(elapsed * 2.4 + ally.phase) * 1.7;
+          return {
+            id: ally.instanceId,
+            path: ally.spritePath,
+            x: ally.x + motion.dx,
+            y: ally.y + motion.dy,
+            size: 76 * (ally.visualScale ?? 1),
+            facing: ally.facing,
+            screenOffsetY: (ally.visualOffsetY ?? -10) + bob,
+            opacity: ally.dead > 0 ? Math.max(0, 1 - ally.dead / 0.72) : 1,
+            scaleX: motion.scaleX,
+            scaleY: motion.scaleY,
+            hit: ally.hit > 0,
           };
         }),
       ...passiveCreatures
@@ -8966,6 +9096,27 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, toggled.active ? 58 : 34, 0);
     addCombatGlyph(hero.x, hero.y, toggled.active ? '◆' : '◇', usedSpell.color, -62);
+  } else if (usedSpell.kind === 'minion') {
+    // The slot already keeps the servant standing; pressing it calls them back
+    // to the hero, which is the only order a raised thing needs.
+    const standing = allies.find((ally) => ally.spellId === usedSpell.id && ally.dead === 0);
+    if (!standing) {
+      if (!raiseAlly(usedSpell.id)) {
+        rejectSpellUse(slotIndex, 'no-room');
+        return false;
+      }
+    } else {
+      const cell = freeCellNearHero();
+      if (cell) {
+        standing.x = (cell.x + 0.5) * TILE;
+        standing.y = (cell.y + 0.5) * TILE;
+        standing.route = [];
+        burst(standing.x, standing.y - 8, usedSpell.color, 12);
+      }
+      const copy = minionCopy(usedSpell.id, itemDetailLanguage);
+      if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called);
+    }
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
   } else if (usedSpell.kind === 'camp') {
     const refusal = summonCamp();
     if (refusal !== '') {
@@ -9516,6 +9667,7 @@ function replaceFloor(nextDepth, arrival = null) {
   // Both stairs are under the hero the moment they arrive; they only work once
   // the hero has stepped off them.
   stairsArmed = false;
+  allies = [];
   camera.x = hero.x;
   camera.y = hero.y;
   sceneStartedAt = elapsed;
@@ -10045,6 +10197,86 @@ function updatePassiveCreatures(delta) {
   }
 }
 
+/**
+ * A servant's turn. It attacks what is already near the hero, and otherwise
+ * walks back to them: the leash is measured from the hero, so a raised thing
+ * never wanders off to die alone in the dark.
+ */
+function updateAllies(delta) {
+  updateAllySlots();
+  if (allies.length === 0) return;
+  const blocked = new Set([
+    ...occupiedMonsterCells(monsters, TILE),
+    ...allies.filter(({ dead }) => dead === 0).map((ally) => monsterCellKey(ally, TILE)),
+  ]);
+  for (const ally of allies) {
+    ally.hit = Math.max(0, ally.hit - delta);
+    ally.attackCooldown = Math.max(0, ally.attackCooldown - delta);
+    ally.repathCooldown = Math.max(0, ally.repathCooldown - delta);
+    if (ally.dead > 0) {
+      ally.dead += delta;
+      continue;
+    }
+    if (runStatus !== 'playing' || hero.dead || !playerHasActed) continue;
+    const intent = minionIntent({
+      minion: { x: ally.x / TILE, y: ally.y / TILE },
+      hero: { x: hero.x / TILE, y: hero.y / TILE },
+      enemies: monsters
+        .filter((monster) => monster.dead === 0 && (!monster.neutral || monster.provoked))
+        .map((monster) => ({
+          instanceId: monster.instanceId,
+          x: monster.x / TILE,
+          y: monster.y / TILE,
+          dead: 0,
+        })),
+    });
+    const target = intent.mode === 'attack'
+      ? monsters.find(({ instanceId }) => instanceId === intent.targetId) ?? null
+      : null;
+    if (target && canActorsMelee(ally, target)) {
+      ally.route = [];
+      if (ally.attackCooldown === 0) {
+        ally.attackCooldown = 1 / ally.attackRate;
+        ally.facing = target.x < ally.x ? -1 : 1;
+        damageMonster(target, ally.damage, '#cfc6ad', {
+          style: 'blade',
+          sourceX: ally.x,
+          sourceY: ally.y,
+        });
+      }
+      continue;
+    }
+    if (intent.mode === 'hold') {
+      ally.route = [];
+      continue;
+    }
+    const destination = target ?? hero;
+    if (ally.repathCooldown === 0 || ally.route.length === 0) {
+      ally.repathCooldown = 0.28;
+      const cells = new Set(blocked);
+      cells.delete(monsterCellKey(ally, TILE));
+      ally.route = findPath(destination.x / TILE, destination.y / TILE, {
+        allowHidden: true,
+        start: { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) },
+        blockedCells: cells,
+      });
+      if (ally.route.length > 0 && !target) ally.route.pop();
+    }
+    const step = ally.route[0];
+    if (!step) continue;
+    const dx = step.x - ally.x;
+    const dy = step.y - ally.y;
+    const distance = Math.hypot(dx, dy);
+    const movement = Math.min(distance, delta * TILE * ally.speed);
+    if (distance <= 0 || movement <= 0) continue;
+    ally.x += (dx / distance) * movement;
+    ally.y += (dy / distance) * movement;
+    ally.facing = dx < 0 ? -1 : 1;
+    if (Math.hypot(step.x - ally.x, step.y - ally.y) < 2) ally.route.shift();
+  }
+  allies = allies.filter((ally) => ally.dead === 0 || ally.dead < 0.9);
+}
+
 function updateWorld(delta) {
   updateDoorOpening(delta);
   updateHeroTerrain();
@@ -10059,6 +10291,9 @@ function updateWorld(delta) {
   const occupiedCells = occupiedMonsterCells(monsters, TILE);
   for (const creature of passiveCreatures) {
     if (!creature.defeated) occupiedCells.add(monsterCellKey(creature, TILE));
+  }
+  for (const ally of allies) {
+    if (ally.dead === 0) occupiedCells.add(monsterCellKey(ally, TILE));
   }
   const reservedCells = passiveOccupiedCells();
   for (const merchant of (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)) {
@@ -10112,6 +10347,12 @@ function updateWorld(delta) {
     if (previousWindup > 0) {
       if (monster.attackWindup === 0) {
         monster.attackRecovery = 0.18;
+        // A raised servant in the way takes the blow meant for the hero.
+        const guarding = allyInMeleeOf(monster);
+        if (guarding && !canActorsMelee(monster, hero)) {
+          damageAlly(guarding, monster.damage);
+          continue;
+        }
         if (canActorsMelee(monster, hero)) {
           const attackSequence = monster.attackSequence;
           monster.attackSequence += 1;
@@ -10302,6 +10543,7 @@ function updateWorld(delta) {
     if (distance < 2.5) monster.route.shift();
   }
   updatePassiveCreatures(delta);
+  updateAllies(delta);
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];
     projectile.life -= delta;
@@ -10599,6 +10841,7 @@ function render() {
   drawProjectiles();
   const actors = [
     ...monsters.map((monster) => ({ kind: 'monster', monster, y: monster.y })),
+    ...allies.map((ally) => ({ kind: 'monster', monster: ally, y: ally.y })),
     { kind: 'hero', y: hero.y },
   ].sort((a, b) => a.y - b.y);
   for (const actor of actors) {

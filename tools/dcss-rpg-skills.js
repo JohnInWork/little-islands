@@ -95,6 +95,15 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
     ]),
   }),
+  necromancy: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ necromancyRank: 1 }),
+      Object.freeze({ necromancyRank: 2 }),
+      Object.freeze({ necromancyRank: 3 }),
+    ]),
+  }),
   cooking: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -235,6 +244,7 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
   'camp-rest',
+  'summoned-servants',
   'cooking-recipes',
   'food-buffs',
   'medical-treatment',
@@ -293,6 +303,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   campRank: Object.freeze([0, 3]),
   campRestPercent: Object.freeze([0, 100]),
   campStashSlots: Object.freeze([0, 12]),
+  necromancyRank: Object.freeze([0, 3]),
   cookingRank: Object.freeze([0, 3]),
   fieldMedicineRank: Object.freeze([0, 3]),
   enduranceRank: Object.freeze([0, 3]),

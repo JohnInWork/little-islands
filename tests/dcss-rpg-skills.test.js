@@ -47,12 +47,12 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
-    'camping', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
+    'camping', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
-    'trap-detection', 'camp-rest', 'cooking-recipes', 'food-buffs', 'medical-treatment',
+    'trap-detection', 'camp-rest', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
     'condition-duration-scaling', 'darkness-vision',
     'secret-discovery', 'stealth-detection',
     'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
@@ -190,7 +190,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
     campRank: 0, campRestPercent: 0, campStashSlots: 0,
-    cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
+    necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
     darkvisionRank: 0, darkvisionRadiusBonus: 0,
     secretSearchRank: 0, secretSearchRadius: 0,
     stealthRank: 0, stealthVisionPercent: 0, stealthNoisePercent: 0,

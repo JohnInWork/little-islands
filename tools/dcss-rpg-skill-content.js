@@ -205,10 +205,10 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'necromancy', category: 'magic', mode: 'contextual',
     name: { ru: 'Некромантия', en: 'Necromancy' },
     description: {
-      ru: 'Временно поднимает павшего врага как слугу. Требует ресурса и свободного места в отряде.',
-      en: 'Temporarily raises a fallen enemy as a servant. Requires resources and room in the party.',
+      ru: 'Усиливает поднятых слуг и укорачивает их возвращение после гибели.',
+      en: 'Strengthens raised servants and shortens the wait before they rise again.',
     },
-    requiresSystems: ['corpse-raising', 'companion-limits'],
+    requiresSystems: ['summoned-servants'],
   },
   {
     id: 'arcana', category: 'magic', mode: 'contextual',

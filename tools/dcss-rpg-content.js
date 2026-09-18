@@ -113,6 +113,18 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1, vision: 6, windup: 0.2, pursuit: 4.2 },
   },
   {
+    // Raised servants. `spawn: 'summon'` keeps them out of every pool: they
+    // exist only while a necromancer holds the slot that calls them.
+    id: 'raised-skeleton', path: 'mon/undead/skeletons/skeleton_humanoid_small.png',
+    tier: 2, hp: 14, damage: 5, speed: 1.12, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
+    threat: { attackRate: 1.05, vision: 7, windup: 0.18, pursuit: 6 },
+  },
+  {
+    id: 'raised-ghoul', path: 'mon/undead/ghoul.png',
+    tier: 3, hp: 26, damage: 8, speed: 0.94, xp: 0, bloodColor: '#6f7b52', spawn: 'summon',
+    threat: { attackRate: 0.85, vision: 7, windup: 0.26, pursuit: 6 },
+  },
+  {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
     id: 'city-guard', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
@@ -1306,6 +1318,30 @@ export const LOOT_CATALOG = Object.freeze([
     stack: 1,
     identification: { group: 'book', tier: 3 },
     bookEffect: { type: 'learn-spell', spellId: 'invisibility' },
+  },
+  {
+    id: 'book-of-bones',
+    icon: 'item/book/book_of_the_dead.png',
+    slot: null,
+    kind: 'book',
+    rarity: 3,
+    weight: 1,
+    minDepth: 3,
+    stack: 1,
+    identification: { group: 'book', tier: 2 },
+    bookEffect: { type: 'learn-spell', spellId: 'raise-skeleton' },
+  },
+  {
+    id: 'book-of-hunger',
+    icon: 'item/book/dark_brown.png',
+    slot: null,
+    kind: 'book',
+    rarity: 3,
+    weight: 1,
+    minDepth: 5,
+    stack: 1,
+    identification: { group: 'book', tier: 3 },
+    bookEffect: { type: 'learn-spell', spellId: 'raise-ghoul' },
   },
   {
     id: 'book-of-camp-call',

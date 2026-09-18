@@ -67,7 +67,7 @@ function fixture({ open = false } = {}) {
     setAmbientLevel: () => {},
     ready: true, uiScreen: 'game', runStatus: 'playing', reducedMotion: false,
     TILE: 64, hero: { x: 96, y: 160, hp: 100, dead: false, path: [] },
-    monsters: [], passiveCreatures: [], openingDoor: null,
+    monsters: [], passiveCreatures: [], allies: [], openingDoor: null,
     world: ['#####', '#...#', open ? '#...#' : '#.D.#', '#...#', '#####'].map((row) => [...row]),
     run: { floor: { opened: open ? [door.instanceId] : [], triggered: [] } },
     dungeon: { doors: [door], surprises: [{ id: door.surpriseId, type: 'treasure', monsterIds: [] }] },
