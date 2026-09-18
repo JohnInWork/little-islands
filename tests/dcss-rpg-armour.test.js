@@ -130,3 +130,45 @@ test('armour actually reaches the hero: every slot drops across a seed sweep', (
     assert.ok(dropped.get(slot) > 0, `${slot} never dropped across forty runs`);
   }
 });
+
+test('nothing surfaces before its own depth, however good the floor is feeling', () => {
+  // The rule the whole "deeper is better" promise rests on. A dragon's hide has
+  // no business on the first floor, and neither has anything else.
+  for (let seed = 1; seed <= 120; seed += 1) {
+    for (let depth = 1; depth <= 9; depth += 1) {
+      const dungeon = generateDungeon({ seed, depth });
+      const pools = [dungeon.loot ?? [], ...(dungeon.chests ?? []).map((chest) => chest.items ?? [])];
+      for (const pool of pools) {
+        for (const entry of pool) {
+          const item = lootById(entry.itemId ?? entry.id);
+          if (!item) continue;
+          assert.ok(
+            (item.minDepth ?? 1) <= depth,
+            `seed ${seed}: ${item.id} (d${item.minDepth}) surfaced on floor ${depth}`,
+          );
+        }
+      }
+    }
+  }
+});
+
+test('the dragon hides are a deep layer, and each is a reason of its own', () => {
+  const dragons = LOOT_CATALOG.filter(({ id }) => id.endsWith('-dragon-scales'));
+  assert.ok(dragons.length >= 7, `only ${dragons.length} dragon armours`);
+  for (const dragon of dragons) {
+    assert.equal(dragon.slot, 'body');
+    assert.ok(dragon.minDepth >= 4, `${dragon.id} is not deep enough to be a reward`);
+    assert.ok(hasArmourMechanic(dragon), `${dragon.id} is only numbers`);
+    // A dragon is a named thing: its identity is the dragon, not its material.
+    assert.equal(dragon.form, undefined, `${dragon.id} must not be made of bronze`);
+    for (const language of itemDetailLanguages) {
+      assert.ok(itemDetails(dragon, language).name.length > 6, `${dragon.id} ${language}`);
+    }
+  }
+  // No two of them do the same thing: that is what makes them a choice.
+  const signatures = dragons.map((dragon) => JSON.stringify({
+    immunity: [...(dragon.magic?.immunity ?? [])].sort(),
+    armour: dragon.armour ?? null,
+  }));
+  assert.equal(new Set(signatures).size, signatures.length, 'two dragons promise the same thing');
+});

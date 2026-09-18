@@ -162,7 +162,8 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/armour/plate1.png', layer: 'player/body/plate_black.png',
   }),
   'shadow-scales': Object.freeze({
-    icon: 'item/armour/blue_dragon_scale_mail.png', layer: 'player/body/dragonarm_shadow.png',
+    icon: 'item/armour/shadow_dragon_scale_mail.png',
+    iconVariants: Object.freeze(['item/armour/shadow_dragon_scales.png']), layer: 'player/body/dragonarm_shadow.png',
   }),
   'runic-robe': Object.freeze({
     icon: 'item/armour/robe_art1.png', layer: 'player/body/robe_black_gold.png',
@@ -176,6 +177,41 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'silver-scales': Object.freeze({
     icon: 'item/armour/silver_dragon_scale_mail.png', layer: 'player/body/dragonarm_white.png',
+  }),
+  'swamp-dragon-scales': Object.freeze({
+    icon: 'item/armour/swamp_dragon_armour.png',
+    layer: 'player/body/dragonarm_brown.png',
+    iconVariants: Object.freeze(['item/armour/swamp_dragon_hide.png']),
+  }),
+  'mottled-dragon-scales': Object.freeze({
+    icon: 'item/armour/mottled_dragon_armour.png',
+    layer: 'player/body/dragonarm_magenta.png',
+    iconVariants: Object.freeze(['item/armour/mottled_dragon_hide.png']),
+  }),
+  'blue-dragon-scales': Object.freeze({
+    icon: 'item/armour/blue_dragon_scale_mail.png',
+    layer: 'player/body/dragonarm_blue.png',
+    iconVariants: Object.freeze(['item/armour/blue_dragon_scales.png']),
+  }),
+  'ice-dragon-scales': Object.freeze({
+    icon: 'item/armour/ice_dragon_armour.png',
+    layer: 'player/body/dragonarm_cyan.png',
+    iconVariants: Object.freeze(['item/armour/ice_dragon_hide.png']),
+  }),
+  'gold-dragon-scales': Object.freeze({
+    icon: 'item/armour/gold_dragon_armour.png',
+    layer: 'player/body/dragonarm_gold.png',
+    iconVariants: Object.freeze(['item/armour/gold_dragon_hide.png']),
+  }),
+  'quicksilver-dragon-scales': Object.freeze({
+    icon: 'item/armour/quicksilver_dragon_scale_mail.png',
+    layer: 'player/body/dragonarm_quicksilver.png',
+    iconVariants: Object.freeze(['item/armour/quicksilver_dragon_scales.png']),
+  }),
+  'pearl-dragon-scales': Object.freeze({
+    icon: 'item/armour/pearl_dragon_armour.png',
+    layer: 'player/body/dragonarm_pearl.png',
+    iconVariants: Object.freeze(['item/armour/pearl_dragon_hide.png']),
   }),
   'living-vines': Object.freeze({
     icon: 'item/armour/artefact/urand_vines.png', layer: 'player/body/vines.png',
