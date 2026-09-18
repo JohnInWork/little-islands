@@ -7,6 +7,18 @@ export const MAX_AFFIX_RATE = 3;
 export const MAX_RANDOM_AFFIXES = 2;
 export const MAX_NEW_RANDOM_AFFIXES = 1;
 
+/**
+ * How far an affix can miss its own name. "Of force" used to mean exactly +2
+ * attack on every sword that ever carried it, so two swords of force were the
+ * same sword. Now the same affix lands anywhere in this band, which is what
+ * makes one of them worth keeping and the other worth selling.
+ *
+ * The magnitude is not stored. It is a hash of the item's own uid, so a
+ * reloaded floor hands back the same sword and the save gains no field — the
+ * same trick the material and the silhouette use.
+ */
+export const AFFIX_SPREAD_PERCENT = Object.freeze([55, 175]);
+
 const freezeAffix = (affix) => Object.freeze({
   ...affix,
   labels: Object.freeze({ ...affix.labels }),
@@ -44,21 +56,21 @@ export const ITEM_AFFIXES = Object.freeze([
   freezeAffix({
     id: 'guarded',
     labels: { ru: 'защиты', en: 'of guarding' },
-    tags: ['armour', 'shield', 'focus'],
+    tags: ['weapon', 'armour', 'shield', 'focus'],
     stats: { defense: 2 },
     weight: 10,
   }),
   freezeAffix({
     id: 'vital',
     labels: { ru: 'жизни', en: 'of vitality' },
-    tags: ['armour', 'shield', 'jewellery', 'focus'],
+    tags: ['weapon', 'armour', 'shield', 'jewellery', 'focus'],
     stats: { maxHp: 8 },
     weight: 8,
   }),
   freezeAffix({
     id: 'fleet',
     labels: { ru: 'странника', en: 'of the wanderer' },
-    tags: ['boots', 'cloak', 'jewellery'],
+    tags: ['weapon', 'boots', 'cloak', 'jewellery'],
     stats: { moveSpeed: 0.07 },
     weight: 8,
   }),
@@ -85,6 +97,22 @@ export const ITEM_AFFIXES = Object.freeze([
     magic: { immunity: ['poison'] },
     group: 'elemental-ward',
     weight: 4,
+  }),
+  freezeAffix({
+    // A trade, not a bonus: the swing lands harder and comes back slower. The
+    // spread scales both halves together, so a heavy roll is heavy both ways.
+    id: 'weighted',
+    labels: { ru: 'тяжести', en: 'of weight' },
+    tags: ['weapon', 'gloves'],
+    stats: { attack: 4, attackSpeed: -0.05 },
+    weight: 7,
+  }),
+  freezeAffix({
+    id: 'arcane',
+    labels: { ru: 'разума', en: 'of the mind' },
+    tags: ['weapon', 'focus', 'jewellery', 'head'],
+    stats: { intelligence: 2 },
+    weight: 6,
   }),
   freezeAffix({
     id: 'reaping',
@@ -204,6 +232,54 @@ export function rollItemAffixes({
   return Object.freeze(selected);
 }
 
+/**
+ * What the affixes call the thing. Every affix in this file has carried a name
+ * since the day it was written — "мощи", "of force" — and nothing ever drew it:
+ * an enchanted sword differed from a plain one only by its numbers. Now the
+ * name says it, which is the whole point of an affix having one.
+ */
+export function affixSuffix(affixIds = [], language = 'ru') {
+  const labels = affixIds
+    .map((id) => affixById(id)?.labels?.[language === 'en' ? 'en' : 'ru'])
+    .filter(Boolean);
+  if (labels.length === 0) return '';
+  if (language === 'en') {
+    // "of force" and "of swiftness" collapse into one "of": one preposition is
+    // a name, two is a list.
+    const stripped = labels.map((label) => label.replace(/^of /, ''));
+    return ` of ${stripped.join(' and ')}`;
+  }
+  return ` ${labels.join(' и ')}`;
+}
+
+function spreadHash(text) {
+  let value = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    value ^= text.charCodeAt(index);
+    value = Math.imul(value, 0x01000193);
+  }
+  return (value ^ (value >>> 15)) >>> 0;
+}
+
+/**
+ * What this particular affix is worth on this particular item. Rounds away from
+ * zero so a small stat never quietly rounds down to nothing — an affix that
+ * gives +0 is an affix that lies in the item card.
+ */
+export function affixStats(affix, instanceId = '') {
+  if (!affix?.stats) return {};
+  const [low, high] = AFFIX_SPREAD_PERCENT;
+  const percent = low + (spreadHash(`${instanceId}:${affix.id}`) % (high - low + 1));
+  const rolled = {};
+  for (const [key, value] of Object.entries(affix.stats)) {
+    const scaled = (value * percent) / 100;
+    rolled[key] = key === 'moveSpeed' || key === 'attackSpeed'
+      ? Math.round(scaled * 100) / 100
+      : Math.sign(value) * Math.max(1, Math.round(Math.abs(scaled)));
+  }
+  return rolled;
+}
+
 export function validateItemAffixIds(item, affixIds, { required = Boolean(item?.slot) } = {}) {
   if (!required && affixIds === undefined) return true;
   if (!item?.slot || !Array.isArray(affixIds) || affixIds.length > MAX_RANDOM_AFFIXES) return false;
@@ -243,7 +319,7 @@ export function materializeItemAffixes(definition, record = {}) {
   let healOnKill = definition.magic?.healOnKill ?? 0;
   for (const id of affixIds) {
     const affix = affixById(id);
-    for (const [key, value] of Object.entries(affix.stats ?? {})) {
+    for (const [key, value] of Object.entries(affixStats(affix, record.uid ?? ''))) {
       stats[key] = (stats[key] ?? 0) + value;
     }
     for (const effect of affix.magic?.immunity ?? []) immunities.add(effect);

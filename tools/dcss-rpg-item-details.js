@@ -1,4 +1,5 @@
 import { itemTakesMaterial, materialItemName } from './dcss-rpg-materials.js';
+import { affixSuffix } from './dcss-rpg-affixes.js';
 import {
   generatedItemDescription,
   itemDescriptionLanguages,
@@ -238,15 +239,20 @@ function localizedItemName(item, language) {
       ?? (language === 'ru' ? 'Неизвестный предмет' : 'Unknown item');
   }
   if (item.name?.[language]) return item.name[language];
-  // A made thing is named by what it is and what it is made of, in that order
-  // of importance: the noun is the form, the adjective is the material. A named
-  // thing has no form and keeps the name that was written for it.
+  const suffix = item.artifactPowerId ? '' : affixSuffix(item.affixIds ?? [], language);
+  // A made thing is named by what it is, what it is made of and what was put on
+  // it: adjective, noun, suffix. It has a form, so the material names it and the
+  // hand-written name is not consulted at all.
   if (itemTakesMaterial(item) && !item.artifactPowerId) {
-    return materialItemName(item, item.materialId ?? null, language);
+    return `${materialItemName(item, item.materialId ?? null, language)}${suffix}`;
   }
-  return language === 'ru'
+  // A named thing keeps the name written for it, and still admits what was
+  // enchanted onto it. The last fallback builds a name from the id, and carries
+  // the suffix too — a missing translation must not also lose the enchantment.
+  const written = language === 'ru'
     ? RUSSIAN_NAMES[item.id] ?? titleFromId(item.id)
     : ENGLISH_NAMES[item.id] ?? titleFromId(item.id);
+  return `${written}${suffix}`;
 }
 
 export function itemDetails(item, requestedLanguage = 'ru') {

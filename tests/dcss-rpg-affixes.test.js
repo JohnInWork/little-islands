@@ -6,11 +6,14 @@ import {
   ITEM_AFFIXES,
   eligibleItemAffixes,
   itemAffixRarity,
+  affixById,
+  affixStats,
   materializeItemAffixes,
   rollItemAffixes,
   validateItemAffixIds,
 } from '../tools/dcss-rpg-affixes.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
+import { EQUIPMENT_STAT_KEYS } from '../tools/dcss-rpg-rules.js';
 import {
   SAVE_KEY,
   SAVE_VERSION,
@@ -29,9 +32,9 @@ test('the affix catalog is unique, compatible and limited to implemented mechani
     assert.ok(LOOT_CATALOG.some((item) => (
       item.slot && eligibleItemAffixes(item).some(({ id }) => id === affix.id)
     )), `no compatible equipment for ${affix.id}`);
-    assert.ok(Object.keys(affix.stats ?? {}).every((key) => (
-      ['attack', 'defense', 'maxHp', 'moveSpeed', 'attackSpeed'].includes(key)
-    )));
+    // An affix may only touch a stat equipment actually has — read from the
+    // rules rather than from a hand-copied list that drifts out of date.
+    assert.ok(Object.keys(affix.stats ?? {}).every((key) => EQUIPMENT_STAT_KEYS.includes(key)));
     assert.ok(Object.keys(affix.magic ?? {}).every((key) => (
       ['immunity', 'healOnKill'].includes(key)
     )));
@@ -70,7 +73,19 @@ test('materialization combines stats and magic without mutating the base templat
     affixIds: ['forceful', 'reaping'],
   });
   assert.deepEqual(sword.stats, baseStats);
-  assert.equal(item.stats.attack, sword.stats.attack + 2);
+  // The affix lands somewhere in its band rather than on one fixed number, so
+  // the promise is that it helps and that the same sword helps the same amount.
+  const bonus = item.stats.attack - sword.stats.attack;
+  assert.ok(bonus > 0, 'an affix that adds nothing is an affix that lies');
+  assert.deepEqual(
+    affixStats(affixById('forceful'), 'affixed-sword'),
+    { attack: bonus },
+  );
+  assert.equal(
+    materializeItemAffixes(sword, { uid: 'affixed-sword', affixIds: ['forceful', 'reaping'] }).stats.attack,
+    item.stats.attack,
+    'the same sword rolls the same twice',
+  );
   assert.equal(item.magic.healOnKill, 1);
   assert.equal(item.rarity, 1);
   assert.equal(item.baseRarity, sword.rarity);
@@ -93,8 +108,18 @@ test('generated descriptions and real hero stats automatically use affix results
     uid: 'ordinary-sword',
     affixIds: [],
   });
-  assert.match(generatedItemDescription(sword, 'ru').summary, /\+6 атака/);
-  assert.match(generatedItemDescription(sword, 'en').summary, /\+6 attack/);
+  const attack = sword.stats.attack;
+  assert.match(generatedItemDescription(sword, 'ru').summary, new RegExp(`\\+${attack} атака`));
+  assert.match(generatedItemDescription(sword, 'en').summary, new RegExp(`\\+${attack} attack`));
+  // Two swords of force are no longer the same sword.
+  const spread = new Set();
+  for (let index = 0; index < 60; index += 1) {
+    spread.add(materializeItemAffixes(lootById('long-sword'), {
+      uid: `loot-3-${index}`,
+      affixIds: ['forceful'],
+    }).stats.attack);
+  }
+  assert.ok(spread.size > 1, 'every sword of force is still identical');
   assert.ok(
     deriveHeroStats({ power: 1 }, { hand1: sword.uid }, [sword]).attack
     > deriveHeroStats({ power: 1 }, { hand1: ordinary.uid }, [ordinary]).attack,
