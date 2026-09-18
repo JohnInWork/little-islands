@@ -21,7 +21,7 @@ const quiet = { depth: 1, inGame: true };
 
 test('the catalog is five ordered first-floor hints with valid signals and short bilingual copy', () => {
   assert.deepEqual(onboardingProblems(), []);
-  assert.deepEqual(ONBOARDING_HINT_IDS, ['move', 'enemy', 'loot', 'interact', 'exit']);
+  assert.deepEqual(ONBOARDING_HINT_IDS, ['move', 'enemy', 'loot', 'interact', 'exit', 'city']);
   assert.ok(Object.isFrozen(ONBOARDING_HINTS) && Object.isFrozen(ONBOARDING_HINTS[0]));
   for (const id of ONBOARDING_HINT_IDS) {
     const ru = onboardingHintCopy(id, 'ru');
@@ -106,4 +106,32 @@ test('the runtime evaluates signals on the game screen, persists the state and r
   assert.match(html, /id="onboarding-hint"[\s\S]*id="onboarding-title"[\s\S]*id="onboarding-text"[\s\S]*id="onboarding-skip"[\s\S]*id="onboarding-dismiss"/);
   assert.match(css, /\[data-screen\]:not\(\[data-screen='game'\]\) \.onboarding-hint/);
   assert.match(css, /\.loot-toast\.visible ~ \.onboarding-hint/, 'the loot toast wins while it is visible');
+});
+
+test('the city hint waits for the city and no first-floor hint follows the hero there', () => {
+  const city = { depth: 4, inGame: true, inCity: true };
+  // On the first floor the city hint is out of reach, whatever the signals say.
+  const onFloorOne = advanceOnboarding({ seen: [], dismissed: false }, { depth: 1, inGame: true, inCity: true });
+  assert.equal(onFloorOne.hintId, 'move', 'the first floor teaches the first floor');
+
+  const seenBasics = { seen: ['move', 'enemy', 'loot', 'interact', 'exit'], dismissed: false };
+  assert.equal(advanceOnboarding(seenBasics, city).hintId, 'city');
+  assert.equal(
+    advanceOnboarding(seenBasics, { depth: 5, inGame: true, inCity: false }).hintId,
+    null,
+    'an ordinary floor says nothing',
+  );
+  assert.equal(
+    advanceOnboarding({ seen: [], dismissed: false }, city).hintId,
+    'city',
+    'a hero who skipped the basics still hears about the city',
+  );
+  const bought = advanceOnboarding(seenBasics, { ...city, houseOwned: true });
+  assert.ok(bought.state.seen.includes('city'), 'buying the house answers the hint');
+  assert.equal(bought.hintId, null);
+
+  const copy = onboardingHintCopy('city', 'ru');
+  assert.equal(copy.title, 'Город');
+  assert.match(copy.text, /участок продаётся/i);
+  assert.equal(onboardingHintCopy('city', 'en').title, 'The city');
 });

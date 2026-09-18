@@ -8,6 +8,10 @@ import {
 } from './dcss-rpg-volumetric-lighting.js';
 
 export const WORLD_CAMERA_ELEVATION = 65;
+/** Shadow budget: the map is square, the frustum is a radius in tiles. */
+export const WORLD_SHADOW_MAP_SIZE = 512;
+export const WORLD_SHADOW_EXTENT = 7;
+
 export const WORLD_WALL_HEIGHT = 0.6;
 export const WORLD_RENDER_PIXEL_SIZE = 2;
 export const WALL_FACE_TEXTURE_WIDTH = 32;
@@ -148,11 +152,13 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
   scene.add(ambient, hemisphere);
   const keyLight = new THREE.DirectionalLight('#f4f0e5', WORLD_KEY_LIGHT_INTENSITY);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(1024, 1024);
-  keyLight.shadow.camera.left = -13;
-  keyLight.shadow.camera.right = 13;
-  keyLight.shadow.camera.top = 13;
-  keyLight.shadow.camera.bottom = -13;
+  // The shadow map only ever covers what the camera shows. A 512 map over a
+  // seven-tile frustum is the same shadow on a phone at a quarter of the cost.
+  keyLight.shadow.mapSize.set(WORLD_SHADOW_MAP_SIZE, WORLD_SHADOW_MAP_SIZE);
+  keyLight.shadow.camera.left = -WORLD_SHADOW_EXTENT;
+  keyLight.shadow.camera.right = WORLD_SHADOW_EXTENT;
+  keyLight.shadow.camera.top = WORLD_SHADOW_EXTENT;
+  keyLight.shadow.camera.bottom = -WORLD_SHADOW_EXTENT;
   keyLight.shadow.camera.near = 0.1;
   keyLight.shadow.camera.far = 48;
   keyLight.shadow.bias = -0.0008;

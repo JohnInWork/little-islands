@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 
@@ -117,4 +118,23 @@ test('fog anchors belong to dungeon rooms instead of following the hero', () => 
     tileSize: 64,
   });
   assert.ok(live.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y)), 'mist needs a place to be');
+});
+
+test('the renderer filters each sprite once instead of once per draw', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(
+    runtime,
+    /function filteredSprite\(path, sprite, filter\)[\s\S]*filteredSprites\.set\(key, canvas\)/,
+    'a filtered copy is kept, not recomputed',
+  );
+  assert.doesNotMatch(runtime, /context\.filter = options\.filter/, 'no per-draw filter remains');
+  assert.match(runtime, /context\.drawImage\(source, -drawWidth \/ 2/);
+});
+
+test('the shadow budget is a named pair, sized for a phone', async () => {
+  const world3d = await readFile(new URL('../tools/dcss-rpg-world3d.js', import.meta.url), 'utf8');
+  assert.match(world3d, /export const WORLD_SHADOW_MAP_SIZE = 512;/);
+  assert.match(world3d, /export const WORLD_SHADOW_EXTENT = 7;/);
+  assert.match(world3d, /keyLight\.shadow\.mapSize\.set\(WORLD_SHADOW_MAP_SIZE, WORLD_SHADOW_MAP_SIZE\);/);
+  assert.match(world3d, /keyLight\.shadow\.camera\.left = -WORLD_SHADOW_EXTENT;/);
 });

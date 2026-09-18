@@ -19,17 +19,30 @@ export const ONBOARDING_SIGNALS = Object.freeze([
   'interacted',
   'exitRevealed',
   'descended',
+  'inCity',
+  'houseOwned',
 ]);
 
-const hint = (id, showWhen, completeOn, glyph) => Object.freeze({ id, showWhen, completeOn, glyph });
+const hint = (id, showWhen, completeOn, glyph, where = 'first-floor') => Object.freeze({
+  id,
+  showWhen,
+  completeOn,
+  glyph,
+  where,
+});
 
-/** In priority order: the first unseen hint whose `showWhen` signal is true wins. */
+/**
+ * In priority order: the first unseen hint whose `showWhen` signal is true
+ * wins. `where` says on which floor a hint may appear at all, because the
+ * city is the one place a first-floor hint would never reach.
+ */
 export const ONBOARDING_HINTS = Object.freeze([
   hint('move', 'inGame', 'moved', '✥'),
   hint('enemy', 'enemyVisible', 'engaged', '⚔'),
   hint('loot', 'lootVisible', 'pickedUp', '◆'),
   hint('interact', 'interactAvailable', 'interacted', '✦'),
   hint('exit', 'exitRevealed', 'descended', '▼'),
+  hint('city', 'inCity', 'houseOwned', '⌂', 'city'),
 ]);
 
 export const ONBOARDING_HINT_IDS = Object.freeze(ONBOARDING_HINTS.map(({ id }) => id));
@@ -56,6 +69,10 @@ const HINT_COPY = Object.freeze({
       title: 'Лестница найдена',
       text: 'Спуск ведёт на следующий этаж, назад пути нет. Плитка глубины наверху открывает карту.',
     }),
+    city: Object.freeze({
+      title: 'Город',
+      text: 'Здесь торгуют и следят за порядком. Пустой участок продаётся: ищи вывеску, она есть на карте.',
+    }),
     dismiss: 'Понятно',
     skip: 'Не показывать',
     group: 'Подсказка',
@@ -80,6 +97,10 @@ const HINT_COPY = Object.freeze({
     exit: Object.freeze({
       title: 'Stairs found',
       text: 'The descent leads to the next floor with no way back. The depth tile up top opens the map.',
+    }),
+    city: Object.freeze({
+      title: 'The city',
+      text: 'Traders here, and a watch. The empty plot is for sale: look for the sign, it is on the map.',
     }),
     dismiss: 'Got it',
     skip: 'Hide hints',
@@ -152,10 +173,12 @@ export function advanceOnboarding(state, signals = {}) {
     if (!next.seen.includes(entry.id) && signals[entry.completeOn] === true) next = markOnboardingSeen(next, entry.id);
   }
   const changed = next.seen.length !== current.seen.length;
-  const firstFloor = signals.depth === 1 && signals.inGame === true;
-  const due = firstFloor
-    ? ONBOARDING_HINTS.find((entry) => !next.seen.includes(entry.id) && signals[entry.showWhen] === true) ?? null
-    : null;
+  const onFirstFloor = signals.depth === 1 && signals.inGame === true;
+  const inCity = signals.inCity === true && signals.inGame === true;
+  const reachable = (entry) => (entry.where === 'city' ? inCity : onFirstFloor);
+  const due = ONBOARDING_HINTS.find((entry) => (
+    !next.seen.includes(entry.id) && reachable(entry) && signals[entry.showWhen] === true
+  )) ?? null;
   return Object.freeze({ state: next, hintId: due ? due.id : null, changed });
 }
 
@@ -184,6 +207,7 @@ export function onboardingProblems() {
     if (!ONBOARDING_SIGNALS.includes(entry.showWhen)) problems.push(`${entry.id}:showWhen`);
     if (!ONBOARDING_SIGNALS.includes(entry.completeOn)) problems.push(`${entry.id}:completeOn`);
     if (entry.showWhen === entry.completeOn) problems.push(`${entry.id}:same-signal`);
+    if (!['first-floor', 'city'].includes(entry.where)) problems.push(`${entry.id}:where`);
     if (typeof entry.glyph !== 'string' || entry.glyph.length === 0) problems.push(`${entry.id}:glyph`);
     for (const language of ['ru', 'en']) {
       const copy = HINT_COPY[language][entry.id];

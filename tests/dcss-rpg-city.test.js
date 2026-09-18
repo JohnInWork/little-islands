@@ -206,3 +206,24 @@ test('the runtime walks the watch and turns it on the hero who starts something'
   assert.match(runtime, /if \(monster\.neutral && !monster\.provoked\) provokeCityWatch\(monster\);/);
   assert.match(runtime, /const patrolling = monster\.alerted === 0;/);
 });
+
+test('the map knows the house, and the city hint points at it', async () => {
+  const { FLOOR_MAP_COLORS, FLOOR_MAP_MARKER_KINDS, FLOOR_MAP_MARKER_SHAPES, createFloorMapModel } =
+    await import('../tools/dcss-rpg-floor-map.js');
+  assert.ok(FLOOR_MAP_MARKER_KINDS.includes('house'), 'a kind the model refuses is never drawn');
+  assert.ok(FLOOR_MAP_COLORS.house, 'and it needs a colour of its own');
+  assert.equal(FLOOR_MAP_MARKER_SHAPES.house, 'ring');
+
+  const model = createFloorMapModel({
+    grid: [['#', '#', '#'], ['#', '.', '#'], ['#', '#', '#']],
+    revealed: new Set(['1,1']),
+    hero: { x: 1, y: 1 },
+    markers: [{ kind: 'house', x: 1, y: 1 }],
+  });
+  assert.equal(model.markers.some(({ kind }) => kind === 'house'), true);
+
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /function houseMapMarker\(\)[\s\S]*run\.house\.owned \? plot\.door : deedSignCell\(plot\)/);
+  assert.match(runtime, /\.\.\.houseMapMarker\(\),/);
+  assert.match(runtime, /inCity: isCityDepth\(dungeon\.depth\),\s+houseOwned: run\.house\.owned,/);
+});

@@ -30,6 +30,7 @@ export const FLOOR_MAP_MARKER_KINDS = Object.freeze([
   'campfire',
   'trap',
   'loot',
+  'house',
   ...SIGHT_ONLY_KINDS,
 ]);
 
@@ -55,6 +56,7 @@ export const FLOOR_MAP_COLORS = Object.freeze({
   monster: '#d6524c',
   boss: '#ff8a66',
   wildlife: '#b69062',
+  house: '#8fd2a4',
 });
 
 export const FLOOR_MAP_MARKER_SHAPES = Object.freeze({
@@ -68,6 +70,8 @@ export const FLOOR_MAP_MARKER_SHAPES = Object.freeze({
   trap: 'cross',
   loot: 'small',
   sanctuary: 'ring',
+  // The house the city sells, and the door once it is the hero's.
+  house: 'ring',
 });
 
 const COPY = Object.freeze({

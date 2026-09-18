@@ -3237,6 +3237,35 @@ function revealProgress() {
   return 1 - (1 - progress) ** 3;
 }
 
+/**
+ * A filtered copy of a sprite, drawn once into an offscreen canvas and kept.
+ * Setting `context.filter` runs the filter over the image on every single
+ * draw call; the copy pays for it once per sprite and per look.
+ */
+const filteredSprites = new Map();
+
+function filteredSprite(path, sprite, filter) {
+  if (!filter || filter === 'none') return sprite;
+  const key = `${path}|${filter}`;
+  const cached = filteredSprites.get(key);
+  if (cached) return cached;
+  const width = sprite.naturalWidth;
+  const height = sprite.naturalHeight;
+  if (!width || !height) return sprite;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const copy = canvas.getContext('2d');
+  if (!copy) return sprite;
+  // Pixel art: the copy is drawn 1:1, so the scaling on screen stays nearest
+  // neighbour exactly as it was when the filter ran at draw time.
+  copy.imageSmoothingEnabled = false;
+  copy.filter = filter;
+  copy.drawImage(sprite, 0, 0);
+  filteredSprites.set(key, canvas);
+  return canvas;
+}
+
 function drawSprite(path, x, y, size = TILE, options = {}) {
   const sprite = image(path);
   if (!sprite) return;
@@ -3250,9 +3279,9 @@ function drawSprite(path, x, y, size = TILE, options = {}) {
     : null;
   const drawWidth = (fitted?.drawWidth ?? size) * (options.scaleX ?? 1);
   const drawHeight = (fitted?.drawHeight ?? size) * (options.scaleY ?? 1);
+  const source = filteredSprite(path, sprite, options.filter ?? VISIBILITY_TUNING.spriteFilter);
   context.save();
   context.globalAlpha = options.alpha ?? 1;
-  context.filter = options.filter ?? VISIBILITY_TUNING.spriteFilter;
   if (options.glow) {
     context.shadowColor = options.glow;
     context.shadowBlur = options.blur ?? 18;
@@ -3262,7 +3291,7 @@ function drawSprite(path, x, y, size = TILE, options = {}) {
   context.scale(options.flip ? -1 : 1, 1);
   if (fitted) {
     context.drawImage(
-      sprite,
+      source,
       fitted.sourceX,
       fitted.sourceY,
       fitted.sourceWidth,
@@ -3273,7 +3302,7 @@ function drawSprite(path, x, y, size = TILE, options = {}) {
       drawHeight,
     );
   } else {
-    context.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   }
   context.restore();
 }
@@ -5340,6 +5369,8 @@ function currentOnboardingSignals() {
     pickedUp: run.floor.collected.length > 0,
     interactAvailable: !interactActionButton.hidden,
     interacted: onboardingInteracted || run.floor.opened.length > 0 || run.floor.resolved.length > 0,
+    inCity: isCityDepth(dungeon.depth),
+    houseOwned: run.house.owned,
     exitRevealed: revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`),
     descended: dungeon.depth > 1,
   };
@@ -7169,6 +7200,18 @@ const FLOOR_MAP_FIND_KINDS = Object.freeze({
   'ancient-altar': 'altar',
 });
 
+/**
+ * The house on the map: the sign while the plot is for sale, the door once it
+ * belongs to the hero. Without it a player can walk past their own house and
+ * never learn the city sells one.
+ */
+function houseMapMarker() {
+  const plot = cityHousePlot();
+  if (!plot?.door) return [];
+  const cell = run.house.owned ? plot.door : deedSignCell(plot) ?? plot.door;
+  return [{ kind: 'house', x: cell.x, y: cell.y }];
+}
+
 function currentFloorMapMarkers() {
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const gridOf = (actor) => ({ x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) });
@@ -7193,6 +7236,7 @@ function currentFloorMapMarkers() {
       muted: find.resolved === true,
     })),
     ...merchantDefinitions.map((merchant) => ({ kind: 'merchant', x: merchant.x, y: merchant.y })),
+    ...houseMapMarker(),
     ...dungeonEnvironment.props
       .filter(({ interactionId }) => interactionId === 'campfire')
       .map((prop) => ({ kind: 'campfire', x: prop.gridX, y: prop.gridY })),
