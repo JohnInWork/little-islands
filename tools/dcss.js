@@ -56,6 +56,7 @@ import {
 } from './dcss-rpg-run.js';
 import {
   allPlayerFoundationAssetPaths,
+  composePlayerLayerStack,
   composePlayerLayers,
 } from './dcss-rpg-player.js';
 import {
@@ -2121,7 +2122,10 @@ function currentSkillCapabilities() {
 }
 
 function visualForItem(item, renderedSlot = item?.slot) {
-  return equipmentVisualForItem(item, renderedSlot);
+  const visual = equipmentVisualForItem(item, renderedSlot);
+  if (!visual) return visual;
+  const filter = materialFilter(item?.materialId ?? null);
+  return filter ? { ...visual, filter } : visual;
 }
 
 function currentHeroStats(equipment = selected, items = itemInstances) {
@@ -4024,7 +4028,7 @@ function playerLayers(profile = playerAppearance) {
   const offhand = equippedItem('hand2');
   const loadout = resolveWeaponLoadout(mainHand, offhand);
   const appearance = resolvePlayerAppearance(profile);
-  return composePlayerLayers({
+  return composePlayerLayerStack({
     baseVisual: appearance.body,
     hairVisual: appearance.hair,
     cloakVisual: visualForItem(equippedItem('cloak')),
@@ -5667,15 +5671,16 @@ function drawPaperDollTo(targetContext, targetCanvas, profile = playerAppearance
   const resolvedAppearance = resolvePlayerAppearance(profile);
   const layers = withEquipment
     ? playerLayers(profile)
-    : composePlayerLayers({
+    : composePlayerLayerStack({
       baseVisual: resolvedAppearance.body,
       hairVisual: resolvedAppearance.hair,
     });
-  for (const path of layers) {
+  for (const { path, filter } of layers) {
     const mirrored = path.startsWith('mirror:');
     const sprite = image(mirrored ? path.slice('mirror:'.length) : path);
     if (!sprite) continue;
     targetContext.save();
+    targetContext.filter = filter ?? 'none';
     if (mirrored) {
       targetContext.translate(targetCanvas.width, 0);
       targetContext.scale(-1, 1);

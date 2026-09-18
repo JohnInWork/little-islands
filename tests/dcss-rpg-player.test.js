@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   BASE_PLAYER_LAYER,
+  composePlayerLayerStack,
   composePlayerLayers,
 } from '../tools/dcss-rpg-player.js';
 
@@ -52,4 +53,27 @@ test('appearance layers stay independent from equipment and hair hides under a h
     headVisual: { layer: 'iron-helm.png' },
     hideHair: true,
   }), ['human-f.png', 'iron-helm.png']);
+});
+
+test('the layer stack carries what each worn thing is made of', () => {
+  const plain = composePlayerLayerStack();
+  assert.deepEqual(plain, [{ path: BASE_PLAYER_LAYER, filter: null }]);
+  const dressed = composePlayerLayerStack({
+    bodyVisual: { layer: 'body', filter: 'sepia(1)' },
+    hand1Visual: { layer: 'sword' },
+    bootsVisual: { layer: 'boots', filter: 'brightness(0.5)' },
+  });
+  assert.deepEqual(
+    dressed.map(({ path, filter }) => `${path}:${filter ?? '-'}`),
+    [`${BASE_PLAYER_LAYER}:-`, 'boots:brightness(0.5)', 'body:sepia(1)', 'sword:-'],
+  );
+  // The flat list stays exactly what it was: most callers only need the paths.
+  assert.deepEqual(
+    composePlayerLayers({
+      bodyVisual: { layer: 'body', filter: 'sepia(1)' },
+      hand1Visual: { layer: 'sword' },
+      bootsVisual: { layer: 'boots', filter: 'brightness(0.5)' },
+    }),
+    [BASE_PLAYER_LAYER, 'boots', 'body', 'sword'],
+  );
 });

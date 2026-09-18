@@ -472,16 +472,19 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
   };
 
   const composeHeroTexture = (layers, imageForPath, filter) => {
-    const nextLayerKey = `${filter}:${layers.join('|')}`;
+    // Each layer carries the recolouring of the item it came from, so the key
+    // has to include it: two heroes in the same gear of different materials are
+    // not the same texture.
+    const nextLayerKey = `${filter}:${layers.map(({ path, filter: own }) => `${path}#${own ?? ''}`).join('|')}`;
     if (nextLayerKey === heroLayerKey) return;
     heroLayerKey = nextLayerKey;
     heroContext.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
-    heroContext.filter = filter;
-    for (const path of layers) {
+    for (const { path, filter: own } of layers) {
       const mirrored = path.startsWith('mirror:');
       const source = imageForPath(mirrored ? path.slice('mirror:'.length) : path);
       if (!source) continue;
       heroContext.save();
+      heroContext.filter = own ? `${filter} ${own}` : filter;
       if (mirrored) {
         heroContext.translate(heroCanvas.width, 0);
         heroContext.scale(-1, 1);
