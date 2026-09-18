@@ -64,6 +64,16 @@ export function canLeaveDungeonFloor({ depth, status, guardianDefeated }) {
   return !chapterGuardianForDepth(depth) || guardianDefeated === true;
 }
 
+/**
+ * A run is over three ways now. Dying and winning end it where the hero stands;
+ * retiring ends it on purpose, at the gate, with the purse still full — that is
+ * the whole point of it, and the stash is what makes it a decision.
+ */
 export function isTerminalRunStatus(status) {
-  return status === 'dead' || status === 'victory';
+  return status === 'dead' || status === 'victory' || status === 'retired';
+}
+
+/** Walking away is only offered where there is a gate to walk out of. */
+export function canRetireRun({ depth, status } = {}) {
+  return depth === 0 && status === 'playing';
 }

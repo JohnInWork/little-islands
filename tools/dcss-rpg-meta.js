@@ -117,7 +117,9 @@ export function recordBones(meta, record) {
 function normalizedRecord(record) {
   if (!record || typeof record !== 'object') return null;
   const depth = boundedCount(record.depth, 99);
-  const status = record.status === 'victory' ? 'victory' : 'dead';
+  // Three ways to end, and the table keeps them apart: winning, walking away
+  // with the purse, and dying. Anything else on disk is a death.
+  const status = ['victory', 'retired'].includes(record.status) ? record.status : 'dead';
   return {
     depth,
     status,
@@ -132,8 +134,10 @@ function normalizedRecord(record) {
 }
 
 /** Best is depth first, then what the hero did on the way: kills, then gold. */
+const RUN_RANK = Object.freeze({ victory: 0, retired: 1, dead: 2 });
+
 export function compareRuns(left, right) {
-  if (left.status !== right.status) return left.status === 'victory' ? -1 : 1;
+  if (left.status !== right.status) return RUN_RANK[left.status] - RUN_RANK[right.status];
   if (left.depth !== right.depth) return right.depth - left.depth;
   if (left.kills !== right.kills) return right.kills - left.kills;
   if (left.gold !== right.gold) return right.gold - left.gold;

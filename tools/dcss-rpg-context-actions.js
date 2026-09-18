@@ -40,6 +40,7 @@ const ACTION_COPY = Object.freeze({
     serve: 'Отбыть срок',
     goDeep: 'Вниз, в пещеры',
     goSurface: 'Наружу, за ворота',
+    retire: 'Уйти с добычей',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -79,6 +80,7 @@ const ACTION_COPY = Object.freeze({
     serve: 'Serve your time',
     goDeep: 'Down into the caves',
     goSurface: 'Out through the gate',
+    retire: 'Walk away with the haul',
   }),
 });
 
@@ -121,6 +123,7 @@ const GLYPHS = Object.freeze({
   serve: '⌛',
   goDeep: '▼',
   goSurface: '▲',
+  retire: '◆',
 });
 
 const COPY = Object.freeze({
@@ -159,7 +162,7 @@ const COPY = Object.freeze({
     companionOrder: (label) => `Приказ: ${label}.`,
     guardWanted: (label, fine) => `${label}. Штраф — ${fine} реального золота.`,
     gateName: 'Развилка',
-    gateDescription: 'Отсюда две дороги. Внизу пещеры, за воротами — открытое небо.',
+    gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под открытое небо — или домой, с тем, что уже унёс.',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `Замок городской тюрьмы. Срок стоит ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -205,7 +208,7 @@ const COPY = Object.freeze({
     companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. The fine is ${fine} real gold.`,
     gateName: 'The fork',
-    gateDescription: 'Two roads from here. Caves below, open sky beyond the gate.',
+    gateDescription: 'Three roads from here. Caves below, open sky beyond the gate — or home, with what you already carry.',
     cellName: 'Cell door',
     cellDescription: (fine) => `A city jail lock. Your time costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -384,6 +387,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
       actions: [
         { id: 'goDeep', enabled: target.branch !== 'deep' },
         { id: 'goSurface', enabled: target.branch !== 'surface' },
+        // The third road out of the gate is the one that keeps the purse.
+        { id: 'retire', enabled: target.canRetire === true },
       ],
     }),
   }),

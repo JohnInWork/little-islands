@@ -73,7 +73,15 @@ test('a finished run raises the totals and takes its place in the table', () => 
   assert.equal(victory.isRecord, true);
   assert.equal(victory.meta.best[0].status, 'victory');
   assert.equal(victory.meta.totals.victories, 1);
-  assert.equal(compareRuns({ status: 'victory', depth: 1, kills: 0, gold: 0, seconds: 0 }, { status: 'dead', depth: 9, kills: 99, gold: 999, seconds: 0 }), -1);
+  // A comparator promises a sign, not a number. How a run ended outranks
+  // everything it did on the way: winning, then walking away with the purse,
+  // then dying.
+  const shallow = (status) => ({ status, depth: 1, kills: 0, gold: 0, seconds: 0 });
+  const deep = (status) => ({ status, depth: 9, kills: 99, gold: 999, seconds: 0 });
+  assert.ok(compareRuns(shallow('victory'), deep('dead')) < 0);
+  assert.ok(compareRuns(shallow('victory'), deep('retired')) < 0);
+  assert.ok(compareRuns(shallow('retired'), deep('dead')) < 0);
+  assert.ok(compareRuns(deep('dead'), shallow('retired')) > 0);
 });
 
 test('milestones are facts about what happened, and never unlock a head start', () => {

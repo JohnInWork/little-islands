@@ -429,6 +429,7 @@ body {
 
 .appearance-editor,
 .records-screen,
+.outfit-screen,
 .new-run-confirm {
   position: fixed;
   inset: 0;
@@ -451,6 +452,7 @@ body {
 
 [data-screen='appearance'] .appearance-editor,
 [data-screen='records'] .records-screen,
+[data-screen='outfit'] .outfit-screen,
 [data-screen='restart-confirm'] .new-run-confirm {
   opacity: 1;
   visibility: visible;
@@ -1907,7 +1909,8 @@ body {
 [data-screen='context'] .move-control,
 [data-screen='trap-placement'] .move-control,
 [data-screen='dead'] .move-control,
-[data-screen='victory'] .move-control {
+[data-screen='victory'] .move-control,
+[data-screen='retired'] .move-control {
   opacity: 0;
   pointer-events: none;
 }
@@ -4309,7 +4312,9 @@ body {
 
 .context-action-list {
   display: grid;
-  grid-template-columns: repeat(var(--action-count, 2), minmax(0, 1fr));
+  /* Two across at most: three labels in one row on a 390px phone run into
+     each other, and the gate now offers three roads. */
+  grid-template-columns: repeat(min(2, var(--action-count, 2)), minmax(0, 1fr));
   gap: 8px;
   padding-top: 8px;
 }
@@ -4465,7 +4470,8 @@ body {
 }
 
 [data-screen='dead'] .run-end-screen,
-[data-screen='victory'] .run-end-screen {
+[data-screen='victory'] .run-end-screen,
+[data-screen='retired'] .run-end-screen {
   opacity: 1;
   visibility: visible;
 }
@@ -4494,8 +4500,26 @@ body {
   filter: drop-shadow(0 0 10px #c03d7580);
 }
 
-[data-result='victory'] .death-rune {
+/* Walking away is not dying: the skull has no business on that screen. */
+.retired-rune {
   display: none;
+  font-size: 56px;
+  line-height: 1;
+  color: #e6c86a;
+  text-shadow: 0 0 10px #e6c86a55;
+}
+
+[data-result='victory'] .death-rune,
+[data-result='retired'] .death-rune {
+  display: none;
+}
+
+[data-result='retired'] .retired-rune {
+  display: block;
+}
+
+[data-result='retired'] .run-end-title {
+  color: #e6c86a;
 }
 
 [data-result='victory'] .victory-rune {
@@ -7065,4 +7089,167 @@ body {
 .main-menu-conditions span.takes::before {
   content: '− ';
   color: #c98d84;
+}
+
+/* The counter at the gate: what the stash paid for, and what it will cost. */
+.outfit-card {
+  grid-template-rows: auto auto auto 1fr auto;
+}
+
+#close-outfit {
+  min-width: 44px;
+  min-height: 44px;
+  color: #c5d8c4;
+  background: #202a2e;
+  border: 2px solid #3d4b4e;
+}
+
+.outfit-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 4px solid #303a3c;
+  background: #101719;
+}
+
+.outfit-hero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+}
+
+/* What is worn shows up on the figure, so the plan is visible, not remembered. */
+.outfit-figure {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 2px 4px;
+  border: 2px solid #3d4b4e;
+  background: #0a1012;
+}
+
+.outfit-worn {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+
+.outfit-basket {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #8fa39c;
+}
+
+.outfit-purse {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.outfit-wallet-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8fa39c;
+}
+
+.outfit-wallet {
+  font-size: 16px;
+  color: #e6c86a;
+}
+
+.outfit-rows {
+  padding: 8px 10px 12px;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.outfit-row h3 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d6c79c;
+}
+
+.outfit-goods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.outfit-good {
+  position: relative;
+  min-height: 48px;
+  padding: 4px 8px 4px 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  color: #cfe0d8;
+  background: #131c1e;
+  border: 2px solid #33423f;
+}
+
+.outfit-good img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
+.outfit-good b {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.outfit-price {
+  font-size: 11px;
+  color: #e6c86a;
+}
+
+.outfit-good[data-owned] {
+  border-color: #7d9a5e;
+  background: #17231a;
+}
+
+.outfit-owned {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-style: normal;
+  color: #0a1012;
+  background: #9ec37a;
+  border: 2px solid #0a1012;
+}
+
+.outfit-good:disabled {
+  opacity: 0.4;
+}
+
+.outfit-footer {
+  padding: 8px 10px;
+  border-top: 4px solid #303a3c;
+  background: #151e20;
+}
+
+.outfit-start {
+  width: 100%;
+  min-height: 52px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #10161a;
+  background: #d6b95f;
+  border: 2px solid #f0dda0;
 }

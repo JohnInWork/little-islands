@@ -62,6 +62,9 @@
               <button id="new-run-from-menu" type="button" hidden>
                 <span aria-hidden="true">↻</span><b id="new-run-from-menu-label">Новый забег</b>
               </button>
+              <button id="open-outfit" type="button">
+                <span aria-hidden="true">◆</span><b id="open-outfit-label">Снаряжение</b>
+              </button>
               <button id="open-records" type="button">
                 <span aria-hidden="true">✦</span><b id="open-records-label">Записи</b>
               </button>
@@ -710,6 +713,7 @@
       >
         <div class="run-end-card pixel-frame">
           <span class="death-rune" aria-hidden="true">☠</span>
+          <span class="retired-rune" aria-hidden="true">◆</span>
           <img
             class="victory-rune"
             src="../assets/dcss-preview/item/misc/misc_orb2.png"
@@ -756,6 +760,38 @@
               <ul id="records-milestones" class="records-milestones"></ul>
             </section>
           </div>
+        </article>
+      </section>
+
+      <section
+        id="outfit-screen"
+        class="outfit-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Снаряжение"
+        aria-hidden="true"
+        inert
+      >
+        <article class="records-card outfit-card pixel-frame">
+          <header class="records-header">
+            <h2 id="outfit-title">Снаряжение</h2>
+            <button id="close-outfit" type="button" aria-label="Закрыть снаряжение">×</button>
+          </header>
+          <div class="outfit-top">
+            <div class="outfit-hero">
+              <div id="outfit-figure" class="outfit-figure"></div>
+              <p id="outfit-basket" class="outfit-basket"></p>
+            </div>
+            <div class="outfit-purse">
+              <span id="outfit-wallet-label" class="outfit-wallet-label"></span>
+              <b id="outfit-wallet" class="outfit-wallet"></b>
+            </div>
+          </div>
+          <p id="outfit-empty" class="records-empty" hidden></p>
+          <div id="outfit-rows" class="outfit-rows"></div>
+          <footer class="outfit-footer">
+            <button id="outfit-start" class="outfit-start" type="button"></button>
+          </footer>
         </article>
       </section>
 

@@ -52,10 +52,25 @@ import {
   SANCTUARY_COST,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
+  canRetireRun,
   isTerminalRunStatus,
   goldRewardForMonster,
   useSanctuary,
 } from './dcss-rpg-run.js';
+import {
+  STASH_KEY,
+  createStashState,
+  parseStash,
+  serializeStash,
+  stashAssetPaths,
+  stashBuy,
+  stashDeposit,
+  stashEarned,
+  stashModel,
+  stashCopy,
+  stashOutfit,
+  stashReturn,
+} from './dcss-rpg-stash.js';
 import {
   allPlayerFoundationAssetPaths,
   composePlayerLayerStack,
@@ -1042,6 +1057,8 @@ let inventoryView = loadInventoryView();
 let salvageMode = false;
 // The history of finished runs. It lives beside the save, never inside it.
 let metaState = createMetaState();
+/** What survived past runs and what has been bought for the next one. */
+let stashState = createStashState(null);
 let recordsReturnScreen = 'menu';
 let toastTimer = 0;
 let toastVisible = false;
@@ -7168,7 +7185,7 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'camp-stash' };
   }
   if (entry.kind === 'city-gate') {
-    return { kind: 'city-gate', branch: run.branch };
+    return { kind: 'city-gate', branch: run.branch, canRetire: canRetireRun({ depth: run.depth, status: runStatus }) };
   }
   if (entry.kind === 'jail-door') {
     const decision = canPickCell({
@@ -8389,6 +8406,7 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   },
   'city-gate'({ action }) {
     closeContextActions();
+    if (action.id === 'retire') return retireRun();
     const branch = action.id === 'goSurface' ? 'surface' : 'deep';
     if (run.branch !== branch) {
       run = switchRunBranch(captureRun(), branch);
@@ -9762,6 +9780,22 @@ function persistMetaState() {
   }
 }
 
+function loadStashState() {
+  try {
+    stashState = parseStash(localStorage.getItem(STASH_KEY));
+  } catch {
+    stashState = createStashState(null);
+  }
+}
+
+function persistStash() {
+  try {
+    localStorage.setItem(STASH_KEY, serializeStash(stashState));
+  } catch {
+    // Same promise as the records: storage must never eat a finished run.
+  }
+}
+
 /** One finished run enters the history: totals, best runs and milestones. */
 /**
  * What the hero was wearing when they fell, in the shape the bones keep: enough
@@ -9863,6 +9897,123 @@ function renderRecords() {
     row.dataset.earned = String(milestone.earned);
     return row;
   }));
+}
+
+const outfitScreen = document.querySelector('#outfit-screen');
+const openOutfitButton = document.querySelector('#open-outfit');
+const closeOutfitButton = document.querySelector('#close-outfit');
+const outfitRows = document.querySelector('#outfit-rows');
+const outfitFigure = document.querySelector('#outfit-figure');
+const outfitBasket = document.querySelector('#outfit-basket');
+const outfitWallet = document.querySelector('#outfit-wallet');
+const outfitWalletLabel = document.querySelector('#outfit-wallet-label');
+const outfitEmpty = document.querySelector('#outfit-empty');
+const outfitStartButton = document.querySelector('#outfit-start');
+const outfitTitle = document.querySelector('#outfit-title');
+let outfitReturnScreen = 'menu';
+
+/**
+ * The counter at the gate. Everything it knows comes from `stashModel`; the
+ * screen decides nothing but where to put it, which is why a refusal here can
+ * say *which* refusal it is instead of greying a button out in silence.
+ */
+function renderOutfit() {
+  const model = stashModel(stashState, itemDetailLanguage);
+  outfitTitle.textContent = model.copy.title;
+  outfitWalletLabel.textContent = model.copy.wallet;
+  outfitWallet.textContent = String(model.gold);
+  outfitStartButton.textContent = model.copy.start;
+  outfitBasket.textContent = `${model.copy.basket}: ${model.basket}/${model.basketLimit}`;
+  outfitEmpty.hidden = model.gold > 0 || model.basket > 0;
+  outfitEmpty.textContent = model.copy.empty;
+
+  // The figure is what you will walk in as: only what is worn shows up on it.
+  outfitFigure.replaceChildren(...model.rows
+    .flatMap((row) => row.goods)
+    .filter((good) => good.owned > 0 && good.slot)
+    .map((good) => {
+      const worn = document.createElement('img');
+      worn.className = 'outfit-worn';
+      worn.src = assetUrl(good.icon);
+      worn.alt = good.name;
+      worn.title = good.name;
+      return worn;
+    }));
+
+  outfitRows.replaceChildren(...model.rows.map((row) => {
+    const section = document.createElement('section');
+    section.className = 'outfit-row';
+    const title = document.createElement('h3');
+    title.textContent = row.title;
+    section.append(title);
+    const list = document.createElement('div');
+    list.className = 'outfit-goods';
+    for (const good of row.goods) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'outfit-good';
+      button.dataset.goodId = good.id;
+      if (good.owned > 0) button.dataset.owned = String(good.owned);
+      button.disabled = !good.affordable && good.owned === 0;
+      const icon = document.createElement('img');
+      icon.src = assetUrl(good.icon);
+      icon.alt = '';
+      const name = document.createElement('b');
+      name.textContent = good.name;
+      const price = document.createElement('span');
+      price.className = 'outfit-price';
+      price.textContent = `${good.price}●`;
+      button.append(icon, name, price);
+      if (good.owned > 0) {
+        const owned = document.createElement('i');
+        owned.className = 'outfit-owned';
+        owned.textContent = `×${good.owned}`;
+        button.append(owned);
+      }
+      list.append(button);
+    }
+    section.append(list);
+    return section;
+  }));
+}
+
+/** One tap buys, and a tap on something already bought gives the money back. */
+function toggleOutfitGood(id, wantsReturn) {
+  const result = wantsReturn ? stashReturn(stashState, id) : stashBuy(stashState, id);
+  if (!result.ok) {
+    showLootToast({ icon: 'item/gold/16.png', rarity: 0 }, stashCopy(itemDetailLanguage).refusal[result.reason] ?? '');
+    playSound('ui-close');
+    return false;
+  }
+  stashState = result.stash;
+  persistStash();
+  renderOutfit();
+  playSound(wantsReturn ? 'ui-close' : 'gold');
+  return true;
+}
+
+function openOutfit() {
+  if (uiScreen === 'outfit') return false;
+  outfitReturnScreen = uiScreen;
+  renderOutfit();
+  uiScreen = 'outfit';
+  document.body.dataset.screen = uiScreen;
+  outfitScreen.inert = false;
+  outfitScreen.setAttribute('aria-hidden', 'false');
+  playSound('ui-tap');
+  requestAnimationFrame(() => closeOutfitButton.focus());
+  return true;
+}
+
+function closeOutfit() {
+  if (uiScreen !== 'outfit') return false;
+  outfitScreen.inert = true;
+  outfitScreen.setAttribute('aria-hidden', 'true');
+  uiScreen = outfitReturnScreen === 'outfit' ? 'menu' : outfitReturnScreen;
+  document.body.dataset.screen = uiScreen;
+  playSound('ui-close');
+  requestAnimationFrame(() => openOutfitButton.focus());
+  return true;
 }
 
 function openRecords() {
@@ -11439,6 +11590,29 @@ function resolveWorldInteractions() {
   if (dungeon.depth < FINAL_DEPTH) descendFloor();
 }
 
+/**
+ * The third way a run ends: on purpose, at the gate, with the purse still full.
+ * Everything in it goes to the stash, which is the only money the outfitter
+ * will ever see — dying banks nothing, and that is what makes going one floor
+ * deeper a decision instead of an obligation.
+ */
+function retireRun() {
+  if (!canRetireRun({ depth: run.depth, status: runStatus })) return false;
+  const carried = stashEarned({ status: 'retired', gold: run.gold });
+  runStatus = 'retired';
+  run.status = runStatus;
+  hero.path = [];
+  hero.pendingAttack = null;
+  stashState = stashDeposit(stashState, carried);
+  persistStash();
+  playSound('victory');
+  stopAmbient();
+  if (carried > 0) showLootToast({ icon: 'item/gold/16.png', rarity: 2 }, `+${carried}`);
+  persistRun();
+  showRunEndScreen('retired');
+  return true;
+}
+
 function completeVictory() {
   if (!artifactAvailable()) return;
   runStatus = 'victory';
@@ -11870,7 +12044,13 @@ function restartRun(seed = null) {
   onboardingHintId = null;
   onboardingCheckedAt = Number.NEGATIVE_INFINITY;
   renderOnboardingHint();
-  run = createRun(Number.isInteger(seed) ? seed : fixedPreviewSeed ?? createSeed());
+  // Whatever was bought at the counter is handed over here and nowhere else:
+  // a kit is spent when a run begins, so backing out of the menu cannot copy it.
+  const runSeed = Number.isInteger(seed) ? seed : fixedPreviewSeed ?? createSeed();
+  const outfit = stashOutfit(stashState);
+  stashState = outfit.stash;
+  persistStash();
+  run = createRun(runSeed, generateDungeon({ seed: runSeed, depth: 1 }), outfit);
   motes = createAtmosphereMotes(run.seed);
   gold = run.gold;
   itemInstances = new Map(run.items.map((record) => [record.uid, materializeInventoryItem(record)]));
@@ -13233,6 +13413,7 @@ async function initialize() {
     updateSalvageUi();
     updateHud();
     loadMetaState();
+    loadStashState();
     renderMainMenu();
     startGameButton.disabled = false;
     editAppearanceButton.disabled = false;
@@ -13421,6 +13602,11 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && uiScreen === 'records') {
     event.preventDefault();
     closeRecords();
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'outfit') {
+    event.preventDefault();
+    closeOutfit();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'character') {
@@ -13644,6 +13830,19 @@ playDailyButton.addEventListener('click', () => {
   if (uiScreen === 'menu') startGameFromMenu();
   restartRun(seed);
   showLootToast({ path: EXIT_PATH, rarity: 2 }, String(seed));
+});
+openOutfitButton.addEventListener('click', openOutfit);
+closeOutfitButton.addEventListener('click', closeOutfit);
+outfitRows.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-good-id]');
+  if (!button) return;
+  // Bought already? Then the tap is a change of mind, and the money comes back.
+  toggleOutfitGood(button.dataset.goodId, Boolean(button.dataset.owned));
+});
+outfitStartButton.addEventListener('click', () => {
+  closeOutfit();
+  if (uiScreen === 'menu') startGameFromMenu();
+  restartRun();
 });
 openRecordsButton.addEventListener('click', openRecords);
 closeRecordsButton.addEventListener('click', closeRecords);

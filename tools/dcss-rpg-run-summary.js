@@ -3,7 +3,7 @@
  * runtime only feeds persisted `run.stats`, the hero and the seed.
  */
 
-export const RUN_END_STATUSES = Object.freeze(['dead', 'victory']);
+export const RUN_END_STATUSES = Object.freeze(['dead', 'victory', 'retired']);
 
 const pair = (ru, en) => Object.freeze({ ru, en });
 
@@ -82,6 +82,7 @@ const COPY = Object.freeze({
   ru: Object.freeze({
     dead: 'Герой пал',
     victory: 'Победа',
+    retired: 'Ушёл живым',
     depth: 'Этаж',
     time: 'Время',
     kills: 'Убито врагов',
@@ -95,6 +96,7 @@ const COPY = Object.freeze({
   en: Object.freeze({
     dead: 'The hero fell',
     victory: 'Victory',
+    retired: 'Walked away',
     depth: 'Floor',
     time: 'Time',
     kills: 'Kills',

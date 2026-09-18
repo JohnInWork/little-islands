@@ -1184,14 +1184,41 @@ export function validateRunStats(stats) {
   return stats.killerId === null || (typeof stats.killerId === 'string' && RUN_END_SOURCE_ID.test(stats.killerId));
 }
 
-export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
+/**
+ * A run starts from zero: worn clothes, a rusty sword, an empty bag and no
+ * spells. Everything else — armour, tools, food, books — is found below.
+ *
+ * `outfit` is what the outfitter at the gate was paid for out of the stash
+ * (`dcss-rpg-stash.js`). It never replaces the rule: the rusty sword and the
+ * worn tunic still come along, and whatever the bought kit takes off the hero
+ * goes into the bag rather than vanishing. Zero is still zero — a zero that
+ * somebody walked out of the dungeon alive to pay for.
+ */
+export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), outfit = null) {
   const startingMagic = createStartingMagic();
-  // A run starts from zero: worn clothes, a rusty sword, an empty bag and no
-  // spells. Everything else — armour, tools, food, books — is found below.
   const items = [
     { id: 'rusty-sword', uid: 'starter-sword', affixIds: [], artifactPowerId: null, artifactCurseId: null },
     { id: 'worn-tunic', uid: 'starter-tunic', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    ...(Array.isArray(outfit?.items) ? outfit.items.map((piece) => ({ ...piece })) : []),
   ];
+  const bareEquipment = {
+    cloak: null,
+    body: 'starter-tunic',
+    head: null,
+    hand1: 'starter-sword',
+    hand2: null,
+    gloves: null,
+    belt: null,
+    boots: null,
+    ring1: null,
+    ring2: null,
+    amulet: null,
+  };
+  const equipment = { ...bareEquipment, ...(outfit?.equipment ?? {}) };
+  const inventory = [...(Array.isArray(outfit?.inventory) ? outfit.inventory : [])];
+  for (const [slot, uid] of Object.entries(bareEquipment)) {
+    if (uid && equipment[slot] !== uid) inventory.push(uid);
+  }
   return {
     version: SAVE_VERSION,
     generatorVersion: GENERATOR_VERSION,
@@ -1229,20 +1256,8 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 })) {
     stats: createRunStats(),
     knowledge: createItemKnowledge(),
     items,
-    equipment: {
-      cloak: null,
-      body: 'starter-tunic',
-      head: null,
-      hand1: 'starter-sword',
-      hand2: null,
-      gloves: null,
-      belt: null,
-      boots: null,
-      ring1: null,
-      ring2: null,
-      amulet: null,
-    },
-    inventory: [],
+    equipment,
+    inventory,
     camp: { stash: createCampStash() },
     house: createHouseState(),
     crime: createCrimeState(),
@@ -2030,7 +2045,7 @@ export function validateRun(snapshot) {
   if (!validateBookStudy(hero.skillStudy)) return false;
   if (!validateSpellState(hero.spells)) return false;
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
-  if (!['playing', 'dead', 'victory'].includes(snapshot.status)) return false;
+  if (!['playing', 'dead', 'victory', 'retired'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
   if (!isFiniteInteger(snapshot.commandSequence, 0, 1_000_000_000)) return false;
   if (!validateRunStats(snapshot.stats)) return false;
