@@ -77,6 +77,38 @@ export const SPELL_CATALOG = Object.freeze([
     },
   }),
   freezeSpell({
+    id: 'purging-light',
+    schoolId: 'cleansing',
+    kind: 'purge',
+    icon: 'item/scroll/i-holy_word.png',
+    color: '#e6dfa8',
+    minimumIntelligence: 5,
+    cooldown: 18,
+    basePower: 6,
+    name: { ru: 'Очистительный свет', en: 'Purging Light' },
+    description: {
+      ru: 'Снимает состояния и лечит. Чем выше «Очищение», тем больше снимает.',
+      en: 'Strips conditions and heals. The higher your Cleansing, the more it takes off.',
+    },
+  }),
+  freezeSpell({
+    id: 'arcane-splinter',
+    schoolId: 'arcana',
+    kind: 'projectile',
+    targetMode: 'nearest',
+    icon: 'item/wand/i-magic_darts.png',
+    color: '#b79ede',
+    minimumIntelligence: 3,
+    cooldown: 2.4,
+    range: 5,
+    basePower: 4,
+    name: { ru: 'Аркановый осколок', en: 'Arcane Splinter' },
+    description: {
+      ru: 'Дешёвый и быстрый выстрел по ближайшему врагу. Растёт от интеллекта и Арканистики.',
+      en: 'A cheap, quick shot at the nearest enemy. It grows with Intelligence and Arcana.',
+    },
+  }),
+  freezeSpell({
     id: 'flight',
     schoolId: 'arcana',
     kind: 'sustained',
@@ -307,9 +339,12 @@ export function spellDamage(spellId, intelligence, schoolRank = 0) {
   return Math.max(1, Math.round(spell.basePower + intelligence * 0.8 + schoolRank * 2.5));
 }
 
+// Purging light mends as well as it cleans, so both kinds share the formula.
+const HEALING_KINDS = Object.freeze(['heal', 'purge']);
+
 export function spellHealing(spellId, intelligence, schoolRank = 0) {
   const spell = spellById(spellId);
-  if (!spell || spell.kind !== 'heal' || !Number.isFinite(intelligence)) return 0;
+  if (!spell || !HEALING_KINDS.includes(spell.kind) || !Number.isFinite(intelligence)) return 0;
   return Math.max(1, Math.round(spell.basePower + intelligence * 1.5 + schoolRank * 3));
 }
 
@@ -376,6 +411,7 @@ const SPELL_COPY = Object.freeze({
     sustained: 'Постоянное',
     projectile: 'Боевое',
     heal: 'Лечение',
+    purge: 'Очищение',
     camp: 'Лагерь',
     minion: 'Слуга',
     intelligence: 'Интеллект',
@@ -388,6 +424,7 @@ const SPELL_COPY = Object.freeze({
     sustained: 'Sustained',
     projectile: 'Offensive',
     heal: 'Healing',
+    purge: 'Cleansing',
     camp: 'Camp',
     minion: 'Servant',
     intelligence: 'Intelligence',

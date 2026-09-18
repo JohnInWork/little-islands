@@ -77,7 +77,7 @@ test('runtime advances hunger only inside active gameplay and exposes a compact 
   assert.match(update, /HUNGER_TUNING\.autosaveEvery/);
   assert.doesNotMatch(update, /damageHero|hero\.hp\s*[-=]/);
   assert.match(runtime, /if \(uiScreen === 'game'\)[\s\S]*updateHero\(delta\)/);
-  assert.match(runtime, /item\.useEffect\?\.type === 'food'/);
+  assert.match(runtime, /effect\?\.type === 'food'/);
   assert.match(html, /id="hunger-meter"[^>]*data-stage="fed"[\s\S]*id="hunger-fill"/);
   assert.match(css, /\.hunger-meter\[data-stage='starving'\][\s\S]*--hunger-color:\s*#d6524c/);
 });

@@ -152,7 +152,7 @@ test('Cooking is a ready skill wired into the fire and the bag', async () => {
 
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /const outputId = cookedItemId\(cookingProfile\(currentSkillCapabilities\(\)\)\);/);
-  assert.match(runtime, /const meal = startMeal\(item\.useEffect\.mealId\);/);
+  assert.match(runtime, /const meal = startMeal\(effect\.mealId\);/);
   assert.match(runtime, /function updateHeroMeal\(delta\)[\s\S]*tickMeal\(hero\.meal/);
   assert.match(runtime, /meal: createMealState\(hero\.meal\),/, 'the save carries the dish');
 });

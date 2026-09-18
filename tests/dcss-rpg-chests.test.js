@@ -209,5 +209,5 @@ test('runtime consumes tools through registered world actions, never generic pot
   assert.match(runtime, /action\.command/);
   assert.match(runtime, /consumeInteractionResources\(result\.consumed\)/);
   assert.match(runtime, /if \(selection\.item\.interactionResource\)/);
-  assert.match(runtime, /function useConsumable\(item, index\) \{\s+if \(item\.interactionResource\)/);
+  assert.match(runtime, /function useConsumable\(item, index, effectOverride = null\) \{[\s\S]{0,120}if \(item\.interactionResource\)/);
 });

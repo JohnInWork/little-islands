@@ -78,8 +78,8 @@ test('consumable descriptions and runtime read the same useEffect contract', asy
   assert.equal(generatedItemDescription(bread, 'en').summary, 'Food · Satiety: +25 min · Healing: +12');
 
   const runtimeSource = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  assert.match(runtimeSource, /item\.useEffect\?\.type === 'heal'/);
-  assert.match(runtimeSource, /item\.useEffect\?\.type === 'food'/);
+  assert.match(runtimeSource, /effect\?\.type === 'heal'/);
+  assert.match(runtimeSource, /effect\?\.type === 'food'/);
   assert.doesNotMatch(runtimeSource, /item\.id === 'healing-potion'/);
 });
 

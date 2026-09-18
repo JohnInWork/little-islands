@@ -45,6 +45,8 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'cryomancy',
     'storm-magic',
     'necromancy',
+    'arcana',
+    'cleansing',
     'cooking',
     'field-medicine',
     'camping',

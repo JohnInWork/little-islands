@@ -42,6 +42,8 @@ export const SCROLL_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'brown-runes', icon: 'item/scroll/scroll-brown.png', name: Object.freeze({ ru: 'Свиток с бурыми рунами', en: 'Brown-rune scroll' }) }),
   Object.freeze({ id: 'green-runes', icon: 'item/scroll/scroll-green.png', name: Object.freeze({ ru: 'Свиток с зелёными рунами', en: 'Green-rune scroll' }) }),
   Object.freeze({ id: 'purple-runes', icon: 'item/scroll/scroll-purple.png', name: Object.freeze({ ru: 'Свиток с лиловыми рунами', en: 'Purple-rune scroll' }) }),
+  Object.freeze({ id: 'red-runes', icon: 'item/scroll/scroll-red.png', name: Object.freeze({ ru: 'Свиток с алыми рунами', en: 'Red-rune scroll' }) }),
+  Object.freeze({ id: 'cyan-runes', icon: 'item/scroll/scroll-cyan.png', name: Object.freeze({ ru: 'Свиток с бирюзовыми рунами', en: 'Cyan-rune scroll' }) }),
 ]);
 
 export const WAND_APPEARANCES = Object.freeze([
@@ -64,6 +66,9 @@ export const BOOK_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'dark-brown', icon: 'item/book/dark_brown.png', name: Object.freeze({ ru: 'Тёмно-коричневая книга', en: 'Dark brown book' }) }),
   Object.freeze({ id: 'bone-white', icon: 'item/book/white.png', name: Object.freeze({ ru: 'Белёсая книга', en: 'Bone-white book' }) }),
   Object.freeze({ id: 'moss-green', icon: 'item/book/metal_green.png', name: Object.freeze({ ru: 'Книга в зелёном металле', en: 'Green metal book' }) }),
+  Object.freeze({ id: 'turquoise', icon: 'item/book/turquoise.png', name: Object.freeze({ ru: 'Бирюзовая книга', en: 'Turquoise book' }) }),
+  Object.freeze({ id: 'tan', icon: 'item/book/tan.png', name: Object.freeze({ ru: 'Песочная книга', en: 'Tan book' }) }),
+  Object.freeze({ id: 'plaid', icon: 'item/book/plaid.png', name: Object.freeze({ ru: 'Книга в клетку', en: 'Plaid book' }) }),
 ]);
 
 export const IDENTIFICATION_APPEARANCES = Object.freeze({

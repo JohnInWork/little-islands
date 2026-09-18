@@ -237,7 +237,7 @@ test('save v43 carries the stash down the stairs and leaves the camp behind', ()
 test('the runtime pitches from the bag and puts the camp on the floor', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /function pitchCamp\(\)[\s\S]*canPitchCamp\(\{[\s\S]*run\.floor\.camp = createCampState\(/);
-  assert.match(runtime, /item\.useEffect\?\.type === 'camp'[\s\S]*const refusal = pitchCamp\(\);[\s\S]*showLootToast\(item, refusal\)/, 'a refused camp names what to fix');
+  assert.match(runtime, /effect\?\.type === 'camp'[\s\S]*const refusal = pitchCamp\(\);[\s\S]*showLootToast\(item, refusal\)/, 'a refused camp names what to fix');
   assert.match(runtime, /function applyCampProps\(\)[\s\S]*campPropsFor\(run\.floor\.camp\)/);
   assert.match(runtime, /fire: Object\.freeze\(\{[\s\S]*interactionId: 'campfire'/, 'the camp fire cooks like any other');
   assert.match(runtime, /bedroll: Object\.freeze\(\{[\s\S]*interactionId: 'camp-rest'/);

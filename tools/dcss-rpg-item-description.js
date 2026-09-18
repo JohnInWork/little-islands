@@ -126,6 +126,10 @@ const COPY = Object.freeze({
     homeTravel: 'Дорога домой',
     meal: (name, duration) => `Блюдо «${name}»: ${duration} с`,
     cleanse: 'Снимает все состояния',
+    cleanseRitual: 'Ритуал очищения · снимает тем больше, чем выше «Очищение»',
+    flameBurst: (damage, radius) => `Взрыв пламени вокруг · ${damage} урона · радиус ${radius}`,
+    frostBind: (duration, radius) => `Стужа вокруг · ${duration} с · радиус ${radius}`,
+    insight: (radius) => `Открывает карту вокруг · радиус ${radius}`,
     venom: 'Отравление',
     seconds: 'с',
     blink: (range) => `Скачок на выбранную клетку · дальность ${range}`,
@@ -167,6 +171,10 @@ const COPY = Object.freeze({
     homeTravel: 'The road home',
     meal: (name, duration) => `Dish “${name}”: ${duration} s`,
     cleanse: 'Clears all statuses',
+    cleanseRitual: 'A cleansing ritual · the higher your Cleansing, the more it takes off',
+    flameBurst: (damage, radius) => `Burst of flame around you · ${damage} damage · radius ${radius}`,
+    frostBind: (duration, radius) => `Frost around you · ${duration}s · radius ${radius}`,
+    insight: (radius) => `Reveals the map around you · radius ${radius}`,
     venom: 'Poison',
     seconds: 's',
     blink: (range) => `Blink to a chosen tile · range ${range}`,
@@ -316,6 +324,30 @@ function effectFact(effect, language, source) {
   if (effect.type === 'cleanse') {
     const text = COPY[language].cleanse;
     return freezeFact({ id: `${source}:cleanse`, kind: 'use', icon: '◇', text, short: text });
+  }
+  if (effect.type === 'cleanse-ritual') {
+    const text = COPY[language].cleanseRitual;
+    return freezeFact({ id: `${source}:cleanse-ritual`, kind: 'use', icon: '◇', text, short: text });
+  }
+  if (
+    effect.type === 'flame-burst'
+    && Number.isInteger(effect.damage) && effect.damage > 0
+    && Number.isInteger(effect.radius) && effect.radius > 0
+  ) {
+    const text = COPY[language].flameBurst(effect.damage, effect.radius);
+    return freezeFact({ id: `${source}:flame-burst`, kind: 'use', icon: '✦', text, short: text });
+  }
+  if (
+    effect.type === 'frost-bind'
+    && Number.isFinite(effect.duration) && effect.duration > 0
+    && Number.isInteger(effect.radius) && effect.radius > 0
+  ) {
+    const text = COPY[language].frostBind(effect.duration, effect.radius);
+    return freezeFact({ id: `${source}:frost-bind`, kind: 'use', icon: '✦', text, short: text });
+  }
+  if (effect.type === 'insight' && Number.isInteger(effect.radius) && effect.radius > 0) {
+    const text = COPY[language].insight(effect.radius);
+    return freezeFact({ id: `${source}:insight`, kind: 'use', icon: '◈', text, short: text });
   }
   if (
     effect.type === 'venom'

@@ -260,6 +260,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Город | `tools/dcss-rpg-city.js`; ветка в `generateDungeon`, патруль и панель стражи в `dcss.js`, [контракт](2D-CITY.md) |
 | Дом и камень | `tools/dcss-rpg-house.js`; `run.house` и `travelRunToDepth` в `dcss-rpg-core.js`, [контракт](2D-CITY.md) |
 | Розыск и тюрьма | `tools/dcss-rpg-crime.js`; `run.crime`, `noteCrime` и `jailHero` в `dcss.js`, [контракт](2D-CITY.md) |
+| Очищение и Арканистика | `tools/dcss-rpg-{cleansing,scrolls}.js`; круги свитков и ритуал в `dcss.js`, [контракт](2D-MAGIC-SCHOOLS.md) |
 | Боевые техники | `tools/dcss-rpg-{daggers,blunt,spears,marksmanship,mobility,swords,cleave,shield}.js`, [контракт](2D-WEAPON-SKILLS.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |

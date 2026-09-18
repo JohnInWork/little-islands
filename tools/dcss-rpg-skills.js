@@ -239,6 +239,24 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ stormMagicRank: 3 }),
     ]),
   }),
+  cleansing: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ cleansingRank: 1 }),
+      Object.freeze({ cleansingRank: 2 }),
+      Object.freeze({ cleansingRank: 3 }),
+    ]),
+  }),
+  arcana: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ arcanaRank: 1, scrollVariantTier: 1 }),
+      Object.freeze({ arcanaRank: 2, scrollVariantTier: 2 }),
+      Object.freeze({ arcanaRank: 3, scrollVariantTier: 3 }),
+    ]),
+  }),
 });
 // Add a system here only when its runtime consumer is connected and verified.
 export const SKILL_SYSTEMS = Object.freeze([
@@ -270,6 +288,8 @@ export const SKILL_SYSTEMS = Object.freeze([
   'fire-spread',
   'frost-buildup',
   'chain-lightning',
+  'cleansing-ritual',
+  'scroll-variants',
 ]);
 
 export const SKILL_MODIFIER_LIMITS = Object.freeze({
@@ -335,6 +355,9 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   pyromancyRank: Object.freeze([0, 3]),
   cryomancyRank: Object.freeze([0, 3]),
   stormMagicRank: Object.freeze([0, 3]),
+  cleansingRank: Object.freeze([0, 3]),
+  arcanaRank: Object.freeze([0, 3]),
+  scrollVariantTier: Object.freeze([0, 3]),
 });
 
 function isRecord(value) {

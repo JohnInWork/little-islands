@@ -210,7 +210,7 @@ test('the runtime sells the plot, furnishes it and walks the stone both ways', a
   assert.match(runtime, /function restAtHouse\(\)[\s\S]*houseRestDecision\(\)/);
   assert.match(runtime, /function useHomeStone\(\)[\s\S]*returnFromHouse\(\{ house: run\.house \}\)/);
   assert.match(runtime, /const arrival = houseArrivalCell\(cityHousePlot\(\)\);/);
-  assert.match(runtime, /item\.useEffect\?\.type === 'home-travel'/);
+  assert.match(runtime, /effect\?\.type === 'home-travel'/);
   const core = await readFile(new URL('../tools/dcss-rpg-core.js', import.meta.url), 'utf8');
   assert.match(
     core,

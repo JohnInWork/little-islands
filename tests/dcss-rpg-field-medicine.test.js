@@ -94,7 +94,7 @@ test('Field medicine is a ready skill wired into the bag', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(
     runtime,
-    /item\.useEffect\?\.type === 'bandage'[\s\S]*resolveBandage\(\{[\s\S]*profile: fieldMedicineProfile\(currentSkillCapabilities\(\)\)/,
+    /effect\?\.type === 'bandage'[\s\S]*resolveBandage\(\{[\s\S]*profile: fieldMedicineProfile\(currentSkillCapabilities\(\)\)/,
   );
   assert.match(runtime, /hero\.effects = treatment\.effects;/, 'the cured states reach the hero');
 });

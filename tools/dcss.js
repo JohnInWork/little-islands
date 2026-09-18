@@ -214,6 +214,16 @@ import {
   isCityDepth,
 } from './dcss-rpg-city.js';
 import {
+  cleansingProfile,
+  cleansingReport,
+  resolveCleansing,
+} from './dcss-rpg-cleansing.js';
+import {
+  arcanaProfile,
+  scrollVariant,
+  scrollVariantLabel,
+} from './dcss-rpg-scrolls.js';
+import {
   JAIL_LOCK_TIER,
   arrestHero,
   breakOut,
@@ -637,6 +647,7 @@ const itemDetailEffects = document.querySelector('#item-detail-effects');
 const itemDetailEffectsRegion = itemDetail.querySelector('.item-detail-effects');
 const itemDetailEffectsTitle = itemDetail.querySelector('.item-detail-effects h3');
 const itemDetailAction = document.querySelector('#item-detail-action');
+const itemDetailVariant = document.querySelector('#item-detail-variant');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Injected by Vite from package.json; the dev server and tests fall back to a placeholder. */
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
@@ -1628,6 +1639,16 @@ function presentedItem(item) {
   };
 }
 
+/**
+ * Arcana's second reading of a page — but only of a page the hero can already
+ * name. An unknown scroll must not give itself away through the button on it.
+ */
+function variantForItem(item) {
+  if (!item) return null;
+  if (isIdentifiableItem(item) && !run.knowledge.identifiedItemIds.includes(item.id)) return null;
+  return scrollVariant(item.id, arcanaProfile(currentSkillCapabilities()));
+}
+
 function currentAppraisal(item) {
   return appraiseItem({
     knowledge: run.knowledge,
@@ -2360,6 +2381,16 @@ function renderItemDetail(item) {
       return row;
     }),
   );
+  const variant = selection?.source === 'pack' ? variantForItem(item) : null;
+  itemDetailVariant.hidden = !variant;
+  if (variant) {
+    const label = scrollVariantLabel(item.id, itemDetailLanguage);
+    itemDetailVariant.textContent = label;
+    itemDetailVariant.setAttribute(
+      'aria-label',
+      itemDetailLanguage === 'ru' ? `Иначе: ${label}` : `Alternative: ${label}`,
+    );
+  }
   const action = selectedActionModel(selection);
   itemDetailAction.textContent = action.label;
   itemDetailAction.setAttribute('aria-label', action.ariaLabel);
@@ -8204,18 +8235,19 @@ function closeAbilityTargeting({ returnToSource = true } = {}) {
   return true;
 }
 
-function beginBlinkTargeting(itemUid) {
+function beginBlinkTargeting(itemUid, effectOverride = null) {
   const item = itemInstances.get(itemUid);
+  const effect = effectOverride ?? item?.useEffect ?? null;
   if (
     uiScreen !== 'inventory'
     || runStatus !== 'playing'
     || hero.dead
-    || item?.useEffect?.type !== 'blink'
+    || effect?.type !== 'blink'
   ) return false;
   const nextState = {
     kind: 'blink',
     itemUid,
-    range: item.useEffect.range,
+    range: effect.range,
     returnScreen: 'inventory',
     icon: presentedItem(item).icon,
     color: '#81d8dc',
@@ -8553,7 +8585,64 @@ function applyBook(item) {
   return `${direction > 0 ? '+' : '−'}1 ${skillName}`;
 }
 
-function useConsumable(item, index) {
+/** Everything the hero can see within a radius, in cells, and still alive. */
+function monstersAroundHero(radius) {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return monsters.filter((monster) => {
+    if (monster.dead > 0 || monster.ally) return false;
+    const cell = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
+    if (Math.hypot(cell.x - heroCell.x, cell.y - heroCell.y) > radius) return false;
+    return hasLineOfSight(world, heroCell, cell);
+  });
+}
+
+/** The scroll of flame: everything around the reader, the reader excepted. */
+function burnAroundHero(effect) {
+  const targets = monstersAroundHero(effect.radius);
+  burst(hero.x, hero.y - 8, '#ee783f', 26);
+  addImpactWave(hero.x, hero.y - 8, '#ee783f', 40 + effect.radius * 26, 3);
+  for (const monster of targets) {
+    damageMonster(monster, effect.damage, '#ee783f', { style: 'staff' });
+    if (effect.burnSeconds > 0 && monster.dead === 0) {
+      monster.effects = applyActorEffect(monster.effects, 'burning', effect.burnSeconds).effects;
+    }
+  }
+  return targets.length > 0 ? `×${targets.length}` : '0';
+}
+
+/** The scroll of frost: the same circle, but it holds instead of hurting. */
+function bindAroundHero(effect) {
+  const targets = monstersAroundHero(effect.radius);
+  const statusId = effect.freeze ? 'frozen' : 'chilled';
+  burst(hero.x, hero.y - 8, '#9edfe4', 24);
+  addImpactWave(hero.x, hero.y - 8, '#9edfe4', 40 + effect.radius * 26, 1);
+  for (const monster of targets) {
+    monster.effects = applyActorEffect(monster.effects, statusId, effect.duration).effects;
+    addCombatGlyph(monster.x, monster.y, '❄', ACTOR_EFFECTS[statusId].color, -60);
+  }
+  return targets.length > 0 ? `×${targets.length}` : '0';
+}
+
+/** The scroll of insight: the floor around, or the whole floor for a scholar. */
+function revealFromScroll(effect) {
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const before = revealed.size;
+  if (effect.whole) {
+    for (let y = 0; y < world.length; y += 1) {
+      for (let x = 0; x < world[y].length; x += 1) {
+        if (world[y][x] !== '#') revealed.add(`${x},${y}`);
+      }
+    }
+  } else {
+    revealAround(revealed, world, heroCell, effect.radius);
+  }
+  discoverNearbyTraps();
+  burst(hero.x, hero.y - 10, '#d8d2a8', 16);
+  return `+${revealed.size - before}`;
+}
+
+function useConsumable(item, index, effectOverride = null) {
+  const effect = effectOverride ?? item.useEffect ?? null;
   if (item.interactionResource) {
     showLootToast(item, item.stack ?? 1);
     return;
@@ -8580,21 +8669,21 @@ function useConsumable(item, index) {
       return;
     }
     playSound('read');
-  } else if (item.useEffect?.type === 'heal') {
-    feedback = Math.min(item.useEffect.amount, maxHp - hero.hp);
+  } else if (effect?.type === 'heal') {
+    feedback = Math.min(effect.amount, maxHp - hero.hp);
     if (feedback === 0) {
       showLootToast(item, 0);
       return;
     }
     hero.hp += feedback;
     playSound('drink');
-  } else if (item.useEffect?.type === 'food') {
+  } else if (effect?.type === 'food') {
     const result = consumeFood({
       hunger: hero.hunger,
       hp: hero.hp,
       maxHp,
-      nutrition: item.useEffect.nutrition,
-      healing: item.useEffect.healing,
+      nutrition: effect.nutrition,
+      healing: effect.healing,
     });
     if (!result.ok) {
       showLootToast(item, 0);
@@ -8607,20 +8696,20 @@ function useConsumable(item, index) {
     hungerAutosaveElapsed = 0;
     playerHasActed = true;
     // A cooked dish leaves something behind; a second dish replaces the first.
-    const meal = startMeal(item.useEffect.mealId);
+    const meal = startMeal(effect.mealId);
     if (meal) {
       hero.meal = meal;
       renderHeroEffectsHud();
       burst(hero.x, hero.y - 12, activeMeal(meal, itemDetailLanguage).color, 16);
     }
     feedback = `+${Math.ceil(result.restored / 60)}′`;
-  } else if (item.useEffect?.type === 'camp') {
+  } else if (effect?.type === 'camp') {
     const refusal = pitchCamp();
     if (refusal !== '') {
       showLootToast(item, refusal);
       return;
     }
-  } else if (item.useEffect?.type === 'home-travel') {
+  } else if (effect?.type === 'home-travel') {
     const refusal = useHomeStone();
     if (refusal !== '') {
       showLootToast(item, refusal);
@@ -8631,7 +8720,7 @@ function useConsumable(item, index) {
     updateHud();
     persistRun();
     return;
-  } else if (item.useEffect?.type === 'bandage') {
+  } else if (effect?.type === 'bandage') {
     const treatment = resolveBandage({
       profile: fieldMedicineProfile(currentSkillCapabilities()),
       hp: hero.hp,
@@ -8651,9 +8740,37 @@ function useConsumable(item, index) {
     burst(hero.x, hero.y - 10, '#d8c9b4', 18);
     addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
     feedback = `+${treatment.healed}`;
-  } else if (item.useEffect?.type === 'power') {
-    hero.power += item.useEffect.amount;
-    feedback = `+${item.useEffect.amount}`;
+  } else if (effect?.type === 'cleanse-ritual') {
+    const ritual = resolveCleansing({
+      effects: hero.effects,
+      hp: hero.hp,
+      maxHp,
+      profile: cleansingProfile(currentSkillCapabilities()),
+    });
+    if (!ritual.ok) {
+      showLootToast(item, cleansingReport(ritual, itemDetailLanguage));
+      return;
+    }
+    hero.hp = ritual.hp;
+    hero.effects = ritual.effects;
+    for (const id of ritual.cleared) showEffectRelief(id);
+    renderHeroEffectsHud();
+    playSound('spell-heal');
+    burst(hero.x, hero.y - 10, '#cfe6ea', 18);
+    addImpactWave(hero.x, hero.y - 8, '#cfe6ea', 58, 0);
+    feedback = cleansingReport(ritual, itemDetailLanguage);
+  } else if (effect?.type === 'flame-burst') {
+    feedback = burnAroundHero(effect);
+    playSound('spell-fire');
+  } else if (effect?.type === 'frost-bind') {
+    feedback = bindAroundHero(effect);
+    playSound('spell-ice');
+  } else if (effect?.type === 'insight') {
+    feedback = revealFromScroll(effect);
+    playSound('read');
+  } else if (effect?.type === 'power') {
+    hero.power += effect.amount;
+    feedback = `+${effect.amount}`;
   } else {
     throw new Error(`Unsupported consumable effect: ${item.id}`);
   }
@@ -8669,9 +8786,12 @@ function useConsumable(item, index) {
   persistRun();
 }
 
-function performSelectedItemAction({ fromDetail = false } = {}) {
+function performSelectedItemAction({ fromDetail = false, variant = false } = {}) {
   const selection = selectedUiItem();
   if (!selection) return false;
+  // Arcana's second reading of a scroll: the same page, a different effect.
+  const variantEffect = variant ? variantForItem(selection.item)?.effect ?? null : null;
+  if (variant && !variantEffect) return false;
   const appraisal = selection.source === 'pack' ? currentAppraisal(selection.item) : null;
   if (appraisal?.ok) {
     run.knowledge = appraisal.knowledge;
@@ -8708,12 +8828,12 @@ function performSelectedItemAction({ fromDetail = false } = {}) {
       return beginTrapPlacement(selection.item.uid);
     }
     if (selection.item.useEffect?.type === 'blink') {
-      return beginBlinkTargeting(selection.item.uid);
+      return beginBlinkTargeting(selection.item.uid, variantEffect);
     }
     if (selection.item.useEffect?.type === 'target-effect') {
       return beginTargetEffectItemTargeting(selection.item.uid);
     }
-    useConsumable(selection.item, selection.index);
+    useConsumable(selection.item, selection.index, variantEffect);
     return true;
   }
 
@@ -9206,6 +9326,36 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     spellCooldowns[usedSpell.id] = usedSpell.cooldown;
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
+  } else if (usedSpell.kind === 'purge') {
+    const ritual = resolveCleansing({
+      effects: hero.effects,
+      hp: hero.hp,
+      maxHp: stats.maxHp,
+      profile: cleansingProfile(currentSkillCapabilities()),
+    });
+    if (!ritual.ok) {
+      rejectSpellUse(slotIndex, 'purge-refused', cleansingReport(ritual, itemDetailLanguage));
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    // The light mends as well as it cleans, on top of what the ritual restored.
+    const mended = Math.min(
+      spellHealing(usedSpell.id, stats.intelligence, currentSkillCapabilities().cleansingRank ?? 0),
+      stats.maxHp - ritual.hp,
+    );
+    hero.hp = ritual.hp + Math.max(0, mended);
+    hero.effects = ritual.effects;
+    for (const id of ritual.cleared) showEffectRelief(id);
+    renderHeroEffectsHud();
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
+    playSound('spell-heal');
+    burst(hero.x, hero.y - 12, usedSpell.color, 22);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
+    addCombatGlyph(hero.x, hero.y, cleansingReport(ritual, itemDetailLanguage), usedSpell.color, -62);
   } else if (usedSpell.kind === 'heal') {
     hero.path = [];
     hero.attack = Math.max(hero.attack, 0.28);
@@ -9242,7 +9392,9 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
         ? skillCapabilities.cryomancyRank ?? 0
         : usedSpell.schoolId === 'storm-magic'
           ? skillCapabilities.stormMagicRank ?? 0
-          : 0;
+          : usedSpell.schoolId === 'arcana'
+            ? skillCapabilities.arcanaRank ?? 0
+            : 0;
     projectiles.push({
       x: hero.x + Math.cos(angle) * 22,
       y: hero.y + Math.sin(angle) * 22,
@@ -11361,8 +11513,8 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Tab' && uiScreen === 'inventory' && itemDetailIsOpen()) {
     event.preventDefault();
-    const controls = [closeItemDetailButton, itemDetailAction].filter(
-      (control) => !control.disabled,
+    const controls = [closeItemDetailButton, itemDetailVariant, itemDetailAction].filter(
+      (control) => !control.disabled && !control.hidden,
     );
     const currentIndex = controls.indexOf(document.activeElement);
     const direction = event.shiftKey ? -1 : 1;
@@ -11607,6 +11759,7 @@ inventory.addEventListener('pointerdown', (event) => {
   if (event.target === inventory) closeInventory();
 });
 itemDetailAction.addEventListener('click', () => performSelectedItemAction({ fromDetail: true }));
+itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, variant: true }));
 salvageButton.addEventListener('click', () => {
   salvageMode = !salvageMode;
   if (salvageMode && inventoryFilter === 'equipped') {

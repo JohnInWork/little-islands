@@ -3283,6 +3283,25 @@ body {
   border-top: 4px solid #313d40;
 }
 
+#item-detail-variant {
+  min-width: 120px;
+  min-height: 48px;
+  padding: 8px 12px;
+  color: #cdc0da;
+  background: #241f2e;
+  border: 4px solid #7a6a92;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#item-detail-variant:focus-visible {
+  outline: 4px solid var(--bone);
+  outline-offset: 2px;
+}
+
 #item-detail-action {
   min-width: 148px;
   min-height: 48px;
