@@ -711,7 +711,9 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     }
   };
 
-  const rebuild = ({ grid, doors = [], floorPathAt, wallPathAt, imageForPath, theme }) => {
+  const rebuild = ({
+    grid, doors = [], floorPathAt, wallPathAt, imageForPath, theme, skipWallAt = null,
+  }) => {
     disposeObject(worldRoot);
     doorEntries.clear();
     for (const material of materialCache.values()) material.dispose();
@@ -724,6 +726,9 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     for (let y = 0; y < grid.length; y += 1) {
       for (let x = 0; x < grid[0].length; x += 1) {
         floorRecords.push({ x, y, path: floorPathAt(x, y, grid[y][x]) });
+        // Standing timber blocks the way without being a block of stone: the
+        // floor keeps its ground and the tree itself is drawn in the prop pass.
+        if (grid[y][x] === '#' && skipWallAt?.(x, y)) continue;
         if (grid[y][x] === '#') {
           wallRecords.push({
             x,

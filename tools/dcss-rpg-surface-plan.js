@@ -20,11 +20,21 @@
  * says how it is put together.
  */
 export const SURFACE_PROFILES = Object.freeze({
-  // massifs/huts/caves are counts; `acre` scales the massif count to the map.
-  default: Object.freeze({ acre: [0.9, 1.5], massifSize: [2, 5], huts: [3, 5], caves: [1, 2] }),
-  'sunburnt-steppe': Object.freeze({ acre: [0.3, 0.55], massifSize: [5, 10], huts: [4, 6], caves: [0, 0] }),
-  'wild-heath': Object.freeze({ acre: [1.7, 2.6], massifSize: [1, 3], huts: [2, 3], caves: [1, 1] }),
-  'green-hollow': Object.freeze({ acre: [0.7, 1.1], massifSize: [3, 7], huts: [1, 2], caves: [2, 3] }),
+  // massifs/huts/caves are counts; `acre` scales the massif count to the map,
+  // `clump` is how wide one of them spreads — a boulder field and a wood differ
+  // far more in that than in how many things are standing about.
+  default: Object.freeze({ acre: [0.9, 1.5], massifSize: [2, 5], clump: [1, 2], huts: [3, 5], caves: [1, 2], massifKind: 'rock' }),
+  'sunburnt-steppe': Object.freeze({ acre: [0.3, 0.55], massifSize: [5, 10], clump: [1, 2], huts: [4, 6], caves: [0, 0], massifKind: 'rock' }),
+  'wild-heath': Object.freeze({ acre: [1.7, 2.6], massifSize: [1, 3], clump: [1, 2], huts: [2, 3], caves: [1, 1], massifKind: 'rock' }),
+  'green-hollow': Object.freeze({ acre: [0.7, 1.1], massifSize: [3, 7], clump: [1, 2], huts: [1, 2], caves: [2, 3], massifKind: 'rock' }),
+  // A wood is not a field with a few trees standing in it, and it is not a few
+  // groves either. What blocks the way IS the trees, all of them, everywhere:
+  // very many very small clumps, so the open ground left over is lanes between
+  // trunks. Walking through a wood is a series of small choices about which gap
+  // to take, and it is that — not the tint of the grass — that makes it a wood.
+  'autumn-wood': Object.freeze({ acre: [7, 9], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket' }),
+  'thornwood': Object.freeze({ acre: [7.5, 9.5], massifSize: [1, 2], clump: [0, 1], huts: [1, 2], caves: [0, 1], massifKind: 'thicket' }),
+  mire: Object.freeze({ acre: [6, 8], massifSize: [1, 2], clump: [0, 1], huts: [2, 3], caves: [0, 1], massifKind: 'thicket' }),
 });
 
 export function surfaceProfile(themeId) {
@@ -38,8 +48,16 @@ export const SURFACE_LIGHT_MULTIPLIER = 1.45;
 export const SURFACE_WALL = '#';
 export const SURFACE_FLOOR = '.';
 
-/** How much of the map the rock and the thickets may take. */
-export const SURFACE_COVER = Object.freeze({ min: 0.18, max: 0.34 });
+/** Fewer places than this and there is nothing to find on the floor. */
+export const MIN_CLEARINGS = 6;
+
+/**
+ * How much of a wood is standing timber. This is a promise, not a knob: under
+ * the floor it is a field with a few groves in it and the place stops reading as
+ * a wood at all; over the ceiling the lanes close and there is no way through.
+ * A test holds every `thicket` profile to it across thousands of floors.
+ */
+export const THICKET_COVER = Object.freeze({ min: 0.12, max: 0.4 });
 
 const inBounds = (grid, x, y) => (
   y > 0 && x > 0 && y < grid.length - 1 && x < grid[0].length - 1
@@ -62,15 +80,17 @@ const overlaps = (a, b, pad = 1) => (
  * A massif: a clump of overlapping blots rather than a rectangle, so its edge
  * is ragged and walking round it is a decision about which way, not a corner.
  */
-function raiseMassif(grid, rng, { x, y, size }) {
+function raiseMassif(grid, rng, { x, y, size, clump = [1, 2], thicket }) {
   let cursorX = x;
   let cursorY = y;
   for (let step = 0; step < size; step += 1) {
-    const radius = rng.int(1, 2);
+    const radius = rng.int(clump[0], clump[1]);
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         if (Math.abs(dx) + Math.abs(dy) > radius + 1) continue;
-        if (inBounds(grid, cursorX + dx, cursorY + dy)) grid[cursorY + dy][cursorX + dx] = SURFACE_WALL;
+        if (!inBounds(grid, cursorX + dx, cursorY + dy)) continue;
+        grid[cursorY + dy][cursorX + dx] = SURFACE_WALL;
+        if (thicket) thicket.add(`${cursorX + dx},${cursorY + dy}`);
       }
     }
     cursorX += rng.int(-2, 2);
@@ -274,6 +294,9 @@ export function generateSurfacePlan({
     x === 0 || y === 0 || x === width - 1 || y === height - 1 ? SURFACE_WALL : SURFACE_FLOOR
   )));
 
+  // What blocks the way here: rock to walk around, or standing timber to weave
+  // between. The grid says '#' either way; only this says which it looks like.
+  const thicket = profile.massifKind === 'thicket' ? new Set() : null;
   // Rock and thicket first, so the huts are placed into a landscape.
   // Scaled to the map, not to a number that happened to look right once: the
   // same count on a smaller floor turns open country into a maze.
@@ -287,6 +310,8 @@ export function generateSurfacePlan({
       x: rng.int(2, width - 3),
       y: rng.int(2, height - 3),
       size: rng.int(profile.massifSize[0], profile.massifSize[1]),
+      clump: profile.clump ?? [1, 2],
+      thicket,
     });
   }
 
@@ -353,10 +378,48 @@ export function generateSurfacePlan({
     if (chamber) caves.push(chamber);
   }
   rooms.push(...caves);
-  // A floor can come out so rocky that six clearings do not fit anywhere. Rather
-  // than refuse it, the rock gives way where it is thinnest — which is what a
-  // clearing is anyway.
-  while (rooms.length < 6) {
+
+  // The floor must be one piece. Not "every clearing reachable" — every square
+  // of open ground, or the map ends up with roads that lead into a sealed
+  // pocket and stop. Whatever cannot be joined without breaking a hut open is
+  // not left lying around as unreachable ground: it goes back to rock.
+  const protectedCells = new Set([...built, ...hewn]);
+  const mendGround = () => {
+    for (let pass = 0; pass < 24; pass += 1) {
+      const regions = openRegions(grid);
+      if (regions.length <= 1) break;
+      const main = regions[0];
+      let joined = false;
+      for (const region of regions.slice(1)) {
+        if (wearTrail(grid, region, main, protectedCells)) joined = true;
+        else fillRegion(grid, region);
+      }
+      if (!joined) break;
+    }
+    return openRegions(grid)[0] ?? new Set();
+  };
+  const clearedBy = (standing) => (room) => {
+    for (let y = room.y; y < room.y + room.height; y += 1) {
+      for (let x = room.x; x < room.x + room.width; x += 1) {
+        if (!standing.has(`${x},${y}`)) return false;
+      }
+    }
+    return true;
+  };
+  // A floor can come out so rocky — or so wooded — that six clearings do not fit
+  // anywhere. Rather than refuse it, the ground gives way where it is thinnest,
+  // which is what a clearing is anyway. This runs *after* the mending and takes
+  // the pruning into account: a glade the repair filled in never counted, and
+  // topping up before the repair is how a wood ends up short of places.
+  let standing = new Set();
+  let isClear = clearedBy(standing);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    standing = mendGround();
+    isClear = clearedBy(standing);
+    for (let index = rooms.length - 1; index >= 0; index -= 1) {
+      if (!isClear(rooms[index])) rooms.splice(index, 1);
+    }
+    if (rooms.length >= MIN_CLEARINGS) break;
     let best = null;
     for (let y = 1; y < height - 5; y += 1) {
       for (let x = 1; x < width - 5; x += 1) {
@@ -369,39 +432,12 @@ export function generateSurfacePlan({
         if (!best || walls < best.walls) best = { rect, walls };
       }
     }
-    if (!best) throw new Error('Surface generator could not find enough open ground');
+    if (!best) break;
     fill(grid, best.rect, SURFACE_FLOOR);
     rooms.push(best.rect);
   }
-
-  // The floor must be one piece. Not "every clearing reachable" — every square
-  // of open ground, or the map ends up with roads that lead into a sealed
-  // pocket and stop. Whatever cannot be joined without breaking a hut open is
-  // not left lying around as unreachable ground: it goes back to rock.
-  const protectedCells = new Set([...built, ...hewn]);
-  for (let pass = 0; pass < 24; pass += 1) {
-    const regions = openRegions(grid);
-    if (regions.length <= 1) break;
-    const main = regions[0];
-    let joined = false;
-    for (const region of regions.slice(1)) {
-      if (wearTrail(grid, region, main, protectedCells)) joined = true;
-      else fillRegion(grid, region);
-    }
-    if (!joined) break;
-  }
-  // Clearings and hut interiors that the repair filled in are no longer places.
-  const standing = openRegions(grid)[0] ?? new Set();
-  const isClear = (room) => {
-    for (let y = room.y; y < room.y + room.height; y += 1) {
-      for (let x = room.x; x < room.x + room.width; x += 1) {
-        if (!standing.has(`${x},${y}`)) return false;
-      }
-    }
-    return true;
-  };
-  for (let index = rooms.length - 1; index >= 0; index -= 1) {
-    if (!isClear(rooms[index])) rooms.splice(index, 1);
+  if (rooms.length < MIN_CLEARINGS) {
+    throw new Error('Surface generator could not find enough open ground');
   }
   // A hut nobody could ever walk into was filled in with the rest of the
   // unreachable ground; it is no longer a hut, and saying otherwise would leave
@@ -410,7 +446,7 @@ export function generateSurfacePlan({
   const standingCaves = caves.filter((chamber) => isClear(chamber));
 
   // Anything carved back open is no longer a wall of any kind.
-  for (const set of [built, hewn]) {
+  for (const set of [built, hewn, thicket].filter(Boolean)) {
     for (const key of [...set]) {
       const [x, y] = key.split(',').map(Number);
       if (grid[y]?.[x] !== SURFACE_WALL) set.delete(key);
@@ -423,5 +459,6 @@ export function generateSurfacePlan({
     caves: standingCaves,
     builtWalls: Object.freeze([...built]),
     hewnWalls: Object.freeze([...hewn]),
+    thicketWalls: Object.freeze(thicket ? [...thicket] : []),
   };
 }

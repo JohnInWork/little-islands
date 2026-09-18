@@ -223,3 +223,89 @@ test('each place outside is built to its own shape', async () => {
   // A steppe is open with a few great mesas; a heath is a thousand small rocks.
   assert.ok(cover('wild-heath') > cover('sunburnt-steppe') + 0.04, 'the heath is not denser than the steppe');
 });
+
+/**
+ * «Почему деревьев так мало — не похоже на лес». It was not a wood, it was a
+ * field with groves in it: a handful of clumps and open grass between them.
+ * A wood is the other way round — the trees are the map and the open ground is
+ * the lanes left over. This is that in a number.
+ */
+test('a wood is mostly trees, and the lanes through it still join up', async () => {
+  const { surfaceProfile, THICKET_COVER, SURFACE_PROFILES } = await import('../tools/dcss-rpg-surface-plan.js');
+  const wooded = Object.entries(SURFACE_PROFILES)
+    .filter(([, profile]) => profile.massifKind === 'thicket')
+    .map(([themeId]) => themeId);
+  assert.ok(wooded.length >= 3, 'no wooded places to check');
+  for (const themeId of wooded) {
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      const share = plan.thicketWalls.length / (MAP_WIDTH * MAP_HEIGHT);
+      assert.ok(
+        share >= THICKET_COVER.min,
+        `${themeId} seed ${seed}: ${share.toFixed(3)} of the map is trees — that is a field, not a wood`,
+      );
+      assert.ok(
+        share <= THICKET_COVER.max,
+        `${themeId} seed ${seed}: ${share.toFixed(3)} of the map is trees — there is no way through that`,
+      );
+      // Dense enough to be a wood is also dense enough to seal a pocket off.
+      const open = [];
+      plan.grid.forEach((row, y) => row.forEach((cell, x) => {
+        if (cell === SURFACE_FLOOR) open.push({ x, y });
+      }));
+      assert.equal(reachableFrom(plan.grid, open[0]).size, open.length, `${themeId} seed ${seed} is cut in two`);
+    }
+  }
+});
+
+/**
+ * The repair fills in ground it could not join, and the clearings that stood on
+ * it stop being clearings. Topping up before the repair therefore promised
+ * places that were gone by the time anyone counted — and the floor was refused
+ * outright with «could not place enough rooms».
+ */
+test('a floor outside always has places on it, however thick the wood', async () => {
+  const { surfaceProfile, MIN_CLEARINGS, SURFACE_PROFILES } = await import('../tools/dcss-rpg-surface-plan.js');
+  for (const themeId of Object.keys(SURFACE_PROFILES)) {
+    for (let seed = 1; seed <= 120; seed += 1) {
+      const plan = generateSurfacePlan({
+        rng: createRng(seed),
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        roomCount: 10,
+        profile: surfaceProfile(themeId),
+      });
+      assert.ok(
+        plan.rooms.length >= MIN_CLEARINGS,
+        `${themeId} seed ${seed} came out with ${plan.rooms.length} places`,
+      );
+      for (const room of plan.rooms) {
+        for (let y = room.y; y < room.y + room.height; y += 1) {
+          for (let x = room.x; x < room.x + room.width; x += 1) {
+            assert.equal(plan.grid[y][x], SURFACE_FLOOR, `${themeId} seed ${seed}: a place with a wall in it`);
+          }
+        }
+      }
+    }
+  }
+});
+
+/** A trunk between the camera and the hero would hide him behind bark. */
+test('the tree standing in front of the hero thins out', async () => {
+  const { thicketOpacity } = await import('../tools/dcss-rpg-visuals.js');
+  const hero = { x: 10, y: 10 };
+  assert.ok(thicketOpacity({ x: 10, y: 11 }, hero) < 0.4, 'the trunk dead ahead still covers him');
+  assert.ok(thicketOpacity({ x: 9, y: 11 }, hero) < 1, 'the trunk at his shoulder is untouched');
+  assert.ok(thicketOpacity({ x: 9, y: 11 }, hero) > thicketOpacity({ x: 10, y: 11 }, hero));
+  // Everything else is a tree, not a curtain: behind, beside and two rows off.
+  assert.equal(thicketOpacity({ x: 10, y: 9 }, hero), 1);
+  assert.equal(thicketOpacity({ x: 11, y: 10 }, hero), 1);
+  assert.equal(thicketOpacity({ x: 10, y: 12 }, hero), 1);
+  assert.equal(thicketOpacity({ x: 7, y: 11 }, hero), 1);
+});

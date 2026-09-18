@@ -83,6 +83,8 @@ import {
   BUILT_WALLS,
   HEWN_WALLS,
   biomeThemeFor,
+  thicketOpacity,
+  thicketProps,
   BLOOD_FLOOR_PATHS,
   chapterWeather,
   deterministicAtmosphereMote,
@@ -905,6 +907,7 @@ let inputGesture = 0;
 let doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
 let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
 let builtWallCells = new Set(dungeon.builtWalls ?? []);
+let thicketCells = new Set(dungeon.thicketWalls ?? []);
 let hewnWallCells = new Set(dungeon.hewnWalls ?? []);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
@@ -4174,6 +4177,42 @@ function monsterMotion(monster) {
  * them from the shoulders down on the first frame of every run. They are world
  * objects with a footprint, so they belong in the world, where sorting is real.
  */
+/**
+ * A wood is what blocks the way in it. Every thicket cell is a trunk standing on
+ * the ground rather than a block of stone, so walking through is weaving between
+ * them — and only the ones nearby are drawn, or a late floor would hand the
+ * renderer three hundred billboards at once.
+ */
+const THICKET_DRAW_RADIUS = 11;
+
+function thicketActors3D() {
+  if (thicketCells.size === 0) return [];
+  const props = thicketProps(dungeon.themeId);
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const standing = [];
+  for (const key of thicketCells) {
+    if (!revealed.has(key)) continue;
+    const [x, y] = key.split(',').map(Number);
+    if (Math.abs(x - heroCell.x) > THICKET_DRAW_RADIUS) continue;
+    if (Math.abs(y - heroCell.y) > THICKET_DRAW_RADIUS) continue;
+    const pick = hash(x, y, 11) % props.length;
+    standing.push({
+      id: `thicket:${key}`,
+      path: props[pick],
+      x: (x + 0.5) * TILE,
+      y: (y + 0.5) * TILE,
+      size: 84 + (hash(x, y, 13) % 3) * 6,
+      facing: hash(x, y, 17) % 2 === 0 ? 1 : -1,
+      screenOffsetY: -18,
+      opacity: thicketOpacity({ x, y }, heroCell),
+      hit: false,
+      shadowScale: 0.66,
+      shadowOpacity: 0.26,
+    });
+  }
+  return standing;
+}
+
 function worldMarkers3D() {
   const markers = [];
   if (dungeon.sanctuary && revealed.has(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`)) {
@@ -4396,6 +4435,7 @@ function syncWorldActors3D() {
         })),
     ],
     decorations: [
+      ...thicketActors3D(),
       ...worldMarkers3D(),
       ...dungeonEnvironment.props
         .filter(({ gridX, gridY }) => revealed.has(`${gridX},${gridY}`))
@@ -5037,6 +5077,7 @@ function rebuildDungeonWorld3D() {
     imageForPath: image,
     floorPathAt: (x, y, cell) => floorTextureAt(x, y, cell, theme),
     wallPathAt: (x, y, cell) => wallTextureAt(x, y, cell, theme),
+    skipWallAt: (x, y) => thicketCells.has(`${x},${y}`),
   });
 }
 
@@ -11308,6 +11349,7 @@ function replaceFloor(nextDepth, arrival = null) {
   doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
   merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }));
   builtWallCells = new Set(dungeon.builtWalls ?? []);
+  thicketCells = new Set(dungeon.thicketWalls ?? []);
   hewnWallCells = new Set(dungeon.hewnWalls ?? []);
   openingDoor = null;
   activeChestFindId = null;
@@ -11663,9 +11705,13 @@ function updateHunger(delta) {
   hungerAccumulator -= activeSeconds;
   run.stats.activeSeconds += activeSeconds;
   const before = hero.hunger;
+  // `advanceHunger` takes whole seconds and says so; a condition's multiplier
+  // turns them into a fraction, and the tick threw on every «Голодный год».
   hero.hunger = advanceHunger(
     hero.hunger,
-    frugalHungerSeconds(activeSeconds, currentArmourProfile()) * currentConditions().hungerScale,
+    Math.round(
+      frugalHungerSeconds(activeSeconds, currentArmourProfile()) * currentConditions().hungerScale,
+    ),
   );
   if (hero.hunger === before) return;
 

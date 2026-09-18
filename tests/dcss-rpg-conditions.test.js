@@ -162,6 +162,9 @@ test('no rule can reach the larder', () => {
 
 test('the runtime reads the run it is standing on, and shows it before the first step', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Hunger is counted in whole seconds and says so. A multiplier makes a
+  // fraction of them, and «Голодный год» threw on every single tick.
+  assert.match(runtime, /Math\.round\(\s*\n\s*frugalHungerSeconds[\s\S]{0,90}?hungerScale,/);
   // One reader, fed by the floor, so nothing has to know the run seed.
   assert.match(runtime, /function currentConditions\(\)[\s\S]*conditionEffects\(dungeon\.conditionIds \?\? \[\]\)/);
   for (const knob of ['goldScale', 'revealRadiusDelta', 'monsterVisionDelta', 'monsterSpeedScale', 'heroSpeedScale', 'hungerScale', 'foodHealingScale']) {

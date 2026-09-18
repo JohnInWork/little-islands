@@ -574,6 +574,7 @@ function generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, he
     branch,
     builtWalls: Object.freeze([]),
     hewnWalls: Object.freeze([]),
+    thicketWalls: Object.freeze([]),
     depth,
     scaling,
     width,
@@ -1124,6 +1125,7 @@ export function generateDungeon({
     // plan knows, and the renderer has no way to work it out from the grid.
     builtWalls: surfacePlan?.builtWalls ?? Object.freeze([]),
     hewnWalls: surfacePlan?.hewnWalls ?? Object.freeze([]),
+    thicketWalls: surfacePlan?.thicketWalls ?? Object.freeze([]),
     depth,
     scaling,
     width,

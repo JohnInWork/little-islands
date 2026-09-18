@@ -378,7 +378,65 @@ export const BLOOD_FLOOR_PATHS = numberedPaths('dngn/floor/cobble_blood', [8, 9,
  * terrain families these are shared on purpose — a hut that looked like the
  * meadow it sits in would not read as a hut at all.
  */
-export const BUILT_WALLS = numberedPaths('dngn/wall/vault', [0, 1, 2, 3]);
+/**
+ * What stands in a thicket. These are billboards on the ground, not wall faces:
+ * a tree drawn on the side of a cube is the thing that looked wrong before.
+ */
+export const THICKET_PROPS = Object.freeze({
+  'autumn-wood': Object.freeze([
+    'dngn/trees/tree1_yellow.png',
+    'dngn/trees/tree2_red.png',
+    'dngn/trees/tree1_red.png',
+    'dngn/trees/tree2_yellow.png',
+    'dngn/trees/tree1_lightred.png',
+  ]),
+  mire: Object.freeze([
+    'dngn/trees/mangrove1.png',
+    'dngn/trees/mangrove2.png',
+    'dngn/trees/mangrove3.png',
+  ]),
+  // Bramble is low, and a wood of nothing but low scrub reads as rough ground
+  // rather than as a wood. The gaunt trees standing up out of it are what tells
+  // the eye how tall the place is.
+  thornwood: Object.freeze([
+    'mon/fungi_plants/briar_patch.png',
+    'mon/fungi_plants/bush2.png',
+    'mon/fungi_plants/bush3.png',
+    'mon/fungi_plants/bush4.png',
+    'dngn/trees/tree1_lightred.png',
+    'dngn/trees/tree2_lightred.png',
+  ]),
+});
+
+export function thicketProps(themeId) {
+  return THICKET_PROPS[themeId] ?? THICKET_PROPS['autumn-wood'];
+}
+
+/**
+ * A trunk stands taller than the cell it grows in, so the tree one step nearer
+ * the camera than the hero paints straight over him — and in a wood dense enough
+ * to be a wood, that is most of the time. The tree in the way thins out instead.
+ *
+ * Only the row in front matters: a tree two rows down reaches the row above it,
+ * never the hero's own. Directly ahead it nearly vanishes; to either side it
+ * only clips a shoulder, so it merely goes pale.
+ */
+export function thicketOpacity(cell, heroCell) {
+  if (!cell || !heroCell || cell.y !== heroCell.y + 1) return 1;
+  const offset = Math.abs(cell.x - heroCell.x);
+  if (offset === 0) return 0.3;
+  if (offset === 1) return 0.68;
+  return 1;
+}
+
+/**
+ * A wall somebody built, and a wall cut out of a hill. There is no plank tile in
+ * the set — `vault` was picked for one and turned out to be gold-and-red palace
+ * stone, which is not what a hut in a wood is made of. Brown block with pale
+ * mortar is the plainest dwelling wall we own: still not timber, but it reads as
+ * somebody's house rather than as somebody's treasury.
+ */
+export const BUILT_WALLS = numberedPaths('dngn/wall/stone2_brown', [0, 1, 2, 3]);
 export const HEWN_WALLS = numberedPaths('dngn/wall/stone_gray', [0, 1, 2, 3]);
 
 export const BIOME_THEMES = Object.freeze([
@@ -865,7 +923,9 @@ export const BIOME_THEMES = Object.freeze([
       'dngn/floor/lair6b.png',
       'dngn/floor/lair7b.png',
     ]),
-    walls: numberedPaths('dngn/wall/beehives', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    // Where the brambles end the ground turns to mossy rock. Honeycomb was the
+    // first pick and it read as exactly that: a wall of beehives round a wood.
+    walls: numberedPaths('dngn/wall/lair', [0, 1, 2, 3]),
     accentWalls: [],
     accentModulo: 0,
     bloodModulo: 0,
@@ -1063,15 +1123,21 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
   return Object.freeze(anchors);
 }
 
+/**
+ * Everything the biomes draw with, each file once. Two places may well stand the
+ * same tree — a gaunt red trunk suits both an autumn wood and a thorn wood — and
+ * the answer to "what must be loaded" is a set, not a tally of mentions.
+ */
 export function allBiomeAssetPaths() {
-  return [
+  return [...new Set([
     ...BLOOD_FLOOR_PATHS,
     ...BUILT_WALLS,
     ...HEWN_WALLS,
+    ...Object.values(THICKET_PROPS).flat(),
     ...BIOME_THEMES.flatMap(({ floors, walls, accentWalls }) => [
       ...floors,
       ...walls,
       ...accentWalls,
     ]),
-  ];
+  ])];
 }
