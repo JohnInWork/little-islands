@@ -152,6 +152,37 @@ export const SPELL_CATALOG = Object.freeze([
     },
   }),
   freezeSpell({
+    id: 'raise-warden',
+    schoolId: 'necromancy',
+    kind: 'minion',
+    icon: 'mon/undead/skeletal_warrior.png',
+    color: '#b9b4a0',
+    minimumIntelligence: 9,
+    cooldown: 1.5,
+    name: { ru: 'Поднять стража', en: 'Raise Warden' },
+    description: {
+      ru: 'Тяжёлый слуга: держит коридор и возвращается дольше всех.',
+      en: 'A heavy servant: it holds a corridor and takes the longest to return.',
+    },
+  }),
+  freezeSpell({
+    id: 'ember-burst',
+    schoolId: 'pyromancy',
+    kind: 'burst',
+    icon: 'item/wand/i-fireball.png',
+    color: '#f0873f',
+    minimumIntelligence: 6,
+    cooldown: 9,
+    range: 2,
+    basePower: 6,
+    status: { id: 'burning', baseDuration: 3, maximumDuration: 6 },
+    name: { ru: 'Огненная вспышка', en: 'Ember Burst' },
+    description: {
+      ru: 'Бьёт всех вокруг героя и поджигает их. Стены закрывают от вспышки.',
+      en: 'Strikes everyone around the hero and sets them alight. Walls shield from it.',
+    },
+  }),
+  freezeSpell({
     id: 'camp-call',
     schoolId: 'arcana',
     kind: 'camp',
@@ -333,9 +364,11 @@ export function spellMagic(state, intelligence) {
   return Object.freeze(magic);
 }
 
+const DAMAGING_KINDS = Object.freeze(['projectile', 'burst']);
+
 export function spellDamage(spellId, intelligence, schoolRank = 0) {
   const spell = spellById(spellId);
-  if (!spell || spell.kind !== 'projectile' || !Number.isFinite(intelligence)) return 0;
+  if (!spell || !DAMAGING_KINDS.includes(spell.kind) || !Number.isFinite(intelligence)) return 0;
   return Math.max(1, Math.round(spell.basePower + intelligence * 0.8 + schoolRank * 2.5));
 }
 
@@ -412,6 +445,7 @@ const SPELL_COPY = Object.freeze({
     projectile: 'Боевое',
     heal: 'Лечение',
     purge: 'Очищение',
+    burst: 'Взрыв',
     camp: 'Лагерь',
     minion: 'Слуга',
     intelligence: 'Интеллект',
@@ -425,6 +459,7 @@ const SPELL_COPY = Object.freeze({
     projectile: 'Offensive',
     heal: 'Healing',
     purge: 'Cleansing',
+    burst: 'Burst',
     camp: 'Camp',
     minion: 'Servant',
     intelligence: 'Intelligence',

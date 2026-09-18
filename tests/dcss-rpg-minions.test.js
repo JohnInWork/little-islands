@@ -17,7 +17,7 @@ import {
   minionStats,
   necromancyProfile,
 } from '../tools/dcss-rpg-minions.js';
-import { SPELL_CATALOG, spellById } from '../tools/dcss-rpg-spells.js';
+import { SPELL_CATALOG, spellById, spellDamage, spellStatus } from '../tools/dcss-rpg-spells.js';
 import { lootById, monsterById } from '../tools/dcss-rpg-content.js';
 import { itemDetails } from '../tools/dcss-rpg-item-details.js';
 import { floorScaling, monsterEligibleForFloor } from '../tools/dcss-rpg-scaling.js';
@@ -41,7 +41,7 @@ const capabilitiesAt = (rank) => {
 };
 
 test('a servant is worth what the caster knows', () => {
-  assert.deepEqual([...MINION_SPELL_IDS], ['raise-skeleton', 'raise-ghoul']);
+  assert.deepEqual([...MINION_SPELL_IDS], ['raise-skeleton', 'raise-ghoul', 'raise-warden']);
   assert.equal(isMinionSpell('raise-skeleton'), true);
   assert.equal(isMinionSpell('ember-bolt'), false);
 
@@ -120,7 +120,26 @@ test('both summons are spells with a body in the catalog and a book to learn', a
   const hunger = lootById('book-of-hunger');
   assert.deepEqual(hunger.bookEffect, { type: 'learn-spell', spellId: 'raise-ghoul' });
   assert.equal(itemDetails(hunger, 'en').name, 'Book of Hunger');
-  assert.equal(SPELL_CATALOG.filter(({ kind }) => kind === 'minion').length, 2);
+  assert.equal(SPELL_CATALOG.filter(({ kind }) => kind === 'minion').length, 3);
+});
+
+test('the third servant is a wall, and the burst is a spell of its own kind', () => {
+  const warden = minionBlueprint('raise-warden');
+  const ghoul = minionBlueprint('raise-ghoul');
+  assert.ok(warden.baseHp > ghoul.baseHp, 'a warden holds more than a ghoul');
+  assert.ok(warden.respawnSeconds > ghoul.respawnSeconds, 'and takes longer to return');
+  assert.equal(spellById('raise-warden').minimumIntelligence, 9);
+  assert.ok(monsterById(warden.monsterId), 'the body exists in the catalogue');
+  assert.equal(monsterById(warden.monsterId).xp, 0, 'servants never pay experience');
+  assert.equal(monsterById(warden.monsterId).spawn, 'summon', 'and never join a dungeon pool');
+
+  // The burst is damage without a projectile, on the same damage ladder.
+  const spell = spellById('ember-burst');
+  assert.equal(spell.kind, 'burst');
+  assert.equal(spell.schoolId, 'pyromancy');
+  assert.ok(spell.range >= 2);
+  assert.ok(spellDamage('ember-burst', 8, 3) > spellDamage('ember-burst', 8, 0), 'the school still matters');
+  assert.equal(spellStatus('ember-burst', 8).id, 'burning');
 });
 
 test('Necromancy is a ready skill now that servants exist', () => {

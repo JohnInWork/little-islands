@@ -125,6 +125,11 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.85, vision: 7, windup: 0.26, pursuit: 6 },
   },
   {
+    id: 'raised-warden', path: 'mon/undead/skeletal_warrior.png',
+    tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
+    threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },
+  },
+  {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
     id: 'city-guard', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
@@ -1391,6 +1396,30 @@ export const LOOT_CATALOG = Object.freeze([
     stack: 1,
     identification: { group: 'book', tier: 3 },
     bookEffect: { type: 'learn-spell', spellId: 'raise-ghoul' },
+  },
+  {
+    id: 'book-of-wardens',
+    icon: 'item/book/metal_blue.png',
+    slot: null,
+    kind: 'book',
+    rarity: 3,
+    weight: 1,
+    minDepth: 6,
+    stack: 1,
+    identification: { group: 'book', tier: 3 },
+    bookEffect: { type: 'learn-spell', spellId: 'raise-warden' },
+  },
+  {
+    id: 'book-of-embers-burst',
+    icon: 'item/book/red.png',
+    slot: null,
+    kind: 'book',
+    rarity: 3,
+    weight: 1,
+    minDepth: 4,
+    stack: 1,
+    identification: { group: 'book', tier: 2 },
+    bookEffect: { type: 'learn-spell', spellId: 'ember-burst' },
   },
   {
     id: 'book-of-purity',

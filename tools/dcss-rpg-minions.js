@@ -25,6 +25,14 @@ export const MINION_BLUEPRINTS = Object.freeze({
     respawnSeconds: 90,
     labels: Object.freeze({ ru: 'Упырь', en: 'Ghoul' }),
   }),
+  'raise-warden': Object.freeze({
+    spellId: 'raise-warden',
+    monsterId: 'raised-warden',
+    baseHp: 42,
+    baseDamage: 11,
+    respawnSeconds: 120,
+    labels: Object.freeze({ ru: 'Страж', en: 'Warden' }),
+  }),
 });
 
 export const MINION_SPELL_IDS = Object.freeze(Object.keys(MINION_BLUEPRINTS));

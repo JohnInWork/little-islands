@@ -9462,6 +9462,32 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     spellCooldowns[usedSpell.id] = usedSpell.cooldown;
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
+  } else if (usedSpell.kind === 'burst') {
+    // A burst has no flight: everything the hero can see within its radius is
+    // hit at once, so a wall between them is the only shelter there is.
+    const targets = monstersAroundHero(usedSpell.range);
+    if (targets.length === 0) {
+      rejectSpellUse(slotIndex, 'no-target');
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.3);
+    hero.attackDuration = 0.3;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.36);
+    const rank = currentSkillCapabilities().pyromancyRank ?? 0;
+    const damage = spellDamage(usedSpell.id, stats.intelligence, rank);
+    const status = spellStatus(usedSpell.id, stats.intelligence);
+    playSound('spell-fire');
+    burst(hero.x, hero.y - 8, usedSpell.color, 30);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, 44 + usedSpell.range * 28, 4);
+    for (const monster of targets) {
+      damageMonster(monster, damage, usedSpell.color, { style: 'staff' });
+      if (status && monster.dead === 0) {
+        monster.effects = applyActorEffect(monster.effects, status.id, status.duration).effects;
+      }
+    }
+    spellCooldowns[usedSpell.id] = usedSpell.cooldown;
   } else if (usedSpell.kind === 'purge') {
     const ritual = resolveCleansing({
       effects: hero.effects,

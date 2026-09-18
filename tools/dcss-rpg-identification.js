@@ -69,6 +69,8 @@ export const BOOK_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'turquoise', icon: 'item/book/turquoise.png', name: Object.freeze({ ru: 'Бирюзовая книга', en: 'Turquoise book' }) }),
   Object.freeze({ id: 'tan', icon: 'item/book/tan.png', name: Object.freeze({ ru: 'Песочная книга', en: 'Tan book' }) }),
   Object.freeze({ id: 'plaid', icon: 'item/book/plaid.png', name: Object.freeze({ ru: 'Книга в клетку', en: 'Plaid book' }) }),
+  Object.freeze({ id: 'crimson', icon: 'item/book/red.png', name: Object.freeze({ ru: 'Багровая книга', en: 'Crimson book' }) }),
+  Object.freeze({ id: 'steel-blue', icon: 'item/book/metal_blue.png', name: Object.freeze({ ru: 'Книга в синем металле', en: 'Blue metal book' }) }),
 ]);
 
 export const IDENTIFICATION_APPEARANCES = Object.freeze({
