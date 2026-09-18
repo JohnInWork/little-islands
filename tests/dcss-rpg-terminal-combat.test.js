@@ -110,6 +110,7 @@ function combatRuntime() {
       return awardHeroExperience(options);
     },
     goldRewardForMonster: () => 1,
+    currentConditions: () => ({ goldScale: 1 }),
     combatImpactProfile: () => ({ particles: 0, waveSize: 0, shake: 0, hitStop: 0, staggers: false }),
     persistRun: () => { metrics.saves += 1; },
     showRunEndScreen: (result) => { metrics.endScreens.push(result); },

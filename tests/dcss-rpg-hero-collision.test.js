@@ -157,6 +157,21 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     // nobody carries a staff.
     returnThorns: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
+    // A run always lives by two conditions; a sandbox lives by none.
+    currentConditions: () => ({
+      monsterCountScale: 1,
+      eventScale: 1,
+      lootCountDelta: 0,
+      qualityScale: 1,
+      waterChance: null,
+      goldScale: 1,
+      revealRadiusDelta: 0,
+      monsterVisionDelta: 0,
+      monsterSpeedScale: 1,
+      heroSpeedScale: 1,
+      hungerScale: 1,
+      foodHealingScale: 1,
+    }),
     projectiles: [], sparks: [], bloodDrops: [], combatGlyphs: [], impactWaves: [],
     renderShake: { amount: 0 }, camera: { x: 96, y: 96 },
   });

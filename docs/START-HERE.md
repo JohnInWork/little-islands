@@ -61,6 +61,8 @@
   полу и как обещание «один за забег» держится без броска монеты.
 - [2D-MATERIALS.md](2D-MATERIALS.md) — форма и материал как две оси: глубина
   решает, насколько вещь хороша, сид — как она выглядит и называется.
+- [2D-RUN-CONDITIONS.md](2D-RUN-CONDITIONS.md) — два правила, по которым живёт
+  этот забег: видны до первого шага, каждое и берёт, и даёт.
 - [2D-BIOME-SHUFFLE.md](2D-BIOME-SHUFFLE.md) — порядок мест решает сид забега, а
   не номер этажа; и у каждого места своё население и своя добыча.
 - [2D-SCOUTING.md](2D-SCOUTING.md) — разведка: Темнозрение, Скрытность и
@@ -284,6 +286,7 @@ landmark, сейчас древний алтарь: молитва лечит 30
 | Источник артефактов | `rollCacheArtifact` в `dcss-rpg-artifacts.js`; `artifactFloor` на этаже, `sealed` у тайника, [контракт](2D-ARTIFACT-SOURCE.md) |
 | Форма и материал вещи | `tools/dcss-rpg-materials.js`; `form` в каталоге, `materialId` в записи предмета, [контракт](2D-MATERIALS.md) |
 | Порядок биомов | `chapterThemeOrder`/`dungeonThemeFor` в `dcss-rpg-room-plans.js`; `themeId` на этаже, [контракт](2D-BIOME-SHUFFLE.md) |
+| Условия забега | `tools/dcss-rpg-conditions.js`; `dungeon.conditionIds` и `currentConditions()` в `dcss.js`, [контракт](2D-RUN-CONDITIONS.md) |
 | Население биома | `tools/dcss-rpg-biome-content.js`; веса в `weightedPick` и в пуле лута в `dcss-rpg-core.js`, [контракт](2D-BIOME-SHUFFLE.md) |
 | Лицо главы | `chapter` в каталоге монстров, `CHAPTER_WEATHER` в `dcss-rpg-visuals.js`, [контракт](2D-CHAPTERS.md) |
 | Вода и местность | `tools/dcss-rpg-terrain.js`; затопление в `dcss-rpg-core.js`, применение в `dcss.js`, [контракт](2D-WATER.md) |

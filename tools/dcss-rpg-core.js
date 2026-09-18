@@ -63,6 +63,7 @@ import {
 } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
 import { lootBiomeWeight, monsterBiomeWeight } from './dcss-rpg-biome-content.js';
+import { conditionEffects, conditionedFloor, runConditions } from './dcss-rpg-conditions.js';
 import {
   MERCHANT_ACTOR_PATH,
   MERCHANT_ICON_PATH,
@@ -153,7 +154,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 14;
+export const GENERATOR_VERSION = 15;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -539,7 +540,7 @@ function pickSpawnCells(rng, grid, spawn, count, occupied) {
  * instead of loot, the watch instead of monsters. Its own seed stream means
  * the city can grow new features without moving anything in the dungeon.
  */
-function generateCityDungeon({ floorSeed, depth, width, height, scaling }) {
+function generateCityDungeon({ floorSeed, conditionIds, depth, width, height, scaling }) {
   const rng = createRng(mixSeed(floorSeed, 0x43495459));
   const plan = generateCityPlan({ rng: () => rng.next(), width, height });
   const city = buildCityFloor({ plan, depth, seed: floorSeed, width, height, scaling, rng });
@@ -558,6 +559,7 @@ function generateCityDungeon({ floorSeed, depth, width, height, scaling }) {
     seed: floorSeed,
     artifactFloor: false,
     themeId: CITY_DUNGEON_THEME.id,
+    conditionIds,
     depth,
     scaling,
     width,
@@ -591,7 +593,7 @@ export function generateDungeon({
   scalingVersion = SCALING_VERSION,
   difficulty = DEFAULT_DIFFICULTY,
   lootAbundance = DEFAULT_LOOT_ABUNDANCE,
-  waterChance = WATER_ROOM_CHANCE,
+  waterChance = null,
 }) {
   if (!Number.isInteger(seed) || seed < 0) throw new Error('Dungeon seed must be a uint32 integer');
   if (!Number.isInteger(depth) || depth < CITY_DEPTH)
@@ -606,6 +608,12 @@ export function generateDungeon({
     lootAbundance,
   );
   const floorSeed = mixSeed(seed, depth);
+  // The two rules this run lives by. Drawn from the RUN seed like the order of
+  // places is, and carried on the floor for the same reason: `dungeon.seed` is
+  // the floor's seed and the run cannot be read back out of it.
+  const conditionIds = runConditions(seed);
+  const conditions = conditionEffects(conditionIds);
+  const budget = conditionedFloor(scaling, conditions);
   // The floor that owes the run its artefact: its cache is always sealed, and
   // its cache is always the one that pays.
   const artifactFloor = depth === guaranteedArtifactDepth(seed, FINAL_DEPTH);
@@ -614,7 +622,9 @@ export function generateDungeon({
   const themeId = dungeonThemeFor(seed, depth).id;
   // The city is a floor of a different kind, built by its own plan. It returns
   // the same shape every other floor returns, so nothing downstream cares.
-  if (isCityDepth(depth)) return generateCityDungeon({ floorSeed, depth, width, height, scaling });
+  if (isCityDepth(depth)) {
+    return generateCityDungeon({ floorSeed, conditionIds, depth, width, height, scaling });
+  }
   const rng = createRng(floorSeed);
   const grid = Array.from({ length: height }, () => Array(width).fill('#'));
   const rooms = [];
@@ -717,7 +727,7 @@ export function generateDungeon({
   const eventRooms = shuffle(rng, rooms.slice(1)).filter((room) => {
     const position = roomCenter(room);
     return !occupied.has(`${position.x},${position.y}`);
-  }).slice(0, scaling.layout.eventCount);
+  }).slice(0, budget.eventCount);
   const events = eventRooms.map((room, index) => {
     const position = roomCenter(room);
     occupied.add(`${position.x},${position.y}`);
@@ -733,7 +743,11 @@ export function generateDungeon({
   const monsterWeight = (monster) => (
     (12 / monsterTier(monster)) * monsterBiomeWeight(monster, themeId)
   );
-  const monsterCount = scaling.encounters.monsterCount;
+  // Conditions bend what the floor is made of, never what it owes: the first
+  // floor's gear, the promised book, the artefact cache and the chapter
+  // guardian are placed elsewhere and none of them reads these numbers.
+  const monsterCount = budget.monsterCount;
+  const lootCount = budget.lootCount;
   const fixedMonsterCount = 1 + (objective ? 1 : 0);
   const desiredSurpriseMonsterCount = doorPlan.surprise?.type === 'horde'
     ? Math.min(4, monsterCount - fixedMonsterCount)
@@ -811,9 +825,9 @@ export function generateDungeon({
   // one slot for whatever else the run owes this floor. Eating the budget whole
   // used to leave nowhere to put a guaranteed item.
   const desiredSurpriseLootCount = doorPlan.surprise?.type === 'treasure'
-    ? Math.min(3, scaling.rewards.lootCount - 2)
+    ? Math.min(3, lootCount - 2)
     : doorPlan.surprise?.type === 'mixed'
-      ? Math.min(2, scaling.rewards.lootCount - 2)
+      ? Math.min(2, lootCount - 2)
       : 0;
   const surpriseLootCells = surpriseRoom
     ? pickRoomSpawnCells(rng, grid, surpriseRoom, desiredSurpriseLootCount, occupied)
@@ -822,7 +836,7 @@ export function generateDungeon({
     rng,
     grid,
     spawn,
-    Math.max(0, scaling.rewards.lootCount - 1 - surpriseLootCells.length),
+    Math.max(0, lootCount - 1 - surpriseLootCells.length),
     occupied,
   );
   const selectedLoot = createBalancedLootPicks({
@@ -830,7 +844,7 @@ export function generateDungeon({
     pool: lootPool,
     starterPool: starterLootPool,
     count: 1 + lootCells.length,
-    qualityBudget: scaling.rewards.qualityBudget,
+    qualityBudget: budget.qualityBudget,
   }).picks;
   const floorLootPicks = [...selectedLoot];
   // The run's first spell book is placed, not rolled: see the note on
@@ -950,7 +964,14 @@ export function generateDungeon({
         || roomHolds(room, objective?.boss))
       .map(({ index }) => index),
   );
-  let floodedRoomIndex = chooseFloodedRoom({ rng: waterRng, rooms, excluded: dryRooms, chance: waterChance });
+  let floodedRoomIndex = chooseFloodedRoom({
+    rng: waterRng,
+    rooms,
+    excluded: dryRooms,
+    // An explicit argument wins over the run's conditions, and the conditions
+    // win over the default: a caller asking for a dry floor gets a dry floor.
+    chance: waterChance ?? conditions.waterChance ?? WATER_ROOM_CHANCE,
+  });
   if (floodedRoomIndex !== null) {
     const keepCells = [...events, ...passiveCreatures].filter((entry) => roomHolds(rooms[floodedRoomIndex], entry));
     const water = shuffle(waterRng, floodRoom(grid, rooms[floodedRoomIndex], { rng: waterRng, keepCells }));
@@ -1062,6 +1083,7 @@ export function generateDungeon({
     // which place this floor is.
     artifactFloor,
     themeId,
+    conditionIds,
     depth,
     scaling,
     width,

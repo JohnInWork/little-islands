@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { conditionEffects, conditionedFloor } from '../tools/dcss-rpg-conditions.js';
+
 import { monsterById } from '../tools/dcss-rpg-content.js';
 
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
@@ -23,7 +25,10 @@ test('treasure room content is deterministic and consumes the existing floor bud
     assert.deepEqual(again.events, dungeon.events);
     // Water and chapter creatures are seated by their own streams, outside the budget.
     const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
-    assert.ok(pooled.length <= dungeon.scaling.encounters.monsterCount);
+    assert.ok(pooled.length <= conditionedFloor(
+      dungeon.scaling,
+      conditionEffects(dungeon.conditionIds),
+    ).monsterCount);
     assert.equal(new Set(dungeon.monsters.map(({ instanceId }) => instanceId)).size, dungeon.monsters.length);
     for (const encounter of dungeon.roomEncounters) {
       assert.ok(ROOM_ENCOUNTER_KINDS.includes(encounter.kind));

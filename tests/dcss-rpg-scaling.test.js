@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { conditionEffects, conditionedFloor } from '../tools/dcss-rpg-conditions.js';
+
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 
 import { LOOT_CATALOG, MONSTER_CATALOG, monsterById } from '../tools/dcss-rpg-content.js';
@@ -151,14 +153,17 @@ test('generated floors expose the same profile used for monsters and loot', () =
       assert.deepEqual(dungeon.scaling, profile);
       // The city shares the floor profile but not the dungeon's budgets.
       if (isCityDepth(depth)) continue;
+      // The profile still governs; the run's two conditions bend it, and this is
+      // the only thing they are allowed to bend.
+      const budget = conditionedFloor(profile, conditionEffects(dungeon.conditionIds));
       const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
-      assert.ok(pooled.length <= profile.encounters.monsterCount);
+      assert.ok(pooled.length <= budget.monsterCount);
       assert.ok(
         pooled.every(
           ({ id }) => monsterTier(monsterById(id)) <= profile.encounters.maxMonsterTier,
         ),
       );
-      assert.equal(dungeon.loot.length, profile.rewards.lootCount);
+      assert.equal(dungeon.loot.length, budget.lootCount);
       assert.ok(
         dungeon.loot.every(({ id }) => {
           const item = LOOT_CATALOG.find((candidate) => candidate.id === id);

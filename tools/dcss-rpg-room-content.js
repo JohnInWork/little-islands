@@ -115,18 +115,46 @@ function availableMonsterIndexes(level, claimed, roomIndex, salt) {
     ));
 }
 
+/**
+ * Somewhere to stand when the room itself has nowhere left. A cache's room can
+ * be flooded, or so full of mechanisms and monsters that not one interior cell
+ * is free, and a guarded chest with no guard is a promise broken. Guards then
+ * take the nearest dry cells outside the room — still guarding the cache, which
+ * is what the scenario actually promises.
+ */
+function cellsNearFind(level, find, occupied, salt, limit) {
+  const cells = [];
+  for (let radius = 1; radius <= 6 && cells.length < limit; radius += 1) {
+    const ring = [];
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const point = { x: find.x + dx, y: find.y + dy };
+        if (level.grid[point.y]?.[point.x] !== '.' || occupied.has(cellKey(point))) continue;
+        ring.push(point);
+      }
+    }
+    ring.sort((a, b) => (
+      stableHash(level.seed, level.depth, a.x + a.y * level.grid[0].length, salt)
+      - stableHash(level.seed, level.depth, b.x + b.y * level.grid[0].length, salt)
+    ));
+    cells.push(...ring);
+  }
+  return cells.slice(0, limit);
+}
+
 function relocateGuards({ level, monsters, occupied, claimed, plan, find, count, dormant }) {
   const encounterId = `encounter-${level.depth}-${plan.roomIndex}`;
   const selected = availableMonsterIndexes(level, claimed, plan.roomIndex, 0x47554152)
     .slice(0, count);
   for (const { monster } of selected) occupied.delete(cellKey(monster));
-  const cells = roomCells(
-    level,
-    level.rooms[plan.roomIndex],
-    find,
-    occupied,
-    dormant ? 0x414d4255 : 0x47554152,
-  );
+  const salt = dormant ? 0x414d4255 : 0x47554152;
+  const cells = roomCells(level, level.rooms[plan.roomIndex], find, occupied, salt);
+  if (cells.length < selected.length) {
+    const spare = cellsNearFind(level, find, occupied, salt, selected.length - cells.length);
+    const taken = new Set(cells.map((cell) => cellKey(cell)));
+    cells.push(...spare.filter((cell) => !taken.has(cellKey(cell))));
+  }
   const placedIds = [];
   selected.forEach(({ monster, index }, placementIndex) => {
     const position = cells[placementIndex];
@@ -175,17 +203,29 @@ function materializeChestVault({ level, plan, monsters, events, finds, occupied,
     }));
     find = { ...find, guardMonsterIds: [...monsterIds] };
   } else if (plan.variantId === 'trapped') {
-    const eventIndex = events.findIndex((event) => !roomContains(level.rooms[0], event));
+    // A chest called trapped has to have a trap. The usual way is to move a
+    // mechanism from elsewhere into this room — but on a crowded floor the room
+    // can have no free cell left to move it to, and the chest used to end up
+    // trapped in name only. So look first for a mechanism that is already
+    // standing here and make that one the trap, where no space is needed.
+    const inRoomIndex = events.findIndex((event) => (
+      !roomContains(level.rooms[0], event)
+      && roomContains(level.rooms[plan.roomIndex], event)
+    ));
+    if (inRoomIndex >= 0) {
+      events[inRoomIndex] = { ...events[inRoomIndex], id: 'blade-trap', roomEncounterId: encounterId };
+      trapEventIds.push(events[inRoomIndex].instanceId);
+    }
+    const eventIndex = trapEventIds.length > 0
+      ? -1
+      : events.findIndex((event) => !roomContains(level.rooms[0], event));
     if (eventIndex >= 0) {
       const source = events[eventIndex];
       occupied.delete(cellKey(source));
-      const [position] = roomCells(
-        level,
-        level.rooms[plan.roomIndex],
-        find,
-        occupied,
-        0x54524150,
-      );
+      const [position] = [
+        ...roomCells(level, level.rooms[plan.roomIndex], find, occupied, 0x54524150),
+        ...cellsNearFind(level, find, occupied, 0x54524150, 1),
+      ];
       if (position) {
         occupied.add(cellKey(position));
         events[eventIndex] = {

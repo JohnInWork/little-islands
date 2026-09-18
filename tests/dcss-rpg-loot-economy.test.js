@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  conditionEffects,
+  conditionedFloor,
+} from '../tools/dcss-rpg-conditions.js';
+
+/** The profile bent by the run's own two conditions: what the floor really got. */
+const floorBudget = (floor) => conditionedFloor(floor.scaling, conditionEffects(floor.conditionIds));
+
 import { lootById } from '../tools/dcss-rpg-content.js';
 import { createRng, generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -71,7 +79,7 @@ test('abundance changes only the loot layer of a seeded dungeon', () => {
   assert.deepEqual(lean.doors, rich.doors);
   assert.ok(lean.loot.some(({ id }) => id !== 'coin-cache'));
   for (const floor of [lean, normal, rich]) {
-    assert.equal(floor.loot.length, floor.scaling.rewards.lootCount);
+    assert.equal(floor.loot.length, floorBudget(floor).lootCount);
     assert.equal(Object.hasOwn(floor.loot[0], 'sanctity'), false);
     assert.equal(Object.hasOwn(floor.loot[0], 'sanctityKnown'), false);
   }

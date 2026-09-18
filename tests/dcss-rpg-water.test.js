@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 
+import { runConditions } from '../tools/dcss-rpg-conditions.js';
+
 import { MONSTER_CATALOG, CONTENT_PATHS, monsterById } from '../tools/dcss-rpg-content.js';
 import {
   GENERATOR_VERSION,
@@ -109,8 +111,14 @@ test('flooding keeps every opening dry with an apron, leaves islands and is rare
 
 test('the generator floods a rare room with its own stream and seats water creatures in it', () => {
   let flooded = 0;
+  let ordinaryFloors = 0;
+  let ordinaryFlooded = 0;
   for (let seed = 1; seed <= 90; seed += 1) {
     for (const depth of [1, 3, 6]) {
+      // A run under «Большая вода» floods every floor on purpose, so the rate
+      // is only meaningful on runs whose conditions leave the water alone.
+      const tide = runConditions(seed * 101).includes('high-water');
+      if (!tide) ordinaryFloors += 1;
       const dry = generateDungeon({ seed: seed * 101, depth, waterChance: 0 });
       const level = generateDungeon({ seed: seed * 101, depth });
       const water = [];
@@ -121,6 +129,7 @@ test('the generator floods a rare room with its own stream and seats water creat
         continue;
       }
       flooded += 1;
+      if (!tide) ordinaryFlooded += 1;
       const room = level.rooms[level.floodedRoomIndex];
       assert.ok(water.length > 0);
       assert.ok(water.every(({ x, y }) => x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height), 'water stays inside one room');
@@ -146,7 +155,11 @@ test('the generator floods a rare room with its own stream and seats water creat
       // The three core finds never move; only the fountain landmark may relocate
       // into the pool, so compare the core wave and the landmark count separately.
       assert.deepEqual(level.finds.slice(0, 3).map(({ id }) => id), dry.finds.slice(0, 3).map(({ id }) => id));
-      assert.deepEqual(level.finds.slice(0, 3).map(({ instanceId }) => instanceId), dry.finds.slice(0, 3).map(({ instanceId }) => instanceId));
+      // The kinds are the promise; the numbering is not. A flood can reseat the
+      // landmark, and everything placed after it is numbered one step along —
+      // rare enough that no dry seed ever showed it, and visible once «Большая
+      // вода» started flooding floors that used to stay dry.
+      assert.equal(new Set(level.finds.map(({ instanceId }) => instanceId)).size, level.finds.length);
       // A flooded floor can lose the hidden stash: the fountain takes the pool
       // room and the remaining free rooms differ, so only the core wave is fixed.
       assert.ok(Math.abs(level.finds.length - dry.finds.length) <= 1);
@@ -157,7 +170,26 @@ test('the generator floods a rare room with its own stream and seats water creat
       assert.equal(hasLineOfSight(level.grid, cell, cell), true);
     }
   }
-  assert.ok(flooded > 55 && flooded < 120, `roughly a third of 270 floors (${flooded})`);
+  assert.ok(
+    ordinaryFlooded > ordinaryFloors * 0.2 && ordinaryFlooded < ordinaryFloors * 0.45,
+    `roughly a third of ordinary floors (${ordinaryFlooded}/${ordinaryFloors})`,
+  );
+  assert.ok(flooded > ordinaryFlooded, 'a high-water run floods more than an ordinary one');
+  // «Большая вода» is not a chance but not an absolute either: a floor whose
+  // rooms are all spoken for — spawn, exit, sanctuary, guardian, surprise —
+  // has nothing left to flood, and a tiny room is never flooded at all. The
+  // copy says "nearly everywhere" because that is what it is.
+  let tideFloors = 0;
+  let tideWet = 0;
+  for (let seed = 1; seed <= 120; seed += 1) {
+    if (!runConditions(seed).includes('high-water')) continue;
+    for (const depth of [2, 5, 8]) {
+      tideFloors += 1;
+      if (generateDungeon({ seed, depth }).floodedRoomIndex !== null) tideWet += 1;
+    }
+  }
+  assert.ok(tideFloors > 30, `few high-water runs sampled (${tideFloors})`);
+  assert.ok(tideWet > tideFloors * 0.75, `high water floods nearly every floor (${tideWet}/${tideFloors})`);
 });
 
 test('water creatures live only in flooded rooms and have names for the death screen', () => {
@@ -186,7 +218,7 @@ test('the floor map paints water and save v37 regenerates older floors with the 
   assert.equal(SAVE_VERSION, 47);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v47');
   assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v46');
-  assert.equal(GENERATOR_VERSION, 14);
+  assert.equal(GENERATOR_VERSION, 15);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
   const legacy = structuredClone(run);

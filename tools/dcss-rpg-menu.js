@@ -11,6 +11,7 @@ const COPY = Object.freeze({
     ended: ({ depth, level }) => `Забег завершён · Этаж ${depth} · Уровень ${level}`,
     labels: Object.freeze({
       menu: 'Главное меню',
+      conditions: 'Условия забега',
       pauseGame: 'Поставить игру на паузу',
       appearance: 'Внешность',
       openAppearance: 'Изменить внешность героя',
@@ -118,6 +119,7 @@ const COPY = Object.freeze({
     ended: ({ depth, level }) => `Run complete · Floor ${depth} · Level ${level}`,
     labels: Object.freeze({
       menu: 'Main menu',
+      conditions: 'Run conditions',
       pauseGame: 'Pause game',
       appearance: 'Appearance',
       openAppearance: 'Change hero appearance',

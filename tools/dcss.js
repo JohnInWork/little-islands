@@ -193,6 +193,7 @@ import {
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
 import { materialFilter } from './dcss-rpg-materials.js';
 import { bonesCopy, bonesForDepth, bonesKey, bonesPlacement, ghostStats } from './dcss-rpg-bones.js';
+import { conditionCopy, conditionEffects } from './dcss-rpg-conditions.js';
 import {
   armourProfile,
   focusedCooldown,
@@ -560,6 +561,7 @@ const audioMenuButtons = [audioMuteButton, audioVolumeDownButton, audioVolumeUpB
 const startGameButton = document.querySelector('#start-game');
 const startGameLabel = document.querySelector('#start-game-label');
 const mainMenuHint = document.querySelector('#main-menu-hint');
+const menuConditions = document.querySelector('#main-menu-conditions');
 const appVersionLabel = document.querySelector('#app-version');
 const feedbackLink = document.querySelector('#feedback-link');
 const mainMenuState = document.querySelector('#main-menu-state');
@@ -1209,6 +1211,32 @@ function currentMainMenuModel() {
   });
 }
 
+/**
+ * The two rules this run lives by, shown before the first step rather than
+ * discovered on floor four: a condition the player cannot read is difficulty
+ * wearing a hat.
+ */
+function renderRunConditions(label) {
+  const ids = dungeon.conditionIds ?? [];
+  menuConditions.setAttribute('aria-label', label);
+  menuConditions.hidden = ids.length === 0;
+  menuConditions.replaceChildren(...ids.map((id) => {
+    const copy = conditionCopy(id, itemDetailLanguage);
+    const row = document.createElement('li');
+    const name = document.createElement('b');
+    name.textContent = copy.name;
+    const gives = document.createElement('span');
+    gives.className = 'gives';
+    gives.textContent = copy.gives;
+    const takes = document.createElement('span');
+    takes.className = 'takes';
+    takes.textContent = copy.takes;
+    // The cost first, then what it buys: every «зато» has to answer something.
+    row.append(name, takes, gives);
+    return row;
+  }));
+}
+
 function renderMainMenu() {
   const model = currentMainMenuModel();
   const { labels } = model;
@@ -1221,6 +1249,7 @@ function renderMainMenu() {
   startGameLabel.textContent = model.action;
   startGameButton.setAttribute('aria-label', model.action);
   mainMenuHint.textContent = model.hint;
+  renderRunConditions(labels.conditions);
   appVersionLabel.textContent = `${labels.version} ${APP_VERSION}`;
   feedbackLink.textContent = labels.feedback;
   feedbackLink.setAttribute('aria-label', labels.feedback);
@@ -3455,7 +3484,9 @@ function monsterSeesHero(monster, distanceToHero) {
   // A neutral guard notices the hero only once the hero has given it a reason.
   if (monster.neutral && !monster.provoked) return false;
   if (isHeroConcealed()) return false;
-  if (distanceToHero > TILE * stealthVisionRadius(monster.vision, currentStealthProfile())) return false;
+  const sight = Math.max(1.5, stealthVisionRadius(monster.vision, currentStealthProfile())
+    + currentConditions().monsterVisionDelta);
+  if (distanceToHero > TILE * sight) return false;
   const from = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
   const to = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return hasLineOfSight(world, from, to);
@@ -4023,6 +4054,14 @@ function drawSprite(path, x, y, size = TILE, options = {}) {
     context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   }
   context.restore();
+}
+
+/**
+ * The two rules this run lives by. The floor carries them, so nothing here has
+ * to know the run seed — and a floor is always at hand.
+ */
+function currentConditions() {
+  return conditionEffects(dungeon.conditionIds ?? []);
 }
 
 function isOpenSurface(x, y) {
@@ -5672,7 +5711,8 @@ function carveLight(origin, screenPosition, radius, strength) {
 
 /** How far the hero uncovers the map: darkvision below, daylight in town. */
 function currentRevealRadius() {
-  const base = heroRevealRadius(currentDarkvisionProfile());
+  const base = Math.max(2, heroRevealRadius(currentDarkvisionProfile())
+    + currentConditions().revealRadiusDelta);
   return isCityDepth(dungeon.depth) ? Math.max(base, CITY_REVEAL_RADIUS) : base;
 }
 
@@ -9777,7 +9817,7 @@ function useConsumable(item, index, effectOverride = null) {
       hp: hero.hp,
       maxHp,
       nutrition: effect.nutrition,
-      healing: effect.healing,
+      healing: Math.round(effect.healing * currentConditions().foodHealingScale),
     });
     if (!result.ok) {
       showLootToast(item, 0);
@@ -10793,7 +10833,7 @@ function gainExperience(monster) {
     items: itemInstances,
   });
   Object.assign(hero, progression.hero);
-  const goldReward = goldRewardForMonster(monster);
+  const goldReward = Math.round(goldRewardForMonster(monster) * currentConditions().goldScale);
   gold += goldReward;
   for (let level = 0; level < progression.levelsGained; level += 1) {
     burst(hero.x, hero.y - 10, '#d4c27e', 18);
@@ -11574,7 +11614,10 @@ function updateHunger(delta) {
   hungerAccumulator -= activeSeconds;
   run.stats.activeSeconds += activeSeconds;
   const before = hero.hunger;
-  hero.hunger = advanceHunger(hero.hunger, frugalHungerSeconds(activeSeconds, currentArmourProfile()));
+  hero.hunger = advanceHunger(
+    hero.hunger,
+    frugalHungerSeconds(activeSeconds, currentArmourProfile()) * currentConditions().hungerScale,
+  );
   if (hero.hunger === before) return;
 
   const nextStageId = hungerStage(hero.hunger).id;
@@ -11655,7 +11698,8 @@ function updateHero(delta) {
           currentHeroStats().moveSpeed *
           actorEffectModifiers(hero.effects).moveSpeed *
           terrainSpeedMultiplier({ inWater: heroWading() && !currentArmourProfile().surefooted }) *
-          dodgeSpeedMultiplier(heroDodgeBoost, currentMobilityProfile()),
+          dodgeSpeedMultiplier(heroDodgeBoost, currentMobilityProfile()) *
+          currentConditions().heroSpeedScale,
       );
       if (distance > 0) {
         const next = constrainActorMovement({
@@ -12249,7 +12293,7 @@ function updateWorld(delta) {
     const distance = Math.hypot(dx, dy);
     const movement = Math.min(
       distance,
-      delta * TILE * monster.speed * actorEffectModifiers(monster.effects, {
+      delta * TILE * monster.speed * currentConditions().monsterSpeedScale * actorEffectModifiers(monster.effects, {
         cryomancyRank,
       }).moveSpeed * terrainSpeedMultiplier({ inWater: actorInWater(world, monster, TILE), terrain: monster.terrain }),
     );
