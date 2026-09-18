@@ -100,8 +100,15 @@ function availableMonsterIndexes(level, claimed, roomIndex, salt) {
   const protectedIds = protectedMonsterIds(level);
   return level.monsters
     .map((monster, index) => ({ monster, index }))
-    // Water-bound creatures stay in their pool: they never guard vaults or turn into mimics.
-    .filter(({ monster }) => !claimed.has(monster.instanceId) && !protectedIds.has(monster.instanceId) && !monsterById(monster.id)?.spawn)
+    // Creatures seated by their own stream — water dwellers and the chapter
+    // signature — never guard vaults and never turn into mimics.
+    .filter(({ monster }) => {
+      const definition = monsterById(monster.id);
+      return !claimed.has(monster.instanceId)
+        && !protectedIds.has(monster.instanceId)
+        && !definition?.spawn
+        && !definition?.chapter;
+    })
     .sort((a, b) => (
       stableHash(level.seed, level.depth, roomIndex, salt ^ stringSalt(a.monster.instanceId))
       - stableHash(level.seed, level.depth, roomIndex, salt ^ stringSalt(b.monster.instanceId))

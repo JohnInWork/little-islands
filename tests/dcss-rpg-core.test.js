@@ -94,7 +94,8 @@ test('the nine-floor run introduces one readable monster tier per depth', () => 
     for (let seed = 1; seed <= 250; seed += 1) {
       for (const spawn of generateDungeon({ seed, depth }).monsters) {
         const definition = monsterById(spawn.id);
-        if (definition.spawn) continue; // water creatures are seated by the flooded room, not the pool
+        // Water and chapter creatures are seated by their own streams, not the pool.
+        if (definition.spawn || definition.chapter) continue;
         seen.add(definition.tier);
       }
     }

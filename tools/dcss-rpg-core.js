@@ -79,6 +79,7 @@ import {
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
 import { WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
+import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
 export const SAVE_VERSION = 37;
 export const SAVE_KEY = 'dng-codex:rpg:v37';
@@ -765,6 +766,14 @@ export function generateDungeon({
   // other placement, so a flooded floor keeps the rooms, monsters, loot and
   // fauna of the dry one; only the floor glyphs and two water creatures differ.
   const waterRng = createRng(mixSeed(floorSeed, 0x57415452));
+  const chapterOfDepth = Math.floor((depth - 1) / FLOORS_PER_CHAPTER) + 1;
+  // A creature tied to a chapter belongs to that chapter only; everything else
+  // simply needs the floor to be deep enough.
+  const belongsToFloor = (monster) => (
+    Number.isInteger(monster.chapter)
+      ? monster.chapter === chapterOfDepth
+      : depth >= (monster.minDepth ?? 1)
+  );
   const roomHolds = (room, point) => Boolean(point)
     && point.x >= room.x && point.x < room.x + room.width
     && point.y >= room.y && point.y < room.y + room.height;
@@ -796,14 +805,30 @@ export function generateDungeon({
       for (let x = room.x; x < room.x + room.width; x += 1) if (grid[y][x] === '~') water.push({ x, y });
     }
     const waterSpawns = water.filter(({ x, y }) => !occupied.has(`${x},${y}`));
-    const waterMonsterIds = depth >= 3 ? ['electric-eel', 'merfolk-impaler'] : ['electric-eel'];
-    waterMonsterIds.forEach((id, index) => {
+    const waterMonsters = MONSTER_CATALOG.filter((monster) => (
+      monster.spawn === 'water' && belongsToFloor(monster)
+    ));
+    waterMonsters.forEach((monster, index) => {
       const cell = waterSpawns[index];
       if (!cell) return;
       occupied.add(`${cell.x},${cell.y}`);
-      monsters.push({ instanceId: `monster-${depth}-water-${index}`, id, x: cell.x, y: cell.y });
+      monsters.push({ instanceId: `monster-${depth}-water-${index}`, id: monster.id, x: cell.x, y: cell.y });
     });
   }
+  // Each chapter past the first seats one signature creature from its own
+  // stream. The shared pool and every earlier placement stay byte-identical,
+  // so a saved floor simply gains the creature when it is regenerated.
+  const chapterRng = createRng(mixSeed(floorSeed, 0x43484150));
+  const chapterMonsters = MONSTER_CATALOG.filter((monster) => (
+    monster.chapter === chapterOfDepth && monster.spawn !== 'water'
+  ));
+  chapterMonsters.forEach((monster, index) => {
+    const cell = pickSpawnCells(chapterRng, grid, spawn, 4, occupied)
+      .find(({ x, y }) => grid[y][x] === '.');
+    if (!cell) return;
+    occupied.add(`${cell.x},${cell.y}`);
+    monsters.push({ instanceId: `monster-${depth}-chapter-${index}`, id: monster.id, x: cell.x, y: cell.y });
+  });
   // Interactive finds own an independent stream. Adding a new find or changing
   // its presentation cannot reshuffle rooms, monsters, loot, fauna or doors.
   // Landmarks (altar and later fountain/rune) use a third stream, so they never

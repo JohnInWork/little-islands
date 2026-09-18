@@ -11,6 +11,8 @@ const pair = (ru, en) => Object.freeze({ ru, en });
 export const RUN_END_SOURCE_NAMES = Object.freeze({
   goblin: pair('Гоблин', 'Goblin'),
   'electric-eel': pair('Электрический угорь', 'Electric eel'),
+  'tomb-revenant': pair('Гробничный ревенант', 'Tomb revenant'),
+  siren: pair('Сирена', 'Siren'),
   'merfolk-impaler': pair('Мерфолк-копейщик', 'Merfolk impaler'),
   'spell:storm': pair('Собственная молния', 'Own lightning'),
   bat: pair('Летучая мышь', 'Bat'),

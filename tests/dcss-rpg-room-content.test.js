@@ -21,7 +21,8 @@ test('treasure room content is deterministic and consumes the existing floor bud
     assert.deepEqual(again.roomEncounters, dungeon.roomEncounters);
     assert.deepEqual(again.monsters, dungeon.monsters);
     assert.deepEqual(again.events, dungeon.events);
-    const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn);
+    // Water and chapter creatures are seated by their own streams, outside the budget.
+    const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
     assert.ok(pooled.length <= dungeon.scaling.encounters.monsterCount);
     assert.equal(new Set(dungeon.monsters.map(({ instanceId }) => instanceId)).size, dungeon.monsters.length);
     for (const encounter of dungeon.roomEncounters) {

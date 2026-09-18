@@ -24,6 +24,7 @@ export const MONSTER_CATALOG = Object.freeze([
   },
   {
     id: 'merfolk-impaler',
+    minDepth: 3,
     path: 'mon/merfolk_impaler.png',
     waterPath: 'mon/merfolk_impaler_water.png',
     tier: 2,
@@ -47,6 +48,42 @@ export const MONSTER_CATALOG = Object.freeze([
     flying: true,
     bloodColor: '#6f2f32',
     threat: { attackRate: 1.55, vision: 6.8, windup: 0.1, pursuit: 5 },
+  },
+  {
+    // Chapter II wears this face: slow, relentless, poisonous alive and dead.
+    // `chapter` keeps it out of the shared pool; the generator seats it itself.
+    id: 'tomb-revenant',
+    path: 'mon/undead/revenant.png',
+    tier: 4,
+    hp: 16,
+    damage: 6,
+    speed: 0.72,
+    xp: 22,
+    chapter: 2,
+    large: true,
+    bloodColor: '#6d6250',
+    inflicts: { id: 'poison', duration: 6 },
+    burst: { id: 'poison', duration: 5, radius: 1.7, color: '#9fb06a' },
+    threat: { attackRate: 1.5, vision: 7.5, windup: 0.26, pursuit: 9 },
+  },
+  {
+    // Chapter III wears this one: she never leaves the flooded hall and does
+    // not need to, because her song drags the hero in to her.
+    id: 'siren',
+    path: 'mon/siren.png',
+    waterPath: 'mon/siren_water.png',
+    tier: 5,
+    hp: 12,
+    damage: 3,
+    speed: 1.1,
+    xp: 24,
+    chapter: 3,
+    spawn: 'water',
+    terrain: { water: 1.3, land: 0 },
+    pull: 1,
+    bloodColor: '#4f6f86',
+    inflicts: { id: 'wet', duration: 6 },
+    threat: { attackRate: 1.6, vision: 8, windup: 0.22, pursuit: 8 },
   },
   {
     id: 'chest-mimic',

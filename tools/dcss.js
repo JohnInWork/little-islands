@@ -68,14 +68,15 @@ import {
   savePlayerAppearance,
 } from './dcss-rpg-appearance.js';
 import {
-  BLOOD_FLOOR_PATHS,
-  PIXEL_EFFECT_SCALE,
-  VISIBILITY_TUNING,
   allBiomeAssetPaths,
   atmosphereThemeForDepth,
   biomeThemeForDepth,
+  BLOOD_FLOOR_PATHS,
+  chapterWeather,
   deterministicAtmosphereMote,
   fogAnchorsForDungeon,
+  PIXEL_EFFECT_SCALE,
+  VISIBILITY_TUNING,
 } from './dcss-rpg-visuals.js';
 import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
@@ -2119,6 +2120,45 @@ function updateHeroTerrain() {
   }
 }
 
+/** A dying creature can leave a cloud behind: everyone in reach takes its effect. */
+function burstEffectAround(source) {
+  const { id, duration, radius, color = '#9fb06a' } = source.burst;
+  const reach = TILE * radius;
+  burst(source.x, source.y - 8, color, 16);
+  addImpactWave(source.x, source.y - 6, color, 58, 1);
+  if (!hero.dead && Math.hypot(hero.x - source.x, hero.y - source.y) <= reach) {
+    applyHeroStatus(id, duration);
+  }
+  for (const other of monsters) {
+    if (other === source || other.dead > 0) continue;
+    if (Math.hypot(other.x - source.x, other.y - source.y) > reach) continue;
+    other.effects = applyActorEffect(other.effects, id, duration).effects;
+  }
+}
+
+/**
+ * The siren's song: one step toward her, which is one step into the water she
+ * lives in. The pull replaces the player's route, so it is felt, not hidden.
+ */
+function dragHeroToward(source) {
+  const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const stepX = Math.sign(Math.floor(source.x / TILE) - from.x);
+  const stepY = Math.sign(Math.floor(source.y / TILE) - from.y);
+  const horizontalFirst = Math.abs(source.x - hero.x) >= Math.abs(source.y - hero.y);
+  const candidates = (horizontalFirst
+    ? [{ x: from.x + stepX, y: from.y }, { x: from.x, y: from.y + stepY }]
+    : [{ x: from.x, y: from.y + stepY }, { x: from.x + stepX, y: from.y }])
+    .filter(({ x, y }) => (x !== from.x || y !== from.y)
+      && isHeroWalkable(x, y)
+      && !heroBlockingCells().has(`${x},${y}`));
+  const cell = candidates[0];
+  if (!cell) return;
+  hero.path = [{ x: (cell.x + 0.5) * TILE, y: (cell.y + 0.5) * TILE }];
+  hero.pendingAttack = null;
+  addCombatGlyph(hero.x, hero.y, '~', '#7fd0e0', -66);
+  addImpactWave(hero.x, hero.y - 6, '#7fd0e0', 46, 0);
+}
+
 /** An electric eel's bite arcs to everyone wet nearby, its own kind included. */
 function shockWetActorsAround(source) {
   const radius = TILE * (source.shock?.radius ?? 2);
@@ -3654,14 +3694,18 @@ function drawEvents() {
 
 function drawMotes(layer = 1) {
   const theme = atmosphereThemeForDepth(dungeon.depth);
+  // Each chapter breathes differently: ash drifts, sand races, snow falls.
+  const weather = chapterWeather(biomeThemeForDepth(dungeon.depth).palette);
   const worldPixelWidth = WORLD_WIDTH * TILE;
+  const worldPixelHeight = WORLD_HEIGHT * TILE;
   context.save();
   context.fillStyle = theme.dust;
   for (const mote of motes) {
     if (mote.layer !== layer) continue;
     const drift = reducedMotion ? 0 : elapsed * mote.speed * TILE * (layer + 1);
-    const worldX = (mote.x + drift + worldPixelWidth) % worldPixelWidth;
-    const worldY = mote.y + (reducedMotion ? 0 : Math.sin(elapsed * 0.7 + mote.phase) * 18);
+    const sway = reducedMotion ? 0 : Math.sin(elapsed * 0.7 + mote.phase) * weather.sway;
+    const worldX = (mote.x + drift * weather.driftX + worldPixelWidth) % worldPixelWidth;
+    const worldY = (mote.y + drift * weather.driftY + sway + worldPixelHeight) % worldPixelHeight;
     const cellX = Math.floor(worldX / TILE);
     const cellY = Math.floor(worldY / TILE);
     if (!revealed.has(`${cellX},${cellY}`) || !isCurrentlyVisible(worldX, worldY)) continue;
@@ -3672,10 +3716,11 @@ function drawMotes(layer = 1) {
       position.x > viewportWidth + 12 ||
       position.y > viewportHeight + 12
     ) continue;
-    const size = layer === 2 ? mote.size + 1 : mote.size;
+    const size = (layer === 2 ? mote.size + 1 : mote.size) + weather.size;
     context.globalAlpha =
-      (layer === 2 ? 0.18 : 0.1) +
-      (reducedMotion ? 0 : (Math.sin(elapsed * 1.1 + mote.phase) + 1) * 0.04);
+      ((layer === 2 ? 0.18 : 0.1)
+        + (reducedMotion ? 0 : (Math.sin(elapsed * 1.1 + mote.phase) + 1) * 0.04))
+      * weather.alpha;
     context.fillRect(
       Math.round(position.x / 2) * 2,
       Math.round(position.y / 2) * 2,
@@ -8196,6 +8241,7 @@ function defeatMonster(monster) {
   run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
   playSound('kill');
+  if (monster.burst) burstEffectAround(monster);
   gainExperience(monster);
   if (monster.vaultRewardGold > 0) {
     gold += monster.vaultRewardGold;
@@ -9058,6 +9104,7 @@ function updateWorld(delta) {
           })));
           const hit = damageHero(strikeDamage, { blocked: block.blocked, source: monster.id });
           if (hit && monster.shock) shockWetActorsAround(monster);
+            if (hit && monster.pull > 0) dragHeroToward(monster);
           if (block.stunSeconds > 0) {
             monster.shieldStun = Math.max(monster.shieldStun, block.stunSeconds);
             monster.attackRecovery = Math.max(monster.attackRecovery, block.stunSeconds);

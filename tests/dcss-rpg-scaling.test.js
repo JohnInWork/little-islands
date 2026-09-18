@@ -147,7 +147,7 @@ test('generated floors expose the same profile used for monsters and loot', () =
     for (let seed = 1; seed <= 80; seed += 1) {
       const dungeon = generateDungeon({ seed, depth });
       assert.deepEqual(dungeon.scaling, profile);
-      const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn);
+      const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
       assert.ok(pooled.length <= profile.encounters.monsterCount);
       assert.ok(
         pooled.every(

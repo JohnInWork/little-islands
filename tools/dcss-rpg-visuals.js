@@ -56,6 +56,23 @@ export const ATMOSPHERE_THEMES = Object.freeze({
   }),
 });
 
+/**
+ * Air of the chapter. `driftX`/`driftY` steer the same motes, `sway` is the
+ * side-to-side wobble in pixels, `size` adds pixels and `alpha` scales opacity.
+ */
+const weather = (values) => Object.freeze({ driftX: 1, driftY: 0, sway: 18, size: 0, alpha: 1, ...values });
+
+export const CHAPTER_WEATHER = Object.freeze({
+  slate: weather({ id: 'ash', driftX: 0.6, driftY: 0.25, sway: 20 }),
+  ochre: weather({ id: 'sand', driftX: 1.6, driftY: 0.06, sway: 8, alpha: 1.15 }),
+  ice: weather({ id: 'snow', driftX: 0.22, driftY: 0.9, sway: 26, size: 1, alpha: 1.4 }),
+  ember: weather({ id: 'sparks', driftX: 0.3, driftY: -0.7, sway: 14, alpha: 1.5 }),
+});
+
+export function chapterWeather(paletteId) {
+  return CHAPTER_WEATHER[paletteId] ?? CHAPTER_WEATHER.slate;
+}
+
 export const BLOOD_FLOOR_PATHS = numberedPaths('dngn/floor/cobble_blood', [8, 9, 10, 12]);
 
 export const BIOME_THEMES = Object.freeze([
