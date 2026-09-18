@@ -62,6 +62,7 @@ import {
   dungeonThemeFor,
 } from './dcss-rpg-room-plans.js';
 import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
+import { lootBiomeWeight, monsterBiomeWeight } from './dcss-rpg-biome-content.js';
 import {
   MERCHANT_ACTOR_PATH,
   MERCHANT_ICON_PATH,
@@ -152,7 +153,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 13;
+export const GENERATOR_VERSION = 14;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -727,6 +728,11 @@ export function generateDungeon({
   const monsterPool = MONSTER_CATALOG.filter((monster) =>
     monsterEligibleForFloor(monster, scaling),
   );
+  // The tier says what CAN live on this floor; the place says what often does.
+  // A multiplier, never a filter: nothing is ever taken out of the game.
+  const monsterWeight = (monster) => (
+    (12 / monsterTier(monster)) * monsterBiomeWeight(monster, themeId)
+  );
   const monsterCount = scaling.encounters.monsterCount;
   const fixedMonsterCount = 1 + (objective ? 1 : 0);
   const desiredSurpriseMonsterCount = doorPlan.surprise?.type === 'horde'
@@ -755,6 +761,7 @@ export function generateDungeon({
   const starterMonster = weightedPick(
     rng,
     MONSTER_CATALOG.filter((monster) => monster.tier === 1 && monster.spawn === undefined),
+    (monster) => monsterBiomeWeight(monster, themeId),
   );
   const monsters = [
     { instanceId: `monster-${depth}-0`, id: starterMonster.id, ...starterMonsterCell },
@@ -768,7 +775,7 @@ export function generateDungeon({
         ]
       : []),
     ...monsterCells.map((position, index) => {
-      const definition = weightedPick(rng, monsterPool, (monster) => 12 / monsterTier(monster));
+      const definition = weightedPick(rng, monsterPool, monsterWeight);
       return {
         instanceId: `monster-${depth}-${index + fixedMonsterCount}`,
         id: definition.id,
@@ -776,7 +783,7 @@ export function generateDungeon({
       };
     }),
     ...surpriseMonsterCells.map((position, index) => {
-      const definition = weightedPick(rng, monsterPool, (monster) => 12 / monsterTier(monster));
+      const definition = weightedPick(rng, monsterPool, monsterWeight);
       return {
         instanceId: `monster-${depth}-${index + fixedMonsterCount + monsterCells.length}`,
         id: definition.id,
@@ -790,7 +797,12 @@ export function generateDungeon({
       .map(({ instanceId }) => instanceId);
   }
 
-  const lootPool = LOOT_CATALOG.filter((item) => lootEligibleForFloor(item, scaling));
+  // The same rule for what is left lying here: a sanctum keeps its books, a
+  // forge-hot core keeps its steel. Weights only, folded into the pool so the
+  // budgeted picker below needs to know nothing about biomes.
+  const lootPool = LOOT_CATALOG
+    .filter((item) => lootEligibleForFloor(item, scaling))
+    .map((item) => ({ ...item, weight: (item.weight ?? 1) * lootBiomeWeight(item, themeId) }));
   // The guaranteed first drop must not duplicate what the hero already wears.
   const starterIds = new Set(['rusty-sword', 'worn-tunic']);
   const starterLootPool = lootPool.filter((item) => item.slot && !starterIds.has(item.id));

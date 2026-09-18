@@ -186,7 +186,7 @@ test('the floor map paints water and save v37 regenerates older floors with the 
   assert.equal(SAVE_VERSION, 47);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v47');
   assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v46');
-  assert.equal(GENERATOR_VERSION, 13);
+  assert.equal(GENERATOR_VERSION, 14);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
   const legacy = structuredClone(run);

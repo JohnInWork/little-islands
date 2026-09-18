@@ -2,14 +2,14 @@ import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
 
 export const MONSTER_CATALOG = Object.freeze([
   {
-    id: 'goblin', path: 'mon/goblin.png', tier: 1, hp: 3, damage: 4, speed: 1.22, xp: 4, bloodColor: '#71352d',
+    id: 'goblin', kin: 'humanoid', path: 'mon/goblin.png', tier: 1, hp: 3, damage: 4, speed: 1.22, xp: 4, bloodColor: '#71352d',
     threat: { attackRate: 1.15, vision: 5.8, windup: 0.16, pursuit: 3.6 },
   },
   {
     // Water creatures never join the random pool (`spawn`): the generator seats
     // them in a flooded room. The eel cannot leave water (land speed 0) and its
     // bite shocks everyone wet within two tiles, allies included.
-    id: 'electric-eel',
+    id: 'electric-eel', kin: 'beast',
     path: 'mon/aquatic/electric_eel.png',
     tier: 2,
     hp: 7,
@@ -23,7 +23,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.2, vision: 6.5, windup: 0.14, pursuit: 5 },
   },
   {
-    id: 'merfolk-impaler',
+    id: 'merfolk-impaler', kin: 'humanoid',
     minDepth: 3,
     path: 'mon/merfolk_impaler.png',
     waterPath: 'mon/merfolk_impaler_water.png',
@@ -38,7 +38,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.1, vision: 6.2, windup: 0.18, pursuit: 5.5 },
   },
   {
-    id: 'bat',
+    id: 'bat', kin: 'beast',
     path: 'mon/animals/bat.png',
     tier: 1,
     hp: 2,
@@ -52,7 +52,7 @@ export const MONSTER_CATALOG = Object.freeze([
   {
     // Chapter II wears this face: slow, relentless, poisonous alive and dead.
     // `chapter` keeps it out of the shared pool; the generator seats it itself.
-    id: 'tomb-revenant',
+    id: 'tomb-revenant', kin: 'undead',
     path: 'mon/undead/revenant.png',
     tier: 4,
     hp: 16,
@@ -69,7 +69,7 @@ export const MONSTER_CATALOG = Object.freeze([
   {
     // Chapter III wears this one: she never leaves the flooded hall and does
     // not need to, because her song drags the hero in to her.
-    id: 'siren',
+    id: 'siren', kin: 'humanoid',
     path: 'mon/siren.png',
     waterPath: 'mon/siren_water.png',
     tier: 5,
@@ -86,7 +86,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.6, vision: 8, windup: 0.22, pursuit: 8 },
   },
   {
-    id: 'chest-mimic',
+    id: 'chest-mimic', kin: 'oddity',
     path: 'licensed/cmski-chests/wooden/4.png',
     tier: 1,
     hp: 8,
@@ -98,7 +98,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.12, vision: 7, windup: 0.2, pursuit: 6.5 },
   },
   {
-    id: 'zombie-rat',
+    id: 'zombie-rat', kin: 'undead',
     path: 'mon/undead/zombies/zombie_rat.png',
     tier: 1,
     hp: 3,
@@ -109,38 +109,38 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.35, vision: 4.8, windup: 0.12, pursuit: 4.5 },
   },
   {
-    id: 'gnoll', path: 'mon/gnoll.png', tier: 1, hp: 4, damage: 5, speed: 1.08, xp: 5, bloodColor: '#70342b',
+    id: 'gnoll', kin: 'humanoid', path: 'mon/gnoll.png', tier: 1, hp: 4, damage: 5, speed: 1.08, xp: 5, bloodColor: '#70342b',
     threat: { attackRate: 1, vision: 6, windup: 0.2, pursuit: 4.2 },
   },
   {
     // Raised servants. `spawn: 'summon'` keeps them out of every pool: they
     // exist only while a necromancer holds the slot that calls them.
-    id: 'raised-skeleton', path: 'mon/undead/skeletons/skeleton_humanoid_small.png',
+    id: 'raised-skeleton', kin: 'undead', path: 'mon/undead/skeletons/skeleton_humanoid_small.png',
     tier: 2, hp: 14, damage: 5, speed: 1.12, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 1.05, vision: 7, windup: 0.18, pursuit: 6 },
   },
   {
-    id: 'raised-ghoul', path: 'mon/undead/ghoul.png',
+    id: 'raised-ghoul', kin: 'undead', path: 'mon/undead/ghoul.png',
     tier: 3, hp: 26, damage: 8, speed: 0.94, xp: 0, bloodColor: '#6f7b52', spawn: 'summon',
     threat: { attackRate: 0.85, vision: 7, windup: 0.26, pursuit: 6 },
   },
   {
-    id: 'tamed-sheep', path: 'mon/animals/sheep.png',
+    id: 'tamed-sheep', kin: 'beast', path: 'mon/animals/sheep.png',
     tier: 1, hp: 18, damage: 0, speed: 0.5, xp: 0, bloodColor: '#6d3030', spawn: 'summon',
     threat: { attackRate: 0.9, vision: 6, windup: 0.3, pursuit: 5 },
   },
   {
-    id: 'tamed-hog', path: 'mon/animals/hog.png',
+    id: 'tamed-hog', kin: 'beast', path: 'mon/animals/hog.png',
     tier: 2, hp: 34, damage: 7, speed: 0.62, xp: 0, bloodColor: '#74342f', spawn: 'summon',
     threat: { attackRate: 0.72, vision: 6, windup: 0.42, pursuit: 5 },
   },
   {
-    id: 'tamed-yak', path: 'mon/animals/yak.png',
+    id: 'tamed-yak', kin: 'beast', path: 'mon/animals/yak.png',
     tier: 3, hp: 58, damage: 11, speed: 0.44, xp: 0, bloodColor: '#60332b', spawn: 'summon',
     threat: { attackRate: 0.58, vision: 6, windup: 0.54, pursuit: 5 },
   },
   {
-    id: 'raised-warden', path: 'mon/undead/skeletal_warrior.png',
+    id: 'raised-warden', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
     tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },
   },
@@ -149,7 +149,7 @@ export const MONSTER_CATALOG = Object.freeze([
     // pool — the bones place it, not the floor — and `neutral` is what makes it
     // a memory instead of an ambush: it stands still until something is taken.
     // Its sprite is only a fallback; a placed ghost is drawn in its own gear.
-    id: 'player-ghost', path: 'mon/undead/ghost.png',
+    id: 'player-ghost', kin: 'undead', path: 'mon/undead/ghost.png',
     tier: 3, hp: 40, damage: 8, speed: 0.98, xp: 0, bloodColor: '#9fc7d8',
     spawn: 'summon', neutral: true,
     threat: { attackRate: 0.9, vision: 5, windup: 0.26, pursuit: 7 },
@@ -157,38 +157,38 @@ export const MONSTER_CATALOG = Object.freeze([
   {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
-    id: 'city-guard', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
+    id: 'city-guard', kin: 'humanoid', path: 'mon/vault_guard.png', tier: 3, hp: 14, damage: 9, speed: 1.02, xp: 16,
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.95, vision: 7, windup: 0.22, pursuit: 6 },
   },
   {
-    id: 'city-captain', path: 'mon/vault_warden.png', tier: 4, hp: 22, damage: 12, speed: 1, xp: 28,
+    id: 'city-captain', kin: 'humanoid', path: 'mon/vault_warden.png', tier: 4, hp: 22, damage: 12, speed: 1, xp: 28,
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.85, vision: 7.6, windup: 0.26, pursuit: 7 },
   },
   {
-    id: 'orc', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
+    id: 'orc', kin: 'humanoid', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
     threat: { attackRate: 0.92, vision: 5.8, windup: 0.22, pursuit: 4 },
   },
   {
-    id: 'spider', path: 'mon/animals/spider.png', tier: 2, hp: 4, damage: 7, speed: 1.42, xp: 7, bloodColor: '#425127',
+    id: 'spider', kin: 'beast', path: 'mon/animals/spider.png', tier: 2, hp: 4, damage: 7, speed: 1.42, xp: 7, bloodColor: '#425127',
     inflicts: { id: 'poison', duration: 7 },
     threat: { attackRate: 1.35, vision: 6.3, windup: 0.12, pursuit: 5 },
   },
   {
-    id: 'orc-priest', path: 'mon/orc_priest.png', tier: 2, hp: 5, damage: 7, speed: 0.94, xp: 8, bloodColor: '#5e3529',
+    id: 'orc-priest', kin: 'humanoid', path: 'mon/orc_priest.png', tier: 2, hp: 5, damage: 7, speed: 0.94, xp: 8, bloodColor: '#5e3529',
     threat: { attackRate: 0.8, vision: 6.6, windup: 0.25, pursuit: 4.8 },
   },
   {
-    id: 'wolf', path: 'mon/animals/wolf.png', tier: 2, hp: 6, damage: 6, speed: 1.5, xp: 8, bloodColor: '#743129',
+    id: 'wolf', kin: 'beast', path: 'mon/animals/wolf.png', tier: 2, hp: 6, damage: 6, speed: 1.5, xp: 8, bloodColor: '#743129',
     threat: { attackRate: 1.3, vision: 7, windup: 0.14, pursuit: 6 },
   },
   {
-    id: 'orc-warrior', path: 'mon/orc_warrior.png', tier: 3, hp: 8, damage: 8, speed: 1, xp: 11, bloodColor: '#5e3529',
+    id: 'orc-warrior', kin: 'humanoid', path: 'mon/orc_warrior.png', tier: 3, hp: 8, damage: 8, speed: 1, xp: 11, bloodColor: '#5e3529',
     threat: { attackRate: 0.8, vision: 6.2, windup: 0.28, pursuit: 5 },
   },
   {
-    id: 'ghost',
+    id: 'ghost', kin: 'undead',
     path: 'mon/undead/ghost.png',
     tier: 3,
     hp: 7,
@@ -200,7 +200,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.15, vision: 6.5, windup: 0.18, pursuit: 5.5 },
   },
   {
-    id: 'zombie-hound',
+    id: 'zombie-hound', kin: 'undead',
     path: 'mon/undead/zombies/zombie_hound.png',
     tier: 3,
     hp: 9,
@@ -210,7 +210,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.08, vision: 6.6, windup: 0.16, pursuit: 5.2 },
   },
   {
-    id: 'ogre',
+    id: 'ogre', kin: 'humanoid',
     path: 'mon/ogre.png',
     tier: 3,
     hp: 13,
@@ -222,7 +222,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.62, vision: 5.2, windup: 0.38, pursuit: 4 },
   },
   {
-    id: 'ashen-guardian',
+    id: 'ashen-guardian', kin: 'humanoid',
     path: 'mon/orc_warrior.png',
     tier: 3,
     hp: 10,
@@ -235,7 +235,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.74, vision: 7.1, windup: 0.31, pursuit: 6.7 },
   },
   {
-    id: 'sanctum-guardian',
+    id: 'sanctum-guardian', kin: 'undead',
     path: 'mon/undead/lich.png',
     tier: 6,
     hp: 13,
@@ -248,7 +248,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.82, vision: 8.4, windup: 0.29, pursuit: 8.2 },
   },
   {
-    id: FINAL_BOSS_ID,
+    id: FINAL_BOSS_ID, kin: 'undead',
     path: 'mon/death_knight.png',
     tier: 9,
     hp: 20,
@@ -261,11 +261,11 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.78, vision: 7, windup: 0.32, pursuit: 7 },
   },
   {
-    id: 'orc-wizard', path: 'mon/orc_wizard.png', tier: 4, hp: 8, damage: 12, speed: 0.92, xp: 16, bloodColor: '#5e3529',
+    id: 'orc-wizard', kin: 'humanoid', path: 'mon/orc_wizard.png', tier: 4, hp: 8, damage: 12, speed: 0.92, xp: 16, bloodColor: '#5e3529',
     threat: { attackRate: 0.86, vision: 7.2, windup: 0.28, pursuit: 5.5 },
   },
   {
-    id: 'vampire',
+    id: 'vampire', kin: 'undead',
     path: 'mon/undead/vampire.png',
     tier: 4,
     hp: 12,
@@ -276,7 +276,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.2, vision: 7.4, windup: 0.16, pursuit: 6.5 },
   },
   {
-    id: 'crimson-imp',
+    id: 'crimson-imp', kin: 'demon', element: 'fire',
     path: 'mon/demons/crimson_imp.png',
     tier: 4,
     hp: 10,
@@ -288,7 +288,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.42, vision: 7.5, windup: 0.12, pursuit: 6.8 },
   },
   {
-    id: 'flying-skull',
+    id: 'flying-skull', kin: 'undead',
     path: 'mon/undead/flying_skull.png',
     tier: 4,
     hp: 9,
@@ -299,7 +299,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.5, vision: 8, windup: 0.1, pursuit: 7 },
   },
   {
-    id: 'hell-hound',
+    id: 'hell-hound', kin: 'demon', element: 'fire',
     path: 'mon/animals/hell_hound.png',
     tier: 5,
     hp: 15,
@@ -310,7 +310,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.3, vision: 7.6, windup: 0.14, pursuit: 7 },
   },
   {
-    id: 'vampire-knight',
+    id: 'vampire-knight', kin: 'undead',
     path: 'mon/undead/vampire_knight.png',
     tier: 5,
     hp: 18,
@@ -320,7 +320,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.94, vision: 7.2, windup: 0.24, pursuit: 7.2 },
   },
   {
-    id: 'smoke-demon',
+    id: 'smoke-demon', kin: 'demon', element: 'fire',
     path: 'mon/demons/smoke_demon.png',
     tier: 5,
     hp: 17,
@@ -331,7 +331,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.02, vision: 7.8, windup: 0.2, pursuit: 7.5 },
   },
   {
-    id: 'wyvern',
+    id: 'wyvern', kin: 'dragon',
     path: 'mon/dragons/wyvern.png',
     tier: 6,
     hp: 22,
@@ -343,7 +343,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.88, vision: 8.2, windup: 0.26, pursuit: 8 },
   },
   {
-    id: 'lich',
+    id: 'lich', kin: 'undead',
     path: 'mon/undead/lich.png',
     tier: 6,
     hp: 26,
@@ -354,7 +354,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.9, vision: 8.6, windup: 0.3, pursuit: 8.5 },
   },
   {
-    id: 'ice-dragon',
+    id: 'ice-dragon', kin: 'dragon', element: 'ice',
     path: 'mon/dragons/ice_dragon.png',
     tier: 7,
     hp: 36,
@@ -368,7 +368,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.72, vision: 9, windup: 0.4, pursuit: 9 },
   },
   {
-    id: 'balrug',
+    id: 'balrug', kin: 'demon', element: 'fire',
     path: 'mon/demons/balrug.png',
     tier: 8,
     hp: 44,
@@ -381,7 +381,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.84, vision: 9.2, windup: 0.36, pursuit: 9 },
   },
   {
-    id: 'golden-dragon',
+    id: 'golden-dragon', kin: 'dragon',
     path: 'mon/dragons/golden_dragon.png',
     tier: 9,
     hp: 58,
@@ -395,7 +395,6 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.76, vision: 9.5, windup: 0.44, pursuit: 10 },
   },
 ]);
-
 export const LOOT_CATALOG = Object.freeze([
   {
     id: 'short-blade',
@@ -607,7 +606,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
   },
   {
-    id: 'firestarter',
+    id: 'firestarter', element: 'fire',
     icon: 'item/weapon/artefact/urand_firestarter.png',
     slot: 'hand1',
     weaponFamily: 'blunt',
@@ -1202,7 +1201,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 5,
   },
   {
-    id: 'ice-dragon-scales',
+    id: 'ice-dragon-scales', element: 'ice',
     icon: 'item/armour/ice_dragon_armour.png',
     slot: 'body',
     variant: 37,
@@ -1213,7 +1212,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 6,
   },
   {
-    id: 'gold-dragon-scales',
+    id: 'gold-dragon-scales', element: 'fire',
     icon: 'item/armour/gold_dragon_armour.png',
     slot: 'body',
     variant: 38,
@@ -1375,7 +1374,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
   },
   {
-    id: 'dragon-cloak',
+    id: 'dragon-cloak', element: 'fire',
     magic: { immunity: ['burning'] },
     icon: 'item/armour/cloak3.png',
     slot: 'cloak',
@@ -1498,7 +1497,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
   },
   {
-    id: 'fire-ring',
+    id: 'fire-ring', element: 'fire',
     magic: { immunity: ['burning'] },
     icon: 'item/ring/ruby.png',
     slot: 'ring1',
@@ -1509,7 +1508,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
   },
   {
-    id: 'ice-ring',
+    id: 'ice-ring', element: 'ice',
     magic: { immunity: ['chilled'] },
     icon: 'item/amulet/ring_cyan.png',
     slot: 'ring2',
@@ -1648,7 +1647,7 @@ export const LOOT_CATALOG = Object.freeze([
     identification: { group: 'scroll', tier: 1 },
   },
   {
-    id: 'flame-scroll',
+    id: 'flame-scroll', element: 'fire',
     icon: 'item/scroll/i-immolation.png',
     slot: null,
     kind: 'scroll',
@@ -1660,7 +1659,7 @@ export const LOOT_CATALOG = Object.freeze([
     identification: { group: 'scroll', tier: 2 },
   },
   {
-    id: 'frost-scroll',
+    id: 'frost-scroll', element: 'ice',
     icon: 'item/scroll/i-fog.png',
     slot: null,
     kind: 'scroll',
@@ -1745,7 +1744,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     // The two former starting spells are now found like any other arcana.
-    id: 'book-of-embers',
+    id: 'book-of-embers', element: 'fire',
     icon: 'item/book/light_brown.png',
     slot: null,
     kind: 'book',
@@ -1769,7 +1768,7 @@ export const LOOT_CATALOG = Object.freeze([
     bookEffect: { type: 'learn-spell', spellId: 'mending-light' },
   },
   {
-    id: 'book-of-frost',
+    id: 'book-of-frost', element: 'ice',
     icon: 'item/book/turquoise.png',
     slot: null,
     kind: 'book',
@@ -1853,7 +1852,7 @@ export const LOOT_CATALOG = Object.freeze([
     bookEffect: { type: 'learn-spell', spellId: 'raise-warden' },
   },
   {
-    id: 'book-of-embers-burst',
+    id: 'book-of-embers-burst', element: 'fire',
     icon: 'item/book/red.png',
     slot: null,
     kind: 'book',
