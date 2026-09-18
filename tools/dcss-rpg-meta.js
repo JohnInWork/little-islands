@@ -13,6 +13,7 @@ import {
   rememberBones,
   validateBonesRecord,
 } from './dcss-rpg-bones.js';
+import { createTrophyState } from './dcss-rpg-trophies.js';
 
 export const META_KEY = 'dng-codex:meta:v1';
 export const META_VERSION = 1;
@@ -96,6 +97,11 @@ export function createMetaState(source = null) {
     // Where past runs ended, so a later one can meet its own ghost. An older
     // store simply has none, which is a dungeon that has not killed anybody yet.
     bones: createBonesState(source?.bones),
+    // Which guardians have been put down at least once. Optional for the same
+    // reason bones are: an older store is one that had not met a guardian yet,
+    // and bumping the version would throw away everybody's records to add a
+    // field — `parseMeta` drops a store whose version it does not know.
+    trophies: createTrophyState(source?.trophies),
   };
 }
 
@@ -165,6 +171,7 @@ export function validateMetaState(meta) {
     if (!Array.isArray(meta.bones) || meta.bones.length > BONES_LIMIT) return false;
     if (!meta.bones.every((record) => validateBonesRecord(record))) return false;
   }
+  if (meta.trophies !== undefined && !Array.isArray(meta.trophies)) return false;
   return meta.milestones.every((id) => MILESTONE_IDS.includes(id));
 }
 
@@ -208,6 +215,7 @@ export function recordRunResult(meta, result) {
       best,
       milestones: MILESTONE_IDS.filter((id) => state.milestones.includes(id) || earned.includes(id)),
       bones: state.bones,
+      trophies: state.trophies,
     },
   });
 }

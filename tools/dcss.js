@@ -57,6 +57,7 @@ import {
   goldRewardForMonster,
   useSanctuary,
 } from './dcss-rpg-run.js';
+import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
   STASH_KEY,
   createStashState,
@@ -7195,7 +7196,12 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'camp-stash' };
   }
   if (entry.kind === 'city-gate') {
-    return { kind: 'city-gate', branch: run.branch, canRetire: canRetireRun({ depth: run.depth, status: runStatus }) };
+    return {
+      kind: 'city-gate',
+      branch: run.branch,
+      canRetire: canRetireRun({ depth: run.depth, status: runStatus }),
+      purse: gold,
+    };
   }
   if (entry.kind === 'jail-door') {
     const decision = canPickCell({
@@ -9907,8 +9913,27 @@ function renderRecords() {
     row.dataset.earned = String(milestone.earned);
     return row;
   }));
+  // Six names, six marks. The empty ones are the point: they are the only place
+  // the game says out loud that the other road has a different guardian on it.
+  const trophies = trophyModel(metaState.trophies, itemDetailLanguage);
+  recordsTrophiesTitle.textContent = `${trophies.copy.title} ${trophies.taken}/${trophies.total}`;
+  recordsTrophies.replaceChildren(...trophies.rows.map((trophy) => {
+    const row = document.createElement('li');
+    const mark = document.createElement('b');
+    const body = document.createElement('div');
+    const label = document.createElement('span');
+    mark.textContent = trophy.taken ? '✔' : '·';
+    body.textContent = trophy.taken ? trophy.name : '???';
+    label.textContent = `${trophy.road} · ${trophy.floor} · ${trophy.bounty}●`;
+    body.append(label);
+    row.append(mark, body);
+    row.dataset.earned = String(trophy.taken);
+    return row;
+  }));
 }
 
+const recordsTrophies = document.querySelector('#records-trophies');
+const recordsTrophiesTitle = document.querySelector('#records-trophies-title');
 const outfitScreen = document.querySelector('#outfit-screen');
 const openOutfitButton = document.querySelector('#open-outfit');
 const closeOutfitButton = document.querySelector('#close-outfit');
@@ -11403,6 +11428,25 @@ function gainExperience(monster) {
   updateHud();
 }
 
+/**
+ * The first time a guardian goes down, and only the first time. What it pays
+ * goes to the stash like any other gold; what it really does is tick one of six
+ * names off a list, so the next run knows which road it has not taken.
+ */
+function claimGuardianTrophy(monster) {
+  const result = claimTrophy(metaState.trophies, monster.id);
+  if (!result.ok) return;
+  metaState = { ...metaState, trophies: result.taken };
+  persistMetaState();
+  stashState = stashDeposit(stashState, result.bounty);
+  persistStash();
+  renderRecords();
+  showLootToast(
+    { icon: 'item/gold/16.png', rarity: 3 },
+    trophyCopy(itemDetailLanguage).claimed(result.bounty),
+  );
+}
+
 function defeatMonster(monster) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (monster.dead > 0 || run.floor.defeated.includes(monster.instanceId)) return;
@@ -11445,6 +11489,7 @@ function defeatMonster(monster) {
     );
     burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
     updateBossHud();
+    claimGuardianTrophy(monster);
   }
   persistRun();
 }

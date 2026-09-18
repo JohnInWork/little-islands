@@ -170,6 +170,7 @@ const COPY = Object.freeze({
     guardWanted: (label, fine) => `${label}. «Плати ${fine} — или ночуешь в камере.»`,
     gateName: 'Развилка',
     gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под открытое небо — или домой, с тем, что уже унёс.',
+    retireStake: (gold) => `Унесёшь ${gold}●`,
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -218,6 +219,7 @@ const COPY = Object.freeze({
     guardWanted: (label, fine) => `${label}. “Pay ${fine} or you sleep in a cell.”`,
     gateName: 'The fork',
     gateDescription: 'Three roads from here. Caves below, open sky beyond the gate — or home, with what you already carry.',
+    retireStake: (gold) => `You bank ${gold}●`,
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -399,8 +401,14 @@ export const INTERACTION_REGISTRY = Object.freeze([
         // and a hero who climbed up out of the caves found no way down again.
         { id: 'goDeep' },
         { id: 'goSurface' },
-        // The third road out of the gate is the one that keeps the purse.
-        { id: 'retire', enabled: target.canRetire === true },
+        // The third road out of the gate is the one that keeps the purse — and
+        // it says how much, because «go one floor deeper or bank what you have»
+        // is only a decision if the player can see the stake without counting.
+        {
+          id: 'retire',
+          enabled: target.canRetire === true,
+          hint: target.canRetire === true ? copy.retireStake(target.purse ?? 0) : '',
+        },
       ],
     }),
   }),

@@ -193,3 +193,21 @@ test('the city puts its merchants indoors', async () => {
     }
   }
 });
+
+/**
+ * «Уйти с добычей или спуститься ещё» is only a decision if the stake is on
+ * the screen. It was a number the player had to carry in their head.
+ */
+test('the gate says what walking away is worth', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  for (const purse of [0, 7, 254]) {
+    const model = contextActionModel({
+      target: { kind: 'city-gate', branch: 'deep', canRetire: true, purse },
+    });
+    const retire = model.actions.find((action) => action.id === 'retire');
+    assert.ok(retire.hint.includes(String(purse)), `the stake ${purse} is not shown`);
+  }
+  // Nothing to bank and nowhere to do it: no promise is made.
+  const shut = contextActionModel({ target: { kind: 'city-gate', branch: 'deep', canRetire: false } });
+  assert.equal(shut.actions.find((action) => action.id === 'retire').hint, '');
+});
