@@ -24,6 +24,11 @@ import { BOOK_APPEARANCES, itemAppearanceFor } from '../tools/dcss-rpg-identific
 import { itemDetails } from '../tools/dcss-rpg-item-details.js';
 import { createMerchantStock } from '../tools/dcss-rpg-merchant.js';
 import { composePlayerLayers } from '../tools/dcss-rpg-player.js';
+import {
+  BASIC_SPELL_BOOK_IDS,
+  BASIC_SPELL_BOOK_MAX_DEPTH,
+  guaranteedSpellBookPlacement,
+} from '../tools/dcss-rpg-books.js';
 import { lootEligibleForFloor, floorScaling } from '../tools/dcss-rpg-scaling.js';
 import { spellBarModel } from '../tools/dcss-rpg-spells.js';
 
@@ -100,12 +105,26 @@ test('the former starting spells are ordinary unknown books with enough authored
     const looks = bookIds.map((id) => itemAppearanceFor(seed, 'book', id, bookIds).id);
     assert.equal(new Set(looks).size, bookIds.length, `seed ${seed} keeps looks one-to-one`);
   }
-  let seen = 0;
+  // This used to be a rate, and a rate is a promise that decays: every batch of
+  // new content thinned the early pool and starved the books a little further,
+  // three times over. Now the placement is a promise, so the check is one too.
   for (let seed = 1; seed <= 400; seed += 1) {
-    const dungeon = generateDungeon({ seed, depth: 1 + (seed % 3) });
-    if (dungeon.loot.some(({ id }) => id === 'book-of-embers' || id === 'book-of-mending')) seen += 1;
+    const placement = guaranteedSpellBookPlacement(seed);
+    assert.ok(placement.depth >= 1 && placement.depth <= BASIC_SPELL_BOOK_MAX_DEPTH);
+    assert.ok(BASIC_SPELL_BOOK_IDS.includes(placement.bookId));
+    const dungeon = generateDungeon({ seed, depth: placement.depth });
+    assert.ok(
+      dungeon.loot.some(({ id }) => id === placement.bookId),
+      `seed ${seed}: the promised ${placement.bookId} is not on floor ${placement.depth}`,
+    );
+    // And the floor's first drop is still the piece of gear a bare hero needs.
+    assert.ok(lootById(dungeon.loot[0].id).slot, `seed ${seed}: the first drop stopped being gear`);
   }
-  assert.ok(seen >= 40, `basic spell books must actually drop early (${seen} of 400 floors)`);
+  // Every run meets both books eventually; neither is written and never placed.
+  const placed = new Set();
+  for (let seed = 1; seed <= 400; seed += 1) placed.add(guaranteedSpellBookPlacement(seed).bookId);
+  assert.deepEqual([...placed].sort(), [...BASIC_SPELL_BOOK_IDS].sort());
+  assert.throws(() => guaranteedSpellBookPlacement(-1), /run seed/);
 });
 
 test('worn clothes draw a shirt over trousers on the hero and every layer ships locally', async () => {

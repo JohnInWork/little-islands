@@ -10,7 +10,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { generateDungeon } from '../tools/dcss-rpg-core.js';
+import { createRun, generateDungeon } from '../tools/dcss-rpg-core.js';
 import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import { LOOT_CATALOG, lootById, monsterById } from '../tools/dcss-rpg-content.js';
@@ -49,7 +49,11 @@ function floorFacts(seed, depth) {
     gold: loot.reduce((sum, { entry, item }) => sum + (item.gold ? entry.amount ?? 0 : 0), 0),
     food: loot.reduce((sum, { entry }) => sum + (FOOD_BY_ID.get(entry.id) ?? 0), 0),
     gear: loot.filter(({ item }) => item.slot).length,
-    artifacts: level.loot.filter(({ artifactPowerId }) => artifactPowerId).length,
+    // Artefacts left the open floor and moved into sealed caches, so counting
+    // `level.loot` now always reports zero. Read the caches the way the game
+    // builds them — through createRun, not by rebuilding them here.
+    artifacts: createRun(seed, level).floor.chests
+      .reduce((sum, chest) => sum + chest.items.filter(({ artifactPowerId }) => artifactPowerId).length, 0),
     finds: level.finds.length,
     merchants: level.merchants.length,
     rooms: level.rooms.length,
@@ -109,7 +113,7 @@ const report = [
   '```',
   '',
   `- Голод полного героя: **${round(hungerMinutes)} мин**; еды на всё подземелье в среднем **${round(foodTotal)} мин** (${round(foodTotal / hungerMinutes, 2)} полных запаса).`,
-  `- Артефактов за забег в среднем: **${round(artifactTotal, 2)}** (обещан один).`,
+  `- Артефактов за забег в среднем: **${round(artifactTotal, 2)}** (обещан один, лежит в запечатанном тайнике).`,
   `- Торговцев за забег: **${round(dungeonRows.reduce((sum, row) => sum + row.merchants, 0), 1)}**, находок: **${round(dungeonRows.reduce((sum, row) => sum + row.finds, 0), 1)}**.`,
   `- Суммарный опыт подземелья: **${round(dungeonRows.reduce((sum, row) => sum + row.xp, 0))}**.`,
   '',

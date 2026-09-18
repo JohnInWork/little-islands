@@ -85,7 +85,11 @@ import {
   identifiableItemIds,
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
-import { createBookStudy, validateBookStudy } from './dcss-rpg-books.js';
+import {
+  createBookStudy,
+  guaranteedSpellBookPlacement,
+  validateBookStudy,
+} from './dcss-rpg-books.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
 import {
@@ -748,10 +752,14 @@ export function generateDungeon({
   // The guaranteed first drop must not duplicate what the hero already wears.
   const starterIds = new Set(['rusty-sword', 'worn-tunic']);
   const starterLootPool = lootPool.filter((item) => item.slot && !starterIds.has(item.id));
+  // The treasure room takes from the floor's loot budget, never on top of it,
+  // and it leaves two ordinary drops behind: the promised piece of gear, and
+  // one slot for whatever else the run owes this floor. Eating the budget whole
+  // used to leave nowhere to put a guaranteed item.
   const desiredSurpriseLootCount = doorPlan.surprise?.type === 'treasure'
-    ? Math.min(3, scaling.rewards.lootCount - 1)
+    ? Math.min(3, scaling.rewards.lootCount - 2)
     : doorPlan.surprise?.type === 'mixed'
-      ? Math.min(2, scaling.rewards.lootCount - 1)
+      ? Math.min(2, scaling.rewards.lootCount - 2)
       : 0;
   const surpriseLootCells = surpriseRoom
     ? pickRoomSpawnCells(rng, grid, surpriseRoom, desiredSurpriseLootCount, occupied)
@@ -770,6 +778,17 @@ export function generateDungeon({
     count: 1 + lootCells.length,
     qualityBudget: scaling.rewards.qualityBudget,
   }).picks;
+  const floorLootPicks = [...selectedLoot];
+  // The run's first spell book is placed, not rolled: see the note on
+  // `guaranteedSpellBookPlacement`. It never takes the first slot, because that
+  // one is the promised piece of gear a bare hero starts from.
+  const bookPlacement = guaranteedSpellBookPlacement(seed);
+  if (depth === bookPlacement.depth && floorLootPicks.length > 1) {
+    const book = lootById(bookPlacement.bookId);
+    if (book && !floorLootPicks.some(({ id }) => id === book.id)) {
+      floorLootPicks[1 + (floorSeed % (floorLootPicks.length - 1))] = book;
+    }
+  }
   // Nothing on the open floor is ever an artefact. The floor asks nothing of the
   // hero — they walk over it — and an artefact has to be earned. The run's one
   // artefact lives inside a sealed cache that cost something to open; the rule
@@ -792,12 +811,12 @@ export function generateDungeon({
   const loot = [
     {
       instanceId: `loot-${depth}-0`,
-      id: selectedLoot[0].id,
-      ...equipmentSpawnState(selectedLoot[0], `loot-${depth}-0`),
+      id: floorLootPicks[0].id,
+      ...equipmentSpawnState(floorLootPicks[0], `loot-${depth}-0`),
       ...starterLootCell,
     },
     ...lootCells.map((position, index) => {
-      const definition = selectedLoot[index + 1];
+      const definition = floorLootPicks[index + 1];
       const instanceId = `loot-${depth}-${index + 1}`;
       return {
         instanceId,

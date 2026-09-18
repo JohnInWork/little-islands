@@ -12,6 +12,33 @@ import {
 } from './dcss-rpg-game-commands.js';
 import { learnSpell, spellById, validateSpellState } from './dcss-rpg-spells.js';
 
+/**
+ * The two books a hero can start casting from. They are ordinary loot, which
+ * means they compete on weight against the whole catalogue — and the catalogue
+ * only ever grows. Three times now a batch of new content quietly starved them
+ * below the rate the game promises, and three times the fix was to nudge
+ * weights, which lasts exactly until the next batch.
+ *
+ * So the promise stops being statistical: one of them is placed on a floor the
+ * run seed picks out of the first three. Where is random, that it happens is not.
+ */
+export const BASIC_SPELL_BOOK_IDS = Object.freeze(['book-of-embers', 'book-of-mending']);
+export const BASIC_SPELL_BOOK_MAX_DEPTH = 3;
+
+export function guaranteedSpellBookPlacement(seed) {
+  if (!Number.isInteger(seed) || seed < 0) {
+    throw new TypeError('Spell book placement requires a run seed');
+  }
+  let value = (seed ^ 0x5be11b00) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
+  value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+  const mixed = (value ^ (value >>> 15)) >>> 0;
+  return Object.freeze({
+    depth: 1 + (mixed % BASIC_SPELL_BOOK_MAX_DEPTH),
+    bookId: BASIC_SPELL_BOOK_IDS[(mixed >>> 8) % BASIC_SPELL_BOOK_IDS.length],
+  });
+}
+
 export const BOOK_STUDY_VERSION = 1;
 export const READ_BOOK_COMMAND = 'read-book';
 
