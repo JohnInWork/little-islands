@@ -47,13 +47,13 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
-    'camping', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
+    'camping', 'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'training', 'animal-care', 'beast-bond', 'pack-leader',
     'alchemy', 'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
-    'trap-detection', 'camp-rest', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
+    'trap-detection', 'camp-rest', 'carrying-capacity', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
     'condition-duration-scaling', 'darkness-vision',
     'secret-discovery', 'stealth-detection',
     'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
@@ -215,6 +215,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     salvagingRank: 0, alchemyRank: 0, tamingRank: 0, enchantingRank: 0,
     poisoncraftRank: 0, weaponsmithingRank: 0, armorsmithingRank: 0,
     trainingRank: 0, animalCareRank: 0, beastBondRank: 0, packLeaderRank: 0,
+    porterRank: 0, backpackSlots: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionTier, 3);

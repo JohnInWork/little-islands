@@ -95,6 +95,7 @@ import { REST_MAX, validateRest } from './dcss-rpg-rest.js';
 import {
   createItemKnowledge,
   identifiableItemIds,
+  isIdentifiableItem,
   validateItemKnowledge,
 } from './dcss-rpg-identification.js';
 import {
@@ -105,6 +106,7 @@ import {
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
 import {
+  MAX_BACKPACK_CAPACITY,
   createChestContainerStates,
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
@@ -1225,11 +1227,35 @@ export function validateRunStats(stats) {
  * goes into the bag rather than vanishing. Zero is still zero — a zero that
  * somebody walked out of the dungeon alive to pay for.
  */
+/**
+ * What the hero walks out of the city with.
+ *
+ * A rusty sword, a worn tunic and nothing else: the first fight was survived
+ * or it was not, and hunger arrived with no answer to it. Ivan asked for «одно-
+ * два зелья лечения и немного еды — но не слишком, чтобы не сломать
+ * сложность», so it is one potion and one meal's worth of fruit. Both are
+ * known from the start: a mystery potion in a starting kit is not a gift, it
+ * is a puzzle, and the point of these is that you can lean on them.
+ */
+export const STARTER_SUPPLIES = Object.freeze([
+  Object.freeze({ id: 'mending-potion', uid: 'starter-potion', stack: 1 }),
+  Object.freeze({ id: 'wild-fruit', uid: 'starter-food', stack: 2 }),
+]);
+
+/**
+ * Only an item that *can* be a mystery needs saying it is not one. Fruit is
+ * fruit; the potion is the one the hero was handed and told what it does.
+ */
+const STARTER_KNOWN_ITEM_IDS = Object.freeze(
+  STARTER_SUPPLIES.map(({ id }) => id).filter((id) => isIdentifiableItem(lootById(id))),
+);
+
 export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), outfit = null) {
   const startingMagic = createStartingMagic();
   const items = [
     { id: 'rusty-sword', uid: 'starter-sword', affixIds: [], artifactPowerId: null, artifactCurseId: null },
     { id: 'worn-tunic', uid: 'starter-tunic', affixIds: [], artifactPowerId: null, artifactCurseId: null },
+    ...STARTER_SUPPLIES.map((supply) => ({ ...supply })),
     ...(Array.isArray(outfit?.items) ? outfit.items.map((piece) => ({ ...piece })) : []),
   ];
   const bareEquipment = {
@@ -1246,7 +1272,10 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
     amulet: null,
   };
   const equipment = { ...bareEquipment, ...(outfit?.equipment ?? {}) };
-  const inventory = [...(Array.isArray(outfit?.inventory) ? outfit.inventory : [])];
+  const inventory = [
+    ...STARTER_SUPPLIES.map(({ uid }) => uid),
+    ...(Array.isArray(outfit?.inventory) ? outfit.inventory : []),
+  ];
   for (const [slot, uid] of Object.entries(bareEquipment)) {
     if (uid && equipment[slot] !== uid) inventory.push(uid);
   }
@@ -1286,7 +1315,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
     started: false,
     commandSequence: 0,
     stats: createRunStats(),
-    knowledge: createItemKnowledge(),
+    knowledge: createItemKnowledge({ identifiedItemIds: [...STARTER_KNOWN_ITEM_IDS] }),
     items,
     equipment,
     inventory,
@@ -1402,7 +1431,7 @@ function migrateTwoHandedEquipment(snapshot) {
   const mainDefinition = lootById(records.get(mainUid)?.id);
   if (!isTwoHandedItem(mainDefinition)) return;
 
-  if (snapshot.inventory.length < 12) {
+  if (snapshot.inventory.length < MAX_BACKPACK_CAPACITY) {
     snapshot.equipment.hand2 = null;
     snapshot.inventory.push(offhandUid);
     return;
@@ -2161,7 +2190,8 @@ export function validateRun(snapshot) {
   if (!validateItemKnowledge(snapshot.knowledge, IDENTIFIABLE_ITEM_IDS)) return false;
   if ((snapshot.status === 'dead') !== (hero.hp === 0)) return false;
   if (!snapshot.equipment || typeof snapshot.equipment !== 'object') return false;
-  if (!Array.isArray(snapshot.items) || snapshot.items.length > EQUIPMENT_SLOTS.length + 12) {
+  // Everything the hero owns: what is worn plus the widest the bag can be.
+  if (!Array.isArray(snapshot.items) || snapshot.items.length > EQUIPMENT_SLOTS.length + MAX_BACKPACK_CAPACITY) {
     return false;
   }
   if (
@@ -2186,7 +2216,9 @@ export function validateRun(snapshot) {
   const itemIds = snapshot.items.map((item) => item.uid);
   if (new Set(itemIds).size !== itemIds.length) return false;
   const itemByUid = new Map(snapshot.items.map((item) => [item.uid, item]));
-  if (!Array.isArray(snapshot.inventory) || snapshot.inventory.length > 12) return false;
+  // The widest a bag can be: thirty everyone carries plus what «Вьючник»
+  // adds. A save is checked against the ceiling, not against this hero.
+  if (!Array.isArray(snapshot.inventory) || snapshot.inventory.length > MAX_BACKPACK_CAPACITY) return false;
   if (snapshot.inventory.some((uid) => typeof uid !== 'string' || !itemByUid.has(uid))) return false;
   if (new Set(snapshot.inventory).size !== snapshot.inventory.length) return false;
   const equippedUids = [];

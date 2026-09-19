@@ -26,7 +26,23 @@ export const CAMP_STASH_CONTAINER_ID = 'camp-stash';
 export function containerDepthOf(findId) {
   return findId === CAMP_STASH_CONTAINER_ID ? 1 : Number(String(findId).split('-')[1]);
 }
-export const HERO_BACKPACK_CAPACITY = 12;
+/**
+ * The bag.
+ *
+ * Twelve slots meant the hero came home to sell three times a floor — «мало»,
+ * said Ivan, and asked for thirty and a skill that widens it. Thirty is the
+ * bag everybody carries; `portering` adds six a rank on top, so the ceiling a
+ * save is allowed to reach is thirty plus eighteen.
+ */
+export const HERO_BACKPACK_CAPACITY = 30;
+export const MAX_BACKPACK_SLOTS = 18;
+export const MAX_BACKPACK_CAPACITY = HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS;
+
+/** How much this particular hero can carry, skills included. */
+export function backpackCapacity(capabilities = {}) {
+  const bonus = Number.isFinite(capabilities.backpackSlots) ? capabilities.backpackSlots : 0;
+  return HERO_BACKPACK_CAPACITY + Math.max(0, Math.min(MAX_BACKPACK_SLOTS, Math.round(bonus)));
+}
 export const CHEST_CONTAINER_COMMANDS = Object.freeze({
   take: 'chest-take',
   store: 'chest-store',
@@ -293,13 +309,17 @@ function validTransfer(command, container, type) {
 function playerStateValid(items, inventory) {
   return Array.isArray(items)
     && Array.isArray(inventory)
-    && inventory.length <= HERO_BACKPACK_CAPACITY
+    // The widest a bag can ever be: a save is checked against the ceiling, a
+    // pick-up against the hero's own capacity.
+    && inventory.length <= MAX_BACKPACK_CAPACITY
     && new Set(items.map(({ uid } = {}) => uid)).size === items.length
     && new Set(inventory).size === inventory.length
     && inventory.every((uid) => items.some((item) => item.uid === uid));
 }
 
-export function takeChestItem({ command, container, uid, items, inventory } = {}) {
+export function takeChestItem({
+  command, container, uid, items, inventory, capacity = HERO_BACKPACK_CAPACITY,
+} = {}) {
   if (!validTransfer(command, container, CHEST_CONTAINER_COMMANDS.take)) {
     return commandRejected(command, 'invalid');
   }
@@ -312,7 +332,7 @@ export function takeChestItem({ command, container, uid, items, inventory } = {}
   const merge = !definition.slot
     ? items.find((item) => inventory.includes(item.uid) && item.id === stored.id && !item.affixIds)
     : null;
-  if (!merge && inventory.length >= HERO_BACKPACK_CAPACITY) {
+  if (!merge && inventory.length >= capacity) {
     return commandRejected(command, 'full');
   }
   if (!merge && items.some((item) => item.uid === stored.uid)) {

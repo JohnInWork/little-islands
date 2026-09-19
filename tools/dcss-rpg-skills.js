@@ -95,6 +95,16 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
     ]),
   }),
+  // Six more slots a rank. Nothing else changes: carrying is carrying.
+  portering: Object.freeze({
+    version: 1,
+    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
+    capabilitiesByRank: Object.freeze([
+      Object.freeze({ porterRank: 1, backpackSlots: 6 }),
+      Object.freeze({ porterRank: 2, backpackSlots: 12 }),
+      Object.freeze({ porterRank: 3, backpackSlots: 18 }),
+    ]),
+  }),
   necromancy: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -379,6 +389,7 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
 export const SKILL_SYSTEMS = Object.freeze([
   'trap-detection',
   'camp-rest',
+  'carrying-capacity',
   'summoned-servants',
   'cooking-recipes',
   'food-buffs',
@@ -455,6 +466,8 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   campRank: Object.freeze([0, 3]),
   campRestPercent: Object.freeze([0, 100]),
   campStashSlots: Object.freeze([0, 12]),
+  porterRank: Object.freeze([0, 3]),
+  backpackSlots: Object.freeze([0, 18]),
   necromancyRank: Object.freeze([0, 3]),
   cookingRank: Object.freeze([0, 3]),
   fieldMedicineRank: Object.freeze([0, 3]),

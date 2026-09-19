@@ -364,7 +364,7 @@ test('opened chests use a persistent two-way mobile container instead of instant
   assert.match(css, /@media \(orientation: landscape\), \(min-width: 640px\)[\s\S]*grid-template-columns:\s*repeat\(2,/s);
   assert.match(runtime, /function openChestContainerUi\(find\)/);
   assert.match(runtime, /function transactChestItem\(direction, uid\)/);
-  assert.match(runtime, /takeChestItem\(\{ command, container, uid, items: state\.items/);
+  assert.match(runtime, /takeChestItem\(\{\s*command, container, uid, items: state\.items/);
   assert.match(runtime, /storeChestItem\(\{ command, container, uid, items: state\.items/);
   assert.match(runtime, /if \(find\.id !== 'sealed-cache'\) gold = result\.state\.gold/);
   assert.match(runtime, /if \(event\.code === 'Escape' && uiScreen === 'chest'\)/);

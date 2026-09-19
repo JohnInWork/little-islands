@@ -36,6 +36,7 @@ import {
   unequipItem,
   weaponCombatProfile,
 } from '../tools/dcss-rpg-rules.js';
+import { HERO_BACKPACK_CAPACITY } from '../tools/dcss-rpg-chest-containers.js';
 
 test('all equipment has real combat stats and starter HUD values use the same derivation', () => {
   assert.equal(assertEquipmentCatalog(LOOT_CATALOG), true);
@@ -57,8 +58,13 @@ test('all equipment has real combat stats and starter HUD values use the same de
     attackSpeed: 1,
     intelligence: 3,
   });
-  assert.deepEqual(run.inventory, []);
-  assert.deepEqual(run.items.map(({ id }) => id), ['rusty-sword', 'worn-tunic']);
+  // A potion and a meal ride in the bag; neither is worn, so the derived
+  // stats above are still the tunic and the rusty sword and nothing else.
+  assert.deepEqual(run.inventory, ['starter-potion', 'starter-food']);
+  assert.deepEqual(
+    run.items.map(({ id }) => id),
+    ['rusty-sword', 'worn-tunic', 'mending-potion', 'wild-fruit'],
+  );
   assert.equal(HERO_BASE_MOVE_SPEED, 2.85);
   assert.equal(HERO_LEVEL_HP_GAIN, 6);
   assert.equal(mitigateDamage(5, stats.defense), 5, 'worn clothes barely mitigate anything');
@@ -282,7 +288,8 @@ test('a two-handed swap fails without mutating state when two displaced items ov
   const run = createRun(2302);
   const axe = { id: 'executioner-axe', uid: 'packed-two-handed', ...lootById('executioner-axe') };
   const buckler = { id: 'wood-buckler', uid: 'packed-buckler', affixIds: [], ...lootById('wood-buckler') };
-  const fillers = Array.from({ length: 11 }, (_, index) => ({
+  // One short of full, so the two displaced pieces cannot both fit.
+  const fillers = Array.from({ length: HERO_BACKPACK_CAPACITY - run.inventory.length - 2 }, (_, index) => ({
     id: 'mystery-potion',
     uid: `two-hand-filler-${index}`,
     ...lootById('mystery-potion'),
@@ -292,7 +299,7 @@ test('a two-handed swap fails without mutating state when two displaced items ov
     inventory: [...run.inventory, axe.uid, ...fillers.map(({ uid }) => uid)],
     equipment: { ...run.equipment, hand2: buckler.uid },
   };
-  assert.equal(state.inventory.length, 12);
+  assert.equal(state.inventory.length, HERO_BACKPACK_CAPACITY - 1, 'one slot short of full');
   const before = structuredClone(state);
   const result = equipInventoryItem(state, axe.uid);
   assert.deepEqual(result, { ok: false, reason: 'inventory-full', state });

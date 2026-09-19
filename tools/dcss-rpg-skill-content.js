@@ -301,6 +301,15 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['camp-rest'],
   },
   {
+    id: 'portering', category: 'survival', mode: 'passive',
+    name: { ru: 'Вьючник', en: 'Portering' },
+    description: {
+      ru: 'Учит укладывать поклажу: рюкзак вмещает на 6/12/18 предметов больше.',
+      en: 'Teaches how to pack: the backpack holds 6/12/18 more items.',
+    },
+    requiresSystems: ['carrying-capacity'],
+  },
+  {
     id: 'endurance', category: 'survival', mode: 'passive',
     name: { ru: 'Выносливость', en: 'Endurance' },
     description: {

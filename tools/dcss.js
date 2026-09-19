@@ -468,7 +468,7 @@ import { CHEST_RESOURCE_IDS, chestVisualFrames } from './dcss-rpg-chests.js';
 import {
   CHEST_CONTAINER_CAPACITY,
   CHEST_CONTAINER_COMMANDS,
-  HERO_BACKPACK_CAPACITY,
+  backpackCapacity,
   openChestContainer as openChestContainerState,
   storeChestItem,
   takeChestGold,
@@ -2284,6 +2284,11 @@ function currentSkillOptions() {
   return { rankAdjustments: hero.skillStudy.rankAdjustments };
 }
 
+/** How wide this hero's bag is: thirty, plus whatever «Вьючник» adds. */
+function currentBackpackCapacity() {
+  return backpackCapacity(currentSkillCapabilities());
+}
+
 function currentSkillCapabilities() {
   return deriveSkillCapabilities(hero.skills, currentSkillOptions());
 }
@@ -2761,7 +2766,7 @@ function houseDeedDecision() {
     house: run.house,
     gold,
     backpackCount: backpackItems.filter(Boolean).length,
-    capacity: HERO_BACKPACK_CAPACITY,
+    capacity: currentBackpackCapacity(),
   });
 }
 
@@ -2805,7 +2810,7 @@ function grantEssence(amount) {
     existing.stack = (existing.stack ?? 1) + amount;
     return amount;
   }
-  if (backpackItems.filter(Boolean).length >= HERO_BACKPACK_CAPACITY) return 0;
+  if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) return 0;
   const uid = `essence-${run.seed}-${run.commandSequence}-${backpackItems.length}`;
   const item = { ...definition, uid, stack: amount };
   itemInstances.set(uid, item);
@@ -2815,7 +2820,7 @@ function grantEssence(amount) {
 
 /** Puts one authored item straight into the backpack, if there is room for it. */
 function grantItem(id, uid) {
-  if (backpackItems.filter(Boolean).length >= HERO_BACKPACK_CAPACITY) return false;
+  if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) return false;
   const state = currentItemState();
   // Only gear carries affixes; a tool's record is the item and its uid.
   const definition = lootById(id);
@@ -2837,7 +2842,7 @@ function purchaseHouse() {
     house: run.house,
     gold,
     backpackCount: backpackItems.filter(Boolean).length,
-    capacity: HERO_BACKPACK_CAPACITY,
+    capacity: currentBackpackCapacity(),
   });
   if (!result.ok) return false;
   gold = result.gold;
@@ -6972,8 +6977,9 @@ function renderPack() {
 
   const itemCount = backpackItems.filter(Boolean).length;
   bagButton.querySelector('b').textContent = String(itemCount);
-  inventoryCount.textContent = `${itemCount}/12`;
-  inventoryCount.setAttribute('aria-label', `${labels.itemCount}: ${itemCount} / 12`);
+  const capacity = currentBackpackCapacity();
+  inventoryCount.textContent = `${itemCount}/${capacity}`;
+  inventoryCount.setAttribute('aria-label', `${labels.itemCount}: ${itemCount} / ${capacity}`);
   updateInventoryViewUi();
 }
 
@@ -8005,7 +8011,7 @@ function contextModelTarget(entry = contextTarget) {
           recipeId: recipe.id,
           essence: interactionResourceCount(ESSENCE_ITEM_ID),
           backpackCount: backpackItems.filter(Boolean).length,
-          capacity: HERO_BACKPACK_CAPACITY,
+          capacity: currentBackpackCapacity(),
           profile,
         })
       : null;
@@ -8738,7 +8744,7 @@ function renderChestContainer() {
   chestStorageTitle.textContent = copy.storage;
   chestBackpackTitle.textContent = copy.backpack;
   chestStorageCount.textContent = `${container.items.length}/${CHEST_CONTAINER_CAPACITY}`;
-  chestBackpackCount.textContent = `${backpackItems.length}/${HERO_BACKPACK_CAPACITY}`;
+  chestBackpackCount.textContent = `${backpackItems.length}/${currentBackpackCapacity()}`;
   chestContainer.setAttribute('aria-label', chestContainerTitle.textContent);
   closeChestContainerButton.setAttribute('aria-label', copy.close);
   chestContainerIcon.src = assetUrl(
@@ -8779,7 +8785,7 @@ function renderChestContainer() {
     chestStorageList.append(chestTransferItemButton({
       item,
       direction: 'take',
-      disabled: backpackItems.length >= HERO_BACKPACK_CAPACITY && !canMerge,
+      disabled: backpackItems.length >= currentBackpackCapacity() && !canMerge,
       onActivate: () => transactChestItem('take', record.uid),
     }));
   }
@@ -8818,7 +8824,10 @@ function transactChestItem(direction, uid) {
   const type = direction === 'take' ? CHEST_CONTAINER_COMMANDS.take : CHEST_CONTAINER_COMMANDS.store;
   const command = nextGameCommand(type, container.findId, { uid });
   const result = direction === 'take'
-    ? takeChestItem({ command, container, uid, items: state.items, inventory: state.inventory })
+    ? takeChestItem({
+      command, container, uid, items: state.items, inventory: state.inventory,
+      capacity: currentBackpackCapacity(),
+    })
     : storeChestItem({ command, container, uid, items: state.items, inventory: state.inventory });
   if (!result.ok) {
     chestContainerFeedback.textContent = chestFailureCopy(result.reason);
@@ -9356,7 +9365,7 @@ function brewAtCampfire() {
     recipeId: recipe.id,
     essence,
     backpackCount: backpackItems.filter(Boolean).length,
-    capacity: HERO_BACKPACK_CAPACITY,
+    capacity: currentBackpackCapacity(),
     profile,
   });
   if (!result.ok) {

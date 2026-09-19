@@ -33,12 +33,18 @@ import { lootEligibleForFloor, floorScaling } from '../tools/dcss-rpg-scaling.js
 import { spellBarModel } from '../tools/dcss-rpg-spells.js';
 
 const assetUrl = (path) => new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
-const STARTER_IDS = ['rusty-sword', 'worn-tunic'];
+/** What the hero wears, and what they carry. The two have different promises. */
+const STARTER_GEAR_IDS = ['rusty-sword', 'worn-tunic'];
+const STARTER_SUPPLY_IDS = ['mending-potion', 'wild-fruit'];
+const STARTER_IDS = [...STARTER_GEAR_IDS, ...STARTER_SUPPLY_IDS];
 
-test('a new run starts with worn clothes, a rusty sword, an empty bag and no spells', () => {
+test('a new run starts with worn clothes, a rusty sword, one potion, one meal and no spells', () => {
   const run = createRun(4242);
   assert.deepEqual(run.items.map(({ id }) => id), STARTER_IDS);
-  assert.deepEqual(run.inventory, []);
+  // «Дать одно-два зелья лечения и немного еды — но не слишком»: one of each,
+  // in the bag rather than worn, and the potion is known so it can be leaned on.
+  assert.deepEqual(run.inventory, ['starter-potion', 'starter-food']);
+  assert.deepEqual([...run.knowledge.identifiedItemIds], ['mending-potion']);
   assert.equal(run.equipment.hand1, 'starter-sword');
   assert.equal(run.equipment.body, 'starter-tunic');
   for (const slot of ['cloak', 'head', 'hand2', 'gloves', 'belt', 'boots', 'ring1', 'ring2', 'amulet']) {
@@ -61,6 +67,12 @@ test('the bare preset is the default while the wanderer kit only serves old save
   assert.deepEqual(createStartingMagic(LEGACY_BUILD_PRESET_ID).spells.knownSpellIds, ['ember-bolt', 'mending-light']);
 });
 
+/**
+ * The gear and the supplies are two different things. The sword and the tunic
+ * are deliberately worse than anything the dungeon holds, so they must never
+ * be found in it. The potion and the fruit are ordinary — being able to find
+ * more of them is the whole point of handing them over.
+ */
 test('starter gear is weaker than any drop and never appears as loot or stock', () => {
   const sword = lootById('rusty-sword');
   const tunic = lootById('worn-tunic');
@@ -79,11 +91,11 @@ test('starter gear is weaker than any drop and never appears as loot or stock', 
   for (let seed = 1; seed <= 200; seed += 1) {
     const depth = 1 + (seed % 9);
     const dungeon = generateDungeon({ seed, depth });
-    assert.ok(dungeon.loot.every(({ id }) => !STARTER_IDS.includes(id)), `seed ${seed} floor loot`);
+    assert.ok(dungeon.loot.every(({ id }) => !STARTER_GEAR_IDS.includes(id)), `seed ${seed} floor loot`);
     if (depth % 3 === 0) {
       for (const variantId of ['armourer', 'relic-dealer', 'provisioner']) {
         const stock = createMerchantStock({ seed, depth, roomIndex: 1, variantId });
-        assert.ok(stock.every(({ itemId, id }) => !STARTER_IDS.includes(itemId ?? id)), `seed ${seed} ${variantId}`);
+        assert.ok(stock.every(({ itemId, id }) => !STARTER_GEAR_IDS.includes(itemId ?? id)), `seed ${seed} ${variantId}`);
       }
     }
   }
@@ -151,4 +163,19 @@ test('the new items read naturally in both languages', () => {
   assert.equal(itemDetails(lootById('worn-tunic'), 'en').name, 'Worn tunic');
   assert.equal(itemDetails(lootById('book-of-embers'), 'ru').name, 'Книга углей');
   assert.equal(itemDetails(lootById('book-of-mending'), 'en').name, 'Book of Mending');
+});
+
+test('the starting supplies are ordinary things the dungeon also gives out', () => {
+  for (const id of STARTER_SUPPLY_IDS) {
+    const item = lootById(id);
+    assert.ok(item, `${id} is not in the catalogue`);
+    assert.equal(item.slot, null, `${id} is worn, not carried`);
+    assert.notEqual(item.randomDrop, false, `${id} can never be found again`);
+  }
+  // One potion and one meal: enough to survive a mistake, not enough to stop
+  // the hero looking for more. «Но не слишком, чтобы не сломать сложность.»
+  const run = createRun(1);
+  assert.equal(run.inventory.length, 2);
+  const supplies = run.items.filter(({ id }) => STARTER_SUPPLY_IDS.includes(id));
+  assert.equal(supplies.reduce((total, { stack }) => total + (stack ?? 1), 0), 3);
 });

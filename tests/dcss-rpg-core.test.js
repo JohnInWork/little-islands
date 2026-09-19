@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+
+import { HERO_BACKPACK_CAPACITY } from '../tools/dcss-rpg-chest-containers.js';
 import test from 'node:test';
 
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
@@ -587,7 +589,7 @@ test('version 8 saves keep hero progression and gear while adopting the harder v
   assert.equal(validateRun(migrated), true);
 });
 
-test('all eleven equipment slots can coexist with a full twelve-item backpack', () => {
+test('all eleven equipment slots can coexist with a full backpack', () => {
   const run = createRun(778);
   const equipped = [
     ['hand2', 'wood-buckler'],
@@ -605,14 +607,15 @@ test('all eleven equipment slots can coexist with a full twelve-item backpack', 
     run.items.push({ id, uid, affixIds: [] });
     run.equipment[slot] = uid;
   }
-  for (let index = 0; index < 12; index += 1) {
+  // The bag starts with the potion and the meal in it; fill the rest of it.
+  const room = HERO_BACKPACK_CAPACITY - run.inventory.length;
+  for (let index = 0; index < room; index += 1) {
     const uid = `full-pack-${index}`;
     run.items.push({ id: 'mystery-potion', uid });
     run.inventory.push(uid);
   }
   assert.equal(Object.values(run.equipment).filter(Boolean).length, 11);
-  assert.equal(run.inventory.length, 12);
-  assert.equal(run.items.length, 23);
+  assert.equal(run.inventory.length, HERO_BACKPACK_CAPACITY);
   assert.equal(validateRun(run), true);
 });
 

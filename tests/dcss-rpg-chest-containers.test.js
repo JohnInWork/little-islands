@@ -13,6 +13,10 @@ import {
   takeChestGold,
   takeChestItem,
   validateChestContainerStates,
+  HERO_BACKPACK_CAPACITY,
+  MAX_BACKPACK_CAPACITY,
+  MAX_BACKPACK_SLOTS,
+  backpackCapacity,
 } from '../tools/dcss-rpg-chest-containers.js';
 
 const command = (type, targetId, sequence = 1) => createGameCommand({
@@ -112,7 +116,7 @@ test('a full backpack rejects a new chest item without mutating either side', ()
   const dungeon = generateDungeon({ seed: 93, depth: 2 });
   const [closed] = createChestContainerStates({ seed: 93, depth: 2, finds: dungeon.finds });
   const container = openChestContainer(closed);
-  const items = Array.from({ length: 12 }, (_, index) => ({
+  const items = Array.from({ length: HERO_BACKPACK_CAPACITY }, (_, index) => ({
     id: 'short-blade',
     uid: `owned-${index}`,
     affixIds: [],
@@ -130,4 +134,33 @@ test('a full backpack rejects a new chest item without mutating either side', ()
   });
   assert.equal(result.reason, 'full');
   assert.deepEqual({ container, items, inventory }, before);
+});
+
+/**
+ * Twelve slots meant a walk home three times a floor. Ivan asked for thirty
+ * «и добавить навык, который расширяет рюкзак», so thirty is what everybody
+ * carries and «Вьючник» adds six a rank on top of it.
+ */
+test('the bag holds thirty, and portering widens it six slots a rank', async () => {
+  const { SKILL_IMPLEMENTATIONS, createSkillState, deriveSkillCapabilities } =
+    await import('../tools/dcss-rpg-skills.js');
+  assert.equal(HERO_BACKPACK_CAPACITY, 30);
+  assert.equal(backpackCapacity(), 30, 'a hero with no skills still gets the whole bag');
+  assert.equal(MAX_BACKPACK_CAPACITY, HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS);
+
+  for (const [rank, expected] of [[1, 36], [2, 42], [3, 48]]) {
+    const state = { ...createSkillState(9), ranks: { portering: rank } };
+    assert.equal(backpackCapacity(deriveSkillCapabilities(state)), expected, `rank ${rank}`);
+  }
+  // The ceiling a save may reach is exactly the widest bag, no more.
+  assert.equal(
+    backpackCapacity(deriveSkillCapabilities({ ...createSkillState(9), ranks: { portering: 3 } })),
+    MAX_BACKPACK_CAPACITY,
+  );
+  assert.ok(SKILL_IMPLEMENTATIONS.portering, 'the skill has no mechanic behind it');
+
+  // A nonsense capability never shrinks or overflows the bag.
+  assert.equal(backpackCapacity({ backpackSlots: -50 }), HERO_BACKPACK_CAPACITY);
+  assert.equal(backpackCapacity({ backpackSlots: 900 }), MAX_BACKPACK_CAPACITY);
+  assert.equal(backpackCapacity({ backpackSlots: Number.NaN }), HERO_BACKPACK_CAPACITY);
 });
