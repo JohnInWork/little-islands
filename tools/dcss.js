@@ -7160,6 +7160,44 @@ function romanDepth(value) {
   return result;
 }
 
+/**
+ * Hunger and tiredness as states you can see.
+ *
+ * Both already weakened the hero — a strong hunger takes a fifth off attack and
+ * defence, being spent hides half of what a search would find — and both were
+ * shown only as an unlabelled bar at the top of the screen. So the hero got
+ * worse and the player had no way to learn why. Ivan asked for them as debuffs,
+ * and they already carry the sentence that explains them; they only needed a
+ * place to stand.
+ *
+ * They have no timer: a state that lasts until you eat or sleep is not counted
+ * in seconds, so these badges carry a glyph instead of a number.
+ */
+function standingHeroStates() {
+  const states = [];
+  const hunger = hungerPresentation(hero.hunger, itemDetailLanguage);
+  if (hunger.id !== 'fed') {
+    states.push({
+      id: `hunger:${hunger.id}`,
+      label: hunger.label,
+      description: hunger.description,
+      glyph: '◔',
+      color: hunger.id === 'mild' ? '#c2a765' : hunger.id === 'strong' ? '#cf8a4d' : '#c25a4a',
+    });
+  }
+  const rest = restPresentation(hero.rest, itemDetailLanguage);
+  if (rest.id !== 'rested') {
+    states.push({
+      id: `rest:${rest.id}`,
+      label: rest.label,
+      description: rest.description,
+      glyph: '☾',
+      color: rest.id === 'weary' ? '#8f92c0' : '#6f72a8',
+    });
+  }
+  return states;
+}
+
 function renderHeroEffectsHud() {
   // The dish sits beside the states, because it is one: a good one with a timer.
   const meal = activeMeal(hero.meal, itemDetailLanguage);
@@ -7168,11 +7206,27 @@ function renderHeroEffectsHud() {
     ...activeActorEffects(hero.effects, itemDetailLanguage),
   ];
   const secondsLabel = itemDetailLanguage === 'ru' ? 'сек.' : 'sec.';
+  const standing = standingHeroStates();
   heroEffectsHud.setAttribute(
     'aria-label',
     itemDetailLanguage === 'ru' ? 'Состояния героя' : 'Hero effects',
   );
   heroEffectsHud.replaceChildren(
+    ...standing.map((state) => {
+      const badge = document.createElement('span');
+      const mark = document.createElement('b');
+      const caption = document.createElement('i');
+      badge.className = 'hero-effect hero-effect-standing';
+      badge.dataset.effect = state.id;
+      badge.style.setProperty('--effect-color', state.color);
+      badge.setAttribute('role', 'img');
+      badge.setAttribute('aria-label', `${state.label}. ${state.description}`);
+      badge.title = `${state.label} · ${state.description}`;
+      mark.textContent = state.glyph;
+      caption.textContent = state.label;
+      badge.append(mark, caption);
+      return badge;
+    }),
     ...effects.map((effect) => {
       const badge = document.createElement('span');
       const icon = document.createElement('img');
@@ -7193,7 +7247,7 @@ function renderHeroEffectsHud() {
       return badge;
     }),
   );
-  heroEffectsHud.hidden = effects.length === 0;
+  heroEffectsHud.hidden = effects.length === 0 && standing.length === 0;
 }
 
 function renderHungerHud() {

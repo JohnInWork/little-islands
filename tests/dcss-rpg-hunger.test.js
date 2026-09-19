@@ -145,3 +145,36 @@ test('runtime advances hunger only inside active gameplay and exposes a compact 
   assert.match(html, /id="hunger-meter"[^>]*data-stage="fed"[\s\S]*id="hunger-fill"/);
   assert.match(css, /\.hunger-meter\[data-stage='starving'\][\s\S]*--hunger-color:\s*#d6524c/);
 });
+
+/**
+ * Hunger and tiredness both weaken the hero — a strong hunger takes a fifth off
+ * attack and defence, being spent hides half of what a search would find — and
+ * both were shown only as an unlabelled bar at the top of the screen. So the
+ * hero got worse and the player had no way to learn why.
+ */
+test('hunger and tiredness stand beside the other states, with the sentence that explains them', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const fn = runtime.slice(runtime.indexOf('function standingHeroStates('));
+  const body = fn.slice(0, fn.indexOf('\nfunction renderHeroEffectsHud'));
+  assert.ok(body.length > 0, 'nothing stands');
+  // Only when they are actually costing the hero something.
+  assert.match(body, /hunger\.id !== 'fed'/);
+  assert.match(body, /rest\.id !== 'rested'/);
+  // And the badge carries the description, which the modules already wrote.
+  assert.match(runtime, /`\$\{state\.label\}\. \$\{state\.description\}`/);
+  assert.match(runtime, /heroEffectsHud\.hidden = effects\.length === 0 && standing\.length === 0;/);
+
+  // The sentences exist for every stage that penalises, in both languages.
+  for (const value of [2000, 900, 300, 0]) {
+    const stage = hungerStage(value);
+    if (stage.id === 'fed') continue;
+    for (const language of ['ru', 'en']) {
+      assert.ok(stage.descriptions[language].length > 10, `${stage.id}/${language}`);
+      assert.ok(stage.labels[language].length > 2, `${stage.id}/${language}`);
+    }
+    assert.ok(
+      Object.values(stage.modifiers).some((value) => value < 1),
+      `${stage.id} is shown as a debuff but costs nothing`,
+    );
+  }
+});
