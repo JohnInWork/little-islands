@@ -176,6 +176,23 @@ export const BOOK_APPEARANCES = Object.freeze([
   Object.freeze({ id: 'plaid', icon: 'item/book/plaid.png', name: Object.freeze({ ru: 'Книга в клетку', en: 'Plaid book' }) }),
   Object.freeze({ id: 'crimson', icon: 'item/book/red.png', name: Object.freeze({ ru: 'Багровая книга', en: 'Crimson book' }) }),
   Object.freeze({ id: 'steel-blue', icon: 'item/book/metal_blue.png', name: Object.freeze({ ru: 'Книга в синем металле', en: 'Blue metal book' }) }),
+  // Тринадцать новых заклинаний — тринадцать новых книг, и у каждой должен быть
+  // свой облик: две неопознанные книги, выглядящие одинаково, — это не загадка,
+  // а ошибка. Шесть последних перекрашены из библиотечных: обложек в ней всего
+  // двадцать четыре, а книг в игре теперь тридцать.
+  Object.freeze({ id: 'black-bound', icon: 'item/book/book_of_the_dead.png', name: Object.freeze({ ru: 'Книга в чёрном переплёте', en: 'Black-bound book' }) }),
+  Object.freeze({ id: 'cyan', icon: 'item/book/cyan.png', name: Object.freeze({ ru: 'Голубая книга', en: 'Cyan book' }) }),
+  Object.freeze({ id: 'slate', icon: 'item/book/dark_gray.png', name: Object.freeze({ ru: 'Тёмно-серая книга', en: 'Dark grey book' }) }),
+  Object.freeze({ id: 'light-brown', icon: 'item/book/light_brown.png', name: Object.freeze({ ru: 'Светло-коричневая книга', en: 'Light brown book' }) }),
+  Object.freeze({ id: 'ash-grey', icon: 'item/book/light_gray.png', name: Object.freeze({ ru: 'Серая книга', en: 'Grey book' }) }),
+  Object.freeze({ id: 'pale-green', icon: 'item/book/light_green.png', name: Object.freeze({ ru: 'Светло-зелёная книга', en: 'Light green book' }) }),
+  Object.freeze({ id: 'magenta', icon: 'item/book/magenta.png', name: Object.freeze({ ru: 'Пурпурная книга', en: 'Magenta book' }) }),
+  Object.freeze({ id: 'rust', icon: 'derived/books/rust.png', name: Object.freeze({ ru: 'Ржавая книга', en: 'Rust-coloured book' }) }),
+  Object.freeze({ id: 'ink', icon: 'derived/books/ink.png', name: Object.freeze({ ru: 'Чернильная книга', en: 'Ink-blue book' }) }),
+  Object.freeze({ id: 'rose', icon: 'derived/books/rose.png', name: Object.freeze({ ru: 'Розовая книга', en: 'Rose book' }) }),
+  Object.freeze({ id: 'wine', icon: 'derived/books/wine.png', name: Object.freeze({ ru: 'Винная книга', en: 'Wine-red book' }) }),
+  Object.freeze({ id: 'emerald', icon: 'derived/books/emerald.png', name: Object.freeze({ ru: 'Изумрудная книга', en: 'Emerald book' }) }),
+  Object.freeze({ id: 'gilded', icon: 'derived/books/gold.png', name: Object.freeze({ ru: 'Золочёная книга', en: 'Gilded book' }) }),
 ]);
 
 export const IDENTIFICATION_APPEARANCES = Object.freeze({

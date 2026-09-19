@@ -366,7 +366,7 @@ test('targeted spells and scrolls share one explicit thumb-safe targeting screen
   assert.match(runtime, /function beginBlinkTargeting\(itemUid, effectOverride = null\)/);
   assert.match(runtime, /performAbilityTargetAtCell\(Math\.floor\(target\.x \/ TILE\), Math\.floor\(target\.y \/ TILE\)\)/);
   assert.match(runtime, /position\.x - halfWidth < 0[\s\S]*position\.x \+ halfWidth > viewportWidth/);
-  assert.match(runtime, /usedSpell\.kind === 'projectile' && usedSpell\.targetMode === 'actor' && !explicitTarget/);
+  assert.match(runtime, /TARGETED_SPELL_KINDS\.includes\(usedSpell\.kind\) && usedSpell\.targetMode === 'actor' && !explicitTarget/);
   assert.match(runtime, /selection\.item\.useEffect\?\.type === 'blink'[\s\S]*beginBlinkTargeting\(selection\.item\.uid, variantEffect\)/);
   const blinkRuntime = runtime.slice(
     runtime.indexOf('function performBlinkTarget(target)'),

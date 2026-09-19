@@ -535,7 +535,11 @@ import {
   spellById,
   spellDamage,
   spellHealing,
+  ICE_ARMOUR_SOAK,
+  TARGETED_SPELL_KINDS,
+  shareLifeAmount,
   spellMagic,
+  spellSelfCost,
   spellStatus,
   spellUseAvailability,
   toggleSustainedSpell,
@@ -2230,14 +2234,111 @@ function currentWeaponLoadout() {
   return resolveWeaponLoadout(equippedItem('hand1'), equippedItem('hand2'));
 }
 
+const SPELL_SCHOOL_RANKS = Object.freeze({
+  pyromancy: 'pyromancyRank',
+  cryomancy: 'cryomancyRank',
+  'storm-magic': 'stormMagicRank',
+  arcana: 'arcanaRank',
+  cleansing: 'cleansingRank',
+  necromancy: 'necromancyRank',
+});
+
+/** How far the school behind a spell has been learned. Zero for an unknown one. */
+function spellSchoolRank(schoolId) {
+  const key = SPELL_SCHOOL_RANKS[schoolId];
+  return key ? currentSkillCapabilities()[key] ?? 0 : 0;
+}
+
+/**
+ * Why a spell refused. A greyed-out button that says nothing is the thing
+ * players complain about, so every new refusal gets a sentence of its own.
+ */
+/** How long a kindled hero's fire clings to whatever touched them. */
+const KINDLE_BURN_SECONDS = 4;
+
+const SPELL_REFUSALS = Object.freeze({
+  ru: Object.freeze({
+    nothingToBurn: 'Нечего выжигать',
+    tooWeak: 'Слишком мало здоровья',
+    nobodyToMend: 'Некого лечить',
+    nothingLocked: 'Рядом нет замка',
+    nowhereToGo: 'Переносить некуда',
+  }),
+  en: Object.freeze({
+    nothingToBurn: 'Nothing to burn away',
+    tooWeak: 'Not enough health',
+    nobodyToMend: 'Nobody to mend',
+    nothingLocked: 'No lock within reach',
+    nowhereToGo: 'Nowhere to land',
+  }),
+});
+
+function spellRefusalCopy(language) {
+  return SPELL_REFUSALS[language === 'en' ? 'en' : 'ru'];
+}
+
+/**
+ * Throws a creature one tile directly away from the hero. Returns false when
+ * the tile behind it is wall or taken — and that refusal is the point: a shove
+ * into a wall hurts more than a shove into a corridor.
+ */
+function shoveActorFromHero(actor) {
+  if (!actor) return false;
+  const from = { x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) };
+  const dx = actor.x - hero.x;
+  const dy = actor.y - hero.y;
+  const step = Math.abs(dx) >= Math.abs(dy)
+    ? { x: Math.sign(dx) || 1, y: 0 }
+    : { x: 0, y: Math.sign(dy) || 1 };
+  const landing = { x: from.x + step.x, y: from.y + step.y };
+  if (!isWalkable(landing.x, landing.y)) return false;
+  const taken = [...monsters, ...allies].some((other) => (
+    other !== actor
+    && other.dead === 0
+    && Math.floor(other.x / TILE) === landing.x
+    && Math.floor(other.y / TILE) === landing.y
+  ));
+  if (taken) return false;
+  actor.x = (landing.x + 0.5) * TILE;
+  actor.y = (landing.y + 0.5) * TILE;
+  actor.route = [];
+  actor.repathCooldown = 0;
+  return true;
+}
+
+/**
+ * Where a translocation drops the hero. Anywhere walkable and empty that is not
+ * within arm's reach of where they stood — landing next to the thing you were
+ * running from is not a teleport, it is a stumble.
+ */
+function randomTeleportCell() {
+  const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const taken = new Set([...monsters, ...allies]
+    .filter((actor) => actor.dead === 0)
+    .map((actor) => `${Math.floor(actor.x / TILE)},${Math.floor(actor.y / TILE)}`));
+  const candidates = [];
+  for (let y = 0; y < world.length; y += 1) {
+    for (let x = 0; x < world[y].length; x += 1) {
+      if (!isHeroWalkable(x, y)) continue;
+      if (taken.has(`${x},${y}`)) continue;
+      if (Math.abs(x - from.x) + Math.abs(y - from.y) < 6) continue;
+      candidates.push({ x, y });
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function currentHeroMagic() {
   const gear = equipmentMagic(selected, itemInstances);
   const spells = spellMagic(hero.spells, currentHeroStats().intelligence);
-  return Object.freeze({
-    ...gear,
-    flight: gear.flight || spells.flight,
-    invisibility: gear.invisibility || spells.invisibility,
-  });
+  // Gear and spells grant the same kinds of thing, so they are folded rather
+  // than listed: a sustained spell added later must not need a line here too.
+  const merged = { ...gear };
+  for (const [flag, granted] of Object.entries(spells)) {
+    merged[flag] = merged[flag] || granted;
+  }
+  return Object.freeze(merged);
 }
 
 function isHeroConcealed() {
@@ -7055,7 +7156,7 @@ function nearbyFind() {
     )[0] ?? null;
 }
 
-function interactNearbyFind(preferredFind = null, action = null) {
+function interactNearbyFind(preferredFind = null, action = null, { magicKey = false } = {}) {
   const find = preferredFind ?? nearbyFind();
   if (!find || !ready || uiScreen !== 'game' || hero.dead || openingDoor) return false;
   const findContainer = find.id === 'sealed-cache'
@@ -7102,7 +7203,9 @@ function interactNearbyFind(preferredFind = null, action = null) {
     },
     gold,
     action,
-    actor: currentInteractionActor(),
+    actor: magicKey
+      ? { ...currentInteractionActor(), keyCount: 1 }
+      : currentInteractionActor(),
   });
   const presentation = findPresentation(find, itemDetailLanguage);
   const resultPresentation = findResultPresentation(result, find, itemDetailLanguage);
@@ -7115,7 +7218,8 @@ function interactNearbyFind(preferredFind = null, action = null) {
     return false;
   }
 
-  if (!consumeInteractionResources(result.consumed)) return false;
+  // A key that was never in the bag cannot come out of it.
+  if (!magicKey && !consumeInteractionResources(result.consumed)) return false;
 
   hero.path = [];
   hero.pendingAttack = null;
@@ -11373,6 +11477,14 @@ function returnThorns(attacker, hit) {
   addCombatGlyph(attacker.x, attacker.y, '\u2736', '#c9b98a', -54);
 }
 
+/** Kindle: whatever strikes the hero in melee walks away burning. */
+function kindleAttacker(attacker, hit) {
+  if (!attacker || !hit || hit.blocked || hit.damage <= 0) return;
+  if (!currentHeroMagic().kindled || attacker.dead > 0) return;
+  attacker.effects = applyActorEffect(attacker.effects, 'burning', KINDLE_BURN_SECONDS).effects;
+  addCombatGlyph(attacker.x, attacker.y, '\u2668', '#ef8a45', -48);
+}
+
 let whipRefusalAt = -Infinity;
 
 /**
@@ -11438,7 +11550,7 @@ function launchHeroProjectile(monster, damage, combat, color, shot = null) {
 }
 
 function spellTargetCandidates(spell) {
-  if (!spell || spell.kind !== 'projectile') return [];
+  if (!spell || !TARGETED_SPELL_KINDS.includes(spell.kind)) return [];
   const candidates = [];
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   for (const target of [
@@ -11484,7 +11596,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
   const spell = spellById(spellId);
   const stats = currentHeroStats();
   const targets = spellTargetCandidates(spell);
-  const target = spell?.kind === 'projectile'
+  const target = TARGETED_SPELL_KINDS.includes(spell?.kind)
     ? explicitTarget
       ? targets.find(({ instanceId }) => instanceId === explicitTarget.instanceId) ?? null
       : nearestSpellTarget(spell)
@@ -11505,7 +11617,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
   }
 
   const usedSpell = availability.spell;
-  if (usedSpell.kind === 'projectile' && usedSpell.targetMode === 'actor' && !explicitTarget) {
+  if (TARGETED_SPELL_KINDS.includes(usedSpell.kind) && usedSpell.targetMode === 'actor' && !explicitTarget) {
     return beginSpellTargeting(slotIndex, usedSpell, targets);
   }
   if (usedSpell.kind === 'sustained') {
@@ -11572,14 +11684,17 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.attackDuration = 0.3;
     hero.attackStyle = 'staff';
     hero.attackCooldown = Math.max(hero.attackCooldown, 0.36);
-    const rank = currentSkillCapabilities().pyromancyRank ?? 0;
-    const damage = spellDamage(usedSpell.id, stats.intelligence, rank);
+    const damage = spellDamage(usedSpell.id, stats.intelligence, spellSchoolRank(usedSpell.schoolId));
     const status = spellStatus(usedSpell.id, stats.intelligence);
-    playSound('spell-fire');
+    playSound(usedSpell.schoolId === 'cryomancy' ? 'spell-ice' : 'spell-fire');
     burst(hero.x, hero.y - 8, usedSpell.color, 30);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 44 + usedSpell.range * 28, 4);
     for (const monster of targets) {
-      damageMonster(monster, damage, usedSpell.color, { style: 'staff' });
+      // Water conducts, and the storm lives on that: a wet target takes the
+      // blow twice. It is the one thing storm magic has that fire does not.
+      const conducted = usedSpell.schoolId === 'storm-magic'
+        && (monster.effects?.wet > 0 || isWaterCell(world, Math.floor(monster.x / TILE), Math.floor(monster.y / TILE)));
+      damageMonster(monster, conducted ? damage * 2 : damage, usedSpell.color, { style: 'staff' });
       if (status && monster.dead === 0) {
         monster.effects = applyActorEffect(monster.effects, status.id, status.duration).effects;
       }
@@ -11631,6 +11746,131 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
     addCombatGlyph(hero.x, hero.y, cleansingReport(ritual, itemDetailLanguage), usedSpell.color, -62);
+  } else if (usedSpell.kind === 'shove') {
+    // Not damage: distance. The bruise is what the wall does, not the spell.
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.3);
+    hero.attackDuration = 0.3;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.34);
+    const pushed = shoveActorFromHero(target);
+    damageMonster(
+      target,
+      spellDamage(usedSpell.id, stats.intelligence, spellSchoolRank(usedSpell.schoolId)) * (pushed ? 1 : 2),
+      usedSpell.color,
+      { style: 'staff' },
+    );
+    playSound('spell-toggle');
+    burst(target.x, target.y - 8, usedSpell.color, 16);
+    addCombatGlyph(target.x, target.y, pushed ? '\u21e2' : '\u2716', usedSpell.color, -58);
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
+  } else if (usedSpell.kind === 'cauterise') {
+    const burned = ['chilled', 'frozen', 'poison', 'wet'].filter((id) => (hero.effects[id] ?? 0) > 0);
+    if (burned.length === 0) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nothingToBurn);
+      return false;
+    }
+    const cost = spellSelfCost(usedSpell.id, spellSchoolRank(usedSpell.schoolId));
+    if (hero.hp <= cost) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).tooWeak);
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    hero.effects = clearActorEffects(hero.effects, burned).effects;
+    for (const id of burned) showEffectRelief(id);
+    hero.hp = Math.max(1, hero.hp - cost);
+    renderHeroEffectsHud();
+    playSound('spell-fire');
+    burst(hero.x, hero.y - 12, usedSpell.color, 24);
+    addCombatGlyph(hero.x, hero.y, `-${cost}`, usedSpell.color, -62);
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
+  } else if (usedSpell.kind === 'share-life') {
+    const wounded = allies.filter((ally) => ally.dead === 0 && ally.hp < ally.maxHp);
+    if (wounded.length === 0) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nobodyToMend);
+      return false;
+    }
+    const cost = spellSelfCost(usedSpell.id, spellSchoolRank(usedSpell.schoolId));
+    if (hero.hp <= cost) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).tooWeak);
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    // What the hero pays is fixed; what the servants receive is divided, so
+    // one wounded skeleton is mended far better than four are.
+    const moved = shareLifeAmount(usedSpell.id, stats.intelligence, spellSchoolRank(usedSpell.schoolId));
+    const share = Math.max(1, Math.round(moved / wounded.length));
+    hero.hp = Math.max(1, hero.hp - cost);
+    for (const ally of wounded) {
+      ally.hp = Math.min(ally.maxHp, ally.hp + share);
+      burst(ally.x, ally.y - 8, usedSpell.color, 12);
+      addCombatGlyph(ally.x, ally.y, `+${share}`, usedSpell.color, -54);
+    }
+    playSound('spell-heal');
+    addCombatGlyph(hero.x, hero.y, `-${cost}`, usedSpell.color, -62);
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
+  } else if (usedSpell.kind === 'cleanse-ally') {
+    const touched = allies.filter((ally) => ally.dead === 0);
+    if (touched.length === 0) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nobodyToMend);
+      return false;
+    }
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    const mended = spellHealing(usedSpell.id, stats.intelligence, spellSchoolRank(usedSpell.schoolId));
+    for (const ally of touched) {
+      ally.effects = clearActorEffects(ally.effects).effects;
+      ally.hp = Math.min(ally.maxHp, ally.hp + mended);
+      burst(ally.x, ally.y - 8, usedSpell.color, 14);
+      addCombatGlyph(ally.x, ally.y, `+${mended}`, usedSpell.color, -54);
+    }
+    playSound('spell-heal');
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
+  } else if (usedSpell.kind === 'unlock') {
+    const locked = nearbyFind();
+    if (!locked || locked.cacheVariant !== 'locked') {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nothingLocked);
+      return false;
+    }
+    if (!interactNearbyFind(locked, 'use-key', { magicKey: true })) return false;
+    playSound('spell-toggle');
+    burst(locked.x, locked.y - 10, usedSpell.color, 20);
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
+  } else if (usedSpell.kind === 'teleport') {
+    const landing = randomTeleportCell();
+    if (!landing) {
+      rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nowhereToGo);
+      return false;
+    }
+    burst(hero.x, hero.y - 10, usedSpell.color, 26);
+    addImpactWave(hero.x, hero.y - 8, usedSpell.color, 62, 1);
+    hero.x = (landing.x + 0.5) * TILE;
+    hero.y = (landing.y + 0.5) * TILE;
+    hero.path = [];
+    hero.route = [];
+    camera.x = hero.x;
+    camera.y = hero.y;
+    revealAround(revealed, world, landing, CITY_DEPTHS.includes(dungeon.depth) ? CITY_REVEAL_RADIUS : 4);
+    burst(hero.x, hero.y - 10, usedSpell.color, 26);
+    playSound('spell-toggle');
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
   } else if (usedSpell.kind === 'heal') {
     hero.path = [];
     hero.attack = Math.max(hero.attack, 0.28);
@@ -11951,8 +12191,20 @@ function damageHero(amount, {
 } = {}) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return null;
   const combat = currentHeroCombat();
+  const magic = currentHeroMagic();
+  if (magic.warded && amount > 0) {
+    // The ward holds one blow entirely and goes out. It is switched off rather
+    // than counted down, so the bar shows the truth without a second number.
+    hero.spells = toggleSustainedSpell(hero.spells, 'ward', currentHeroStats().intelligence).state;
+    renderSpellBar();
+    playSound('block');
+    addCombatGlyph(hero.x, hero.y, '\u25c7', '#ded3a6', -60);
+    burst(hero.x, hero.y - 10, '#ded3a6', 14);
+    return Object.freeze({ hp: hero.hp, damage: 0, dead: false, blocked: true });
+  }
+  const softened = magic.iceArmour ? amount * (1 - ICE_ARMOUR_SOAK) : amount;
   const fullyBlocked = !direct && blocked && combat.guard > 0;
-  const directDamage = Math.max(0, Math.ceil(amount));
+  const directDamage = Math.max(0, Math.ceil(softened));
   const rolled = fullyBlocked
     ? Object.freeze({ hp: hero.hp, damage: 0, dead: false, blocked: true })
     : direct
@@ -11963,7 +12215,7 @@ function damageHero(amount, {
       })
     : resolveHeroDamage({
         hp: hero.hp,
-        amount,
+        amount: softened,
         defense: currentHeroStats().defense,
         guard: combat.guard,
       });
@@ -13465,6 +13717,7 @@ function updateWorld(delta) {
             from: monster,
           });
           returnThorns(monster, hit);
+          kindleAttacker(monster, hit);
           if (hit && monster.shock) shockWetActorsAround(monster);
             if (hit && monster.pull > 0) dragHeroToward(monster);
           if (block.stunSeconds > 0) {

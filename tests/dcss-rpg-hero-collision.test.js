@@ -162,6 +162,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     // This sandbox is about collision, not gear: nothing here wears thorns and
     // nobody carries a staff.
     returnThorns: () => {},
+    // Kindle answers on the same hook as thorns; the sandbox speaks for neither.
+    kindleAttacker: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     // A run always lives by two conditions; a sandbox lives by none.
     currentConditions: () => ({

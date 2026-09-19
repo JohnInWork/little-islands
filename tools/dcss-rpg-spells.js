@@ -233,6 +233,251 @@ export const SPELL_CATALOG = Object.freeze([
       en: 'Toggle with another press. Attacking temporarily reveals the hero.',
     },
   }),
+
+  // ── Криомантия ──────────────────────────────────────────────────────────
+  // У школы было одно заклинание: лёд и огонь игрались одинаково, потому что
+  // играть было нечем. Три ответа на три разных вопроса — толпа, один опасный,
+  // и «меня сейчас убьют».
+  freezeSpell({
+    id: 'frost-burst',
+    schoolId: 'cryomancy',
+    kind: 'burst',
+    icon: 'item/wand/i-cold.png',
+    color: '#8fd8e6',
+    minimumIntelligence: 6,
+    cooldown: 9.5,
+    range: 2,
+    basePower: 5,
+    status: { id: 'chilled', baseDuration: 5, maximumDuration: 9 },
+    name: { ru: 'Морозная вспышка', en: 'Frost Burst' },
+    description: {
+      ru: 'Бьёт всех вокруг героя и студит их. Слабее огненной, но замедляет всю толпу.',
+      en: 'Strikes everyone around the hero and chills them. Weaker than fire, but it slows the whole crowd.',
+    },
+  }),
+  freezeSpell({
+    /**
+     * The one that stops a single dangerous thing. `frozen` is a full stop, so
+     * the cooldown is long: this is a door closed for a few seconds, not a way
+     * to keep anything held forever.
+     */
+    id: 'glaciate',
+    schoolId: 'cryomancy',
+    kind: 'projectile',
+    targetMode: 'actor',
+    icon: 'item/ring/i-ice.png',
+    color: '#a8e4ef',
+    minimumIntelligence: 8,
+    cooldown: 14,
+    range: 5.5,
+    basePower: 4,
+    status: { id: 'frozen', baseDuration: 2, maximumDuration: 4 },
+    name: { ru: 'Оковы льда', en: 'Glaciate' },
+    description: {
+      ru: 'Выбери врага. Урон невелик, но цель встаёт намертво на пару секунд.',
+      en: 'Choose an enemy. Little damage, but the target stops dead for a couple of seconds.',
+    },
+  }),
+  freezeSpell({
+    id: 'ice-armour',
+    schoolId: 'cryomancy',
+    kind: 'sustained',
+    icon: 'item/ring/i-r-cold.png',
+    color: '#bfe6f0',
+    minimumIntelligence: 7,
+    cooldown: 0.5,
+    magic: Object.freeze({ iceArmour: true }),
+    name: { ru: 'Ледяной доспех', en: 'Ice Armour' },
+    description: {
+      ru: 'Включается повторным нажатием. Пока держится, весь получаемый урон меньше на четверть.',
+      en: 'Toggle with another press. While it holds, every blow you take lands a quarter lighter.',
+    },
+  }),
+
+  // ── Магия бури ──────────────────────────────────────────────────────────
+  freezeSpell({
+    id: 'storm-burst',
+    schoolId: 'storm-magic',
+    kind: 'burst',
+    icon: 'item/ring/i-magical-power.png',
+    color: '#9fe2f5',
+    minimumIntelligence: 7,
+    cooldown: 10,
+    range: 2.5,
+    basePower: 7,
+    name: { ru: 'Грозовая вспышка', en: 'Storm Burst' },
+    description: {
+      ru: 'Бьёт всех вокруг. По мокрым — вдвое: вода проводит, и буря этим живёт.',
+      en: 'Strikes everyone around. Twice as hard on the wet: water conducts, and the storm lives on that.',
+    },
+  }),
+  freezeSpell({
+    id: 'thunderclap',
+    schoolId: 'storm-magic',
+    kind: 'burst',
+    icon: 'item/scroll/i-noise.png',
+    color: '#cfe9f7',
+    minimumIntelligence: 6,
+    cooldown: 12,
+    range: 2,
+    basePower: 2,
+    status: { id: 'frozen', baseDuration: 1, maximumDuration: 3 },
+    name: { ru: 'Раскат', en: 'Thunderclap' },
+    description: {
+      ru: 'Почти не ранит, но на секунду останавливает всех вокруг. Это не урон, это время.',
+      en: 'It barely wounds, but for a second everything around stops. This is not damage, it is time.',
+    },
+  }),
+  freezeSpell({
+    /**
+     * Not damage: distance. A monster shoved back is a monster that has to walk
+     * the ground again, and the hero chooses what to do with the two seconds.
+     */
+    id: 'shove',
+    schoolId: 'storm-magic',
+    kind: 'shove',
+    targetMode: 'actor',
+    icon: 'item/potion/i-might.png',
+    color: '#b9dff0',
+    minimumIntelligence: 5,
+    cooldown: 8,
+    range: 4.5,
+    basePower: 3,
+    name: { ru: 'Толчок', en: 'Shove' },
+    description: {
+      ru: 'Выбери врага. Отбрасывает его на клетку от тебя и слегка ранит о стену.',
+      en: 'Choose an enemy. Throws them a tile away from you and bruises them on the wall.',
+    },
+  }),
+
+  // ── Пиромантия ──────────────────────────────────────────────────────────
+  freezeSpell({
+    /**
+     * Fire that is spent on the hero rather than thrown: cold, poison and damp
+     * burn off, and the burning costs health. A cure that hurts is still a cure.
+     */
+    id: 'cauterise',
+    schoolId: 'pyromancy',
+    kind: 'cauterise',
+    icon: 'item/potion/i-curing.png',
+    color: '#f09a55',
+    minimumIntelligence: 5,
+    cooldown: 14,
+    basePower: 8,
+    name: { ru: 'Прижечь', en: 'Cauterise' },
+    description: {
+      ru: 'Выжигает с себя холод, яд и сырость. Платишь здоровьем — лечения здесь нет.',
+      en: 'Burns cold, poison and damp off yourself. You pay in health: there is no mending here.',
+    },
+  }),
+  freezeSpell({
+    id: 'kindle',
+    schoolId: 'pyromancy',
+    kind: 'sustained',
+    icon: 'item/ring/i-fire.png',
+    color: '#ef8a45',
+    minimumIntelligence: 6,
+    cooldown: 0.5,
+    magic: Object.freeze({ kindled: true }),
+    name: { ru: 'Запал', en: 'Kindle' },
+    description: {
+      ru: 'Включается повторным нажатием. Всякий, кто ударит тебя вплотную, загорается.',
+      en: 'Toggle with another press. Anything that strikes you in melee catches fire.',
+    },
+  }),
+
+  // ── Некромантия ─────────────────────────────────────────────────────────
+  freezeSpell({
+    /**
+     * The necromancer stops being the one who raised a thing and forgot it: a
+     * servant lives exactly as long as its master is willing to pay for it.
+     */
+    id: 'share-life',
+    schoolId: 'necromancy',
+    kind: 'share-life',
+    icon: 'item/potion/i-blood.png',
+    color: '#b06a7a',
+    minimumIntelligence: 6,
+    cooldown: 10,
+    basePower: 10,
+    name: { ru: 'Поделиться', en: 'Share Life' },
+    description: {
+      ru: 'Снимает здоровье с тебя и делит между призванными. Слуга живёт столько, сколько ты платишь.',
+      en: 'Takes health off you and divides it among your servants. A servant lives as long as you pay for it.',
+    },
+  }),
+
+  // ── Очищение ────────────────────────────────────────────────────────────
+  freezeSpell({
+    id: 'ward',
+    schoolId: 'cleansing',
+    kind: 'sustained',
+    icon: 'item/amulet/i-warding.png',
+    color: '#ded3a6',
+    minimumIntelligence: 6,
+    cooldown: 0.5,
+    magic: Object.freeze({ warded: true }),
+    name: { ru: 'Оберег', en: 'Ward' },
+    description: {
+      ru: 'Держит один удар целиком — и гаснет. Включать заново после каждого раза.',
+      en: 'Holds one blow entirely, then goes out. Switch it on again after each one.',
+    },
+  }),
+  freezeSpell({
+    id: 'cleanse-ally',
+    schoolId: 'cleansing',
+    kind: 'cleanse-ally',
+    icon: 'item/potion/i-cancel.png',
+    color: '#c8dcb4',
+    minimumIntelligence: 5,
+    cooldown: 12,
+    basePower: 4,
+    name: { ru: 'Очистить слугу', en: 'Cleanse Ally' },
+    description: {
+      ru: 'Снимает состояния со спутников и призванных и немного их лечит. На себя не действует.',
+      en: 'Strips conditions off companions and servants and mends them a little. It does nothing for you.',
+    },
+  }),
+
+  // ── Арканы ──────────────────────────────────────────────────────────────
+  freezeSpell({
+    /**
+     * A locked chest with no key is not a decision, it is a wall you walk past.
+     * The price is what turns it into one: a long cooldown and an arcanist who
+     * could have prepared something else in that slot.
+     */
+    id: 'unlock',
+    schoolId: 'arcana',
+    kind: 'unlock',
+    icon: 'item/misc/runes/generic.png',
+    color: '#c7b6e2',
+    minimumIntelligence: 9,
+    cooldown: 60,
+    name: { ru: 'Отпереть', en: 'Unlock' },
+    description: {
+      ru: 'Снимает замок с того, к чему стоишь вплотную. Долгий откат: это вместо ключа, а не поверх него.',
+      en: 'Takes the lock off whatever you are standing against. A long cooldown: it replaces a key, not adds to one.',
+    },
+  }),
+  freezeSpell({
+    /**
+     * Where you land is not yours to choose — that is the whole spell. It is an
+     * answer to "I am about to die here", and it costs you knowing where "there"
+     * is going to be.
+     */
+    id: 'teleport',
+    schoolId: 'arcana',
+    kind: 'teleport',
+    icon: 'item/scroll/i-teleportation.png',
+    color: '#a99ade',
+    minimumIntelligence: 7,
+    cooldown: 25,
+    name: { ru: 'Телепорт', en: 'Teleport' },
+    description: {
+      ru: 'Переносит в случайную точку этажа. Куда — не тебе решать, и в этом весь смысл.',
+      en: 'Carries you to a random spot on the floor. Where is not yours to choose, and that is the point.',
+    },
+  }),
 ]);
 
 const SPELL_BY_ID = new Map(SPELL_CATALOG.map((spell) => [spell.id, spell]));
@@ -373,20 +618,34 @@ export function toggleSustainedSpell(state, spellId, intelligence) {
   });
 }
 
+/**
+ * Everything a sustained spell can grant. Written once here rather than as a
+ * pair of lines inside the fold: the first two were flight and invisibility,
+ * and every spell added after them would have been silently ignored.
+ */
+export const SUSTAINED_MAGIC_FLAGS = Object.freeze([
+  'flight', 'invisibility', 'iceArmour', 'kindled', 'warded',
+]);
+
 export function spellMagic(state, intelligence) {
   if (!validateSpellState(state)) throw new TypeError('Invalid spell state');
-  const magic = { flight: false, invisibility: false };
+  const magic = Object.fromEntries(SUSTAINED_MAGIC_FLAGS.map((flag) => [flag, false]));
   if (!Number.isFinite(intelligence)) return Object.freeze(magic);
   for (const id of state.activeSustainedSpellIds) {
     const spell = spellById(id);
     if (!spell || intelligence < spell.minimumIntelligence) continue;
-    magic.flight ||= spell.magic?.flight === true;
-    magic.invisibility ||= spell.magic?.invisibility === true;
+    for (const flag of SUSTAINED_MAGIC_FLAGS) magic[flag] ||= spell.magic?.[flag] === true;
   }
   return Object.freeze(magic);
 }
 
-const DAMAGING_KINDS = Object.freeze(['projectile', 'burst']);
+/** How much a quarter of a blow is, when the ice armour holds. */
+export const ICE_ARMOUR_SOAK = 0.25;
+
+const DAMAGING_KINDS = Object.freeze(['projectile', 'burst', 'shove']);
+
+/** Kinds the hero aims at one creature rather than at everything in reach. */
+export const TARGETED_SPELL_KINDS = Object.freeze(['projectile', 'shove']);
 
 export function spellDamage(spellId, intelligence, schoolRank = 0) {
   const spell = spellById(spellId);
@@ -395,12 +654,29 @@ export function spellDamage(spellId, intelligence, schoolRank = 0) {
 }
 
 // Purging light mends as well as it cleans, so both kinds share the formula.
-const HEALING_KINDS = Object.freeze(['heal', 'purge']);
+const HEALING_KINDS = Object.freeze(['heal', 'purge', 'cleanse-ally']);
 
 export function spellHealing(spellId, intelligence, schoolRank = 0) {
   const spell = spellById(spellId);
   if (!spell || !HEALING_KINDS.includes(spell.kind) || !Number.isFinite(intelligence)) return 0;
   return Math.max(1, Math.round(spell.basePower + intelligence * 1.5 + schoolRank * 3));
+}
+
+const SELF_COST_KINDS = Object.freeze(['cauterise', 'share-life']);
+
+export function spellSelfCost(spellId, schoolRank = 0) {
+  const spell = spellById(spellId);
+  if (!spell || !SELF_COST_KINDS.includes(spell.kind)) return 0;
+  const rank = Math.max(0, Math.min(3, Number.isInteger(schoolRank) ? schoolRank : 0));
+  return Math.max(2, spell.basePower - rank);
+}
+
+/** What `share-life` moves onto the servants for each point it takes off. */
+export function shareLifeAmount(spellId, intelligence, schoolRank = 0) {
+  const spell = spellById(spellId);
+  if (spell?.kind !== 'share-life' || !Number.isFinite(intelligence)) return 0;
+  const rank = Math.max(0, Math.min(3, Number.isInteger(schoolRank) ? schoolRank : 0));
+  return Math.max(1, Math.round(spell.basePower + intelligence * 0.6 + rank * 4));
 }
 
 export function spellStatus(spellId, intelligence) {
@@ -453,7 +729,7 @@ export function spellUseAvailability({
   if (spell.kind === 'heal' && heroHp >= heroMaxHp) {
     return Object.freeze({ ok: false, reason: 'full-health', spell });
   }
-  if (spell.kind === 'projectile' && !hasTarget) {
+  if (TARGETED_SPELL_KINDS.includes(spell.kind) && !hasTarget) {
     return Object.freeze({ ok: false, reason: 'no-target', spell });
   }
   return Object.freeze({ ok: true, reason: 'available', spell });
@@ -470,6 +746,13 @@ const SPELL_COPY = Object.freeze({
     burst: 'Взрыв',
     camp: 'Лагерь',
     minion: 'Слуга',
+    unbind: 'Снятие оков',
+    shove: 'Толчок',
+    cauterise: 'Прижигание',
+    'share-life': 'Жертва',
+    'cleanse-ally': 'Очищение слуг',
+    unlock: 'Отпирание',
+    teleport: 'Перенос',
     intelligence: 'Интеллект',
     active: 'Включено',
     inactive: 'Выключено',
@@ -484,6 +767,13 @@ const SPELL_COPY = Object.freeze({
     burst: 'Burst',
     camp: 'Camp',
     minion: 'Servant',
+    unbind: 'Unbinding',
+    shove: 'Shove',
+    cauterise: 'Cauterising',
+    'share-life': 'Sacrifice',
+    'cleanse-ally': 'Cleansing servants',
+    unlock: 'Unlocking',
+    teleport: 'Translocation',
     intelligence: 'Intelligence',
     active: 'Active',
     inactive: 'Inactive',
