@@ -10,6 +10,7 @@ import {
   MILESTONE_IDS,
   compareRuns,
   createMetaState,
+  rememberScene,
   dailyKey,
   dailySeed,
   metaCopy,
@@ -159,4 +160,35 @@ test('the runtime keeps the history beside the save, not inside it', async () =>
   // The run save must not carry any of this: the record outlives the run.
   const core = await readFile(new URL('../tools/dcss-rpg-core.js', import.meta.url), 'utf8');
   assert.ok(!core.includes('dcss-rpg-meta.js'), 'the save knows nothing about the history');
+});
+
+/**
+ * The list of ambient scenes a player has met lives here rather than in the run,
+ * and that is the whole point of it: a scene is something you saw, not something
+ * this run owns, and a record that survives the run is what tells the player the
+ * dungeon meant to do it.
+ */
+test('witnessed scenes survive the run, in catalogue order, without a version bump', () => {
+  const fresh = createMetaState(null);
+  assert.deepEqual(fresh.scenes, []);
+  assert.equal(validateMetaState(fresh), true);
+
+  const once = rememberScene(fresh, 'drip');
+  const twice = rememberScene(once, 'ghost');
+  assert.deepEqual(twice.scenes, ['ghost', 'drip'], 'catalogue order, not the order they were met');
+  assert.deepEqual(rememberScene(twice, 'ghost').scenes, twice.scenes, 'seeing it again changes nothing');
+  assert.deepEqual(rememberScene(twice, 'not-a-scene').scenes, twice.scenes);
+
+  // Through storage and back, which is the only path that matters.
+  assert.deepEqual(parseMeta(serializeMeta(twice)).scenes, ['ghost', 'drip']);
+
+  // A store written before scenes existed is still a store, exactly like bones.
+  const older = JSON.parse(serializeMeta(twice));
+  delete older.scenes;
+  assert.equal(validateMetaState(older), true);
+  assert.deepEqual(parseMeta(JSON.stringify(older)).scenes, []);
+
+  // And a store claiming a scene the game does not have is not a store.
+  assert.equal(validateMetaState({ ...JSON.parse(serializeMeta(twice)), scenes: ['moon-landing'] }), false);
+  assert.equal(validateMetaState({ ...JSON.parse(serializeMeta(twice)), scenes: 'ghost' }), false);
 });

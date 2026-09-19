@@ -158,6 +158,17 @@ import {
   createDungeonEnvironment,
 } from './dcss-rpg-environment.js';
 import {
+  AMBIENT_SCENES,
+  ambientActors,
+  ambientLightScale,
+  ambientLine,
+  ambientPhaseAt,
+  ambientSceneById,
+  ambientSeenModel,
+  ambientSmokeScale,
+  scheduleAmbientScene,
+} from './dcss-rpg-ambient.js';
+import {
   findById,
   findPresentation,
   findResultPresentation,
@@ -189,6 +200,7 @@ import {
   forgetBones,
   recordBones,
   recordRunResult,
+  rememberScene,
   serializeMeta,
 } from './dcss-rpg-meta.js';
 import { applyStrikeBonus, daggerProfile, resolveDaggerStrike } from './dcss-rpg-daggers.js';
@@ -757,6 +769,10 @@ const recordsMilestones = document.querySelector('#records-milestones');
 const bossHud = document.querySelector('#boss-hud');
 const bossHealth = bossHud.querySelector('.boss-health');
 const sanctuaryAction = document.querySelector('#sanctuary-action');
+const ambientNote = document.querySelector('#ambient-note');
+const ambientNoteText = document.querySelector('#ambient-note-text');
+const ambientSeenList = document.querySelector('#records-scenes-list');
+const ambientSeenTitle = document.querySelector('#records-scenes-title');
 const doorAnnouncement = document.querySelector('#door-announcement');
 const findAnnouncement = document.querySelector('#find-announcement');
 const contextActions = document.querySelector('#context-actions');
@@ -4677,6 +4693,9 @@ function syncWorldActors3D() {
             hit: monster.hit > 0,
           };
         }),
+      // The dungeon's own passers-by ride it too, and are the only actors in it
+      // that nothing can touch.
+      ...ambientSceneActors(),
       // Raised servants ride the same billboard pass as everything else alive.
       ...allies
         .filter((ally) => ally.dead <= 0.72
@@ -5984,9 +6003,9 @@ function drawSparks() {
   for (const spark of sparks) {
     const position = worldToScreen(spark.x, spark.y);
     const progress = Math.max(0, spark.life / spark.maxLife);
-    const size = progress > 0.55 ? 4 : 2;
+    const size = spark.size ?? (progress > 0.55 ? 4 : 2);
     context.save();
-    context.globalAlpha = progress;
+    context.globalAlpha = progress * (spark.alpha ?? 1);
     context.fillStyle = spark.color;
     context.fillRect(
       Math.round(position.x / 2) * 2 - size / 2,
@@ -6194,6 +6213,7 @@ function atmosphereLightSources() {
         radius: decoration.light.radius,
         phase: decoration.phase,
         beam: decoration.light.beam,
+        flame: decoration.light.flame === true,
       })),
     ...findDefinitions
       .filter(findIsVisible)
@@ -6265,7 +6285,7 @@ function atmosphereLightSources() {
       beam: false,
     });
   }
-  return sources.filter(({ gridX, gridY }) => revealed.has(`${gridX},${gridY}`));
+  return applyAmbientLight(sources.filter(({ gridX, gridY }) => revealed.has(`${gridX},${gridY}`)));
 }
 
 function carveLight(origin, screenPosition, radius, strength) {
@@ -10299,6 +10319,22 @@ function renderRecords() {
     row.dataset.earned = String(milestone.earned);
     return row;
   }));
+  // Twelve lines for twelve things the dungeon does when nobody asked it to.
+  // This list is the reason none of them reads as a bug: a glitch does not turn
+  // up in a record of what you have seen, and it survives the run that showed it.
+  const scenes = ambientSeenModel(metaState.scenes, itemDetailLanguage);
+  ambientSeenTitle.textContent = `${scenes.title} ${scenes.progress}`;
+  ambientSeenList.replaceChildren(...scenes.entries.map((entry) => {
+    const row = document.createElement('li');
+    const mark = document.createElement('b');
+    const body = document.createElement('div');
+    mark.textContent = entry.seen ? '✔' : '·';
+    body.textContent = entry.text;
+    row.style.setProperty('--scene-colour', entry.colour);
+    row.dataset.seen = String(entry.seen);
+    row.append(mark, body);
+    return row;
+  }));
   // Six names, six marks. The empty ones are the point: they are the only place
   // the game says out loud that the other road has a different guardian on it.
   const trophies = trophyModel(metaState.trophies, itemDetailLanguage);
@@ -12766,6 +12802,7 @@ function replaceFloor(nextDepth, arrival = null) {
   camera.x = hero.x;
   camera.y = hero.y;
   sceneStartedAt = elapsed;
+  armAmbientScene();
   if (ready) rebuildDungeonWorld3D();
   discoverNearbyTraps({ feedback: false });
   updateHud();
@@ -13334,6 +13371,395 @@ function updateHero(delta) {
   }
 }
 
+// --- Ambient scenes: the dungeon getting on without the hero -----------------
+//
+// The catalogue, the roll and the choreography live in `dcss-rpg-ambient.js`.
+// What is here is only the staging — which corner of this floor a scene plays
+// in, and how it reaches the screen. None of it is written to the save: a scene
+// is a moment, and a moment you can reload is not one.
+
+/** Near enough to be seen from where the hero stands, far enough not to be underfoot. */
+const AMBIENT_STAGE_RADIUS = 10;
+/** How long a scene keeps looking for somewhere to happen before the floor drops it. */
+const AMBIENT_GIVE_UP = 150;
+/** The line naming the scene never leaves before the scene itself does. */
+const AMBIENT_NOTE_SECONDS = 4.5;
+
+let ambientScene = null;
+let ambientNoteTimer = 0;
+
+/** The lights on this floor that are a flame, and so are a draught's business. */
+function ambientFlameSources() {
+  return atmosphereLightSources().filter(({ flame }) => flame === true);
+}
+
+/**
+ * What this floor could stage at all. There is no point in the dungeon promising
+ * a draught where nothing is burning or fireflies where there is no water: the
+ * roll only ever chooses between scenes this floor can actually put on.
+ */
+function possibleAmbientScenes() {
+  // Asked of the floor, not of what the hero can see from the stairs: at the
+  // moment a floor is entered almost nothing is revealed yet, and a floor full
+  // of braziers would rule out the draught every time.
+  const flames = dungeonEnvironment.props.some(({ light }) => light?.flame === true);
+  const doors = doorDefinitions.some(({ x, y }) => world[y]?.[x] === 'D');
+  const water = world.some((row) => row.includes('~'));
+  return AMBIENT_SCENES
+    .filter(({ needs }) => needs === 'none'
+      || needs === 'room'
+      || (needs === 'lit' && flames)
+      || (needs === 'door' && doors)
+      || (needs === 'water' && water))
+    .map(({ id }) => id);
+}
+
+function armAmbientScene() {
+  ambientScene = null;
+  ambientNoteTimer = 0;
+  if (ambientNote) ambientNote.classList.remove('visible');
+  const rolled = scheduleAmbientScene({
+    seed: run.seed,
+    depth: run.depth,
+    possible: possibleAmbientScenes(),
+  });
+  if (!rolled) return;
+  ambientScene = {
+    ...rolled,
+    armedAt: elapsed,
+    startedAt: null,
+    stage: null,
+    lights: [],
+    smoke: [],
+    door: null,
+  };
+}
+
+function ambientHeroCell() {
+  return { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+}
+
+/** Cells around the hero that the player can see right now, nearest first. */
+function ambientVisibleCells(match) {
+  const from = ambientHeroCell();
+  const found = [];
+  for (let dy = -AMBIENT_STAGE_RADIUS; dy <= AMBIENT_STAGE_RADIUS; dy += 1) {
+    for (let dx = -AMBIENT_STAGE_RADIUS; dx <= AMBIENT_STAGE_RADIUS; dx += 1) {
+      const x = from.x + dx;
+      const y = from.y + dy;
+      if (y < 0 || y >= world.length || x < 0 || x >= world[y].length) continue;
+      const distance = Math.hypot(dx, dy);
+      // Never on top of the hero, never past the edge of what they can see.
+      if (distance < 2.5 || distance > AMBIENT_STAGE_RADIUS) continue;
+      if (!revealed.has(`${x},${y}`)) continue;
+      if (!hasLineOfSight(world, from, { x, y })) continue;
+      if (!match(x, y)) continue;
+      found.push({ x, y, distance });
+    }
+  }
+  return found.sort((left, right) => left.distance - right.distance);
+}
+
+/** A straight run of cells to walk along, or null if this corner has none. */
+function ambientCellRun(match, length) {
+  const cells = ambientVisibleCells(match);
+  const open = new Set(cells.map(({ x, y }) => `${x},${y}`));
+  for (const cell of cells) {
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      let count = 0;
+      while (count < length && open.has(`${cell.x + dx * count},${cell.y + dy * count}`)) count += 1;
+      if (count < length) continue;
+      return {
+        x0: (cell.x + 0.5) * TILE,
+        y0: (cell.y + 0.5) * TILE,
+        dx: dx * (length - 1) * TILE,
+        dy: dy * (length - 1) * TILE,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * A ghost walks through walls, so it needs no floor — only a line across what
+ * the hero is looking at, a couple of tiles clear of their feet.
+ */
+function ambientDriftLine(variant) {
+  const side = variant % 2 === 0 ? 1 : -1;
+  const across = (2 + (variant >> 1) % 2) * (variant >> 3 & 1 ? 1 : -1);
+  return {
+    x0: hero.x - side * 9 * TILE,
+    y0: hero.y + across * TILE,
+    dx: side * 18 * TILE,
+    dy: 0,
+  };
+}
+
+function stageAmbientScene() {
+  const definition = ambientSceneById(ambientScene.id);
+  if (!definition) return false;
+  if (definition.kind === 'sound') return true;
+
+  if (definition.needs === 'none') {
+    ambientScene.stage = ambientDriftLine(ambientScene.variant);
+    return true;
+  }
+  if (definition.needs === 'room') {
+    const run = ambientCellRun((x, y) => isWalkable(x, y), ambientScene.id === 'bats' ? 4 : 5);
+    if (!run) return false;
+    ambientScene.stage = run;
+    return true;
+  }
+  if (definition.needs === 'lit') {
+    const from = ambientHeroCell();
+    const flames = ambientFlameSources().filter(({ gridX, gridY }) =>
+      Math.hypot(gridX - from.x, gridY - from.y) <= AMBIENT_STAGE_RADIUS
+      && revealed.has(`${gridX},${gridY}`));
+    if (flames.length === 0) return false;
+    ambientScene.lights = flames.map(({ id }) => id);
+    ambientScene.smoke = flames.map(({ x, y }) => ({ x, y }));
+    return true;
+  }
+  if (definition.needs === 'door') {
+    const from = ambientHeroCell();
+    const door = doorDefinitions.find(({ x, y }) =>
+      world[y]?.[x] === 'D'
+      && Math.hypot(x - from.x, y - from.y) > 3
+      && Math.hypot(x - from.x, y - from.y) <= AMBIENT_STAGE_RADIUS
+      && revealed.has(`${x},${y}`)
+      && hasLineOfSight(world, from, { x, y }));
+    if (!door) return false;
+    ambientScene.door = door;
+    return true;
+  }
+  if (definition.needs === 'water') {
+    // Two cells is enough water to hang over: insisting on three ruled the
+    // scene out beside every puddle and most of the shorelines.
+    const run = ambientCellRun((x, y) => world[y][x] === '~', 2);
+    if (!run) return false;
+    ambientScene.stage = run;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The line that says what just happened. Without it a rare, unexplained sight is
+ * indistinguishable from a glitch — and the whole point of these is that the
+ * player knows the dungeon meant it.
+ */
+function showAmbientNote(id) {
+  if (!ambientNote) return;
+  ambientNoteText.textContent = ambientLine(id, itemDetailLanguage);
+  ambientNote.style.setProperty('--ambient-colour', ambientSceneById(id)?.colour ?? '#9fb6d8');
+  ambientNote.classList.add('visible');
+  ambientNoteTimer = Math.max(AMBIENT_NOTE_SECONDS, (ambientScene?.duration ?? 0) + 1);
+}
+
+function rememberAmbientSceneSeen(id) {
+  const next = rememberScene(metaState, id);
+  if (next.scenes.length === metaState.scenes.length) return;
+  metaState = next;
+  persistMetaState();
+  renderRecords();
+}
+
+function finishAmbientScene() {
+  ambientScene = null;
+}
+
+function updateAmbientScene(delta) {
+  if (ambientNoteTimer > 0) {
+    ambientNoteTimer = Math.max(0, ambientNoteTimer - delta);
+    if (ambientNoteTimer === 0 && ambientNote) ambientNote.classList.remove('visible');
+  }
+  if (!ambientScene || runStatus !== 'playing' || !playerHasActed || hero.dead) return;
+
+  if (ambientScene.startedAt === null) {
+    const waited = elapsed - ambientScene.armedAt;
+    if (waited < ambientScene.at) return;
+    // A scene that never found a stage is dropped rather than saved up: the
+    // floor had its chance, and a hoarded surprise arrives at the wrong moment.
+    if (waited > ambientScene.at + AMBIENT_GIVE_UP) {
+      ambientScene = null;
+      return;
+    }
+    if (uiScreen !== 'game' || !stageAmbientScene()) return;
+    ambientScene.startedAt = elapsed;
+    // Sound first, picture second: the ear is what makes the player look up.
+    playSound(ambientSceneById(ambientScene.id).sound);
+    showAmbientNote(ambientScene.id);
+    rememberAmbientSceneSeen(ambientScene.id);
+  }
+
+  const age = elapsed - ambientScene.startedAt;
+  if (age > ambientScene.duration) {
+    finishAmbientScene();
+    return;
+  }
+  runAmbientSceneEffects(age, delta);
+}
+
+function ambientStagePoint(u, v) {
+  const stage = ambientScene?.stage;
+  if (!stage) return null;
+  // `v` runs across the walk, so it needs the perpendicular of the same vector.
+  const acrossX = -stage.dy;
+  const acrossY = stage.dx;
+  const length = Math.hypot(acrossX, acrossY) || 1;
+  const spread = TILE * 0.9;
+  return {
+    x: stage.x0 + stage.dx * u + (acrossX / length) * (v - 0.5) * spread,
+    y: stage.y0 + stage.dy * u + (acrossY / length) * (v - 0.5) * spread,
+  };
+}
+
+function runAmbientSceneEffects(age, delta) {
+  const id = ambientScene.id;
+
+  if (id === 'draught') {
+    // Smoke off dead wicks, which is the whole reason the room goes dark rather
+    // than simply dimming: you can see that the fire was put out.
+    const thickness = ambientSmokeScale(id, age);
+    if (thickness > 0) {
+      for (const point of ambientScene.smoke) {
+        if (Math.random() > thickness * delta * 26) continue;
+        sparks.push({
+          x: point.x + (Math.random() - 0.5) * 10,
+          y: point.y - 6,
+          vx: (Math.random() - 0.5) * 6,
+          vy: -13 - Math.random() * 9,
+          life: 1.4 + Math.random() * 0.9,
+          maxLife: 2.3,
+          color: '#6d6a63',
+          drift: true,
+          size: 3,
+          alpha: 0.5,
+        });
+      }
+    }
+    return;
+  }
+
+  if (id === 'cave-in') {
+    const phase = ambientPhaseAt(id, age);
+    if (!phase || !ambientScene.stage) return;
+    const centre = ambientStagePoint(0.5, 0.5);
+    const busy = phase.id === 'fall' ? 34 : phase.id === 'rumble' ? 9 : 5;
+    for (let index = 0; index < Math.ceil(busy * delta); index += 1) {
+      sparks.push({
+        x: centre.x + (Math.random() - 0.5) * TILE * 3.2,
+        y: centre.y - 40 - Math.random() * 16,
+        vx: (Math.random() - 0.5) * 8,
+        vy: 30 + Math.random() * 50,
+        life: 0.5 + Math.random() * 0.5,
+        maxLife: 1,
+        color: phase.id === 'fall' ? '#8d8175' : '#6f665c',
+        size: phase.id === 'fall' ? 3 : 2,
+        alpha: 0.7,
+      });
+    }
+    if (phase.id === 'fall' && !ambientScene.shook) {
+      ambientScene.shook = true;
+      renderShake.amount = Math.max(renderShake.amount, reducedMotion ? 0 : 2.4);
+    }
+    return;
+  }
+
+  if (id === 'far-door' && ambientScene.door) {
+    const { x, y } = ambientScene.door;
+    const phase = ambientPhaseAt(id, age);
+    if (!phase) return;
+    dungeonWorld3D.setDoorOpenProgress(x, y, Math.min(1, phase.progress * 1.15));
+    if (phase.progress > 0.85 && world[y][x] === 'D') {
+      // It really is open afterwards. A door that swings and then is shut again
+      // is the one thing here that would genuinely be a bug.
+      world[y][x] = '.';
+      rebuildDungeonWorld3D();
+      dungeonWorld3D.setDoorOpenProgress(x, y, 1);
+    }
+    return;
+  }
+
+  if (id === 'fireflies') {
+    for (const actor of ambientActors(id, age, ambientScene.variant)) {
+      const point = ambientStagePoint(actor.u, actor.v);
+      if (!point || Math.random() > 0.55) continue;
+      sparks.push({
+        x: point.x,
+        y: point.y + actor.lift,
+        vx: 0,
+        vy: 0,
+        life: 0.55 + Math.random() * 0.35,
+        maxLife: 0.9,
+        color: '#e6f0b4',
+        drift: true,
+        size: 4,
+        alpha: actor.opacity,
+      });
+    }
+  }
+}
+
+/** The scene's people, handed to the same billboard pass as everything alive. */
+function ambientSceneActors() {
+  if (!ambientScene?.startedAt || !ambientScene.stage) return [];
+  const age = elapsed - ambientScene.startedAt;
+  const actors = [];
+  for (const actor of ambientActors(ambientScene.id, age, ambientScene.variant)) {
+    if (actor.spark || !actor.sprite || actor.opacity <= 0.01) continue;
+    const point = ambientStagePoint(actor.u, actor.v);
+    if (!point) continue;
+    actors.push({
+      id: `ambient:${ambientScene.id}:${actor.key}`,
+      path: actor.sprite,
+      x: point.x,
+      y: point.y,
+      size: actor.size,
+      facing: actor.facing,
+      screenOffsetY: actor.lift,
+      opacity: actor.opacity,
+      scaleX: 1,
+      scaleY: 1,
+      hit: false,
+    });
+  }
+  return actors;
+}
+
+/** A draught dims the flames it reached; fireflies bring a small light of their own. */
+function applyAmbientLight(sources) {
+  if (!ambientScene?.startedAt) return sources;
+  if (ambientScene.id === 'fireflies' && ambientScene.stage) {
+    const glow = ambientActors('fireflies', elapsed - ambientScene.startedAt, ambientScene.variant);
+    const strength = glow.reduce((total, actor) => total + actor.opacity, 0) / Math.max(1, glow.length);
+    const centre = ambientStagePoint(0.5, 0.5);
+    if (centre && strength > 0.05) {
+      return [...sources, {
+        id: 'ambient-fireflies',
+        x: centre.x,
+        y: centre.y,
+        gridX: Math.floor(centre.x / TILE),
+        gridY: Math.floor(centre.y / TILE),
+        color: '#cfe08f',
+        radius: 1.1 + strength * 1.1,
+        phase: 1.7,
+        beam: false,
+        flame: false,
+      }];
+    }
+  }
+  if (ambientScene.lights.length === 0) return sources;
+  const scale = ambientLightScale(ambientScene.id, elapsed - ambientScene.startedAt);
+  if (scale >= 1) return sources;
+  const dimmed = new Set(ambientScene.lights);
+  return sources
+    .map((source) => (dimmed.has(source.id) ? { ...source, radius: source.radius * scale } : source))
+    // A light with no reach left is a light that is out, and the renderer should
+    // not spend a shadow map on it.
+    .filter(({ radius }) => radius > 0.12);
+}
+
 function updatePassiveCreatures(delta) {
   if (runStatus !== 'playing' || !playerHasActed || hero.dead) return;
   const heroCell = {
@@ -13888,6 +14314,7 @@ function updateWorld(delta) {
     if (distance < 2.5) monster.route.shift();
   }
   updatePassiveCreatures(delta);
+  updateAmbientScene(delta);
   updateAllies(delta);
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];
@@ -14158,8 +14585,15 @@ function updateWorld(delta) {
     spark.life -= delta;
     spark.x += spark.vx * delta;
     spark.y += spark.vy * delta;
-    spark.vx *= 0.92;
-    spark.vy = spark.vy * 0.92 + 24 * delta;
+    if (spark.drift) {
+      // Smoke off a dead wick and the glow of a firefly both rise and thin out;
+      // the ordinary spark pops and falls, and that is not this.
+      spark.vx *= 0.99;
+      spark.vy *= 0.995;
+    } else {
+      spark.vx *= 0.92;
+      spark.vy = spark.vy * 0.92 + 24 * delta;
+    }
     if (spark.life <= 0) sparks.splice(index, 1);
   }
   for (let index = bloodDrops.length - 1; index >= 0; index -= 1) {
@@ -14413,6 +14847,7 @@ async function initialize() {
     ready = true;
     discoverNearbyTraps({ feedback: false });
     sceneStartedAt = elapsed;
+    armAmbientScene();
     if (!reducedMotion) {
       burst(hero.x, hero.y - 8, atmosphereThemeFor(dungeon.themeId).heroLight, 18);
       addImpactWave(hero.x, hero.y - 8, atmosphereThemeFor(dungeon.themeId).heroLight, 54, 0);

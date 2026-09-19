@@ -585,7 +585,7 @@ const CITY_PROPS = Object.freeze({
     frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
     size: 64,
     screenOffsetY: -10,
-    light: Object.freeze({ color: '#e0a44f', radius: 2.6, beam: false }),
+    light: Object.freeze({ color: '#e0a44f', radius: 2.6, beam: false, flame: true }),
     interactionId: 'campfire',
   }),
   lamp: Object.freeze({
@@ -596,7 +596,7 @@ const CITY_PROPS = Object.freeze({
     // A street lamp that lights two cells lights the post it stands on. Its
     // reach is now most of the way to the next corner, which is what a lamp on
     // a corner is for.
-    light: Object.freeze({ color: '#f0c079', radius: 3.8, beam: false }),
+    light: Object.freeze({ color: '#f0c079', radius: 3.8, beam: false, flame: true }),
     interactionId: null,
   }),
 });

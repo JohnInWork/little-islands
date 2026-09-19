@@ -13,6 +13,7 @@ import {
   rememberBones,
   validateBonesRecord,
 } from './dcss-rpg-bones.js';
+import { AMBIENT_SCENE_IDS } from './dcss-rpg-ambient.js';
 import { createTrophyState } from './dcss-rpg-trophies.js';
 import { DEEPEST_DEPTH, STORY_DEPTH } from './dcss-rpg-run.js';
 
@@ -117,7 +118,22 @@ export function createMetaState(source = null) {
     // and bumping the version would throw away everybody's records to add a
     // field — `parseMeta` drops a store whose version it does not know.
     trophies: createTrophyState(source?.trophies),
+    // Which ambient scenes the player has ever witnessed. Optional for the same
+    // reason as bones and trophies — and it is here rather than in the save on
+    // purpose: a scene is a thing you saw, not a thing this run owns, and the
+    // point of the list is that it proves the scenes are meant to happen.
+    scenes: AMBIENT_SCENE_IDS.filter((id) => Array.isArray(source?.scenes) && source.scenes.includes(id)),
   };
+}
+
+/** One more scene witnessed. Seeing it twice changes nothing. */
+export function rememberScene(meta, id) {
+  const state = createMetaState(meta);
+  if (!AMBIENT_SCENE_IDS.includes(id) || state.scenes.includes(id)) return Object.freeze(state);
+  return Object.freeze({
+    ...state,
+    scenes: AMBIENT_SCENE_IDS.filter((entry) => entry === id || state.scenes.includes(entry)),
+  });
 }
 
 /** Remembers where this run fell. Victory leaves no body. */
@@ -197,6 +213,10 @@ export function validateMetaState(meta) {
     if (!meta.bones.every((record) => validateBonesRecord(record))) return false;
   }
   if (meta.trophies !== undefined && !Array.isArray(meta.trophies)) return false;
+  if (meta.scenes !== undefined) {
+    if (!Array.isArray(meta.scenes) || meta.scenes.length > AMBIENT_SCENE_IDS.length) return false;
+    if (!meta.scenes.every((id) => AMBIENT_SCENE_IDS.includes(id))) return false;
+  }
   return meta.milestones.every((id) => MILESTONE_IDS.includes(id));
 }
 

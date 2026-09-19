@@ -64,7 +64,7 @@ export const TAVERN_PROPS = Object.freeze({
     frames: FIREPLACE_FRAMES,
     size: 92,
     screenOffsetY: -20,
-    light: { color: '#e09a4c', radius: 3.1, beam: false },
+    light: { color: '#e09a4c', radius: 3.1, beam: false, flame: true },
   }),
   // And the pot over the fire is the cooking site, because a hero who can cook
   // anywhere can cook here, and a tavern with no pot on is a room with chairs.
@@ -72,7 +72,7 @@ export const TAVERN_PROPS = Object.freeze({
     frames: CAULDRON_FRAMES,
     size: 58,
     screenOffsetY: -10,
-    light: { color: '#d88447', radius: 2.1, beam: false },
+    light: { color: '#d88447', radius: 2.1, beam: false, flame: true },
     interactionId: 'campfire',
   }),
   oven: prop('hearth/oven.png', { size: 86, screenOffsetY: -22 }),
@@ -86,17 +86,17 @@ export const TAVERN_PROPS = Object.freeze({
     frames: TORCH_FRAMES,
     size: 40,
     screenOffsetY: -26,
-    light: { color: '#f0bf6d', radius: 2.4, beam: false },
+    light: { color: '#f0bf6d', radius: 2.4, beam: false, flame: true },
   }),
   candelabra: prop('deco/candelabra.png', {
     size: 54,
     screenOffsetY: -14,
-    light: { color: '#f2d79a', radius: 1.9, beam: false },
+    light: { color: '#f2d79a', radius: 1.9, beam: false, flame: true },
   }),
   candles: prop('deco/candles.png', {
     size: 34,
     screenOffsetY: -6,
-    light: { color: '#f2d79a', radius: 1.5, beam: false },
+    light: { color: '#f2d79a', radius: 1.5, beam: false, flame: true },
   }),
   lantern: prop('deco/lantern.png', { size: 40, screenOffsetY: -14 }),
   mug: prop('deco/mug.png', { size: 28, screenOffsetY: -4 }),

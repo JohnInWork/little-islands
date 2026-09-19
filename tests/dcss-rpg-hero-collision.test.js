@@ -164,6 +164,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     returnThorns: () => {},
     // Kindle answers on the same hook as thorns; the sandbox speaks for neither.
     kindleAttacker: () => {},
+    // The dungeon's own passers-by touch nothing this file is about.
+    updateAmbientScene: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     // A run always lives by two conditions; a sandbox lives by none.
     currentConditions: () => ({

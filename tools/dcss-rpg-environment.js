@@ -25,7 +25,7 @@ const emberBrazier = prop(flameFrames[0], {
   frames: flameFrames,
   size: 66,
   screenOffsetY: -10,
-  light: { color: '#d88447', radius: 2.35, beam: false },
+  light: { color: '#d88447', radius: 2.35, beam: false, flame: true },
   interactionId: 'campfire',
 });
 

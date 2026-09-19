@@ -1493,6 +1493,49 @@ body {
   transform: translate(-50%, 0);
 }
 
+/*
+ * The dungeon naming what it just did. It sits above the loot toast, is never
+ * the colour of loot or of damage, and carries its scene's own colour on the
+ * left edge — everything about it says "the world, not you".
+ */
+.ambient-note {
+  --ambient-colour: #9fb6d8;
+  position: fixed;
+  z-index: 5;
+  left: 50%;
+  top: max(112px, calc(env(safe-area-inset-top) + 104px));
+  max-width: min(330px, calc(100vw - 28px));
+  padding: 5px 11px 6px;
+  display: block;
+  color: #cdc6bb;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+  border-color: color-mix(in srgb, var(--ambient-colour) 62%, #2a2f38);
+  border-left-width: 3px;
+  background: rgb(10 14 18 / 92%);
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  pointer-events: none;
+  transition:
+    opacity 220ms ease-out,
+    transform 240ms ease-out;
+}
+
+.ambient-note.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.records-scenes b {
+  color: var(--scene-colour, #9fb6d8);
+}
+
+.records-scenes li[data-seen='false'] {
+  opacity: 0.55;
+}
+
 /* First-floor hints: one small panel under the loot toast, never in the dock. */
 .onboarding-hint {
   position: fixed;

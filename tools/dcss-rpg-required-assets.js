@@ -10,6 +10,7 @@ import { allEquipmentVisualAssetPaths } from './dcss-rpg-equipment-visuals.js';
 import { allPlayerAppearanceAssetPaths } from './dcss-rpg-appearance.js';
 import { allBiomeAssetPaths } from './dcss-rpg-visuals.js';
 import { DISARMED_TRAP_PATH } from './dcss-rpg-trap-disarming.js';
+import { allAmbientAssetPaths } from './dcss-rpg-ambient.js';
 import { allEnvironmentAssetPaths } from './dcss-rpg-environment.js';
 import { FIND_ASSET_PATHS } from './dcss-rpg-finds.js';
 import { IDENTIFICATION_APPEARANCE_PATHS } from './dcss-rpg-identification.js';
@@ -42,6 +43,7 @@ export function requiredAssetPaths(extra = []) {
     ...allEquipmentVisualAssetPaths(),
     ...CONTENT_PATHS,
     ...IDENTIFICATION_APPEARANCE_PATHS,
+    ...allAmbientAssetPaths(),
     ...allEnvironmentAssetPaths(),
     ...FIND_ASSET_PATHS,
     ...EFFECT_PATHS,
