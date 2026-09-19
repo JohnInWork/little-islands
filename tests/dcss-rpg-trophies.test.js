@@ -10,7 +10,7 @@ import {
   trophyModel,
   trophyTaken,
 } from '../tools/dcss-rpg-trophies.js';
-import { BRANCH_CHAPTER_GUARDIANS } from '../tools/dcss-rpg-run.js';
+import { BRANCH_CHAPTER_GUARDIANS, GUARDIANS_ON_ROAD, GUARDIAN_LADDERS, STORY_DEPTH, chapterGuardianForDepth } from '../tools/dcss-rpg-run.js';
 import { createMetaState, parseMeta, validateMetaState } from '../tools/dcss-rpg-meta.js';
 
 /**
@@ -18,18 +18,31 @@ import { createMetaState, parseMeta, validateMetaState } from '../tools/dcss-rpg
  * game never said so. The grid is the only place it does.
  */
 test('every guardian on every road has exactly one trophy', () => {
-  const expected = Object.values(BRANCH_CHAPTER_GUARDIANS).flat().length;
+  // The ladder is longer than the road: three rungs stand on it and the fourth
+  // stands past it, so the grid has a row nobody fills without going deeper
+  // than the game ever asks.
+  const expected = Object.values(GUARDIAN_LADDERS).flat().length;
   assert.equal(GUARDIAN_TROPHIES.length, expected);
   assert.equal(new Set(GUARDIAN_TROPHIES.map(({ id }) => id)).size, expected, 'two roads share a guardian');
-  for (const [branch, guardians] of Object.entries(BRANCH_CHAPTER_GUARDIANS)) {
-    for (const guardian of guardians) {
-      const trophy = trophyFor(guardian.monsterId);
-      assert.ok(trophy, `${guardian.monsterId} has no trophy`);
+  for (const [branch, ladder] of Object.entries(GUARDIAN_LADDERS)) {
+    for (const [rung, monsterId] of ladder.entries()) {
+      const trophy = trophyFor(monsterId);
+      assert.ok(trophy, `${monsterId} has no trophy`);
       assert.equal(trophy.branch, branch);
-      assert.equal(trophy.depth, guardian.depth);
-      assert.equal(trophy.bounty, TROPHY_BOUNTY[trophy.rung]);
+      assert.equal(trophy.rung, rung);
+      assert.equal(trophy.depth, chapterGuardianForDepth(trophy.depth, branch).depth);
+      assert.equal(trophy.bounty, TROPHY_BOUNTY[rung]);
+      assert.equal(trophy.beyondRoad, rung >= GUARDIANS_ON_ROAD);
       assert.ok(trophy.bounty > 0);
     }
+  }
+  // Going past the warden is the best-paid thing in the grid, and the only row
+  // a hero who stops at eighteen can never tick.
+  const beyond = GUARDIAN_TROPHIES.filter(({ beyondRoad }) => beyondRoad);
+  assert.equal(beyond.length, 2, 'one past the road on each road');
+  for (const trophy of beyond) {
+    assert.ok(trophy.bounty > Math.max(...GUARDIAN_TROPHIES.filter((t) => !t.beyondRoad).map((t) => t.bounty)));
+    assert.ok(trophy.depth > STORY_DEPTH);
   }
 });
 

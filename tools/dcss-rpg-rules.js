@@ -1,4 +1,5 @@
 import { itemIsBound } from './dcss-rpg-curse.js';
+import { applyMark, markForSpawn } from './dcss-rpg-monster-marks.js';
 import { validateArmourBlock } from './dcss-rpg-armour.js';
 import { validateItemForm } from './dcss-rpg-materials.js';
 import { mealStatModifiers } from './dcss-rpg-cooking.js';
@@ -434,8 +435,17 @@ export function createMonsterStates(level, tileSize = 64) {
     level.difficulty,
   );
   return level.monsters.map((spawn, index) => {
-    const definition = monsterById(spawn.id);
-    if (!definition) throw new Error(`Unknown monster definition: ${spawn.id}`);
+    const base = monsterById(spawn.id);
+    if (!base) throw new Error(`Unknown monster definition: ${spawn.id}`);
+    // The mark is folded into the definition here and nowhere else, so every
+    // rule below — threat curves, statuses, the billboard, the death screen —
+    // reads a marked creature without knowing that marks exist.
+    const definition = applyMark(base, markForSpawn({
+      seed: level.runSeed ?? level.seed,
+      depth: level.depth,
+      instanceId: spawn.instanceId,
+      definition: base,
+    }));
     const threat = monsterThreatAtDepth(definition, level.depth, scaling);
     const bossHpMultiplier = definition.boss ? scaling.boss.hpMultiplier : 1;
     const bossDamageMultiplier = definition.boss ? scaling.boss.damageMultiplier : 1;

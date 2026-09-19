@@ -138,11 +138,27 @@ test('the runtime counts kills and active seconds, remembers the killer and rend
   assert.match(runtime, /run\.floor\.defeated\.push\(monster\.instanceId\);\s+run\.stats\.kills \+= 1;/);
   assert.match(runtime, /hungerAccumulator -= activeSeconds;\s+run\.stats\.activeSeconds \+= activeSeconds;/);
   assert.match(runtime, /run\.stats\.killerId = typeof source === 'string' \? source : null;/);
-  assert.match(runtime, /damageHero\(strikeDamage, \{\s*blocked: block\.blocked,\s*source: monster\.id,/);
+  assert.match(runtime, /damageHero\(strikeDamage, \{\s*blocked: block\.blocked,\s*source: monster\.markId \? `\$\{monster\.id\}@\$\{monster\.markId\}` : monster\.id,/);
   assert.match(runtime, /damageHero\(creature\.damage, \{\s*blocked: block\.blocked,\s*source: `wildlife:\$\{creature\.id\}`,/);
   assert.match(runtime, /source: tick\.pulses\.burning \? 'effect:burning' : 'effect:poison'/);
   assert.match(runtime, /runSummaryModel\(\{/);
   assert.match(html, /id="run-end-title"[\s\S]*<dl id="run-summary" class="run-summary"><\/dl>[\s\S]*id="restart-run"/);
   assert.doesNotMatch(html, /id="result-depth"/);
   assert.match(css, /\.run-summary\s*{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/s);
+});
+
+/**
+ * A marked creature is written into the killer id as `wolf@rabid` — the id was
+ * always a free-form string on the save, and a new field for one adjective
+ * would be a migration nobody needs. The summary reads both halves.
+ */
+test('the death screen names the thing that actually killed you', () => {
+  assert.equal(runEndSourceName('wolf', 'ru'), 'Волк');
+  assert.equal(runEndSourceName('wolf@rabid', 'ru'), 'Бешеный волк');
+  assert.equal(runEndSourceName('bat@hardened', 'ru'), 'Закалённая летучая мышь');
+  assert.equal(runEndSourceName('wolf@rabid', 'en'), 'rabid wolf');
+  // An id the game does not know is still nothing, marked or not.
+  assert.equal(runEndSourceName('nothing-like-it@rabid', 'ru'), null);
+  // And an unknown mark falls back to the plain name rather than to nonsense.
+  assert.equal(runEndSourceName('wolf@not-a-mark', 'ru'), 'Волк');
 });

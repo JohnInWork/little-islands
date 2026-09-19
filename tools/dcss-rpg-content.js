@@ -297,6 +297,25 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.8, vision: 6, windup: 0.3, pursuit: 3 },
   },
   {
+    // The fourth rung, and the only guardian the written road never shows you.
+    // It stands at the end of the fourth chapter — past eighteen — so meeting it
+    // at all means you chose to keep going after the warden fell.
+    id: 'nameless-thing', kin: 'oddity', habitat: 'deep', path: 'mon/unique/mnoleg.png',
+    tier: 9, hp: 26, damage: 13, speed: 0.92, xp: 150, boss: true, unique: true, large: true,
+    bloodColor: '#6b5a7a',
+    inflicts: { id: 'poison', duration: 7 },
+    burst: { id: 'poison', duration: 6, radius: 2.2, color: '#a98fc4' },
+    threat: { attackRate: 0.92, vision: 8.2, windup: 0.3, pursuit: 9 },
+  },
+  {
+    id: 'world-serpent', kin: 'beast', habitat: 'surface', path: 'mon/unique/jormungandr.png',
+    tier: 9, hp: 30, damage: 12, speed: 1.06, xp: 150, boss: true, unique: true, large: true,
+    bloodColor: '#5d7a58',
+    inflicts: { id: 'chilled', duration: 6 },
+    shock: { damage: 6, duration: 3 },
+    threat: { attackRate: 0.98, vision: 8.8, windup: 0.28, pursuit: 9.5 },
+  },
+  {
     id: 'orc', habitat: 'any', kin: 'humanoid', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
     threat: { attackRate: 0.92, vision: 5.8, windup: 0.22, pursuit: 4 },
   },

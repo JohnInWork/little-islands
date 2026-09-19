@@ -5,6 +5,8 @@ import test from 'node:test';
 import {
   BRANCH_CHAPTER_GUARDIANS,
   DEEPEST_DEPTH,
+  GUARDIANS_ON_ROAD,
+  GUARDIAN_LADDERS,
   STORY_CHAPTERS,
   CHAPTER_END_DEPTHS,
   CHAPTER_GUARDIANS,
@@ -107,14 +109,28 @@ test('the ladder of guardians repeats, and only the road ends', () => {
     );
   }
 
-  // The same three, in the same order, road after road.
-  const ladder = BRANCH_CHAPTER_GUARDIANS.deep.map(({ monsterId }) => monsterId);
-  for (let chapter = 1; chapter <= 12; chapter += 1) {
+  // The same ladder, in the same order, road after road — and it is LONGER
+  // than the road: three rungs stand on it, the fourth stands past it, so the
+  // only way to meet that one is to keep going after the warden falls.
+  const ladder = GUARDIAN_LADDERS.deep;
+  assert.ok(ladder.length > GUARDIANS_ON_ROAD, 'the road shows the whole ladder');
+  for (let chapter = 1; chapter <= 16; chapter += 1) {
     const depth = chapter * FLOORS_PER_CHAPTER;
     const guardian = chapterGuardianForDepth(depth);
     assert.equal(guardian.monsterId, ladder[(chapter - 1) % ladder.length], `chapter ${chapter}`);
     assert.equal(guardian.depth, depth);
   }
+  // The road's own three are the first three rungs, and the fourth is a name
+  // nothing on the road ever says.
+  assert.deepEqual(
+    BRANCH_CHAPTER_GUARDIANS.deep.map(({ monsterId }) => monsterId),
+    ladder.slice(0, GUARDIANS_ON_ROAD),
+  );
+  const beyond = ladder[GUARDIANS_ON_ROAD];
+  for (let depth = FLOORS_PER_CHAPTER; depth <= STORY_DEPTH; depth += FLOORS_PER_CHAPTER) {
+    assert.notEqual(chapterGuardianForDepth(depth).monsterId, beyond, `${beyond} стоит на дороге`);
+  }
+  assert.equal(chapterGuardianForDepth(STORY_DEPTH + FLOORS_PER_CHAPTER).monsterId, beyond);
 
   // «Final» is a fact about the written road, and it is true exactly once: the
   // same warden met again on floor thirty-six ends nothing.

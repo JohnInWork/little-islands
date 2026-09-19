@@ -34,23 +34,41 @@ export const CHAPTER_END_DEPTHS = Object.freeze(
 );
 
 /**
- * One guardian per chapter, and a different three for each branch: the thing
- * that holds a meadow is not the thing that holds a crypt. Past the written
- * road the same three stand again, in the same order — the ladder repeats, and
- * the trophy for each of them is still paid exactly once.
+ * The ladder of guardians, one per chapter, and a different one for each branch:
+ * the thing that holds a meadow is not the thing that holds a crypt.
+ *
+ * It is LONGER than the written road on purpose. Three of the four stand on the
+ * road and the fourth stands past it, at the end of the fourth chapter — so the
+ * only way to meet it is to have chosen to keep going after the warden fell.
+ * Past that the ladder wraps, and a hero who goes deep enough meets all four
+ * again in order.
  */
-const guardianLadder = (ids) => Object.freeze(CHAPTER_END_DEPTHS.map((depth, index) => Object.freeze({
-  depth,
-  monsterId: ids[index],
-  final: depth === STORY_DEPTH,
-})));
-
-export const BRANCH_CHAPTER_GUARDIANS = Object.freeze({
-  deep: guardianLadder(['ashen-guardian', 'sanctum-guardian', FINAL_BOSS_ID]),
-  surface: guardianLadder(['grove-warden', 'moor-catoblepas', 'storm-raiju']),
+export const GUARDIAN_LADDERS = Object.freeze({
+  deep: Object.freeze(['ashen-guardian', 'sanctum-guardian', FINAL_BOSS_ID, 'nameless-thing']),
+  surface: Object.freeze(['grove-warden', 'moor-catoblepas', 'storm-raiju', 'world-serpent']),
 });
 
+/** How many rungs the written road actually shows. */
+export const GUARDIANS_ON_ROAD = STORY_CHAPTERS;
+
+/** The road's own guardians: what every promise about chapter ends reads. */
+export const BRANCH_CHAPTER_GUARDIANS = Object.freeze(
+  Object.fromEntries(Object.entries(GUARDIAN_LADDERS).map(([branch, ids]) => [
+    branch,
+    Object.freeze(CHAPTER_END_DEPTHS.map((depth, index) => Object.freeze({
+      depth,
+      monsterId: ids[index],
+      final: depth === STORY_DEPTH,
+    }))),
+  ])),
+);
+
 export const CHAPTER_GUARDIANS = BRANCH_CHAPTER_GUARDIANS.deep;
+
+/** Where a rung of the ladder stands, counting chapters from one. */
+export function guardianDepthForRung(rung) {
+  return (rung + 1) * FLOORS_PER_CHAPTER;
+}
 
 /**
  * How often a trader stands on a floor. It used to be «once per chapter», which
@@ -85,12 +103,16 @@ export function chapterGuardianForDepth(depth, branch = 'deep') {
     throw new TypeError('Chapter guardian depth must be a positive integer');
   }
   if (depth % FLOORS_PER_CHAPTER !== 0) return null;
-  const guardians = BRANCH_CHAPTER_GUARDIANS[branch] ?? BRANCH_CHAPTER_GUARDIANS.deep;
-  const rung = (chapterForDepth(depth) - 1) % guardians.length;
-  const guardian = guardians[rung];
+  const ladder = GUARDIAN_LADDERS[branch] ?? GUARDIAN_LADDERS.deep;
+  const rung = (chapterForDepth(depth) - 1) % ladder.length;
   // `final` is a fact about the written road, so it is true once and only at
-  // its end: the same warden met again on floor thirty-six ends nothing.
-  return Object.freeze({ ...guardian, depth, rung, final: depth === STORY_DEPTH });
+  // its end: the same warden met again on floor forty-two ends nothing.
+  return Object.freeze({
+    depth,
+    rung,
+    monsterId: ladder[rung],
+    final: depth === STORY_DEPTH,
+  });
 }
 
 export function goldRewardForMonster(monster) {

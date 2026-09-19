@@ -659,13 +659,19 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     for (const monster of monsters) {
       const key = `monster:${monster.id}`;
       activeKeys.add(key);
-      const texture = actorTextureFor(monster.path, imageForPath, spriteFilter);
+      // A marked creature wears its own tint on top of the room's light, and
+      // the texture cache is keyed by both — two goblins, one marked, are two
+      // different pictures.
+      const filter = monster.filter ? `${spriteFilter} ${monster.filter}` : spriteFilter;
+      const texture = actorTextureFor(monster.path, imageForPath, filter);
       let entry = actorEntries.get(key);
       if (!entry) {
         entry = createActorEntry(texture);
         entry.path = monster.path;
+        entry.filter = filter;
         actorEntries.set(key, entry);
-      } else if (entry.path !== monster.path) {
+      } else if (entry.path !== monster.path || entry.filter !== filter) {
+        entry.filter = filter;
         entry.sprite.material.map = texture;
         entry.sprite.material.needsUpdate = true;
         entry.caster.material.map = texture;

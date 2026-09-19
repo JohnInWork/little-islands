@@ -22,7 +22,12 @@
  *   the failure mode every game in the genre warns about.
  */
 
-import { BRANCH_CHAPTER_GUARDIANS } from './dcss-rpg-run.js';
+import {
+  GUARDIANS_ON_ROAD,
+  GUARDIAN_LADDERS,
+  STORY_DEPTH,
+  guardianDepthForRung,
+} from './dcss-rpg-run.js';
 import { runEndSourceName } from './dcss-rpg-run-summary.js';
 
 /**
@@ -30,7 +35,7 @@ import { runEndSourceName } from './dcss-rpg-run-summary.js';
  * first, second, third. Keyed by the rung rather than by the floor number, so
  * a longer chapter moves the guardians without moving the prices.
  */
-export const TROPHY_BOUNTY = Object.freeze([40, 80, 150]);
+export const TROPHY_BOUNTY = Object.freeze([40, 80, 150, 260]);
 export const TROPHY_DEEPEST_BOUNTY = TROPHY_BOUNTY.at(-1);
 
 /**
@@ -38,13 +43,17 @@ export const TROPHY_DEEPEST_BOUNTY = TROPHY_BOUNTY.at(-1);
  * contract rather than typed out again: one list of who stands where.
  */
 export const GUARDIAN_TROPHIES = Object.freeze(
-  Object.entries(BRANCH_CHAPTER_GUARDIANS).flatMap(([branch, guardians]) => (
-    guardians.map((guardian, rung) => Object.freeze({
-      id: guardian.monsterId,
+  Object.entries(GUARDIAN_LADDERS).flatMap(([branch, ladder]) => (
+    ladder.map((monsterId, rung) => Object.freeze({
+      id: monsterId,
       branch,
-      depth: guardian.depth,
+      depth: guardianDepthForRung(rung),
       rung,
-      final: guardian.final === true,
+      final: guardianDepthForRung(rung) === STORY_DEPTH,
+      // The fourth rung is past the written road, and the grid says so by
+      // paying the most for it: it is the only mark you cannot take without
+      // choosing to keep going after the warden fell.
+      beyondRoad: rung >= GUARDIANS_ON_ROAD,
       bounty: TROPHY_BOUNTY[rung] ?? TROPHY_DEEPEST_BOUNTY,
     }))
   )),

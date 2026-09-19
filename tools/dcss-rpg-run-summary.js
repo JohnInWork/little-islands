@@ -1,3 +1,4 @@
+import { markedMonsterName } from './dcss-rpg-monster-marks.js';
 /**
  * Run summary: what the death/victory screen shows. Pure and bilingual; the
  * runtime only feeds persisted `run.stats`, the hero and the seed.
@@ -26,6 +27,8 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'orc-warrior': pair('Орк-воин', 'Orc warrior'),
   'city-guard': pair('Городской стражник', 'City guard'),
   'city-priest': pair('Жрец', 'Priest'),
+  'nameless-thing': pair('Безымянное', 'The Nameless'),
+  'world-serpent': pair('Мировой змей', 'World Serpent'),
   'raised-skeleton': pair('Поднятый скелет', 'Raised skeleton'),
   'raised-ghoul': pair('Поднятый упырь', 'Raised ghoul'),
   'raised-warden': pair('Поднятый страж', 'Raised warden'),
@@ -110,10 +113,21 @@ const COPY = Object.freeze({
   }),
 });
 
+/**
+ * What killed the hero, in words.
+ *
+ * A marked creature is written as `wolf@rabid`, because the killer id was
+ * always a free-form string on the save and a new field for this would be a
+ * save migration for one adjective. The mark is the half after the `@`, and an
+ * id with no `@` is read exactly as it was before.
+ */
 export function runEndSourceName(sourceId, language = 'ru') {
   const locale = language === 'en' ? 'en' : 'ru';
-  const entry = typeof sourceId === 'string' ? RUN_END_SOURCE_NAMES[sourceId] : null;
-  return entry ? entry[locale] : null;
+  if (typeof sourceId !== 'string') return null;
+  const [id, markId] = sourceId.split('@');
+  const entry = RUN_END_SOURCE_NAMES[id];
+  if (!entry) return null;
+  return markId ? markedMonsterName(entry[locale], markId, locale) : entry[locale];
 }
 
 /** `m:ss` under an hour, `h:mm:ss` beyond; never negative or fractional. */

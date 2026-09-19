@@ -4483,6 +4483,7 @@ function syncWorldActors3D() {
           return {
             id: monster.instanceId,
             path: monster.waterPath && actorInWater(world, monster, TILE) ? monster.waterPath : monster.spritePath,
+            filter: monster.markFilter ?? null,
             x: monster.x + motion.dx + visualJostle,
             y: monster.y + motion.dy,
             size:
@@ -4490,7 +4491,7 @@ function syncWorldActors3D() {
               (monster.visualScale ?? 1),
             facing: monster.facing,
             screenOffsetY: (monster.visualOffsetY ?? -10) + bob + (actorInWater(world, monster, TILE) && !monster.flying ? 6 : 0),
-            opacity: monster.dead > 0 ? Math.max(0, 1 - monster.dead / 0.72) : 1,
+            opacity: (monster.dead > 0 ? Math.max(0, 1 - monster.dead / 0.72) : 1) * (monster.dim ?? 1),
             scaleX: motion.scaleX * (walking && !reducedMotion ? 1 + walkCycle * 0.025 : 1),
             scaleY: motion.scaleY * (walking && !reducedMotion ? 1 - walkCycle * 0.025 : 1),
             hit: monster.hit > 0,
@@ -11055,6 +11056,16 @@ function damageMonster(
   }
   if (blunt && monster.hp > 0) applyBluntAftermath(monster, blunt);
   if (monster.hp > 0) applyWeaponPowers(monster, { dealt, weaponMagic, sourceX, sourceY });
+  // A mirrored creature answers a melee blow with part of it. Only melee: a
+  // reflection that reached across the room would make archery the only answer.
+  if (monster.reflect && dealt > 0 && !projectile && weaponMagic) {
+    damageHero(Math.max(1, Math.round((dealt * monster.reflect) / 100)), {
+      direct: true,
+      impactColor: '#cfd6dc',
+      source: `${monster.id}@mirrored`,
+      from: monster,
+    });
+  }
   if (monster.hp <= 0) defeatMonster(monster);
   else if (monster.boss) updateBossHud();
 }
@@ -13159,7 +13170,7 @@ function updateWorld(delta) {
           })));
           const hit = damageHero(strikeDamage, {
             blocked: block.blocked,
-            source: monster.id,
+            source: monster.markId ? `${monster.id}@${monster.markId}` : monster.id,
             from: monster,
           });
           returnThorns(monster, hit);
