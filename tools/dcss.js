@@ -747,6 +747,7 @@ const restMeter = document.querySelector('#rest-meter');
 const restFill = document.querySelector('#rest-fill');
 const hungerFill = document.querySelector('#hunger-fill');
 const heroEffectsHud = document.querySelector('#hero-effects');
+const heroEffectNote = document.querySelector('#hero-effect-note');
 const hudGold = document.querySelector('#hud-gold');
 const characterSheetFace = document.querySelector('#character-sheet-face');
 const depthBadge = document.querySelector('.depth');
@@ -7198,6 +7199,34 @@ function standingHeroStates() {
   return states;
 }
 
+/**
+ * Reading a state you are carrying.
+ *
+ * The badges said what was on the hero with a picture and a number, and what
+ * that picture meant lived only in a `title` — which on a phone nobody can
+ * reach. Ivan asked to press one and find out. The sentence is the same one the
+ * rule modules already write; it just needed somewhere to appear.
+ */
+let heroEffectNoteTimer = 0;
+
+function showHeroEffectNote(text) {
+  if (!heroEffectNote) return;
+  if (heroEffectNote.textContent === text && !heroEffectNote.hidden) {
+    heroEffectNote.hidden = true;
+    heroEffectNoteTimer = 0;
+    return;
+  }
+  heroEffectNote.textContent = text;
+  heroEffectNote.hidden = false;
+  heroEffectNoteTimer = 6;
+}
+
+function updateHeroEffectNote(delta) {
+  if (heroEffectNoteTimer <= 0) return;
+  heroEffectNoteTimer = Math.max(0, heroEffectNoteTimer - delta);
+  if (heroEffectNoteTimer === 0 && heroEffectNote) heroEffectNote.hidden = true;
+}
+
 function renderHeroEffectsHud() {
   // The dish sits beside the states, because it is one: a good one with a timer.
   const meal = activeMeal(hero.meal, itemDetailLanguage);
@@ -7213,33 +7242,35 @@ function renderHeroEffectsHud() {
   );
   heroEffectsHud.replaceChildren(
     ...standing.map((state) => {
-      const badge = document.createElement('span');
+      const badge = document.createElement('button');
       const mark = document.createElement('b');
       const caption = document.createElement('i');
-      badge.className = 'hero-effect hero-effect-standing';
+      badge.type = 'button';
+      badge.className = 'hero-effect hero-effect-standing tappable';
       badge.dataset.effect = state.id;
       badge.style.setProperty('--effect-color', state.color);
-      badge.setAttribute('role', 'img');
       badge.setAttribute('aria-label', `${state.label}. ${state.description}`);
       badge.title = `${state.label} · ${state.description}`;
+      badge.addEventListener('click', () => showHeroEffectNote(`${state.label}. ${state.description}`));
       mark.textContent = state.glyph;
       caption.textContent = state.label;
       badge.append(mark, caption);
       return badge;
     }),
     ...effects.map((effect) => {
-      const badge = document.createElement('span');
+      const badge = document.createElement('button');
       const icon = document.createElement('img');
       const duration = document.createElement('b');
-      badge.className = 'hero-effect';
+      badge.type = 'button';
+      badge.className = 'hero-effect tappable';
       badge.dataset.effect = effect.id;
       badge.style.setProperty('--effect-color', effect.color);
-      badge.setAttribute('role', 'img');
-      badge.setAttribute(
-        'aria-label',
-        `${effect.label}: ${Math.ceil(effect.duration)} ${secondsLabel}`,
-      );
-      badge.title = `${effect.label} · ${Math.ceil(effect.duration)} ${secondsLabel}`;
+      const spell = `${effect.label}: ${Math.ceil(effect.duration)} ${secondsLabel}`;
+      badge.setAttribute('aria-label', spell);
+      badge.title = spell;
+      // What the state actually does to the hero, not only how long it lasts.
+      const explained = effect.description ? `${effect.label}. ${effect.description}` : spell;
+      badge.addEventListener('click', () => showHeroEffectNote(explained));
       icon.src = assetUrl(effect.icon);
       icon.alt = '';
       duration.textContent = String(Math.ceil(effect.duration));
@@ -14666,6 +14697,7 @@ function updateWorld(delta) {
   updatePassiveCreatures(delta);
   updateAmbientScene(delta);
   pollInteractionUi(delta);
+  updateHeroEffectNote(delta);
   updateAllies(delta);
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];

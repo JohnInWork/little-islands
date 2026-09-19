@@ -168,6 +168,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     updateAmbientScene: () => {},
     // Neither does the column of things within reach.
     pollInteractionUi: () => {},
+    // Nor the line that explains a state the hero is carrying.
+    updateHeroEffectNote: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     // A run always lives by two conditions; a sandbox lives by none.
     currentConditions: () => ({

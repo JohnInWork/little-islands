@@ -2,6 +2,14 @@ export const ACTOR_EFFECT_IDS = Object.freeze(['burning', 'wet', 'chilled', 'fro
 
 export const MAX_EFFECT_DURATION = 60;
 
+/**
+ * Every state says what it does to whoever is carrying it.
+ *
+ * A badge with a picture and a number tells the player that something is wrong
+ * and nothing else — and «what does this icon mean» cannot be answered by
+ * hovering on a phone. The sentence belongs with the rule, next to the numbers
+ * it describes, so the two cannot drift apart.
+ */
 export const ACTOR_EFFECTS = Object.freeze({
   burning: Object.freeze({
     id: 'burning',
@@ -10,6 +18,10 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 2,
     moveSpeed: 1,
     labels: Object.freeze({ ru: 'Горение', en: 'Burning' }),
+    descriptions: Object.freeze({
+      ru: 'Огонь отнимает здоровье, пока не погаснет. Вода тушит его сразу.',
+      en: 'Fire takes health until it burns out. Water puts it out at once.',
+    }),
   }),
   wet: Object.freeze({
     id: 'wet',
@@ -18,6 +30,10 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 0,
     moveSpeed: 0.96,
     labels: Object.freeze({ ru: 'Мокрый', en: 'Wet' }),
+    descriptions: Object.freeze({
+      ru: 'Двигаешься чуть медленнее. Огонь гаснет, а молния бьёт вдвое.',
+      en: 'Slightly slower. Fire goes out on you, and lightning strikes twice as hard.',
+    }),
   }),
   chilled: Object.freeze({
     id: 'chilled',
@@ -26,6 +42,10 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 0,
     moveSpeed: 0.74,
     labels: Object.freeze({ ru: 'Озноб', en: 'Chilled' }),
+    descriptions: Object.freeze({
+      ru: 'Движение сильно замедлено. На мокром холод держится дольше.',
+      en: 'Movement is badly slowed, and cold lasts longer on someone wet.',
+    }),
   }),
   frozen: Object.freeze({
     id: 'frozen',
@@ -34,6 +54,10 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 0,
     moveSpeed: 0,
     labels: Object.freeze({ ru: 'Заморозка', en: 'Frozen' }),
+    descriptions: Object.freeze({
+      ru: 'Не двинуться с места, пока лёд не отпустит.',
+      en: 'You cannot move at all until the ice lets go.',
+    }),
   }),
   poison: Object.freeze({
     id: 'poison',
@@ -42,6 +66,10 @@ export const ACTOR_EFFECTS = Object.freeze({
     damagePerPulse: 1,
     moveSpeed: 1,
     labels: Object.freeze({ ru: 'Отравление', en: 'Poisoned' }),
+    descriptions: Object.freeze({
+      ru: 'Яд отнимает здоровье понемногу, пока не выйдет.',
+      en: 'Venom takes health a little at a time until it runs out.',
+    }),
   }),
 });
 
@@ -71,6 +99,7 @@ export function activeActorEffects(effects, language = 'ru') {
       ...definition,
       duration: normalized[id],
       label: definition.labels[locale],
+      description: definition.descriptions[locale],
     });
   });
 }

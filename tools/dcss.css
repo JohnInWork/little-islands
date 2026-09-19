@@ -1164,7 +1164,29 @@ body {
   left: 0;
   display: flex;
   gap: 8px;
+  /* The badges are buttons now: a state you cannot read is a state that only
+     tells you something is wrong, and on a phone there is no hovering. */
+  pointer-events: auto;
+}
+
+.hero-effect-note {
+  position: absolute;
+  top: calc(100% + 52px);
+  left: 0;
+  z-index: 6;
+  max-width: min(320px, calc(100vw - 28px));
+  margin: 0;
+  padding: 5px 9px 6px;
+  color: #ddd4bf;
+  font-size: 12px;
+  line-height: 1.35;
+  background: rgb(10 14 18 / 94%);
+  border-color: #5a6470;
   pointer-events: none;
+}
+
+.hero-effect-note[hidden] {
+  display: none;
 }
 
 .hero-effects[hidden] {

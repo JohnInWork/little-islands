@@ -141,3 +141,28 @@ test('nobody mistakes the clearing report for the effects it describes', async (
   }
   assert.deepEqual(wrong, [], `\n${wrong.join('\n')}\n`);
 });
+
+/**
+ * «Я бы хотел нажать на этот баф и почитать, что он сейчас конкретно делает.»
+ *
+ * A badge with a picture and a number tells the player that something is wrong
+ * and nothing else — and on a phone there is no hovering to find out more. The
+ * sentence lives with the rule, beside the numbers it describes, so the two
+ * cannot drift apart.
+ */
+test('every state says what it does, in both languages', () => {
+  for (const id of ACTOR_EFFECT_IDS) {
+    const definition = ACTOR_EFFECTS[id];
+    for (const language of ['ru', 'en']) {
+      const text = definition.descriptions?.[language] ?? '';
+      assert.ok(text.length > 15, `${id}/${language}: no sentence`);
+      assert.notEqual(text, definition.labels[language], `${id}/${language}: the name is not an explanation`);
+    }
+    assert.notEqual(definition.descriptions.ru, definition.descriptions.en, `${id} was never translated`);
+  }
+  // And the live list carries it, which is what the badge reads.
+  const live = activeActorEffects({ burning: 4, poison: 2 }, 'ru');
+  assert.equal(live.length, 2);
+  assert.ok(live.every(({ description }) => (description ?? '').length > 15));
+  assert.equal(activeActorEffects({ burning: 4 }, 'en')[0].description, ACTOR_EFFECTS.burning.descriptions.en);
+});
