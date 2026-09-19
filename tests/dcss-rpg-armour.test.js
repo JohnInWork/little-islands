@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
+import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { EQUIPMENT_SLOTS, assertEquipmentCatalog } from '../tools/dcss-rpg-rules.js';
@@ -171,4 +173,53 @@ test('the dragon hides are a deep layer, and each is a reason of its own', () =>
     armour: dragon.armour ?? null,
   }));
   assert.equal(new Set(signatures).size, signatures.length, 'two dragons promise the same thing');
+});
+
+/**
+ * A slot that runs out of new things halfway down the road stops being a slot
+ * and becomes a number you set once. The catalogue was written for nine floors:
+ * five slots of six held four pieces each and the last of them turned up on
+ * floor five, so the helmet you found early was the helmet you wore to the
+ * bottom of an eighteen-floor descent.
+ *
+ * The belt is the honest exception and it is named here rather than excused:
+ * the sprite library ships four belts in total, so the slot cannot grow until
+ * somebody draws a fifth.
+ */
+test('every slot keeps finding you something the whole way down the road', () => {
+  // Worn armour, not jewellery: a ring answers to its own scarcity, and the
+  // library ships two ring sprites in total.
+  const WORN = ['body', 'head', 'cloak', 'gloves', 'belt', 'boots', 'hand2'];
+  for (const slot of WORN) {
+    const pieces = LOOT_CATALOG.filter((item) => item.slot === slot);
+    const deepest = Math.max(...pieces.map((item) => item.minDepth ?? 1));
+    if (slot === 'belt') {
+      // Named, not excused. Raise this the day the belt sprites exist.
+      assert.equal(pieces.length, 4, 'the belt slot changed — update the note above');
+      continue;
+    }
+    assert.ok(pieces.length >= 9, `${slot}: только ${pieces.length} вещей`);
+    assert.ok(deepest >= STORY_DEPTH - 4, `${slot}: ничего нового после ${deepest} этажа`);
+    // And the ladder has no long gap in it: something new every few floors.
+    const depths = [...new Set(pieces.map((item) => item.minDepth ?? 1))].sort((a, b) => a - b);
+    for (let index = 1; index < depths.length; index += 1) {
+      const gap = depths[index] - depths[index - 1];
+      assert.ok(gap <= 4, `${slot}: между ${depths[index - 1]} и ${depths[index]} этажом ничего`);
+    }
+  }
+});
+
+test('no weapon family is a skill with nothing to find', () => {
+  const families = new Map();
+  for (const item of LOOT_CATALOG) {
+    if (!item.weaponFamily) continue;
+    families.set(item.weaponFamily, (families.get(item.weaponFamily) ?? 0) + 1);
+  }
+  for (const [family, count] of families) {
+    // A family the hero can spend skill points on has to keep paying them back.
+    assert.ok(count >= 2, `${family}: ${count} вещей на целую ветку навыков`);
+  }
+  // The axe used to be two weapons against nine swords: a whole skill branch
+  // with almost nothing behind it.
+  assert.ok(families.get('axe') >= 6, `топор: ${families.get('axe')}`);
 });

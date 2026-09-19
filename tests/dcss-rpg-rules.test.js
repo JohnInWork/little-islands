@@ -175,7 +175,12 @@ test('cloak, gloves and belt are real equipment families with visible variants',
   for (const slot of ['cloak', 'gloves', 'belt']) {
     const family = LOOT_CATALOG.filter((item) => item.slot === slot);
     assert.ok(family.length >= 4);
-    assert.equal(new Set(family.map((item) => item.variant)).size, family.length);
+    // «Visible» means the player can tell two of them apart, so the promise is
+    // about the silhouette, not about `variant` — that field is a key for
+    // reading ancient saves and new items have no business carrying one.
+    assert.equal(new Set(family.map((item) => item.icon)).size, family.length, `${slot} repeats a silhouette`);
+    const legacy = family.map((item) => item.variant).filter(Number.isInteger);
+    assert.equal(new Set(legacy).size, legacy.length, `${slot} repeats a legacy key`);
   }
 });
 

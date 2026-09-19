@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   CITY_ASSET_PATHS,
   CITY_CAPTAIN_ID,
+  CITY_PRIEST_ID,
   CITY_DEPTHS,
   CITY_GUARD_ID,
   cityBlockRects,
@@ -134,11 +135,37 @@ test('traders keep a stall each, and the watch keeps the streets', () => {
   assert.ok(level.monsters.length >= 3, 'the watch is on duty');
   for (const spawn of level.monsters) {
     assert.match(spawn.instanceId, new RegExp(`^monster-${cityDepth}-\\d+$`));
-    assert.ok([CITY_GUARD_ID, CITY_CAPTAIN_ID].includes(spawn.id));
+    assert.ok([CITY_GUARD_ID, CITY_CAPTAIN_ID, CITY_PRIEST_ID].includes(spawn.id));
     assert.deepEqual(spawn.post, { x: spawn.x, y: spawn.y });
     assert.equal(level.grid[spawn.y][spawn.x], '.');
   }
   assert.equal(level.monsters.filter(({ id }) => id === CITY_CAPTAIN_ID).length, 1, 'one captain');
+});
+
+/**
+ * The temple is the reliable way out of a binding curse, so it has to be
+ * somewhere the hero can reliably come back to: a building with a door, and
+ * one man inside it who does not wander off.
+ */
+test('the city keeps a temple, and the priest stays in it', () => {
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const level = generateDungeon({ seed, depth: cityDepth });
+    const temple = level.city.blocks.filter(({ kind }) => kind === 'temple');
+    assert.equal(temple.length, 1, `seed ${seed}: ${temple.length} храмов`);
+    assert.ok(temple[0].door, 'a temple without a door is a wall');
+    assert.ok(temple[0].interior, 'and without a room it is not a building');
+
+    const priests = level.monsters.filter(({ id }) => id === CITY_PRIEST_ID);
+    assert.equal(priests.length, 1, `seed ${seed}: ${priests.length} жрецов`);
+    const priest = priests[0];
+    const { x, y, w, h } = temple[0].interior;
+    assert.ok(
+      priest.x >= x && priest.x < x + w && priest.y >= y && priest.y < y + h,
+      `seed ${seed}: жрец стоит не в храме`,
+    );
+    // He is not the watch: nobody arrests you for talking to him.
+    assert.equal(monsterById(CITY_PRIEST_ID).neutral, true);
+  }
 });
 
 test('a guard is neutral, stays out of every dungeon pool and carries its post', () => {

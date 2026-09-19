@@ -4,7 +4,20 @@ import { lootById } from '../tools/dcss-rpg-content.js';
 import { createRun, generateDungeon, migrateLegacyRun, validateRun } from '../tools/dcss-rpg-core.js';
 import { createEmptyEquipment, equipInventoryItem, unequipItem, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
 import { createActorEffects, actorEffectModifiers, tickActorEffects } from '../tools/dcss-rpg-effects.js';
-import { equipmentMagic, wardActorEffects, applyWardedEffect, resolveKillRecovery } from '../tools/dcss-rpg-magic.js';
+import {
+  MAGIC_TRAIT_KEYS,
+  THORNS_CAP_PERCENT,
+  applyWardedEffect,
+  equipmentMagic,
+  magicItemEffects,
+  resolveKillRecovery,
+  wardActorEffects,
+} from '../tools/dcss-rpg-magic.js';
+import {
+  PROCEDURAL_ARTIFACT_CURSES,
+  PROCEDURAL_ARTIFACT_POWERS,
+} from '../tools/dcss-rpg-artifacts.js';
+import { ITEM_AFFIXES } from '../tools/dcss-rpg-affixes.js';
 import { itemDetails } from '../tools/dcss-rpg-item-details.js';
 import { itemPowerScore } from '../tools/dcss-rpg-scaling.js';
 
@@ -98,4 +111,69 @@ test('v7 gear survives the new loot pool migration with all wards derived on loa
   assert.equal(next.equipment.ring1, 'ward-ring');
   const items = next.items.map((item) => owned(item.id, item.uid));
   assert.equal(wardActorEffects(next.hero.effects, equipmentMagic(next.equipment, items)).effects.burning, 0);
+});
+
+/**
+ * The rule this whole layer stands on: a thing an item promises has to be read
+ * by the aggregator and has to be describable to the player.
+ *
+ * Both halves matter. A power nothing reads is a suffix that does nothing —
+ * which is what «of the Sky» was on a sword. A power nothing describes is a
+ * power the player cannot weigh in a shop, and this game already learned that
+ * one the hard way.
+ */
+test('every power, affix and curse is both read by the game and explainable to the player', () => {
+  const promised = new Set();
+  const collect = (magic) => {
+    for (const key of Object.keys(magic ?? {})) promised.add(key);
+  };
+  for (const power of PROCEDURAL_ARTIFACT_POWERS) collect(power.magic);
+  for (const curse of PROCEDURAL_ARTIFACT_CURSES) collect(curse.magic);
+  for (const affix of ITEM_AFFIXES) collect(affix.magic);
+
+  for (const key of promised) {
+    assert.ok(MAGIC_TRAIT_KEYS.includes(key), `${key}: обещано и никем не читается`);
+  }
+
+  // And each one says something when it is on an item.
+  for (const key of promised) {
+    if (key === 'immunity') continue;
+    const value = key === 'brand' ? 'burning' : true;
+    const rows = magicItemEffects({ magic: { [key]: value } }, 'ru');
+    assert.ok(rows.length > 0, `${key}: нечего показать игроку`);
+    assert.ok(rows.every((row) => row.icon && row.text), key);
+  }
+});
+
+test('the aggregator folds what is worn and never lets two of a thing run away', () => {
+  const ring = (uid, magic) => ({ uid, magic });
+  // Flags are ORed: two rings of flight are one flight.
+  const two = equipmentMagic(
+    { ring1: 'a', ring2: 'b' },
+    [ring('a', { flight: true }), ring('b', { flight: true })],
+  );
+  assert.equal(two.flight, true);
+
+  // Magnitudes add, and then stop: four thorny pieces are not an invincibility.
+  const thorny = equipmentMagic(
+    { body: 'a', head: 'b', boots: 'c', gloves: 'd' },
+    ['a', 'b', 'c', 'd'].map((uid) => ring(uid, { thorns: 22 })),
+  );
+  assert.equal(thorny.thorns, THORNS_CAP_PERCENT);
+
+  // The deepest threshold wins rather than adding up — two executioners must
+  // not make a weapon that kills anything under thirty percent.
+  const headsmen = equipmentMagic(
+    { hand1: 'a', hand2: 'b' },
+    [ring('a', { execute: 0.15 }), ring('b', { execute: 0.15 })],
+  );
+  assert.equal(headsmen.execute, 0.15);
+
+  // Two branded weapons carry both brands; one weapon carries one.
+  const branded = equipmentMagic(
+    { hand1: 'a', hand2: 'b' },
+    [ring('a', { brand: 'burning' }), ring('b', { brand: 'poison' })],
+  );
+  assert.deepEqual([...branded.brands].sort(), ['burning', 'poison']);
+  assert.equal(equipmentMagic({}, []).brands.length, 0);
 });

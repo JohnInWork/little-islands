@@ -43,6 +43,7 @@ const ACTION_COPY = Object.freeze({
     retire: 'Уйти с добычей',
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
+    unbind: 'Снять оковы',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -84,6 +85,7 @@ const ACTION_COPY = Object.freeze({
     goSurface: 'Out through the gate',
     claim: 'Take the artefact',
     descend: 'Go deeper',
+    unbind: 'Lift the binding',
     retire: 'Walk away with the haul',
   }),
 });
@@ -130,6 +132,7 @@ const GLYPHS = Object.freeze({
   retire: '◆',
   claim: '◆',
   descend: '▼',
+  unbind: '⛓',
 });
 
 const COPY = Object.freeze({
@@ -181,6 +184,7 @@ const COPY = Object.freeze({
     roadEndDescription: 'Страж пал, артефакт твой. Но лестница идёт дальше, и никто не знает, куда.',
     roadEndClaim: 'Забег закончен победой',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
+    priestName: 'Жрец',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -234,6 +238,7 @@ const COPY = Object.freeze({
     roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
     roadEndClaim: 'The run ends in victory',
     roadEndDeeper: 'This stair does not carry anyone back up',
+    priestName: 'Priest',
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -447,6 +452,31 @@ export const INTERACTION_REGISTRY = Object.freeze([
       actions: [
         { id: 'claim', hint: copy.roadEndClaim },
         { id: 'descend', hint: copy.roadEndDeeper },
+      ],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * The temple: the reliable way out of a binding, and the expensive one.
+     *
+     * Everything the panel says — the price, whether there is anything to lift,
+     * why not — comes from `templeOffer`, so the greyed-out button and the line
+     * of speech above it can never disagree about the reason.
+     */
+    id: 'priest',
+    command: 'priest',
+    matches: (target) => target?.kind === 'priest',
+    present: ({ target, copy }) => ({
+      name: copy.priestName,
+      description: target.text ?? '',
+      icon: 'mon/deep_elf_high_priest.png',
+      accent: '#d8bf68',
+      actions: [
+        {
+          id: 'unbind',
+          enabled: target.canUnbind === true,
+          hint: target.canUnbind === true ? `${target.price}●` : '',
+        },
       ],
     }),
   }),

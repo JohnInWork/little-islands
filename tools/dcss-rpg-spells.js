@@ -77,6 +77,28 @@ export const SPELL_CATALOG = Object.freeze([
     },
   }),
   freezeSpell({
+    /**
+     * The learned way out of a binding, and the hardest to reach: it asks for
+     * more intelligence than any spell but the Warden, so it is a build rather
+     * than a purchase. Cleansing already answers for what the dungeon leaves on
+     * the hero; this is the same school reaching one step further, to what the
+     * dungeon leaves welded to them.
+     */
+    id: 'unbinding',
+    schoolId: 'cleansing',
+    kind: 'unbind',
+    icon: 'item/scroll/i-remove_curse.png',
+    color: '#e8dcc0',
+    minimumIntelligence: 8,
+    cooldown: 40,
+    basePower: 1,
+    name: { ru: 'Разрешение оков', en: 'Unbinding' },
+    description: {
+      ru: 'Снимает оковы со всего надетого. Долгий откат: это не выход, а вторая попытка.',
+      en: 'Lifts every binding on worn gear. A long cooldown: not an escape, a second chance.',
+    },
+  }),
+  freezeSpell({
     id: 'purging-light',
     schoolId: 'cleansing',
     kind: 'purge',

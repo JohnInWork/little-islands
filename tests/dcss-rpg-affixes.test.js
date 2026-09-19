@@ -14,6 +14,7 @@ import {
 } from '../tools/dcss-rpg-affixes.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { EQUIPMENT_STAT_KEYS } from '../tools/dcss-rpg-rules.js';
+import { MAGIC_TRAIT_KEYS } from '../tools/dcss-rpg-magic.js';
 import {
   SAVE_KEY,
   SAVE_VERSION,
@@ -35,9 +36,10 @@ test('the affix catalog is unique, compatible and limited to implemented mechani
     // An affix may only touch a stat equipment actually has — read from the
     // rules rather than from a hand-copied list that drifts out of date.
     assert.ok(Object.keys(affix.stats ?? {}).every((key) => EQUIPMENT_STAT_KEYS.includes(key)));
-    assert.ok(Object.keys(affix.magic ?? {}).every((key) => (
-      ['immunity', 'healOnKill'].includes(key)
-    )));
+    // …and only promise a mechanic the aggregator actually reads. The list
+    // comes from the implementation, not from a copy of it that goes stale.
+    assert.ok(Object.keys(affix.magic ?? {}).every((key) => MAGIC_TRAIT_KEYS.includes(key)),
+      `${affix.id} promises a mechanic nothing reads`);
   }
 });
 

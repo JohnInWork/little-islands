@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
 import vm from 'node:vm';
 
 import {
@@ -138,7 +140,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     currentWeaponLoadout: () => ({ mode: 'unarmed', primary: null, secondary: null, shield: null }),
     currentHeroCleave: () => axeCleaveProfile(null, {}),
     currentHeroStats: () => ({ attack: 10, moveSpeed: 1 }),
-    currentHeroMagic: () => ({ flight: false, invisibility: false, vampirism: false, immunity: [], healOnKill: 0 }),
+    currentHeroMagic: () => equipmentMagic({}, []),
     actorEffectModifiers: () => ({ moveSpeed: 1 }), tickActorEffects,
     equippedItem: () => null,
     rarityGlow: ['#ffffff'],
@@ -178,7 +180,9 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
   installRuntime(context, [
     'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
     'updateHero', 'canHeroAttack', 'isCurrentlyVisible', 'canActorsMelee',
-    'resolvePendingHeroAttack', 'damageMonster', 'updateWorld', 'updatePassiveCreatures',
+    'resolvePendingHeroAttack', 'damageMonster', 'executionDamage', 'applyWeaponPowers',
+    'surviveOnSecondWind', 'heroConditionalDamage',
+    'updateWorld', 'updatePassiveCreatures',
   ]);
   return { context, grid, hazards };
 }

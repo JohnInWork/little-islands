@@ -173,6 +173,6 @@ test('the runtime hides a stash until it is noticed and feeds the new radii ever
   assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*heroRevealRadius\(currentDarkvisionProfile\(\)\)[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
   assert.match(runtime, /<= heroSightRadius\(currentDarkvisionProfile\(\)\)/);
   assert.match(runtime, /stealthVisionRadius\(monster\.vision, currentStealthProfile\(\)\)[\s\S]{0,90}?distanceToHero > TILE \* sight/);
-  assert.match(runtime, /const heard = stealthNoiseRadius\(radiusInTiles, currentStealthProfile\(\)\);/);
+  assert.match(runtime, /const heard = stealthNoiseRadius\(radiusInTiles, currentStealthProfile\(\)\)[\s\S]{0,140}?magic\.clamour/);
   assert.doesNotMatch(runtime, /revealAround\(revealed, world, heroCell, 4\)/, 'no hard-coded fog radius remains');
 });

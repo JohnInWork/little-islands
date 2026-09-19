@@ -12,6 +12,13 @@ export const CURSED_ARTIFACT_CHANCE = 0.2;
  */
 export const ARTIFACT_CACHE_VARIANTS = Object.freeze(['locked', 'trapped', 'cursed', 'mimic']);
 
+/** What the powers with a magnitude are worth. Named, not buried in the table. */
+export const EXECUTE_THRESHOLD = 0.15;
+export const THORNS_PERCENT = 22;
+export const DARKVISION_TILES = 2;
+export const SATIETY_SHARE = 0.5;
+export const QUICKENING_PERCENT = 18;
+
 /** The first floor teaches; it does not hand out the run's best item. */
 export const ARTIFACT_MIN_DEPTH = 2;
 
@@ -53,26 +60,31 @@ const freezeCurse = (curse) => Object.freeze({
   label: Object.freeze({ ...curse.label }),
   effect: Object.freeze({ ...curse.effect }),
   stats: Object.freeze({ ...curse.stats }),
+  // A drawback that is a rule rather than a number carries it here, and reaches
+  // the hero through the same aggregator every other magic field does.
+  ...(curse.magic ? { magic: Object.freeze({ ...curse.magic }) } : {}),
 });
 
-// Major powers are binary. Their magnitude never rolls: flight is always
-// flight, invisibility is always invisibility and vampirism always uses the
-// one shared combat rule.
+/**
+ * A major power is binary — it never rolls a magnitude — and it belongs to a
+ * KIND of thing.
+ *
+ * That second half used to be missing, and it made the whole layer fake: flight
+ * and invisibility were tagged `equipment`, which is everything, so a sword had
+ * exactly three possible powers and so did a helmet, and two of the three were
+ * the same on both. The generator was not combining anything; it was drawing
+ * one of three slips out of a bag.
+ *
+ * Now a weapon does weapon things, armour does armour things, and the two
+ * powers that are plainly about the wearer and not the tool — flying and going
+ * unseen — live on jewellery, where a ring of invisibility makes sense and an
+ * invisible sword does not.
+ *
+ * Every power here reaches a rule the runtime already owns. None of them is a
+ * label with nothing behind it.
+ */
 export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
-  freezePower({
-    id: 'flight',
-    tags: ['equipment'],
-    suffix: { ru: 'Небес', en: 'of the Sky' },
-    magic: { flight: true },
-    weight: 5,
-  }),
-  freezePower({
-    id: 'invisibility',
-    tags: ['equipment'],
-    suffix: { ru: 'Забвения', en: 'of Oblivion' },
-    magic: { invisibility: true },
-    weight: 4,
-  }),
+  // — Weapons. What the tool does to what it hits. —
   freezePower({
     id: 'vampirism',
     tags: ['weapon'],
@@ -81,16 +93,172 @@ export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
     weight: 5,
   }),
   freezePower({
+    // Water already carries a shock between creatures standing in it; until now
+    // only the dungeon could use that, never the hero.
+    id: 'conductor',
+    tags: ['weapon'],
+    suffix: { ru: 'Грозовой Дуги', en: 'of the Storm Arc' },
+    magic: { conductor: true },
+    weight: 4,
+  }),
+  freezePower({
+    // Marksmanship already knows how to pick the targets behind a target.
+    id: 'piercing',
+    tags: ['weapon'],
+    suffix: { ru: 'Сквозного Хода', en: 'of the Clean Pass' },
+    magic: { piercing: true },
+    weight: 4,
+  }),
+  freezePower({
+    // The blunt school already strips armour for a few seconds.
+    id: 'sundering',
+    tags: ['weapon'],
+    suffix: { ru: 'Раскола', en: 'of Sundering' },
+    magic: { sundering: true },
+    weight: 4,
+  }),
+  freezePower({
+    id: 'searing',
+    tags: ['weapon'],
+    suffix: { ru: 'Клеймящего Жара', en: 'of Searing' },
+    magic: { brand: 'burning' },
+    weight: 4,
+  }),
+  freezePower({
+    id: 'freezing',
+    tags: ['weapon'],
+    suffix: { ru: 'Стылой Хватки', en: 'of the Cold Grip' },
+    magic: { brand: 'chilled' },
+    weight: 4,
+  }),
+  freezePower({
+    id: 'venomous',
+    tags: ['weapon'],
+    suffix: { ru: 'Гадючьего Зуба', en: 'of the Viper Tooth' },
+    magic: { brand: 'poison' },
+    weight: 4,
+  }),
+  freezePower({
+    // Not a bigger number: a rule. Anything already this close to dead dies.
+    id: 'executioner',
+    tags: ['weapon'],
+    suffix: { ru: 'Палача', en: 'of the Headsman' },
+    magic: { execute: EXECUTE_THRESHOLD },
+    weight: 3,
+  }),
+
+  // — Armour and shields. What the dungeon fails to do to you. —
+  freezePower({
     id: 'three-wards',
-    tags: ['armour', 'shield', 'jewellery', 'focus'],
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Трёх Печатей', en: 'of the Three Seals' },
+    magic: { immunity: ['burning', 'chilled', 'poison'] },
+    weight: 3,
+  }),
+  freezePower({
+    // The armour school already turns damage taken back on whoever dealt it.
+    id: 'thorns',
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Терновой Оправы', en: 'of the Thorn Setting' },
+    magic: { thorns: THORNS_PERCENT },
+    weight: 4,
+  }),
+  freezePower({
+    // Scouting already owns how far the hero sees in the dark.
+    id: 'darkvision',
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Совиного Глаза', en: 'of the Owl Eye' },
+    magic: { darkvision: DARKVISION_TILES },
+    weight: 4,
+  }),
+  freezePower({
+    // And how far the noise of a footstep carries.
+    id: 'hushed',
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Тихого Шага', en: 'of the Quiet Step' },
+    magic: { hushed: true },
+    weight: 4,
+  }),
+  freezePower({
+    // Once a floor, and the floor has to be left for it to come back — so it
+    // buys one mistake, never a habit.
+    id: 'second-wind',
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Второго Дыхания', en: 'of Second Wind' },
+    magic: { secondWind: true },
+    weight: 2,
+  }),
+  freezePower({
+    // The siren drags and the whip pulls; an anchored hero stays put.
+    id: 'anchored',
+    tags: ['armour', 'shield'],
+    suffix: { ru: 'Якоря', en: 'of the Anchor' },
+    magic: { anchored: true },
+    weight: 3,
+  }),
+
+  // — Jewellery and foci. What is true about the wearer, not the tool. —
+  freezePower({
+    id: 'flight',
+    tags: ['jewellery'],
+    suffix: { ru: 'Небес', en: 'of the Sky' },
+    magic: { flight: true },
+    weight: 5,
+  }),
+  freezePower({
+    id: 'invisibility',
+    tags: ['jewellery'],
+    suffix: { ru: 'Забвения', en: 'of Oblivion' },
+    magic: { invisibility: true },
+    weight: 4,
+  }),
+  freezePower({
+    // Hunger is a promise about the length of a run; this bends it, and on a
+    // descent with no bottom that is worth more than a number.
+    id: 'satiety',
+    tags: ['jewellery', 'focus'],
+    suffix: { ru: 'Сытости', en: 'of Plenty' },
+    magic: { satiety: SATIETY_SHARE },
+    weight: 4,
+  }),
+  freezePower({
+    // Scouting already finds what the floor hid; this finds it without looking.
+    id: 'sense',
+    tags: ['jewellery', 'focus'],
+    suffix: { ru: 'Чутья', en: 'of the Keen Sense' },
+    magic: { sense: true },
+    weight: 4,
+  }),
+  freezePower({
+    // Armour already knows how to shorten a spell's cooldown.
+    id: 'quickening',
+    tags: ['jewellery', 'focus'],
+    suffix: { ru: 'Скорой Руки', en: 'of the Quick Hand' },
+    magic: { quickening: QUICKENING_PERCENT },
+    weight: 3,
+  }),
+  freezePower({
+    id: 'three-wards-minor',
+    tags: ['focus'],
     suffix: { ru: 'Трёх Печатей', en: 'of the Three Seals' },
     magic: { immunity: ['burning', 'chilled', 'poison'] },
     weight: 3,
   }),
 ]);
 
-// A cursed artefact is not the old hidden sanctity layer. It is an obvious,
-// rare risk/reward variant: one major power plus one fixed visible drawback.
+/**
+ * A cursed artefact is not the old hidden sanctity layer. It is an obvious,
+ * rare risk/reward variant: one major power plus one visible drawback.
+ *
+ * Three of these were flat subtraction — less health, less speed, less defence
+ * — which is the same design mistake the powers had: a number, not a decision.
+ * A drawback is interesting when it changes how you play the floor, or when it
+ * makes you weigh keeping the thing at all.
+ *
+ * The last one is different in kind and is the reason the others exist: a
+ * `sticky` curse cannot be taken off. Wearing it is a commitment, and getting
+ * out of it costs something real — see `dcss-rpg-curse.js`.
+ */
 export const PROCEDURAL_ARTIFACT_CURSES = Object.freeze([
   freezeCurse({
     id: 'frailty',
@@ -112,6 +280,45 @@ export const PROCEDURAL_ARTIFACT_CURSES = Object.freeze([
     effect: { ru: '−3 защиты', en: '−3 defence' },
     stats: { defense: -3 },
     weight: 3,
+  }),
+  freezeCurse({
+    // Not a number: the run gets shorter. Food is a promise about how long you
+    // may stay down, and this one halves it.
+    id: 'gluttony',
+    label: { ru: 'Прожорливость', en: 'Gluttony' },
+    effect: { ru: 'голод вдвое быстрее', en: 'hunger runs twice as fast' },
+    stats: {},
+    magic: { gluttony: true },
+    weight: 3,
+  }),
+  freezeCurse({
+    // You are heard further than you are seen. Sneaking past a room stops
+    // being an option, so the floor has to be fought instead of crossed.
+    id: 'clamour',
+    label: { ru: 'Шум', en: 'Clamour' },
+    effect: { ru: 'тебя слышно вдвое дальше', en: 'heard twice as far' },
+    stats: {},
+    magic: { clamour: true },
+    weight: 3,
+  }),
+  freezeCurse({
+    // Permanently wet: lightning through water hurts more, fire hurts less.
+    // A drawback that is an advantage in the right room is the best kind.
+    id: 'sodden',
+    label: { ru: 'Сырость', en: 'Sodden' },
+    effect: { ru: 'всегда мокрый', en: 'never dries' },
+    stats: {},
+    magic: { sodden: true },
+    weight: 3,
+  }),
+  freezeCurse({
+    // The one that changes what wearing a thing means.
+    id: 'binding',
+    label: { ru: 'Оковы', en: 'Binding' },
+    effect: { ru: 'нельзя снять', en: 'cannot be removed' },
+    stats: {},
+    magic: { sticky: true },
+    weight: 2,
   }),
 ]);
 
@@ -338,6 +545,9 @@ export function materializeProceduralArtifact(item, record = item) {
   const magic = {
     ...(item.magic ?? {}),
     ...power.magic,
+    // A drawback that is a rule travels the same road the power does, so one
+    // aggregator sees both and nothing needs a second lookup at the curse.
+    ...(curse?.magic ?? {}),
     ...(immunity.size > 0 ? { immunity: [...immunity] } : {}),
   };
   return {

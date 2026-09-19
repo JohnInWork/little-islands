@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
 import vm from 'node:vm';
 
 import { awardHeroExperience } from '../tools/dcss-rpg-progression.js';
@@ -100,7 +102,7 @@ function combatRuntime() {
     artifactAvailable: () => true,
     currentHeroCombat: () => ({ guard: 0 }),
     currentHeroStats: () => ({ defense: 0, maxHp: 100 }),
-    currentHeroMagic: () => ({}),
+    currentHeroMagic: () => equipmentMagic({}, []),
     createSwordRhythmState,
     swordRhythmState: createSwordRhythmState(),
     resolveHeroDamage,
@@ -129,7 +131,11 @@ function combatRuntime() {
     updateHud: () => {},
     updateBossHud: () => {},
   });
-  const entryPoints = ['damageMonster', 'defeatMonster', 'damageHero', 'gainExperience', 'completeVictory'];
+  const entryPoints = [
+    'damageMonster', 'executionDamage', 'applyWeaponPowers',
+    'defeatMonster', 'damageHero', 'surviveOnSecondWind', 'heroConditionalDamage',
+    'gainExperience', 'completeVictory',
+  ];
   vm.runInContext(entryPoints.map(runtimeFunction).join('\n'), context, { timeout: 1000 });
   return { context, metrics };
 }

@@ -74,7 +74,7 @@ test('runtime advances hunger only inside active gameplay and exposes a compact 
   const update = runtime.match(/function updateHunger\(delta\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body ?? '';
   assert.match(update, /!playerHasActed \|\| runStatus !== 'playing' \|\| hero\.dead/);
   // Armour can slow hunger, but only the seconds actually lived are ever spent.
-  assert.match(update, /advanceHunger\([\s\S]{0,40}?hero\.hunger,[\s\S]{0,120}?frugalHungerSeconds\(activeSeconds, currentArmourProfile\(\)\) \* currentConditions\(\)\.hungerScale/);
+  assert.match(update, /advanceHunger\([\s\S]{0,40}?hero\.hunger,[\s\S]{0,160}?frugalHungerSeconds\(activeSeconds, currentArmourProfile\(\)\)[\s\S]{0,60}?currentConditions\(\)\.hungerScale/);
   assert.match(update, /HUNGER_TUNING\.autosaveEvery/);
   assert.doesNotMatch(update, /damageHero|hero\.hp\s*[-=]/);
   assert.match(runtime, /if \(uiScreen === 'game'\)[\s\S]*updateHero\(delta\)/);

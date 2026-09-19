@@ -48,6 +48,7 @@ import {
 } from './dcss-rpg-scaling.js';
 import {
   DEFAULT_LOOT_ABUNDANCE,
+  balanceSupplyWeights,
   createBalancedLootPicks,
   validateLootAbundance,
 } from './dcss-rpg-loot-economy.js';
@@ -878,7 +879,7 @@ export function generateDungeon({
   );
   const selectedLoot = createBalancedLootPicks({
     rng: createRng(mixSeed(floorSeed, 0x4c4f4f54)),
-    pool: lootPool,
+    pool: balanceSupplyWeights(lootPool, (item) => item.useEffect?.type === 'food'),
     starterPool: starterLootPool,
     count: 1 + lootCells.length,
     qualityBudget: budget.qualityBudget,
@@ -1289,6 +1290,9 @@ function createEmptyFloorState(dungeon = null) {
     monsters: [],
     passives: [],
     camp: null,
+    // Second wind is spent per floor, and the floor remembers it: a reload or a
+    // climb back up must not hand the same save-from-death out twice.
+    secondWindSpent: false,
     merchants: dungeon
       ? [...createMerchantStates({ merchants: dungeon.merchants, depth: dungeon.depth })]
       : [],
@@ -1530,6 +1534,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
+    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -1654,6 +1660,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
+    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -1793,6 +1801,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
+    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -1910,6 +1920,8 @@ export function migrateLegacyRun(snapshot) {
   migrated.hero.meal = migrated.hero.meal ?? null;
   migrated.hero.coating = createCoatingState(migrated.hero.coating);
   migrated.floor.camp = migrated.floor.camp ?? null;
+  // v49 gives a floor its second wind; a migrated floor has not spent one.
+  migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
   migrated.house = createHouseState(migrated.house);
@@ -1969,6 +1981,8 @@ function validateFloorShape(floor, depth) {
   )
     return false;
   if (!validateCampState(floor.camp)) return false;
+  // Older floors predate second wind and simply have not spent it.
+  if (floor.secondWindSpent !== undefined && typeof floor.secondWindSpent !== 'boolean') return false;
   if (!validateChestContainerStates(floor.chests, { depth: depth })) return false;
   if (!validateMerchantStateShape(floor.merchants, depth)) return false;
   if (

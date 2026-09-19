@@ -63,6 +63,50 @@ function weightedPick(rng, entries, weightOf) {
  * is shared by the entire floor; duplicates stay possible, but rapidly lose
  * weight so a larger amount mostly increases variety and consumables.
  */
+/**
+ * The least food a floor may carry.
+ *
+ * Supplies used to take their chances in the same weighted lottery as swords,
+ * which meant every content addition quietly re-rolled how much the dungeon
+ * feeds you — and a place that favours weapons starved the hero through no
+ * decision anybody made. Measured before this rule, over eighteen floors and
+ * sixty seeds: the orc stronghold fed a fifth of what an average floor did.
+ *
+ * This is a floor, not a quota. A place that rolls its own supplies keeps
+ * exactly what it rolled — the lottery is still a lottery, which is where a
+ * lottery belongs. Only a floor that came up empty gets topped up, and the
+ * cheapest drop it was going to hand out is what makes room.
+ */
+export const SUPPLY_POOL_SHARE = 0.055;
+
+/**
+ * Holds the larder's share of the draw steady.
+ *
+ * A weighted lottery gives food whatever slice is left over after everything
+ * else, so two things quietly decided how much the dungeon fed you: how many
+ * pieces of equipment the catalogue happened to hold, and how much a place
+ * liked weapons. Adding forty-three items cut the ration on every floor in the
+ * game, and the orc stronghold — which weights weapons up — fed a fifth of what
+ * an average floor did.
+ *
+ * So supplies get a fixed share of the pool's weight, and the rest of the pool
+ * divides what is left. A place can still prefer swords to books; it can no
+ * longer prefer swords to bread.
+ */
+export function balanceSupplyWeights(pool, isSupply, share = SUPPLY_POOL_SHARE) {
+  const supplies = pool.filter(isSupply);
+  const rest = pool.filter((item) => !isSupply(item));
+  if (supplies.length === 0 || rest.length === 0) return pool;
+  const supplyWeight = supplies.reduce((sum, item) => sum + Math.max(0, item.weight ?? 1), 0);
+  const restWeight = rest.reduce((sum, item) => sum + Math.max(0, item.weight ?? 1), 0);
+  if (supplyWeight <= 0 || restWeight <= 0) return pool;
+  // What the supply weights must be multiplied by to own `share` of the total.
+  const scale = (share * restWeight) / ((1 - share) * supplyWeight);
+  return pool.map((item) => (isSupply(item)
+    ? { ...item, weight: Math.max(0.01, (item.weight ?? 1) * scale) }
+    : item));
+}
+
 export function createBalancedLootPicks({
   rng,
   pool,
@@ -109,3 +153,5 @@ export function createBalancedLootPicks({
     qualityBudget,
   });
 }
+
+

@@ -114,6 +114,59 @@ export const ITEM_AFFIXES = Object.freeze([
     stats: { intelligence: 2 },
     weight: 6,
   }),
+  /**
+   * Six that are a trade, not a bonus.
+   *
+   * Every affix above this line is a flat plus: more attack, more health, more
+   * speed. They are fine and they are forgettable — nothing about them is a
+   * decision, so a sword of force and a sword of vitality feel like the same
+   * sword with a different number. These six cost something, or only pay in a
+   * particular place, which is what makes picking one up a thought.
+   */
+  freezeAffix({
+    id: 'hungry',
+    labels: { ru: 'голода', en: 'of hunger' },
+    tags: ['weapon', 'gloves', 'belt'],
+    stats: { attack: 3 },
+    magic: { appetite: 0.5 },
+    weight: 5,
+  }),
+  freezeAffix({
+    id: 'greedy',
+    labels: { ru: 'скупца', en: 'of the miser' },
+    tags: ['jewellery', 'belt', 'cloak'],
+    magic: { greed: 0.3 },
+    weight: 5,
+  }),
+  freezeAffix({
+    id: 'bloodthirsty',
+    labels: { ru: 'ярости', en: 'of fury' },
+    tags: ['weapon', 'jewellery'],
+    magic: { bloodlust: 0.45 },
+    weight: 5,
+  }),
+  freezeAffix({
+    id: 'riverborn',
+    labels: { ru: 'речной', en: 'of the river' },
+    tags: ['weapon', 'boots', 'cloak'],
+    magic: { riverborn: 0.35 },
+    weight: 5,
+  }),
+  freezeAffix({
+    id: 'reckless',
+    labels: { ru: 'безрассудства', en: 'of recklessness' },
+    tags: ['weapon', 'armour', 'gloves'],
+    stats: { attack: 5, defense: -4 },
+    weight: 5,
+  }),
+  freezeAffix({
+    id: 'tireless',
+    labels: { ru: 'неутомимости', en: 'of the long road' },
+    tags: ['armour', 'boots', 'belt', 'cloak'],
+    stats: { attackSpeed: -0.04 },
+    magic: { satiety: 0.35 },
+    weight: 5,
+  }),
   freezeAffix({
     id: 'reaping',
     labels: { ru: 'пожинания', en: 'of reaping' },
@@ -317,6 +370,11 @@ export function materializeItemAffixes(definition, record = {}) {
   const stats = applyMaterialStats(definition.stats ?? {}, record.materialId ?? null);
   const immunities = new Set(definition.magic?.immunity ?? []);
   let healOnKill = definition.magic?.healOnKill ?? 0;
+  // Anything an affix says about the wearer beyond flat stats. The first three
+  // affixes only ever needed wards and healing, so those two were spelled out
+  // and the rest of the field was dropped on the floor — which meant a new
+  // affix could promise something and quietly do nothing.
+  const traits = {};
   for (const id of affixIds) {
     const affix = affixById(id);
     for (const [key, value] of Object.entries(affixStats(affix, record.uid ?? ''))) {
@@ -324,9 +382,14 @@ export function materializeItemAffixes(definition, record = {}) {
     }
     for (const effect of affix.magic?.immunity ?? []) immunities.add(effect);
     healOnKill += affix.magic?.healOnKill ?? 0;
+    for (const [key, value] of Object.entries(affix.magic ?? {})) {
+      if (key === 'immunity' || key === 'healOnKill') continue;
+      traits[key] = typeof value === 'number' ? (traits[key] ?? 0) + value : value;
+    }
   }
   const magic = {
     ...(definition.magic ?? {}),
+    ...traits,
     ...(immunities.size > 0 ? { immunity: [...immunities] } : {}),
     ...(healOnKill > 0 ? { healOnKill } : {}),
   };

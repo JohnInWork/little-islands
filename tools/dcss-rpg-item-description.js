@@ -2,7 +2,12 @@ import { ARMOUR_TRAITS, armourTraitText, armourTraits } from './dcss-rpg-armour.
 import { mealById } from './dcss-rpg-cooking.js';
 import { ACTOR_EFFECTS } from './dcss-rpg-effects.js';
 import { artifactCurseById, artifactCursePresentation } from './dcss-rpg-artifacts.js';
-import { INVISIBILITY_REVEAL_SECONDS, VAMPIRISM_RATIO } from './dcss-rpg-magic.js';
+import {
+  INVISIBILITY_REVEAL_SECONDS,
+  MAGIC_TRAIT_KEYS,
+  VAMPIRISM_RATIO,
+  extraMagicRows,
+} from './dcss-rpg-magic.js';
 import { spellById } from './dcss-rpg-spells.js';
 
 export const ITEM_DESCRIPTION_VERSION = 5;
@@ -140,6 +145,8 @@ const COPY = Object.freeze({
     cleanseRitual: 'Ритуал очищения · снимает тем больше, чем выше «Очищение»',
     flameBurst: (damage, radius) => `Взрыв пламени вокруг · ${damage} урона · радиус ${radius}`,
     frostBind: (duration, radius) => `Стужа вокруг · ${duration} с · радиус ${radius}`,
+    unbind: 'Снимает оковы с одной надетой вещи',
+    unbindAll: 'Снимает оковы со всего надетого разом',
     insight: (radius) => `Открывает карту вокруг · радиус ${radius}`,
     venom: 'Отравление',
     seconds: 'с',
@@ -192,6 +199,8 @@ const COPY = Object.freeze({
     cleanseRitual: 'A cleansing ritual · the higher your Cleansing, the more it takes off',
     flameBurst: (damage, radius) => `Burst of flame around you · ${damage} damage · radius ${radius}`,
     frostBind: (duration, radius) => `Frost around you · ${duration}s · radius ${radius}`,
+    unbind: 'Lifts the binding on one worn item',
+    unbindAll: 'Lifts every binding at once',
     insight: (radius) => `Reveals the map around you · radius ${radius}`,
     venom: 'Poison',
     seconds: 's',
@@ -315,9 +324,11 @@ function familyFacts(item, language) {
 
 function magicFacts(item, language) {
   if (!item.magic) return [];
-  const allowed = new Set(['immunity', 'healOnKill', 'flight', 'invisibility', 'vampirism']);
+  // A magic field nobody can describe is a promise the player never sees, so
+  // this still refuses one — but the list of what exists comes from the
+  // aggregator that реально reads them, not from a copy kept by hand.
   for (const key of Object.keys(item.magic)) {
-    if (!allowed.has(key)) throw new Error(`Missing item magic dictionary entry: ${key}`);
+    if (!MAGIC_TRAIT_KEYS.includes(key)) throw new Error(`Missing item magic dictionary entry: ${key}`);
   }
   const facts = [];
   for (const id of ['flight', 'invisibility', 'vampirism']) {
@@ -335,6 +346,17 @@ function magicFacts(item, language) {
   if (item.magic.healOnKill) {
     const text = `${COPY[language].healOnKill}: +${item.magic.healOnKill} · ${COPY[language].combinedCap}`;
     facts.push(freezeFact({ id: 'magic:heal-on-kill', kind: 'magic', icon: '♥', text, short: text }));
+  }
+  // Everything the artefact table and the trade-off affixes added, described by
+  // the one function that describes them for the shop card too.
+  for (const [index, row] of extraMagicRows(item.magic, language !== 'en').entries()) {
+    facts.push(freezeFact({
+      id: `magic:trait:${index}`,
+      kind: 'magic',
+      icon: row.icon,
+      text: row.text,
+      short: row.text,
+    }));
   }
   return facts;
 }
@@ -416,6 +438,10 @@ function effectFact(effect, language, source) {
   ) {
     const text = COPY[language].frostBind(effect.duration, effect.radius);
     return freezeFact({ id: `${source}:frost-bind`, kind: 'use', icon: '✦', text, short: text });
+  }
+  if (effect.type === 'unbind') {
+    const text = effect.whole ? COPY[language].unbindAll : COPY[language].unbind;
+    return freezeFact({ id: `${source}:unbind`, kind: 'use', icon: '⛓', text, short: text });
   }
   if (effect.type === 'insight' && Number.isInteger(effect.radius) && effect.radius > 0) {
     const text = COPY[language].insight(effect.radius);

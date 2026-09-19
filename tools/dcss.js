@@ -264,10 +264,17 @@ import {
   resolveBandage,
 } from './dcss-rpg-field-medicine.js';
 import {
+  boundSlots,
+  curseCopy,
+  templeOffer,
+  unbindItem,
+} from './dcss-rpg-curse.js';
+import {
   CITY_CAPTAIN_ID,
   CITY_DEPTH,
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
+  CITY_PRIEST_ID,
   CITY_REVEAL_RADIUS,
   isCityDepth,
 } from './dcss-rpg-city.js';
@@ -468,6 +475,10 @@ import {
 import {
   equipmentMagic,
   applyWardedEffect,
+  BRAND_SECONDS,
+  SUNDER_PERCENT,
+  SUNDER_SECONDS,
+  CLAMOUR_MULTIPLIER,
   wardActorEffects,
   INVISIBILITY_REVEAL_SECONDS,
   resolveKillRecovery,
@@ -2265,7 +2276,15 @@ function currentMobilityProfile() {
 }
 
 function currentDarkvisionProfile() {
-  return darkvisionProfile(currentSkillCapabilities());
+  const skill = darkvisionProfile(currentSkillCapabilities());
+  const worn = currentHeroMagic().darkvision;
+  if (!worn) return skill;
+  // Worn sight adds to schooled sight rather than replacing it: an owl-eye helm
+  // is worth the same two tiles to a scout and to somebody who never studied.
+  return Object.freeze({
+    rank: Math.max(1, skill.rank ?? 0),
+    radiusBonus: Math.min(6, (skill.radiusBonus ?? 0) + worn),
+  });
 }
 
 /** Everything worn, folded once: the armour traits the hero is carrying. */
@@ -2276,6 +2295,16 @@ function currentArmourProfile() {
 function currentStealthProfile() {
   const skill = stealthProfile(currentSkillCapabilities());
   const quiet = currentArmourProfile().quiet;
+  // A miser's jewellery is the other half of its own bargain: gold for being
+  // easier to spot. It eats the concealment the school and the armour bought.
+  const greed = currentHeroMagic().greed;
+  if (greed > 0) {
+    return Object.freeze({
+      rank: skill.rank,
+      visionPercent: Math.max(0, Math.round((Math.min(60, (skill.visionPercent ?? 0) + quiet)) * (1 - greed))),
+      noisePercent: skill.noisePercent ?? 0,
+    });
+  }
   if (quiet === 0) return skill;
   // Quiet armour works on its own; with the skill the two add up, bounded by
   // the same ceiling the skill already respects.
@@ -2286,8 +2315,22 @@ function currentStealthProfile() {
   });
 }
 
+/**
+ * The part of the hero's damage that depends on where they are and how badly
+ * they are hurt. It multiplies the blow rather than the sheet, because both of
+ * these change between one swing and the next and a character sheet that jumps
+ * around while you fight is a sheet nobody can read.
+ */
+function heroConditionalDamage() {
+  const magic = currentHeroMagic();
+  let multiplier = 1;
+  if (magic.bloodlust && hero.hp <= currentHeroStats().maxHp / 3) multiplier += magic.bloodlust;
+  if (magic.riverborn && heroWading()) multiplier += magic.riverborn;
+  return multiplier;
+}
+
 function currentSecretSearchProfile() {
-  return secretSearchProfile(currentSkillCapabilities());
+  return secretSearchProfile(senseCapabilities());
 }
 
 function currentCampProfile() {
@@ -3374,6 +3417,11 @@ function heroWading() {
 /** Keeps a wading hero wet and splashes on entry; leaving lets the timer run out. */
 function updateHeroTerrain() {
   const wading = !hero.dead && heroWading();
+  // A sodden curse never dries: lightning through water hurts more, fire less,
+  // and the hero carries the puddle with them.
+  if (!hero.dead && currentHeroMagic().sodden && (hero.effects.wet ?? 0) < WATER_WET_REFRESH_BELOW) {
+    hero.effects = applyActorEffect(hero.effects, 'wet', WATER_WET_DURATION).effects;
+  }
   if (wading && (hero.effects.wet ?? 0) < WATER_WET_REFRESH_BELOW) {
     hero.effects = applyActorEffect(hero.effects, 'wet', WATER_WET_DURATION).effects;
   }
@@ -3408,6 +3456,11 @@ function burstEffectAround(source) {
  * lives in. The pull replaces the player's route, so it is felt, not hidden.
  */
 function dragHeroToward(source) {
+  // An anchored hero stays where they chose to stand. The siren still sings.
+  if (currentHeroMagic().anchored) {
+    addCombatGlyph(hero.x, hero.y, '⚓', '#9fc6c4', -64);
+    return false;
+  }
   const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const stepX = Math.sign(Math.floor(source.x / TILE) - from.x);
   const stepY = Math.sign(Math.floor(source.y / TILE) - from.y);
@@ -3440,7 +3493,7 @@ function shockWetActorsAround(source) {
       projectile: true,
       sourceX: source.x,
       sourceY: source.y,
-      vampiric: false,
+      weaponMagic: null,
     });
     burst(candidate.x, candidate.y - 8, '#bdf7ff', 12);
     count += 1;
@@ -3714,12 +3767,40 @@ function interactNearbyTrap(preferredTrap = null) {
   return true;
 }
 
+/**
+ * The keen sense does not search harder — it searches from further away. So it
+ * lends the existing search a radius, instead of being a second way to find
+ * things that could disagree with the first.
+ */
+/** How long until a spell comes back: the armour's focus, then worn quickening. */
+const SENSE_RADIUS = 5;
+const SENSE_TIER = 3;
+
+function heroSpellCooldown(spell) {
+  const focused = focusedCooldown(spell.cooldown, currentArmourProfile());
+  const quickening = currentHeroMagic().quickening;
+  if (!quickening) return focused;
+  return Math.max(0.2, focused * (1 - quickening / 100));
+}
+
+function senseCapabilities() {
+  const capabilities = currentSkillCapabilities();
+  if (!currentHeroMagic().sense) return capabilities;
+  return {
+    ...capabilities,
+    trapDetectionRadius: Math.max(capabilities.trapDetectionRadius ?? 0, SENSE_RADIUS),
+    trapDetectionTier: Math.max(capabilities.trapDetectionTier ?? 0, SENSE_TIER),
+    secretSearchRadius: Math.max(capabilities.secretSearchRadius ?? 0, SENSE_RADIUS),
+    secretSearchTier: Math.max(capabilities.secretSearchTier ?? 0, SENSE_TIER),
+  };
+}
+
 function discoverNearbyTraps({ feedback = true } = {}) {
   if (hero.dead || runStatus !== 'playing') return false;
   const next = discoverTraps({
     traps: trapDefinitions,
     origin: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
-    capabilities: currentSkillCapabilities(),
+    capabilities: senseCapabilities(),
     detectedTrapIds: [...detectedTrapIds],
     resolvedEventIds: run.floor.resolved,
     hasLineOfSight: (from, to) => hasLineOfSight(world, from, to),
@@ -7084,7 +7165,12 @@ function interactNearbyFind(preferredFind = null, action = null) {
 function alertNearbyMonsters(x, y, radiusInTiles) {
   if (!Number.isFinite(radiusInTiles) || radiusInTiles <= 0) return 0;
   // Every deed here is the hero's, so stealth muffles all of them.
-  const heard = stealthNoiseRadius(radiusInTiles, currentStealthProfile());
+  const magic = currentHeroMagic();
+  // Quiet gear is worth as much as the school; a cursed one is worth the
+  // opposite, and loudly — a shouted step is the drawback you feel.
+  const heard = stealthNoiseRadius(radiusInTiles, currentStealthProfile())
+    * (magic.hushed ? 0.5 : 1)
+    * (magic.clamour ? CLAMOUR_MULTIPLIER : 1);
   if (heard <= 0) return 0;
   let alertedCount = 0;
   for (const monster of monsters) {
@@ -7196,6 +7282,18 @@ function contextModelTarget(entry = contextTarget) {
   }
   if (entry.kind === 'road-end') {
     return { kind: 'road-end' };
+  }
+  if (entry.kind === 'priest') {
+    // One decision, made once: the price, whether there is anything to lift and
+    // the line the priest says all come out of the same answer.
+    const offer = templeOffer({
+      equipment: selected,
+      items: itemInstances,
+      gold,
+      level: hero.level,
+      language: itemDetailLanguage,
+    });
+    return { kind: 'priest', canUnbind: offer.ok, price: offer.price, text: offer.text };
   }
   if (entry.kind === 'city-gate') {
     return {
@@ -7324,9 +7422,12 @@ function contextTargetIsAdjacent(entry) {
   if (!entry?.value || runStatus !== 'playing') return false;
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const propTarget = PROP_INTERACTION_KINDS.has(entry.kind);
+  // Actors carry pixel positions; props and tiles carry grid ones. A creature
+  // read as a tile lands a hundred cells away and never looks adjacent.
   const pixelActor = entry.kind === 'find'
     || entry.kind === 'wildlife'
     || entry.kind === 'guard'
+    || entry.kind === 'priest'
     || entry.kind === 'companion';
   const x = propTarget
     ? entry.value.gridX
@@ -7351,6 +7452,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'city-gate') return distance <= 1;
   // The stair is a tile the hero stands on, not one they stand beside.
   if (entry.kind === 'road-end') return distance === 0;
+  if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -8381,6 +8483,13 @@ function nearbyContextTarget() {
   if (artifactAvailable() && onExitStair()) return { kind: 'road-end', value: dungeon.exit };
   const cellDoor = nearbyJailDoor();
   if (cellDoor) return { kind: 'jail-door', value: cellDoor };
+  const priest = monsters.find((monster) => (
+    monster.id === CITY_PRIEST_ID
+    && monster.dead === 0
+    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
+      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
+  ));
+  if (priest) return { kind: 'priest', value: priest };
   const guard = nearbyGuard();
   if (guard) return { kind: 'guard', value: guard };
   const wildlife = nearbyWildlife();
@@ -8433,6 +8542,11 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'claim') return completeVictory();
     descendFloor();
     return true;
+  },
+  priest({ action }) {
+    closeContextActions();
+    if (action.id !== 'unbind') return false;
+    return payPriestForUnbinding();
   },
   'city-gate'({ action }) {
     closeContextActions();
@@ -9756,7 +9870,7 @@ function performTargetedItemUse(target) {
     color,
     kind: 'tide-wand',
     style: 'staff',
-    vampiric: false,
+    weaponMagic: null,
     itemEffect: true,
     status: result.application,
   });
@@ -10439,6 +10553,21 @@ function useConsumable(item, index, effectOverride = null) {
       burst(hero.x, hero.y - 12, activeMeal(meal, itemDetailLanguage).color, 16);
     }
     feedback = `+${Math.ceil(result.restored / 60)}′`;
+  } else if (effect?.type === 'unbind') {
+    const slots = boundSlots(selected, itemInstances);
+    if (slots.length === 0) {
+      // A scroll spent on nothing is a scroll wasted, so it is not spent.
+      showLootToast(item, curseCopy(itemDetailLanguage).nothingBound);
+      return;
+    }
+    // Read plainly it frees one thing; read by a scholar, everything at once.
+    const chosen = effect.whole ? slots : [slots[0]];
+    feedback = liftBindings(chosen.map((slot) => selected[slot]).filter(Boolean));
+    if (feedback === 0) {
+      showLootToast(item, 0);
+      return;
+    }
+    playSound('read');
   } else if (effect?.type === 'camp') {
     const refusal = pitchCamp();
     if (refusal !== '') {
@@ -10724,7 +10853,7 @@ function resolveSpearGuard(monster, previousDistance, distance) {
     monster,
     interceptionDamage(combatDamage(currentHeroStats(), combat), result.damagePercent),
     '#cfd8c0',
-    { style: 'spear', sourceX: hero.x, sourceY: hero.y, vampiric: currentHeroMagic().vampirism },
+    { style: 'spear', sourceX: hero.x, sourceY: hero.y, weaponMagic: currentHeroMagic() },
   );
 }
 
@@ -10773,7 +10902,7 @@ function damageWildlife(
   creature,
   damage,
   color,
-  { style = 'blade', projectile = false, sourceX = hero.x, sourceY = hero.y, vampiric = false } = {},
+  { style = 'blade', projectile = false, sourceX = hero.x, sourceY = hero.y, weaponMagic = null } = {},
 ) {
   if (hero.dead || runStatus !== 'playing' || !creature?.hunted || creature.defeated) return;
   const command = nextGameCommand(SURVIVAL_COMMANDS.strike, creature.instanceId, { damage });
@@ -10802,7 +10931,7 @@ function damageWildlife(
   addCombatGlyph(creature.x, creature.y, dealt, color);
   addBloodImpact(creature, sourceX, sourceY, lethal);
   beginHitStop(profile.hitStop);
-  if (vampiric && dealt > 0) {
+  if (weaponMagic?.vampirism && dealt > 0) {
     const recovery = resolveVampiricRecovery({
       hp: hero.hp,
       maxHp: currentHeroStats().maxHp,
@@ -10877,12 +11006,12 @@ function damageMonster(
     projectile = false,
     sourceX = hero.x,
     sourceY = hero.y,
-    vampiric = false,
+    weaponMagic = null,
     blunt = null,
   } = {},
 ) {
   if (monster?.actorKind === 'wildlife') {
-    damageWildlife(monster, damage, color, { style, projectile, sourceX, sourceY, vampiric });
+    damageWildlife(monster, damage, color, { style, projectile, sourceX, sourceY, weaponMagic });
     return;
   }
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
@@ -10894,7 +11023,7 @@ function damageMonster(
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
   // Broken armour amplifies every later source, not just the mace that made it.
   const amplified = Math.max(1, Math.round(damage * armorBreakMultiplier(monster.armorBreak)));
-  damage = amplified;
+  damage = executionDamage(monster, amplified, weaponMagic);
   const dealt = Math.min(monster.hp, damage);
   monster.hit = 0.19;
   playSound(projectile ? 'hit-projectile' : style === 'heavy' ? 'hit-heavy' : 'hit-blade');
@@ -10904,7 +11033,7 @@ function damageMonster(
   addImpactWave(monster.x, monster.y - 8, color, profile.waveSize, profile.shake);
   addCombatGlyph(monster.x, monster.y, dealt, color, -48, { x: sourceX, y: sourceY });
   addBloodImpact(monster, sourceX, sourceY, lethal);
-  if (vampiric) {
+  if (weaponMagic?.vampirism) {
     const recovery = resolveVampiricRecovery({
       hp: hero.hp,
       maxHp: currentHeroStats().maxHp,
@@ -10925,8 +11054,91 @@ function damageMonster(
     addCombatGlyph(monster.x, monster.y, '!', '#e0c778', -66);
   }
   if (blunt && monster.hp > 0) applyBluntAftermath(monster, blunt);
+  if (monster.hp > 0) applyWeaponPowers(monster, { dealt, weaponMagic, sourceX, sourceY });
   if (monster.hp <= 0) defeatMonster(monster);
   else if (monster.boss) updateBossHud();
+}
+
+/**
+ * What an artefact weapon does on top of the damage.
+ *
+ * Every one of these reaches a rule the game already owned and only the dungeon
+ * could use: the water carries a shock, marksmanship picks the target behind
+ * the target, the mace strips armour, monsters set you on fire. A weapon power
+ * hands one of those to the hero.
+ *
+ * The follow-up hits carry `weaponMagic: null` on purpose — a chain that
+ * re-triggers its own powers is a chain that never stops.
+ */
+function applyWeaponPowers(monster, { dealt, weaponMagic, sourceX, sourceY }) {
+  if (!weaponMagic || dealt <= 0 || monster.dead > 0 || runStatus !== 'playing') return;
+  for (const brand of weaponMagic.brands ?? []) {
+    const applied = applyWardedEffect(monster.effects, brand, BRAND_SECONDS, { immunity: [] });
+    monster.effects = applied.effects;
+    addCombatGlyph(monster.x, monster.y, '✶', ACTOR_EFFECTS[brand]?.color ?? '#e0c778', -60);
+  }
+  if (weaponMagic.sundering) {
+    monster.armorBreak = refreshArmorBreak(monster.armorBreak, {
+      armorBreakPercent: SUNDER_PERCENT,
+      armorBreakSeconds: SUNDER_SECONDS,
+    });
+    addCombatGlyph(monster.x, monster.y, '◱', '#d0b45e', -54);
+  }
+  if (weaponMagic.piercing) {
+    const behind = selectPiercedTargets({
+      origin: { x: sourceX, y: sourceY },
+      target: monster,
+      candidates: monsters,
+      pierceTargets: 1,
+      tolerance: TILE * 0.6,
+      range: TILE * 2.2,
+    });
+    for (const victim of behind) {
+      damageMonster(victim, Math.max(1, Math.round(dealt * 0.6)), '#e6d8b4', {
+        style: 'blade',
+        sourceX: monster.x,
+        sourceY: monster.y,
+        weaponMagic: null,
+      });
+    }
+  }
+  if (weaponMagic.conductor && isWaterCell(world, Math.floor(monster.x / TILE), Math.floor(monster.y / TILE))) {
+    const conducted = selectWaterConductionTargets({
+      grid: world,
+      origin: monster,
+      actors: [...monsters, hero],
+      tileSize: TILE,
+      exclude: [monster],
+    });
+    const share = Math.max(1, Math.round((dealt * WATER_CONDUCTION_PERCENT) / 100));
+    for (const victim of conducted) {
+      addLightningArc(monster, victim);
+      // Standing in the water you strike is the mistake, and the weapon does
+      // not make an exception for the hand that holds it.
+      if (victim === hero) {
+        damageHero(share, { direct: true, source: 'artifact:conductor' });
+        addCombatGlyph(hero.x, hero.y, '⌁', '#bdf7ff', -70);
+      } else {
+        damageMonster(victim, share, '#8fdff2', {
+          style: 'staff',
+          sourceX: monster.x,
+          sourceY: monster.y,
+          weaponMagic: null,
+        });
+      }
+      burst(victim.x, victim.y - 8, '#bdf7ff', 12);
+    }
+  }
+}
+
+/** The headsman's rule: anything already this close to dead is dead. */
+function executionDamage(monster, damage, weaponMagic) {
+  if (!weaponMagic?.execute || !monster?.maxHp || monster.dead > 0) return damage;
+  if (monster.boss) return damage;
+  const remaining = monster.hp - damage;
+  if (remaining <= 0 || remaining > monster.maxHp * weaponMagic.execute) return damage;
+  addCombatGlyph(monster.x, monster.y, '⚔', '#e8dcc0', -74);
+  return monster.hp;
 }
 
 function triggerPlacedTrapForMonster(monster) {
@@ -10978,13 +11190,17 @@ function triggerPlacedTrapForMonster(monster) {
  */
 function returnThorns(attacker, hit) {
   if (!attacker || !hit || hit.blocked || hit.damage <= 0) return;
-  const damage = thornsDamage(currentArmourProfile(), hit.damage);
+  // Two sources, one rule: the spikes on the plate answer in a flat number, a
+  // thorn-set artefact answers in a share of the blow, and the attacker feels
+  // the sum rather than being hit twice.
+  const artefact = Math.round((hit.damage * currentHeroMagic().thorns) / 100);
+  const damage = thornsDamage(currentArmourProfile(), hit.damage) + artefact;
   if (damage <= 0) return;
   damageMonster(attacker, damage, '#c9b98a', {
     style: 'blade',
     sourceX: hero.x,
     sourceY: hero.y,
-    vampiric: false,
+    weaponMagic: null,
   });
   addCombatGlyph(attacker.x, attacker.y, '\u2736', '#c9b98a', -54);
 }
@@ -11049,7 +11265,7 @@ function launchHeroProjectile(monster, damage, combat, color, shot = null) {
     channelSeconds: shot?.channelSeconds ?? 0,
     originX: hero.x,
     originY: hero.y,
-    vampiric: currentHeroMagic().vampirism,
+    weaponMagic: currentHeroMagic(),
   });
 }
 
@@ -11131,7 +11347,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       return false;
     }
     hero.spells = toggled.state;
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     if (usedSpell.id === 'invisibility' && toggled.active) hero.invisibilityReveal = 0;
     playSound('spell-toggle');
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
@@ -11157,7 +11373,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       const copy = minionCopy(usedSpell.id, itemDetailLanguage);
       if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called);
     }
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
   } else if (usedSpell.kind === 'camp') {
     const refusal = summonCamp();
     if (refusal !== '') {
@@ -11169,7 +11385,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.attackDuration = 0.3;
     hero.attackStyle = 'staff';
     hero.attackCooldown = Math.max(hero.attackCooldown, 0.34);
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
   } else if (usedSpell.kind === 'burst') {
@@ -11197,7 +11413,20 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
         monster.effects = applyActorEffect(monster.effects, status.id, status.duration).effects;
       }
     }
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+  } else if (usedSpell.kind === 'unbind') {
+    const slots = boundSlots(selected, itemInstances);
+    if (slots.length === 0) {
+      rejectSpellUse(slotIndex, 'unbind-refused', curseCopy(itemDetailLanguage).nothingBound);
+      return false;
+    }
+    if (liftBindings(slots.map((slot) => selected[slot]).filter(Boolean)) === 0) return false;
+    hero.path = [];
+    hero.attack = Math.max(hero.attack, 0.28);
+    hero.attackDuration = 0.28;
+    hero.attackStyle = 'staff';
+    hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
   } else if (usedSpell.kind === 'purge') {
     const ritual = resolveCleansing({
       effects: hero.effects,
@@ -11223,7 +11452,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.effects = ritual.effects;
     for (const id of ritual.cleared) showEffectRelief(id);
     renderHeroEffectsHud();
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -11239,7 +11468,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       stats.maxHp - hero.hp,
     );
     hero.hp += amount;
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -11280,14 +11509,14 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       color: usedSpell.color,
       kind: usedSpell.id,
       style: 'staff',
-      vampiric: false,
+      weaponMagic: null,
       spellId: usedSpell.id,
       spread: pyromancySpreadProfile(skillCapabilities.pyromancyRank ?? 0),
       cryomancyRank: skillCapabilities.cryomancyRank ?? 0,
       stormMagicRank: skillCapabilities.stormMagicRank ?? 0,
       status: spellStatus(usedSpell.id, stats.intelligence),
     });
-    spellCooldowns[usedSpell.id] = focusedCooldown(usedSpell.cooldown, currentArmourProfile());
+    spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     burst(hero.x + Math.cos(angle) * 20, hero.y + Math.sin(angle) * 20 - 8, usedSpell.color, 10);
   }
   playerHasActed = true;
@@ -11368,7 +11597,7 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
     style: pending.combat.style,
     sourceX: hero.x,
     sourceY: hero.y,
-    vampiric: pending.vampiric,
+    weaponMagic: pending.weaponMagic,
     blunt: pending.blunt,
   });
   // The pure runtime tests swing with only part of the adapter mounted, so both
@@ -11395,7 +11624,7 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
       style: pending.secondary.style,
       sourceX: hero.x,
       sourceY: hero.y,
-      vampiric: pending.vampiric,
+      weaponMagic: pending.weaponMagic,
     });
     if (secondarySwordResult?.empowered) showSwordRhythmImpact(monster, secondarySwordResult);
   }
@@ -11405,7 +11634,7 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
       style: pending.combat.style,
       sourceX: hero.x,
       sourceY: hero.y,
-      vampiric: pending.vampiric,
+      weaponMagic: pending.weaponMagic,
     });
   }
 }
@@ -11435,7 +11664,9 @@ function gainExperience(monster) {
     items: itemInstances,
   });
   Object.assign(hero, progression.hero);
-  const goldReward = Math.round(goldRewardForMonster(monster) * currentConditions().goldScale);
+  const goldReward = Math.round(
+    goldRewardForMonster(monster) * currentConditions().goldScale * (1 + currentHeroMagic().greed),
+  );
   gold += goldReward;
   for (let level = 0; level < progression.levelsGained; level += 1) {
     burst(hero.x, hero.y - 10, '#d4c27e', 18);
@@ -11511,6 +11742,26 @@ function defeatMonster(monster) {
   persistRun();
 }
 
+/**
+ * Second wind: once a floor, a killing blow leaves one point of health.
+ *
+ * Once a FLOOR, not once a fight — the floor has to be left and a new one
+ * entered for it to come back, so it buys a single mistake and never a habit.
+ * The spend is remembered on the floor state, which means it survives a reload
+ * and cannot be farmed by going back up the stairs and down again.
+ */
+function surviveOnSecondWind(result) {
+  if (!result.dead || !currentHeroMagic().secondWind) return result;
+  if (run.floor.secondWindSpent) return result;
+  run.floor.secondWindSpent = true;
+  burst(hero.x, hero.y - 10, '#e8dcc0', 30);
+  addImpactWave(hero.x, hero.y - 8, '#f0e4c8', 70, 3);
+  addCombatGlyph(hero.x, hero.y, '♥', '#e8dcc0', -76);
+  playSound('spell-heal');
+  persistRun();
+  return Object.freeze({ ...result, hp: 1, dead: false, secondWind: true });
+}
+
 function damageHero(amount, {
   direct = false,
   impactColor = null,
@@ -11526,7 +11777,7 @@ function damageHero(amount, {
   const combat = currentHeroCombat();
   const fullyBlocked = !direct && blocked && combat.guard > 0;
   const directDamage = Math.max(0, Math.ceil(amount));
-  const result = fullyBlocked
+  const rolled = fullyBlocked
     ? Object.freeze({ hp: hero.hp, damage: 0, dead: false, blocked: true })
     : direct
     ? Object.freeze({
@@ -11540,6 +11791,8 @@ function damageHero(amount, {
         defense: currentHeroStats().defense,
         guard: combat.guard,
       });
+  // One mistake a floor, and only if something worn pays for it.
+  const result = surviveOnSecondWind(rolled);
   hero.hp = result.hp;
   hero.hurt = fullyBlocked ? 0 : subtle ? 0.12 : 0.24;
   if (!subtle) playSound(fullyBlocked ? 'block' : 'hero-hurt');
@@ -11781,6 +12034,51 @@ function completeVictory() {
   showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');
+  return true;
+}
+
+/**
+ * Lifting a binding. The one thing that has to be right here is that the money
+ * and the shackle move together: a purse that empties without the curse coming
+ * off is the worst bug this feature could have, so the offer is re-checked and
+ * the item is replaced before the gold is spent.
+ */
+function liftBindings(uids) {
+  let changed = 0;
+  for (const uid of uids) {
+    const item = itemInstances.get(uid);
+    const result = unbindItem(item);
+    if (!result.ok) continue;
+    itemInstances.set(uid, { ...item, ...result.item });
+    changed += 1;
+  }
+  if (changed === 0) return 0;
+  applyItemState(currentItemState());
+  burst(hero.x, hero.y - 10, '#e8dcc0', 26);
+  addCombatGlyph(hero.x, hero.y, '⛓', '#e8dcc0', -70);
+  playSound('spell-toggle');
+  showLootToast({ icon: 'item/scroll/i-remove_curse.png', rarity: 2 }, curseCopy(itemDetailLanguage).lifted);
+  updateGearUi();
+  renderPack();
+  updateHud();
+  persistRun();
+  return changed;
+}
+
+function payPriestForUnbinding() {
+  const offer = templeOffer({
+    equipment: selected,
+    items: itemInstances,
+    gold,
+    level: hero.level,
+    language: itemDetailLanguage,
+  });
+  if (!offer.ok) return false;
+  const uids = offer.slots.map((slot) => selected[slot]).filter(Boolean);
+  if (liftBindings(uids) === 0) return false;
+  gold -= offer.price;
+  updateHud();
+  persistRun();
   return true;
 }
 
@@ -12284,10 +12582,15 @@ function updateHunger(delta) {
   const before = hero.hunger;
   // `advanceHunger` takes whole seconds and says so; a condition's multiplier
   // turns them into a fraction, and the tick threw on every «Голодный год».
+  const appetite = currentHeroMagic();
   hero.hunger = advanceHunger(
     hero.hunger,
     Math.round(
-      frugalHungerSeconds(activeSeconds, currentArmourProfile()) * currentConditions().hungerScale,
+      frugalHungerSeconds(activeSeconds, currentArmourProfile())
+        * currentConditions().hungerScale
+        * (1 - appetite.satiety)
+        * (1 + appetite.appetite)
+        * (appetite.gluttony ? 2 : 1),
     ),
   );
   if (hero.hunger === before) return;
@@ -12424,7 +12727,7 @@ function updateHero(delta) {
     const loadout = currentWeaponLoadout();
     const weapon = loadout.primary;
     const color = rarityGlow[weapon?.rarity ?? 0];
-    const wadingMultiplier = terrainMeleeMultiplier({ inWater: heroWading() });
+    const wadingMultiplier = terrainMeleeMultiplier({ inWater: heroWading() }) * heroConditionalDamage();
     const damage = Math.max(1, Math.round(combatDamage(currentHeroStats(), combat) * wadingMultiplier));
     const secondaryDamage = combat.secondary && loadout.secondary
       ? Math.max(1, Math.round(combatDamage(currentHeroStats(), combat.secondary) * wadingMultiplier))
@@ -12472,7 +12775,7 @@ function updateHero(delta) {
             style: combat.secondary.style,
           }
         : null,
-      vampiric: currentHeroMagic().vampirism,
+      weaponMagic: currentHeroMagic(),
     };
   }
 }
@@ -13083,7 +13386,7 @@ function updateWorld(delta) {
         projectile: true,
         sourceX: projectile.x,
         sourceY: projectile.y,
-        vampiric: projectile.vampiric,
+        weaponMagic: projectile.weaponMagic,
       });
     }
     if (projectileDamage > 0 && projectile.channelSeconds > 0) {
@@ -13122,7 +13425,7 @@ function updateWorld(delta) {
           projectile: true,
           sourceX: target.x,
           sourceY: target.y,
-          vampiric: projectile.vampiric,
+          weaponMagic: projectile.weaponMagic,
         });
       }
     }
@@ -13188,7 +13491,7 @@ function updateWorld(delta) {
           projectile: true,
           sourceX: target.x,
           sourceY: target.y,
-          vampiric: false,
+          weaponMagic: null,
         });
         burst(candidate.x, candidate.y - 8, '#bdeeea', 14);
       }
@@ -13222,7 +13525,7 @@ function updateWorld(delta) {
           projectile: true,
           sourceX: previous.x,
           sourceY: previous.y,
-          vampiric: false,
+          weaponMagic: null,
         });
         burst(candidate.x, candidate.y - 8, '#bdf7ff', 16);
         addImpactWave(candidate.x, candidate.y - 8, '#79cfe8', 46, 0);
@@ -13249,7 +13552,7 @@ function updateWorld(delta) {
             projectile: true,
             sourceX: target.x,
             sourceY: target.y,
-            vampiric: false,
+            weaponMagic: null,
           });
         }
         burst(victim.x, victim.y - 8, '#bdf7ff', 12);
@@ -13282,7 +13585,7 @@ function updateWorld(delta) {
           projectile: true,
           sourceX: target.x,
           sourceY: target.y,
-          vampiric: false,
+          weaponMagic: null,
         });
         burst(candidate.x, candidate.y - 8, '#ed7945', 12);
       }

@@ -349,6 +349,149 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'dead-book': Object.freeze({
     icon: 'item/book/book_of_the_dead.png', layer: 'player/hand2/misc/book_red.png',
   }),
+  // ── Вторая половина дороги ──────────────────────────────────────────────
+  // Сапоги, плащи и перчатки несут слой куклы и в качестве иконки инвентаря:
+  // спрайтов «предметного» размера библиотека для этих слотов даёт четыре-пять,
+  // а пояса в этом каталоге всегда рисовались именно так.
+  'elven-helm': Object.freeze({
+    icon: 'item/armour/headgear/elven_leather_helm.png', layer: 'player/head/helm_green.png',
+  }),
+  'plumed-helm': Object.freeze({
+    icon: 'item/armour/headgear/helmet4.png', layer: 'player/head/helm_plume.png',
+  }),
+  'horned-sallet': Object.freeze({
+    icon: 'item/armour/headgear/helmet5.png', layer: 'player/head/black_horn.png',
+  }),
+  'scholar-hat': Object.freeze({
+    icon: 'item/armour/headgear/hat1.png', layer: 'player/head/hood_gray.png',
+  }),
+  'drake-helm': Object.freeze({
+    icon: 'item/armour/headgear/helmet_ego1.png', layer: 'player/head/art_dragonhelm.png',
+  }),
+  'iron-crown': Object.freeze({
+    icon: 'item/armour/headgear/helmet_ego2.png', layer: 'player/head/crown_gold1.png',
+  }),
+  'mesh-boots': Object.freeze({
+    icon: 'player/boots/mesh_black.png', layer: 'player/boots/mesh_black.png',
+  }),
+  'strider-boots': Object.freeze({
+    icon: 'player/boots/middle_purple.png', layer: 'player/boots/middle_purple.png',
+  }),
+  'spidersilk-boots': Object.freeze({
+    icon: 'player/boots/spider.png', layer: 'player/boots/spider.png',
+  }),
+  'gilded-greaves': Object.freeze({
+    icon: 'player/boots/blue_gold.png', layer: 'player/boots/blue_gold.png',
+  }),
+  'hunt-hooves': Object.freeze({
+    icon: 'player/boots/hooves.png', layer: 'player/boots/hooves.png',
+  }),
+  'grey-mantle': Object.freeze({
+    icon: 'player/cloak/gray.png', layer: 'player/cloak/gray.png',
+  }),
+  'crimson-cloak': Object.freeze({
+    icon: 'player/cloak/red.png', layer: 'player/cloak/red.png',
+  }),
+  'white-shroud': Object.freeze({
+    icon: 'player/cloak/white.png', layer: 'player/cloak/white.png',
+  }),
+  'amber-cloak': Object.freeze({
+    icon: 'player/cloak/yellow.png', layer: 'player/cloak/yellow.png',
+  }),
+  'witch-mantle': Object.freeze({
+    icon: 'player/cloak/magenta.png', layer: 'player/cloak/magenta.png',
+  }),
+  'wrapped-hands': Object.freeze({
+    icon: 'player/gloves/glove_short_gray.png', layer: 'player/gloves/glove_short_gray.png',
+  }),
+  'blue-gauntlets': Object.freeze({
+    icon: 'player/gloves/gauntlet_blue.png', layer: 'player/gloves/gauntlet_blue.png',
+  }),
+  'bruiser-fists': Object.freeze({
+    icon: 'player/gloves/glove_grayfist.png', layer: 'player/gloves/glove_grayfist.png',
+  }),
+  'scarlet-gloves': Object.freeze({
+    icon: 'player/gloves/glove_red.png', layer: 'player/gloves/glove_red.png',
+  }),
+  'white-gauntlets': Object.freeze({
+    icon: 'player/gloves/glove_white.png', layer: 'player/gloves/glove_white.png',
+  }),
+  'bark-buckler': Object.freeze({
+    icon: 'item/armour/shields/buckler_spriggan.png', layer: 'player/hand2/buckler_round.png',
+  }),
+  'kite-shield': Object.freeze({
+    icon: 'item/armour/shields/shield_dd.png', layer: 'player/hand2/shield_kite1.png',
+  }),
+  'sun-shield': Object.freeze({
+    icon: 'item/armour/shields/shield_dd_scion.png', layer: 'player/hand2/shield_knight_blue.png',
+  }),
+  'cross-pavise': Object.freeze({
+    icon: 'item/armour/shields/lshield_louise.png', layer: 'player/hand2/lshield_long_red.png',
+  }),
+  'bulwark': Object.freeze({
+    icon: 'item/armour/shields/shield_donald.png', layer: 'player/hand2/lshield_gold.png',
+  }),
+  'hatchet': Object.freeze({
+    icon: 'player/hand1/axe_small.png', layer: 'player/hand1/axe_small.png',
+  }),
+  'broad-axe': Object.freeze({
+    icon: 'player/hand1/axe_short.png', layer: 'player/hand1/axe_short.png',
+  }),
+  'double-axe': Object.freeze({
+    icon: 'player/hand1/axe_double.png', layer: 'player/hand1/axe_double.png',
+  }),
+  'battleaxe': Object.freeze({
+    icon: 'player/hand1/battleaxe.png', layer: 'player/hand1/battleaxe.png',
+  }),
+  'blood-axe': Object.freeze({
+    icon: 'player/hand1/axe_blood.png', layer: 'player/hand1/axe_blood.png',
+  }),
+  'kitchen-knife': Object.freeze({
+    icon: 'player/hand1/knife.png', layer: 'player/hand1/knife.png',
+  }),
+  'enchantress-dagger': Object.freeze({
+    icon: 'player/hand1/enchantress_dagger.png', layer: 'player/hand1/enchantress_dagger.png',
+  }),
+  'hunting-bow': Object.freeze({
+    icon: 'player/hand1/bow.png', layer: 'player/hand1/bow.png',
+  }),
+  'great-bow': Object.freeze({
+    icon: 'player/hand1/great_bow.png', layer: 'player/hand1/great_bow.png',
+  }),
+  'black-whip': Object.freeze({
+    icon: 'player/hand1/black_whip.png', layer: 'player/hand1/black_whip.png',
+  }),
+  'quarterstaff': Object.freeze({
+    icon: 'item/weapon/quarterstaff.png', layer: 'player/hand1/quarterstaff.png',
+  }),
+  'iron-quarterstaff': Object.freeze({
+    icon: 'item/weapon/quarterstaff2.png', layer: 'player/hand1/quarterstaff2.png',
+  }),
+  'giant-club': Object.freeze({
+    icon: 'item/weapon/giant_club.png', layer: 'player/hand1/giant_club.png',
+  }),
+  'great-mace': Object.freeze({
+    icon: 'item/weapon/mace_large1.png', layer: 'player/hand1/mace_two.png',
+  }),
+  'ring-mail': Object.freeze({
+    icon: 'item/armour/ring_mail1.png', layer: 'player/body/green_chain.png',
+  }),
+  'hide-armour': Object.freeze({
+    icon: 'item/armour/animal_skin1.png', layer: 'player/body/animal_skin.png',
+  }),
+  'silver-dragon-hide': Object.freeze({
+    icon: 'item/armour/silver_dragon_scales.png', layer: 'player/body/bplate_metal1.png',
+  }),
+  // Украшения на кукле не рисуются: у неё нет ни шеи, ни пальцев.
+  'warding-ring': Object.freeze({ icon: 'item/amulet/ring_red.png', layer: null }),
+  'swift-ring': Object.freeze({ icon: 'item/ring/artefact/urand_shadows.png', layer: null }),
+  'mind-charm': Object.freeze({ icon: 'item/amulet/crystal_green.png', layer: null }),
+  'might-charm': Object.freeze({ icon: 'item/amulet/cameo_orange.png', layer: null }),
+  'sky-charm': Object.freeze({ icon: 'item/amulet/crystal_white.png', layer: null }),
+  'veil-charm': Object.freeze({ icon: 'item/amulet/celtic_blue.png', layer: null }),
+  'bone-charm': Object.freeze({ icon: 'item/amulet/bone_gray.png', layer: null }),
+  'green-eye': Object.freeze({ icon: 'item/amulet/eye_green.png', layer: null }),
+  'gold-face': Object.freeze({ icon: 'item/amulet/face1_gold.png', layer: null }),
 });
 
 export function equipmentVisualForItem(item, renderedSlot = item?.slot) {

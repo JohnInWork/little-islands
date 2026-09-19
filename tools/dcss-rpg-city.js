@@ -36,6 +36,7 @@ export const CITY_BLOCK_KINDS = Object.freeze([
   'plaza',
   'market',
   'shop',
+  'temple',
   'barracks',
   'jail',
   'plot',
@@ -201,7 +202,9 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
   // Four shops, because there are four traders and every one of them keeps a
   // shop. Two of them used to stand out on the market square with no walls
   // around them, which is a stall, not a merchant.
-  const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'barracks', 'jail', 'plot'];
+  // The temple is a building like any other: a door, a room, and one man in it.
+  // A priest standing on the square would be a preacher, not a temple.
+  const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'temple', 'barracks', 'jail', 'plot'];
   const records = [{ kind: 'plaza', rect: { ...centre }, door: null, interior: { ...centre } }];
 
   for (const [index, block] of others.entries()) {
@@ -339,6 +342,14 @@ export function cityRooms(plan) {
 /** The two guards' ranks: a watchman on the street, a captain by the barracks. */
 export const CITY_GUARD_ID = 'city-guard';
 export const CITY_CAPTAIN_ID = 'city-captain';
+/** And the one man who is not the watch: the priest, inside the temple. */
+export const CITY_PRIEST_ID = 'city-priest';
+
+/** Where the priest stands. Null when a small plan had no room for a temple. */
+export function cityTempleSpot(plan) {
+  const block = plan.blocks.find(({ kind, interior }) => kind === 'temple' && interior);
+  return block ? centreOf(block.interior) : null;
+}
 
 const MERCHANT_VARIANT_ORDER = Object.freeze(['provisioner', 'armourer', 'relic-dealer']);
 
@@ -384,6 +395,18 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
       x: post.x,
       y: post.y,
       post: Object.freeze({ ...post }),
+    }));
+  }
+  // The priest keeps his own post and never leaves it: the temple is where the
+  // altar is, and a man who wanders is not somewhere you can come back to.
+  const temple = cityTempleSpot(plan);
+  if (temple) {
+    monsters.push(Object.freeze({
+      instanceId: `monster-${depth}-${monsters.length}`,
+      id: CITY_PRIEST_ID,
+      x: temple.x,
+      y: temple.y,
+      post: Object.freeze({ ...temple }),
     }));
   }
 

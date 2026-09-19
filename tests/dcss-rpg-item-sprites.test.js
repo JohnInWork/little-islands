@@ -60,8 +60,11 @@ test('runtime trims every floor-loot sprite by alpha instead of special-casing i
 
 test('rings use recognisable jewellery sprites instead of status-effect pictograms', () => {
   const rings = LOOT_CATALOG.filter(({ slot }) => slot === 'ring1' || slot === 'ring2');
-  assert.equal(rings.length, 5);
-  assert.ok(rings.every(({ icon }) => !/\/i-(?:fire|ice|slaying|regeneration|r-poison)\.png$/.test(icon)));
-  assert.ok(rings.every(({ icon }) => /ring|octoring|tourmaline|ruby/.test(icon)));
+  assert.equal(rings.length, 7);
+  // The `i-*` sprites in the ring folder are status-effect pictograms, not
+  // jewellery. The library ships two actual rings, so the slot is small and
+  // what growth there is went to amulets, where the art exists.
+  assert.ok(rings.every(({ icon }) => !/\/i-[a-z-]+\.png$/.test(icon)), 'a pictogram is not a ring');
+  assert.ok(rings.every(({ icon }) => /ring|octoring|tourmaline|ruby|shadows/.test(icon)));
   assert.equal(new Set(rings.map(({ icon }) => icon)).size, rings.length);
 });

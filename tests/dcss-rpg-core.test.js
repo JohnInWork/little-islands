@@ -55,6 +55,9 @@ const EMPTY_FLOOR = Object.freeze({
   monsters: [],
   passives: [],
   camp: null,
+  // A fresh floor has not spent its second wind, and one floor's spend never
+  // carries into the next.
+  secondWindSpent: false,
 });
 
 function assertFreshFloor(floor, { depth = 1 } = {}) {

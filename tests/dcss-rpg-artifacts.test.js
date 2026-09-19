@@ -42,20 +42,42 @@ import {
 import { itemPowerScore } from '../tools/dcss-rpg-scaling.js';
 import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
-test('major powers are a small binary catalog with compatible bases', () => {
-  assert.deepEqual(
-    PROCEDURAL_ARTIFACT_POWERS.map(({ id }) => id),
-    ['flight', 'invisibility', 'vampirism', 'three-wards'],
-  );
-  assert.equal(new Set(PROCEDURAL_ARTIFACT_CURSES.map(({ id }) => id)).size, 3);
-  assert.deepEqual(
-    eligibleArtifactPowers(lootById('long-sword')).map(({ id }) => id),
-    ['flight', 'invisibility', 'vampirism'],
-  );
-  assert.deepEqual(
-    eligibleArtifactPowers(lootById('fire-ring')).map(({ id }) => id),
-    ['flight', 'invisibility', 'three-wards'],
-  );
+/**
+ * The point of the catalogue is that a kind of thing has its own powers.
+ *
+ * Before this it did not: flight and invisibility were tagged `equipment`,
+ * which is everything, so a sword had three possible powers and a helmet had
+ * the same three with one swapped. Two artefacts of different kinds read the
+ * same, and the generator was not combining anything.
+ */
+test('every kind of thing has its own powers, and enough of them to be a draw', () => {
+  const idsFor = (id) => eligibleArtifactPowers(lootById(id)).map((power) => power.id);
+  const sword = idsFor('long-sword');
+  const helm = idsFor('iron-helm');
+  const ring = idsFor('fire-ring');
+
+  // Each kind has a real choice, not a coin toss.
+  for (const [what, ids] of [['меч', sword], ['шлем', helm], ['кольцо', ring]]) {
+    assert.ok(ids.length >= 4, `${what}: только ${ids.length} возможных сил`);
+  }
+  // And the kinds do not overlap: a sword is not a helmet with a different icon.
+  assert.equal(sword.some((id) => helm.includes(id)), false, 'меч и шлем делят силу');
+  assert.equal(sword.some((id) => ring.includes(id)), false, 'меч и кольцо делят силу');
+  assert.equal(helm.some((id) => ring.includes(id)), false, 'шлем и кольцо делят силу');
+
+  // The two that are about the wearer rather than the tool live on jewellery:
+  // a ring of invisibility makes sense and an invisible sword does not.
+  assert.ok(ring.includes('invisibility') && ring.includes('flight'));
+  assert.equal(sword.includes('invisibility'), false);
+  assert.ok(sword.includes('vampirism'));
+
+  // Every power is binary or a named magnitude, and every one of them is a
+  // field the aggregator actually reads — never a suffix with nothing behind it.
+  for (const power of PROCEDURAL_ARTIFACT_POWERS) {
+    assert.ok(power.tags.length > 0, power.id);
+    assert.ok(Object.keys(power.magic).length > 0, `${power.id} обещает и ничего не делает`);
+  }
+  assert.ok(PROCEDURAL_ARTIFACT_CURSES.length >= 7);
   assert.equal(
     validateProceduralArtifactState(lootById('fire-ring'), { artifactPowerId: 'vampirism' }),
     false,
@@ -244,7 +266,7 @@ test('v21 artifacts and gold migrate while v20 hidden sanctity is discarded', ()
   assert.equal(validateRun(migrated), true);
 });
 
-test('runtime connects flight, invisibility and vampirism to movement, AI and combat', () => {
+test('runtime connects every artefact power to movement, AI and combat', () => {
   const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /world\[y\]\[x\] === '\.' \|\| world\[y\]\[x\] === '~'/, 'water is walkable for everyone; flight only skips the wet penalty');
   assert.match(runtime, /event\.id === 'blade-trap' && currentHeroMagic\(\)\.flight/);
@@ -252,7 +274,15 @@ test('runtime connects flight, invisibility and vampirism to movement, AI and co
   assert.match(runtime, /hero\.invisibilityReveal = INVISIBILITY_REVEAL_SECONDS/);
   assert.match(runtime, /if \(isHeroConcealed\(\)\)[\s\S]*monster\.alerted = 0/);
   assert.match(runtime, /resolveVampiricRecovery\(\{/);
-  assert.match(runtime, /vampiric: pending\.vampiric/);
+  // A hero hit carries what the weapon IS, one snapshot taken when the blow is
+  // thrown, instead of a row of booleans that grows with every new power.
+  assert.match(runtime, /weaponMagic: pending\.weaponMagic/);
+  assert.match(runtime, /weaponMagic: projectile\.weaponMagic/);
+  assert.doesNotMatch(runtime, /vampiric/, 'the old single-purpose flag is gone');
+  // And the powers are read where damage actually lands.
+  assert.match(runtime, /function applyWeaponPowers\(/);
+  assert.match(runtime, /applyWeaponPowers\(monster, \{ dealt, weaponMagic/);
+  assert.match(runtime, /function executionDamage\(/);
 });
 
 /**

@@ -15,6 +15,12 @@ export const SCROLL_VARIANTS = Object.freeze({
     effect: Object.freeze({ type: 'blink', range: 8 }),
     labels: Object.freeze({ ru: 'Дальний скачок', en: 'Far blink' }),
   }),
+  'unbinding-scroll': Object.freeze({
+    itemId: 'unbinding-scroll',
+    tier: 2,
+    effect: Object.freeze({ type: 'unbind', whole: true }),
+    labels: Object.freeze({ ru: 'Разом со всего', en: 'All of it at once' }),
+  }),
   'insight-scroll': Object.freeze({
     itemId: 'insight-scroll',
     tier: 1,

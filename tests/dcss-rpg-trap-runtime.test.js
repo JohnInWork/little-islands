@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
 import vm from 'node:vm';
 
 import { findGridPath } from '../tools/dcss-rpg-core.js';
@@ -115,7 +117,7 @@ function terminalRuntime({ victory = false } = {}) {
     updateHeldMove: () => {},
     currentHeroCombat: () => ({ style: 'blade', attackDuration: 0.3, cooldown: 0.8, guard: 0, damageScale: 1 }),
     currentHeroStats: () => ({ maxHp: 100, attack: 4, defense: 0 }),
-    currentHeroMagic: () => ({ flight: false, invisibility: false, vampirism: false, immunity: [], healOnKill: 0 }),
+    currentHeroMagic: () => equipmentMagic({}, []),
     canHeroAttack: () => true, // A live enemy is deliberately in attack range.
     equippedItem: () => null,
     combatDamage,
@@ -140,7 +142,10 @@ function terminalRuntime({ victory = false } = {}) {
     descendFloor() { context.descents += 1; },
     isCityDepth: () => false,
   });
-  installFunctions(context, ['updateHero', 'resolveWorldInteractions', 'damageHero', 'completeVictory']);
+  installFunctions(context, [
+    'updateHero', 'resolveWorldInteractions', 'damageHero',
+    'surviveOnSecondWind', 'completeVictory',
+  ]);
   return context;
 }
 

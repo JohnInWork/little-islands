@@ -1,3 +1,4 @@
+import { itemIsBound } from './dcss-rpg-curse.js';
 import { validateArmourBlock } from './dcss-rpg-armour.js';
 import { validateItemForm } from './dcss-rpg-materials.js';
 import { mealStatModifiers } from './dcss-rpg-cooking.js';
@@ -239,6 +240,16 @@ export function equipInventoryItem(state, uid, requestedSlot = null) {
     if (isTwoHandedItem(mainHand)) conflictSlots.add('hand1');
   }
 
+  // Putting something else on is the other way to take a thing off, so a bound
+  // slot refuses that too — otherwise the curse lasts exactly as long as it
+  // takes to find a second helmet.
+  for (const conflictSlot of conflictSlots) {
+    const previousUid = state.equipment[conflictSlot];
+    if (previousUid && previousUid !== uid && itemIsBound(items.get(previousUid))) {
+      return { ok: false, reason: 'bound', state };
+    }
+  }
+
   const equipment = { ...state.equipment };
   const unequippedUids = [];
   for (const conflictSlot of conflictSlots) {
@@ -274,6 +285,10 @@ export function unequipItem(state, slot) {
   const uid = state.equipment[slot];
   if (!uid) return { ok: false, reason: 'empty-slot', state };
   const item = itemMap(state.items).get(uid);
+  // A binding curse means exactly that, and it is refused here rather than in
+  // the screen: every path that takes a thing off goes through this door, so
+  // one check covers the bag, the swap and the outfitter alike.
+  if (itemIsBound(item)) return { ok: false, reason: 'bound', state };
   if (state.inventory.length >= 12) return { ok: false, reason: 'inventory-full', state };
   return {
     ok: true,
