@@ -56,8 +56,39 @@ test('the main touch surfaces share the frame and health stays visibly segmented
     assert.match(html, new RegExp(`class=["'][^"']*${requiredClass}`));
   }
 
-  assert.equal((html.match(/<div class="health">[\s\S]*?<\/div>/)?.[0].match(/<i><\/i>/g) ?? []).length, 6);
+  assert.equal((html.match(/<div class="health"[^>]*>[\s\S]*?<\/div>/)?.[0].match(/<i><\/i>/g) ?? []).length, 6);
   assert.equal((html.match(/data-inventory-filter=/g) ?? []).length, 5);
+});
+
+test('hunger and rest are read as words and answer a tap, like every other state', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+  // «Индикаторы голода и сна не читаются» — a 6px bar with ◆ beside it said
+  // neither how full the hero was nor what being hungry costs.
+  for (const id of ['hunger-meter', 'rest-meter']) {
+    const tag = html.match(new RegExp(`<[a-z]+ id="${id}"[^>]*>`))?.[0] ?? '';
+    assert.match(tag, /^<button /, `${id} is not pressable`);
+    assert.match(tag, /type="button"/);
+    assert.match(tag, /class="[^"]*tappable/, `${id} does not look pressable either`);
+  }
+  for (const id of ['hunger-label', 'rest-label']) {
+    assert.ok(html.includes(`id="${id}"`), `${id} has no room for a word`);
+    assert.match(runtime, new RegExp(`${id.replace('-l', 'L').replace('-', '')}\\.textContent = `), `${id} is never written`);
+  }
+  const meters = html.match(/<button id="hunger-meter"[\s\S]*?<\/button>[\s\S]*?<\/button>/)?.[0] ?? '';
+  assert.doesNotMatch(meters, /[◆☾]/, 'the glyphs nobody could read are gone');
+  // A bar you can count beats a bar you squint at, and health already proved it.
+  assert.match(css, /\.hunger-meter > i::after/);
+  assert.match(css, /repeating-linear-gradient/);
+  // Pressing it prints the same sentence the state badges print.
+  assert.match(runtime, /hungerMeter\.addEventListener\('click'/);
+  assert.match(runtime, /restMeter\.addEventListener\('click'/);
+  assert.match(runtime, /function meterNote\(/);
+  // And the row is no longer hidden from anything that reads the screen aloud.
+  assert.doesNotMatch(html, /<div class="vitals" aria-hidden/);
 });
 
 test('one large pixel control combines arrow taps, holds, joystick drags and map taps', async () => {

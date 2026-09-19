@@ -150,14 +150,14 @@
 
       <header class="hud pixel-frame" aria-label="Состояние героя">
         <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
-        <div class="vitals" aria-hidden="true">
-          <div class="health"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div id="hunger-meter" class="hunger-meter" data-stage="fed">
-            <span>◆</span><i><b id="hunger-fill"></b></i>
-          </div>
-          <div id="rest-meter" class="hunger-meter rest-meter" data-stage="rested">
-            <span>☾</span><i><b id="rest-fill"></b></i>
-          </div>
+        <div class="vitals">
+          <div class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <button id="hunger-meter" class="hunger-meter tappable" type="button" data-stage="fed">
+            <span id="hunger-label">Сыт</span><i><b id="hunger-fill"></b></i>
+          </button>
+          <button id="rest-meter" class="hunger-meter rest-meter tappable" type="button" data-stage="rested">
+            <span id="rest-label">Выспался</span><i><b id="rest-fill"></b></i>
+          </button>
         </div>
         <div class="purse" aria-label="Реальное золото">
           <img class="purse-coin" src="../assets/dcss-preview/item/gold/16.png" alt="" />

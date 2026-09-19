@@ -747,6 +747,8 @@ const hungerMeter = document.querySelector('#hunger-meter');
 const restMeter = document.querySelector('#rest-meter');
 const restFill = document.querySelector('#rest-fill');
 const hungerFill = document.querySelector('#hunger-fill');
+const hungerLabel = document.querySelector('#hunger-label');
+const restLabel = document.querySelector('#rest-label');
 const heroEffectsHud = document.querySelector('#hero-effects');
 const heroEffectNote = document.querySelector('#hero-effect-note');
 const hudGold = document.querySelector('#hud-gold');
@@ -7372,15 +7374,41 @@ function renderHeroEffectsHud() {
   heroEffectsHud.hidden = effects.length === 0 && standing.length === 0;
 }
 
+/**
+ * What the meter says out loud when it is pressed.
+ *
+ * The bar knows the stage, the sentence that explains it and how long the hero
+ * has left; none of that reached the screen. On a phone there is no hover, so
+ * a `title` is a promise to nobody.
+ */
+function meterNote(presentation) {
+  const minutes = itemDetailLanguage === 'ru'
+    ? `Хватит примерно на ${presentation.minutes} мин.`
+    : `About ${presentation.minutes} min left.`;
+  return `${presentation.label}. ${presentation.description} ${minutes}`;
+}
+
+// Полоска — такая же кнопка, как значок состояния, и отвечает тем же способом.
+hungerMeter.addEventListener('click', () => {
+  showHeroEffectNote(meterNote(hungerPresentation(hero.hunger, itemDetailLanguage)));
+});
+restMeter.addEventListener('click', () => {
+  showHeroEffectNote(meterNote(restPresentation(hero.rest, itemDetailLanguage)));
+});
+
 function renderHungerHud() {
   const presentation = hungerPresentation(hero.hunger, itemDetailLanguage);
   hungerMeter.dataset.stage = presentation.id;
   hungerFill.style.transform = `scaleX(${presentation.percent / 100})`;
-  hungerMeter.title = `${presentation.label} · ${presentation.minutes} ${itemDetailLanguage === 'ru' ? 'мин' : 'min'}`;
+  // Слово вместо значка: «не читаются» относилось именно к ним.
+  hungerLabel.textContent = presentation.label;
+  hungerMeter.title = meterNote(presentation);
+  hungerMeter.setAttribute('aria-label', presentation.ariaLabel);
   const rest = restPresentation(hero.rest, itemDetailLanguage);
   restMeter.dataset.stage = rest.id;
   restFill.style.transform = `scaleX(${rest.percent / 100})`;
-  restMeter.title = `${rest.label} · ${rest.description}`;
+  restLabel.textContent = rest.label;
+  restMeter.title = meterNote(rest);
   restMeter.setAttribute('aria-label', rest.ariaLabel);
   hud.setAttribute(
     'aria-label',

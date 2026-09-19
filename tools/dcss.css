@@ -1071,6 +1071,51 @@ body {
   animation: hunger-warning 900ms steps(2, end) infinite;
 }
 
+/* Голод и сон «не читаются» — жалоба Ивана. Полоска в шесть пикселей с
+   значком ◆ рядом не говорит ничего: ни насколько ты сыт, ни что будет.
+   Слово слева называет состояние, полоска справа стала выше и делится на
+   блоки — такую можно сосчитать, а не угадывать. Нажатие печатает фразу
+   целиком, тем же способом, что и значки состояний. */
+.hunger-meter {
+  cursor: pointer;
+  text-align: left;
+  /* Слово съело левый край, поэтому полоска берёт всю ширину и кончается там
+     же, где здоровье: три шкалы читаются одним взглядом сверху вниз. */
+  width: 100%;
+}
+
+.hunger-meter > span {
+  width: 74px;
+  flex: 0 0 74px;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hunger-meter > i {
+  position: relative;
+  height: 9px;
+}
+
+/* Шесть блоков, как у здоровья: край каждого виден, и полоску читаешь
+   счётом, а не на глаз. Разделители лежат поверх заливки, иначе она бы их
+   закрасила. */
+.hunger-meter > i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(100% / 6 - 2px),
+    #141a1c calc(100% / 6 - 2px),
+    #141a1c calc(100% / 6)
+  );
+}
+
 /* Empty is not «nearly empty»: this is the bar that is taking health now, so
    the whole meter pulses rather than just the icon beside it. */
 .hunger-meter[data-stage='empty'] {
