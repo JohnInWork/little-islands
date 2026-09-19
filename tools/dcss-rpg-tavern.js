@@ -113,8 +113,49 @@ export const TAVERN_PROPS = Object.freeze({
 
 export const TAVERN_PROP_KINDS = Object.freeze(Object.keys(TAVERN_PROPS));
 
+/**
+ * The boards underfoot. A tavern standing on the moss of the moor it was built
+ * on is a table somebody carried outside, and the one thing the whole room was
+ * missing. Dungeon Crawl's tile library has no wooden floor at all, so these
+ * four are cut from the planking of the pack's own door — same wood, same
+ * palette, darkened a little so a barrel standing on them still reads as a
+ * barrel. Four of them, because one board repeated is a pattern, not a floor.
+ */
+export const TAVERN_FLOOR_PATHS = Object.freeze(
+  [1, 2, 3, 4].map((index) => `${ROOT}floor/planks${index}.png`),
+);
+
+/**
+ * Which cells are boarded. Derived from the plan every time rather than stored:
+ * a floor knows where its tavern is, and a second copy of that in the save is a
+ * second thing that can be wrong.
+ */
+export function tavernFloorCells(level) {
+  const cells = new Set();
+  const claim = (rect) => {
+    if (!rect) return;
+    const width = rect.w ?? rect.width;
+    const height = rect.h ?? rect.height;
+    for (let y = rect.y; y < rect.y + height; y += 1) {
+      for (let x = rect.x; x < rect.x + width; x += 1) cells.add(`${x},${y}`);
+    }
+  };
+  // The city's tavern, which knows itself as a block.
+  for (const block of level?.city?.blocks ?? []) {
+    if (block.kind === 'tavern') claim(block.interior);
+  }
+  // And every inn on the road, which knows itself as a room plan.
+  for (const plan of level?.roomPlans ?? []) {
+    if (plan.archetypeId === 'wayside-inn') claim(level.rooms?.[plan.roomIndex]);
+  }
+  return cells;
+}
+
 export const TAVERN_ASSET_PATHS = Object.freeze([
-  ...new Set(Object.values(TAVERN_PROPS).flatMap(({ frames }) => frames)),
+  ...new Set([
+    ...Object.values(TAVERN_PROPS).flatMap(({ frames }) => frames),
+    ...TAVERN_FLOOR_PATHS,
+  ]),
 ]);
 
 /** The keeper: the recruiter moved indoors, where a hiring board belongs. */

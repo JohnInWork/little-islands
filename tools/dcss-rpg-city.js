@@ -734,6 +734,11 @@ export function createCityEnvironment(level) {
  * two neighbouring blocks never put out the same three things.
  */
 function placeAlongStreet(place, rect, roomIndex) {
+  // The far corner gets a second lamp. One lamp a block was enough to say the
+  // city is lit; it is not enough to see the city by, and a street dressed with
+  // barrels and woodpiles nobody can make out at night is a street with nothing
+  // on it. Two diagonal lamps put light on both ends of every block.
+  place(CITY_PROPS.lamp, { x: rect.x + rect.w, y: rect.y + rect.h }, roomIndex);
   const outside = [
     { x: rect.x + rect.w, y: rect.y - 1 },
     { x: rect.x - 1, y: rect.y + rect.h },

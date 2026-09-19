@@ -263,8 +263,10 @@ import {
   mercenaryName,
 } from './dcss-rpg-mercenaries.js';
 import {
+  TAVERN_FLOOR_PATHS,
   bedOffer,
   mercenaryIdForHireMonster,
+  tavernFloorCells,
   tavernHireMonsterId,
 } from './dcss-rpg-tavern.js';
 import {
@@ -946,6 +948,7 @@ let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }))
 let builtWallCells = new Set(dungeon.builtWalls ?? []);
 let thicketCells = new Set(dungeon.thicketWalls ?? []);
 let hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+let boardedFloorCells = tavernFloorCells(dungeon);
 waterPaths = waterTiles(dungeon.themeId);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
@@ -5437,6 +5440,12 @@ function drawMonster(monster) {
 
 function floorTextureAt(x, y, cell, theme) {
   if (cell === '~') return WATER_BED[hash(x, y, 23) % WATER_BED.length];
+  // A tavern has a floor somebody laid. Without this the common room stands on
+  // whatever the place around it is made of — moss on the moor, cobbles in the
+  // city — and reads as furniture left outside rather than a room.
+  if (boardedFloorCells.has(`${x},${y}`)) {
+    return TAVERN_FLOOR_PATHS[hash(x, y, 29) % TAVERN_FLOOR_PATHS.length];
+  }
   const isBlood =
     cell === '.' && theme.bloodModulo > 0 && hash(x, y, 17) % theme.bloodModulo === 0;
   return isBlood
@@ -12446,6 +12455,7 @@ function replaceFloor(nextDepth, arrival = null) {
   builtWallCells = new Set(dungeon.builtWalls ?? []);
   thicketCells = new Set(dungeon.thicketWalls ?? []);
   hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+  boardedFloorCells = tavernFloorCells(dungeon);
   waterPaths = waterTiles(dungeon.themeId);
   openingDoor = null;
   activeChestFindId = null;

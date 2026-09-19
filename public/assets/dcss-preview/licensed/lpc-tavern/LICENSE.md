@@ -29,8 +29,11 @@ Two files are edited rather than merely cut:
   is one animated prop instead of two props that have to be kept aligned.
 - `deco/torch1..3.png` — the three torch frames padded onto a common 16×32
   canvas, anchored bottom-centre, so the flame flickers in place.
+- `floor/planks1..4.png` — four floorboards cut from the planking of the pack's
+  own door and darkened a little, because the Dungeon Crawl tile library has no
+  wooden floor and a tavern standing on moss is furniture left outdoors.
 
-Both edits are modifications of CC-BY-SA 3.0 material and are themselves
+All three edits are modifications of CC-BY-SA 3.0 material and are themselves
 CC-BY-SA 3.0.
 
 These files are **not** covered by the CC0 dedication that applies to the

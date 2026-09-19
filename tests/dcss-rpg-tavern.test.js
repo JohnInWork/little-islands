@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -308,4 +308,66 @@ test('an inn is composed, not scattered', async () => {
     return;
   }
   assert.fail('no inn in the sample');
+});
+
+/**
+ * A tavern standing on the moss of the moor it was built on is a table
+ * somebody carried outside. Dungeon Crawl's library has no wooden floor at all,
+ * so the pack brings its own, and the renderer has to actually ask for it.
+ */
+test('a tavern has boards under it, in the city and on the road', async () => {
+  const { TAVERN_FLOOR_PATHS, tavernFloorCells } = await import('../tools/dcss-rpg-tavern.js');
+  assert.equal(TAVERN_FLOOR_PATHS.length, 4, 'one board repeated is a pattern, not a floor');
+  for (const path of TAVERN_FLOOR_PATHS) {
+    await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
+  }
+
+  // The city's tavern is boarded, and nothing outside its walls is.
+  const city = generateDungeon({ seed: 7, depth: CITY_DEPTH });
+  const tavern = cityTavernBlock({ blocks: city.city.blocks });
+  const cityBoards = tavernFloorCells(city);
+  assert.equal(cityBoards.size, tavern.interior.w * tavern.interior.h);
+  for (const cell of cityBoards) {
+    const [x, y] = cell.split(',').map(Number);
+    assert.ok(x >= tavern.interior.x && x < tavern.interior.x + tavern.interior.w, `${cell} is outside`);
+    assert.ok(y >= tavern.interior.y && y < tavern.interior.y + tavern.interior.h, `${cell} is outside`);
+  }
+  // The street keeps its cobbles.
+  assert.ok(!cityBoards.has(`${city.spawn.x},${city.spawn.y}`));
+
+  // And so is every inn on the road out — and only the inn.
+  let checked = 0;
+  for (let seed = 1; seed <= 30 && checked < 3; seed += 1) {
+    const level = generateDungeon({ seed, depth: 8, branch: 'surface' });
+    const plan = level.roomPlans.find(({ archetypeId }) => archetypeId === 'wayside-inn');
+    if (!plan) continue;
+    checked += 1;
+    const room = level.rooms[plan.roomIndex];
+    const boards = tavernFloorCells(level);
+    assert.equal(boards.size, room.width * room.height, `seed ${seed}: the inn is not fully boarded`);
+    assert.ok(boards.has(`${room.x},${room.y}`));
+    assert.ok(!boards.has(`${room.x - 1},${room.y}`), 'the boards stop at the wall');
+  }
+  assert.ok(checked > 0, 'the sample found an inn');
+
+  // A floor nobody lays is a floor nobody sees: the renderer asks for these.
+  const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(adapter, /boardedFloorCells = tavernFloorCells\(dungeon\)/);
+  assert.match(
+    adapter,
+    /function floorTextureAt[\s\S]{0,600}boardedFloorCells\.has[\s\S]{0,120}TAVERN_FLOOR_PATHS/,
+    'floorTextureAt never consults the boards',
+  );
+});
+
+/** A dungeon with no tavern anywhere lays no boards at all. */
+test('nothing else in the game gets a wooden floor by accident', async () => {
+  const { tavernFloorCells } = await import('../tools/dcss-rpg-tavern.js');
+  for (const branch of ['deep', 'vaults']) {
+    for (let depth = 1; depth <= 12; depth += 1) {
+      assert.equal(tavernFloorCells(generateDungeon({ seed: 5, depth, branch })).size, 0);
+    }
+  }
+  assert.equal(tavernFloorCells(null).size, 0);
+  assert.equal(tavernFloorCells({}).size, 0);
 });
