@@ -304,6 +304,8 @@ import {
   CITY_LIGHT_MULTIPLIER,
   CITY_PRIEST_ID,
   cityInteriorAt,
+  CITY_GREEN_PATHS,
+  cityGreenCells,
   cityInteriorFloorCells,
   CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
@@ -762,7 +764,14 @@ const hungerFill = document.querySelector('#hunger-fill');
 const hungerLabel = document.querySelector('#hunger-label');
 const restLabel = document.querySelector('#rest-label');
 const heroEffectsHud = document.querySelector('#hero-effects');
-const heroEffectNote = document.querySelector('#hero-effect-note');
+const loreDialog = document.querySelector('#lore');
+const loreCard = document.querySelector('.lore-card');
+const loreTitle = document.querySelector('#lore-title');
+const loreSubtitle = document.querySelector('#lore-subtitle');
+const loreIcon = document.querySelector('#lore-icon');
+const loreGlyph = document.querySelector('.lore-portrait > i');
+const loreBody = document.querySelector('#lore-body');
+const closeLoreButton = document.querySelector('#close-lore');
 const hudGold = document.querySelector('#hud-gold');
 const characterSheetFace = document.querySelector('#character-sheet-face');
 const depthBadge = document.querySelector('.depth');
@@ -1011,6 +1020,7 @@ let boardedFloorCells = new Set([
   ...tavernFloorCells(dungeon),
   ...cityInteriorFloorCells(dungeon.city),
 ]);
+let greenFloorCells = new Set(cityGreenCells(dungeon.city));
 waterPaths = waterTiles(dungeon.themeId);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
@@ -5819,6 +5829,11 @@ function floorTextureAt(x, y, cell, theme) {
   if (boardedFloorCells.has(`${x},${y}`)) {
     return TAVERN_FLOOR_PATHS[hash(x, y, 29) % TAVERN_FLOOR_PATHS.length];
   }
+  // The green in the middle of the town. Streets stay trodden earth, so the
+  // square reads as a place people keep rather than a place they walk over.
+  if (greenFloorCells.has(`${x},${y}`)) {
+    return CITY_GREEN_PATHS[hash(x, y, 31) % CITY_GREEN_PATHS.length];
+  }
   const isBlood =
     cell === '.' && theme.bloodModulo > 0 && hash(x, y, 17) % theme.bloodModulo === 0;
   return isBlood
@@ -7424,12 +7439,19 @@ function romanDepth(value) {
  */
 function standingHeroStates() {
   const states = [];
+  const ru = itemDetailLanguage === 'ru';
+  const left = (minutes) => (ru ? `Хватит примерно на ${minutes} мин.` : `About ${minutes} min left.`);
   const hunger = hungerPresentation(hero.hunger, itemDetailLanguage);
   if (hunger.id !== 'fed') {
     states.push({
       id: `hunger:${hunger.id}`,
       label: hunger.label,
       description: hunger.description,
+      // A state without a timer still has a horizon, and the window has room
+      // for it: «ещё примерно двенадцать минут» is the difference between
+      // «eat now» and «eat when convenient».
+      kind: ru ? 'Голод' : 'Hunger',
+      remaining: left(hunger.minutes),
       glyph: '◔',
       color: hunger.id === 'mild' ? '#c2a765' : hunger.id === 'strong' ? '#cf8a4d' : '#c25a4a',
     });
@@ -7440,6 +7462,8 @@ function standingHeroStates() {
       id: `rest:${rest.id}`,
       label: rest.label,
       description: rest.description,
+      kind: ru ? 'Усталость' : 'Tiredness',
+      remaining: left(rest.minutes),
       glyph: '☾',
       color: rest.id === 'weary' ? '#8f92c0' : '#6f72a8',
     });
@@ -7450,30 +7474,66 @@ function standingHeroStates() {
 /**
  * Reading a state you are carrying.
  *
- * The badges said what was on the hero with a picture and a number, and what
- * that picture meant lived only in a `title` — which on a phone nobody can
- * reach. Ivan asked to press one and find out. The sentence is the same one the
- * rule modules already write; it just needed somewhere to appear.
+ * First answer was a line in the corner that erased itself after six seconds.
+ * Ivan, on his phone: «пускай открывается модалка на всё окно, чтобы нормально
+ * почитать, а не вот это вот маленькое окошко». A complicated state needs room,
+ * and an encyclopedia is going to want the same room later — so the window is
+ * one window, not a lean-to on the badges.
  */
-let heroEffectNoteTimer = 0;
+let loreReturnFocus = null;
 
+function openLore({ title, subtitle = '', icon = null, glyph = '', color = null, body = [] }) {
+  if (!loreDialog) return false;
+  loreReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  loreTitle.textContent = title;
+  loreSubtitle.textContent = subtitle;
+  loreSubtitle.hidden = subtitle.length === 0;
+  loreCard.style.setProperty('--lore-color', color ?? '#c9a84f');
+  // A state may be a sprite or a glyph; the frame holds either.
+  loreIcon.hidden = !icon;
+  if (icon) loreIcon.src = assetUrl(icon);
+  loreGlyph.textContent = icon ? '' : glyph;
+  loreGlyph.hidden = Boolean(icon);
+  loreBody.replaceChildren(...body.flatMap((entry) => {
+    if (!entry) return [];
+    if (typeof entry === 'string') {
+      const line = document.createElement('p');
+      line.textContent = entry;
+      return [line];
+    }
+    const heading = document.createElement('h3');
+    heading.textContent = entry.heading;
+    const line = document.createElement('p');
+    line.textContent = entry.text;
+    return [heading, line];
+  }));
+  loreDialog.inert = false;
+  loreDialog.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(() => closeLoreButton.focus());
+  return true;
+}
+
+function loreIsOpen() {
+  return loreDialog?.getAttribute('aria-hidden') === 'false';
+}
+
+function closeLore() {
+  if (!loreIsOpen()) return false;
+  loreDialog.setAttribute('aria-hidden', 'true');
+  loreDialog.inert = true;
+  const target = loreReturnFocus;
+  loreReturnFocus = null;
+  if (target?.isConnected) requestAnimationFrame(() => target.focus());
+  return true;
+}
+
+/** Kept so the one caller that only has a sentence still has somewhere to put it. */
 function showHeroEffectNote(text) {
-  if (!heroEffectNote) return;
-  if (heroEffectNote.textContent === text && !heroEffectNote.hidden) {
-    heroEffectNote.hidden = true;
-    heroEffectNoteTimer = 0;
-    return;
-  }
-  heroEffectNote.textContent = text;
-  heroEffectNote.hidden = false;
-  heroEffectNoteTimer = 6;
+  const [title, ...rest] = String(text).split(/\.\s+/);
+  return openLore({ title: title.replace(/\.$/, ''), body: [rest.join('. ')].filter(Boolean) });
 }
 
-function updateHeroEffectNote(delta) {
-  if (heroEffectNoteTimer <= 0) return;
-  heroEffectNoteTimer = Math.max(0, heroEffectNoteTimer - delta);
-  if (heroEffectNoteTimer === 0 && heroEffectNote) heroEffectNote.hidden = true;
-}
+function updateHeroEffectNote() {}
 
 function renderHeroEffectsHud() {
   // The dish sits beside the states, because it is one: a good one with a timer.
@@ -7499,7 +7559,13 @@ function renderHeroEffectsHud() {
       badge.style.setProperty('--effect-color', state.color);
       badge.setAttribute('aria-label', `${state.label}. ${state.description}`);
       badge.title = `${state.label} · ${state.description}`;
-      badge.addEventListener('click', () => showHeroEffectNote(`${state.label}. ${state.description}`));
+      badge.addEventListener('click', () => openLore({
+        title: state.label,
+        subtitle: state.kind,
+        glyph: state.glyph,
+        color: state.color,
+        body: [state.description, state.remaining].filter(Boolean),
+      }));
       mark.textContent = state.glyph;
       caption.textContent = state.label;
       badge.append(mark, caption);
@@ -7517,8 +7583,15 @@ function renderHeroEffectsHud() {
       badge.setAttribute('aria-label', spell);
       badge.title = spell;
       // What the state actually does to the hero, not only how long it lasts.
-      const explained = effect.description ? `${effect.label}. ${effect.description}` : spell;
-      badge.addEventListener('click', () => showHeroEffectNote(explained));
+      badge.addEventListener('click', () => openLore({
+        title: effect.label,
+        subtitle: itemDetailLanguage === 'ru'
+          ? `Осталось ${Math.ceil(effect.duration)} ${secondsLabel}`
+          : `${Math.ceil(effect.duration)} ${secondsLabel} left`,
+        icon: effect.icon,
+        color: effect.color,
+        body: [effect.description].filter(Boolean),
+      }));
       icon.src = assetUrl(effect.icon);
       icon.alt = '';
       duration.textContent = String(Math.ceil(effect.duration));
@@ -7543,12 +7616,29 @@ function meterNote(presentation) {
   return `${presentation.label}. ${presentation.description} ${minutes}`;
 }
 
-// Полоска — такая же кнопка, как значок состояния, и отвечает тем же способом.
+// Полоска — такая же кнопка, как значок состояния, и открывает то же окно.
+function openMeterLore(presentation, glyph, color) {
+  const left = itemDetailLanguage === 'ru'
+    ? `Хватит примерно на ${presentation.minutes} мин.`
+    : `About ${presentation.minutes} min left.`;
+  openLore({
+    title: presentation.label,
+    subtitle: `${presentation.percent}%`,
+    glyph,
+    color,
+    body: [presentation.description, left],
+  });
+}
+
 hungerMeter.addEventListener('click', () => {
-  showHeroEffectNote(meterNote(hungerPresentation(hero.hunger, itemDetailLanguage)));
+  openMeterLore(hungerPresentation(hero.hunger, itemDetailLanguage), '◔', '#c2a765');
 });
 restMeter.addEventListener('click', () => {
-  showHeroEffectNote(meterNote(restPresentation(hero.rest, itemDetailLanguage)));
+  openMeterLore(restPresentation(hero.rest, itemDetailLanguage), '☾', '#8f92c0');
+});
+closeLoreButton.addEventListener('click', closeLore);
+loreDialog.addEventListener('pointerdown', (event) => {
+  if (event.target === loreDialog) closeLore();
 });
 
 function renderHungerHud() {
@@ -13455,6 +13545,7 @@ function replaceFloor(nextDepth, arrival = null) {
   builtWallCells = new Set(dungeon.builtWalls ?? []);
   thicketCells = new Set(dungeon.thicketWalls ?? []);
   hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+  greenFloorCells = new Set(cityGreenCells(dungeon.city));
   boardedFloorCells = new Set([
     ...tavernFloorCells(dungeon),
     // And every other roof in town: a house with the street's own ground
@@ -15819,6 +15910,13 @@ window.addEventListener('keydown', (event) => {
     const direction = event.shiftKey ? -1 : 1;
     const nextIndex = (currentIndex + direction + controls.length) % controls.length;
     controls[nextIndex].focus();
+    return;
+  }
+  // The reading window floats above whatever screen opened it, so it answers
+  // Escape before that screen does.
+  if (event.code === 'Escape' && loreIsOpen()) {
+    event.preventDefault();
+    closeLore();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'inventory') {

@@ -507,3 +507,39 @@ test('everything the hero can reach is reached by one rule, diagonals included',
     assert.match(body, /cellStepDistance\(/, `${name} does not use the shared reach rule`);
   }
 });
+
+test('a state is read in a window, not in a note that erases itself', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(htmlUrl, 'utf8'),
+    readFile(cssUrl, 'utf8'),
+    readFile(runtimeUrl, 'utf8'),
+  ]);
+  // «Пускай открывается модалка на всё окно, чтобы нормально почитать, а не
+  // вот это вот маленькое окошко». The corner line is gone entirely.
+  for (const source of [html, css, runtime]) {
+    assert.ok(!source.includes('hero-effect-note'), 'the little note is still there');
+  }
+  for (const id of ['lore', 'lore-title', 'lore-subtitle', 'lore-icon', 'lore-body', 'close-lore']) {
+    assert.ok(html.includes(`id="${id}"`), `${id} is missing`);
+  }
+  // A modal, held to the same promises as the item window beside it.
+  const tag = html.match(/<section\s+id="lore"[\s\S]*?>/)[0];
+  assert.match(tag, /role="dialog"/);
+  assert.match(tag, /aria-modal="true"/);
+  assert.match(tag, /aria-hidden="true"/);
+  assert.match(css, /\.lore\[aria-hidden='false'\]/);
+  // It floats above the shop and the bag, both of which can be underneath it.
+  const layer = (selector) => Number(css.match(new RegExp(`\\${selector} \\{[\\s\\S]*?z-index: (\\d+)`))[1]);
+  assert.ok(layer('.lore') > layer('.item-detail'), 'the reading window sits under the item window');
+  assert.ok(layer('.item-detail') > layer('.merchant-shop'), 'the item window sits under the shop');
+
+  // Everything that used to print a sentence now opens the window.
+  assert.match(runtime, /function openLore\(\{ title/);
+  assert.match(runtime, /badge\.addEventListener\('click', \(\) => openLore\(\{/);
+  assert.match(runtime, /function openMeterLore\(/);
+  assert.match(runtime, /hungerMeter\.addEventListener\('click', \(\) => \{\s*openMeterLore\(/);
+  assert.match(runtime, /restMeter\.addEventListener\('click', \(\) => \{\s*openMeterLore\(/);
+  // And it closes the way every other window closes.
+  assert.match(runtime, /closeLoreButton\.addEventListener\('click', closeLore\)/);
+  assert.match(runtime, /event\.code === 'Escape' && loreIsOpen\(\)/);
+});

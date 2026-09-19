@@ -171,7 +171,6 @@
           <b id="hud-gold">0</b>
         </div>
         <div id="hero-effects" class="hero-effects" aria-live="polite" hidden></div>
-        <p id="hero-effect-note" class="hero-effect-note pixel-frame" role="status" aria-live="polite" hidden></p>
         <button
           id="character-sheet-button"
           class="character-sheet-button tappable"
@@ -723,6 +722,35 @@
             <button id="item-detail-variant" type="button" hidden>Иначе</button>
             <button id="item-detail-craft" type="button" hidden>Перековать</button>
             <button id="item-detail-action" type="button">Надеть</button>
+          </footer>
+        </article>
+      </section>
+
+      <!--
+        Одно окно для чтения. Пока в него смотрят состояния героя и шкалы
+        голода и сна; Иван просил именно большое окно, «а не вот это вот
+        маленькое окошко», и сказал, что дальше сюда же придёт энциклопедия.
+      -->
+      <section
+        id="lore"
+        class="lore"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lore-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="lore-card pixel-frame">
+          <header class="lore-header">
+            <div class="lore-portrait" aria-hidden="true"><img id="lore-icon" alt="" /><i></i></div>
+            <div class="lore-heading">
+              <h2 id="lore-title"></h2>
+              <p id="lore-subtitle"></p>
+            </div>
+          </header>
+          <div id="lore-body" class="lore-body"></div>
+          <footer class="lore-actions">
+            <button id="close-lore" type="button" aria-label="Закрыть">Закрыть</button>
           </footer>
         </article>
       </section>

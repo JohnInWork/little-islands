@@ -1266,26 +1266,6 @@ body {
   pointer-events: auto;
 }
 
-.hero-effect-note {
-  position: absolute;
-  top: calc(100% + 52px);
-  left: 0;
-  z-index: 6;
-  max-width: min(320px, calc(100vw - 28px));
-  margin: 0;
-  padding: 5px 9px 6px;
-  color: #ddd4bf;
-  font-size: 12px;
-  line-height: 1.35;
-  background: rgb(10 14 18 / 94%);
-  border-color: #5a6470;
-  pointer-events: none;
-}
-
-.hero-effect-note[hidden] {
-  display: none;
-}
-
 .hero-effects[hidden] {
   display: none;
 }
@@ -3772,6 +3752,143 @@ body {
 
 .selection-card[hidden] {
   display: none;
+}
+
+/*
+ * Окно для чтения.
+ *
+ * Состояние объясняла строчка в углу экрана, которая сама через шесть секунд
+ * исчезала. Иван: «пускай открывается модалка на всё окно, чтобы нормально
+ * почитать, а не вот это вот маленькое окошко». Сложному состоянию нужно
+ * место, а дальше сюда же придёт энциклопедия — поэтому окно общее, а не
+ * пристроенное к значкам.
+ */
+.lore {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+  display: grid;
+  place-items: center;
+  background: rgb(3 5 6 / 88%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 100ms steps(2, end);
+}
+
+.lore[aria-hidden='false'] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.lore-card {
+  --lore-color: var(--gold);
+  width: min(530px, 100%);
+  max-height: min(620px, 100%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 68px;
+  overflow: hidden;
+  background: var(--coal);
+  border-color: var(--lore-color);
+  transform: translateY(8px);
+  transition: transform 120ms steps(3, end);
+}
+
+.lore[aria-hidden='false'] .lore-card {
+  transform: translateY(0);
+}
+
+.lore-header {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 4px solid #232c30;
+}
+
+.lore-portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  background: #11181b;
+  box-shadow: inset 0 0 0 2px var(--lore-color);
+}
+
+.lore-portrait img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+.lore-heading h2 {
+  margin: 0;
+  color: var(--bone);
+  font-size: 19px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lore-heading p {
+  margin: 4px 0 0;
+  color: var(--lore-color);
+  font-size: 12px;
+}
+
+.lore-body {
+  padding: 14px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lore-body p {
+  margin: 0 0 12px;
+  color: #cdd6d3;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.lore-body p:last-child {
+  margin-bottom: 0;
+}
+
+.lore-body h3 {
+  margin: 0 0 6px;
+  color: #9fb0ac;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lore-actions {
+  display: grid;
+  place-items: center;
+  padding: 10px 14px;
+  border-top: 4px solid #232c30;
+}
+
+.lore-actions button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  background: #2a353a;
+  color: var(--bone);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lore-actions button:focus-visible {
+  outline: 4px solid var(--bone);
+  outline-offset: -6px;
 }
 
 .item-detail {

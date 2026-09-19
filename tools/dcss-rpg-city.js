@@ -319,12 +319,45 @@ function firstStreetCell(grid, from, step) {
 export function cityInteriorFloorCells(plan) {
   const cells = new Set();
   for (const block of plan?.blocks ?? []) {
+    // The plaza carries an `interior` like every other block, so it was being
+    // boarded like a house: Ivan found the middle of his town floored in
+    // planks. A square is not a room and never had a roof.
+    if (isOpenBlock(block.kind)) continue;
     const room = block.interior;
     if (!room) continue;
     const width = room.w ?? room.width;
     const height = room.h ?? room.height;
     for (let y = room.y; y < room.y + height; y += 1) {
       for (let x = room.x; x < room.x + width; x += 1) cells.add(`${x},${y}`);
+    }
+  }
+  return cells;
+}
+
+/**
+ * The green in the middle of the town.
+ *
+ * Ivan: «это центр города, деревянного пола там быть не должно… сделай
+ * зелёную землю, чтобы там деревья росли, центральный парк». The square and
+ * the market are the only open blocks, and open ground with trees on it is
+ * grass, not the trodden earth of the streets around it.
+ */
+export function cityGreenCells(plan) {
+  const cells = new Set();
+  for (const block of plan?.blocks ?? []) {
+    if (!isOpenBlock(block.kind)) continue;
+    const area = block.interior ?? block.rect;
+    if (!area) continue;
+    const width = area.w ?? area.width;
+    const height = area.h ?? area.height;
+    for (let y = area.y; y < area.y + height; y += 1) {
+      for (let x = area.x; x < area.x + width; x += 1) {
+        // The stored city keeps no grid of its own — it is carved into the
+        // level's — and an open block is carved open, so every cell of it is
+        // ground. Filter by the grid only when somebody hands one over.
+        if (plan.grid && plan.grid[y]?.[x] !== CITY_FLOOR) continue;
+        cells.add(`${x},${y}`);
+      }
     }
   }
   return cells;
@@ -404,11 +437,18 @@ export function cityInteriorAt(plan, cell) {
   return block ? block.interior : null;
 }
 
+/**
+ * The two blocks that are not buildings. A plaza is a place, not a room, and
+ * the market is the same place with stalls on it.
+ */
+export const CITY_OPEN_BLOCK_KINDS = Object.freeze(['plaza', 'market']);
+
+const isOpenBlock = (kind) => CITY_OPEN_BLOCK_KINDS.includes(kind);
+
 function insideAnyBuilding(plan, x, y) {
   return plan.blocks.some(({ interior, kind }) => (
     interior
-    && kind !== 'plaza'
-    && kind !== 'market'
+    && !isOpenBlock(kind)
     && x >= interior.x && x < interior.x + interior.w
     && y >= interior.y && y < interior.y + interior.h
   ));
@@ -681,10 +721,41 @@ const CITY_INTERIOR_PROPS = Object.freeze({
   jail: Object.freeze([TAVERN_PROPS.jug, TAVERN_PROPS.woodpile]),
 });
 
+/**
+ * The square: grass, the paths worn across it, and a few flowers where nobody
+ * walks. Mostly mixed tiles, so the green reads as a common people cross
+ * rather than a lawn somebody mows.
+ */
+export const CITY_GREEN_PATHS = Object.freeze([
+  // Weighted by repetition rather than evenly: the three grasses differ enough
+  // in brightness that an even mix tiles the square into a chequerboard. One
+  // base tile most of the time, the others as relief.
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass1.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0-dirt-mix1.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass0-dirt-mix3.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass_flowers_yellow1.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass2.png',
+  'dngn/floor/grass/grass0.png',
+  'dngn/floor/grass/grass_flowers_blue2.png',
+  'dngn/floor/grass/grass0.png',
+]);
+
 export const CITY_ASSET_PATHS = Object.freeze([
   ...new Set([
     ...Object.values(CITY_PROPS).flatMap(({ frames }) => frames),
     ...TAVERN_ASSET_PATHS,
+    ...CITY_GREEN_PATHS,
   ]),
 ]);
 

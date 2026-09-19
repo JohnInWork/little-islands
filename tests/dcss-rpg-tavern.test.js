@@ -377,11 +377,16 @@ test('nothing else in the game gets a wooden floor by accident', async () => {
 });
 
 /**
- * The town stands on the surface, with trees and bushes along its streets, and
- * it used to stand on brown cobbles — so everything growing in it looked planted
- * in stone. Now the streets are earth and every roof in town has boards under it.
+ * Three grounds, and each one says what it is.
+ *
+ * The town stands on the surface and used to stand on brown cobbles, so
+ * everything growing in it looked planted in stone. Boards then went down
+ * indoors — and, by accident, on the square: the plaza carries an `interior`
+ * like every other block, so the middle of the town came out floored in planks.
+ * Ivan found it on his phone: «это центр города, деревянного пола там быть не
+ * должно… сделай зелёную землю, чтобы деревья росли, центральный парк».
  */
-test('the town has ground outside and boards indoors', async () => {
+test('the town has boards indoors, earth on the streets and grass on the square', async () => {
   const city = await import('../tools/dcss-rpg-city.js');
   const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
   const { biomeThemeFor } = await import('../tools/dcss-rpg-visuals.js');
@@ -393,15 +398,29 @@ test('the town has ground outside and boards indoors', async () => {
   for (const seed of [1, 7, 91]) {
     const town = generateDungeon({ seed, depth: 0 });
     const boards = city.cityInteriorFloorCells(town.city);
+    const green = city.cityGreenCells(town.city);
     assert.ok(boards.size > 40, `seed ${seed}: the town has no floors indoors`);
+    assert.ok(green.size > 8, `seed ${seed}: the town has no green in it`);
+
     // Every building with a room inside it, not only the tavern.
-    const housed = town.city.blocks.filter(({ interior }) => interior);
+    const housed = town.city.blocks.filter(({ interior, kind }) => interior
+      && !city.CITY_OPEN_BLOCK_KINDS.includes(kind));
     assert.ok(housed.length >= 4, 'a town with no buildings');
     for (const block of housed) {
       const { x, y } = block.interior;
       assert.ok(boards.has(`${x},${y}`), `seed ${seed}: ${block.kind} stands on the street`);
     }
-    // And the street itself keeps its ground.
+
+    // The square and the market are places, not rooms: no roof, no floor.
+    for (const block of town.city.blocks.filter(({ kind }) => city.CITY_OPEN_BLOCK_KINDS.includes(kind))) {
+      const { x, y } = block.interior ?? block.rect;
+      assert.ok(!boards.has(`${x},${y}`), `seed ${seed}: the ${block.kind} was boarded over`);
+      assert.ok(green.has(`${x},${y}`), `seed ${seed}: the ${block.kind} is not green`);
+    }
+
+    // Nothing is two things at once, and the street is neither.
+    for (const key of green) assert.ok(!boards.has(key), `${key} is both lawn and floorboards`);
     assert.ok(!boards.has(`${town.gates.deep.x},${town.gates.deep.y}`), 'the gate is indoors');
+    assert.ok(!green.has(`${town.gates.deep.x},${town.gates.deep.y}`), 'the gate is on the lawn');
   }
 });
