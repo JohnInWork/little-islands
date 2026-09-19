@@ -156,3 +156,24 @@ test('Cooking is a ready skill wired into the fire and the bag', async () => {
   assert.match(runtime, /function updateHeroMeal\(delta\)[\s\S]*tickMeal\(hero\.meal/);
   assert.match(runtime, /meal: createMealState\(hero\.meal\),/, 'the save carries the dish');
 });
+
+test('the fire says what a fire is for, whether or not there is meat in the bag', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  for (const language of ['ru', 'en']) {
+    const empty = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 0 }, language });
+    const loaded = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 2 }, language });
+    // «Наступил, и что это?» — a card with a name and one verb answered nothing.
+    assert.ok(empty.description.length > 20, `${language}: an empty fire explains nothing`);
+    assert.equal(loaded.description, empty.description, 'the fire is the same fire either way');
+    assert.equal(loaded.actions.find(({ id }) => id === 'cook').enabled, true);
+    const cold = empty.actions.find(({ id }) => id === 'cook');
+    assert.equal(cold.enabled, false);
+    assert.ok(cold.hint.length > 0, 'and still says why the button is dead');
+  }
+  const brewing = contextActionModel({
+    target: { kind: 'campfire', rawMeatCount: 1, brewLabel: 'Зелье лечения', canBrew: true },
+    language: 'ru',
+  });
+  assert.ok(brewing.description.includes('Зелье лечения'), 'alchemy adds to the line rather than replacing it');
+  assert.ok(brewing.description.startsWith(contextActionModel({ target: { kind: 'campfire', rawMeatCount: 1 }, language: 'ru' }).description));
+});

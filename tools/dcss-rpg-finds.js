@@ -6,6 +6,7 @@ import {
   resolveChestInteraction,
 } from './dcss-rpg-chests.js';
 import {
+  ACTOR_EFFECTS,
   ACTOR_EFFECT_IDS,
   MAX_EFFECT_DURATION,
   clearActorEffects,
@@ -167,6 +168,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Древний алтарь',
+        summary: 'Камень забытого бога. Молитва лечит, дар делает крепче навсегда, грабёж даёт золото и проклятие.',
         action: 'Подойти к древнему алтарю',
         inspected: 'Каменный алтарь. В чаше видны следы прежних подношений.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -181,6 +183,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Ancient altar',
+        summary: 'The stone of a forgotten god. Prayer heals, an offering makes you hardier for good, plunder pays in gold and a curse.',
         action: 'Approach the ancient altar',
         inspected: 'A stone altar. The bowl holds traces of old offerings.',
         unsafe: 'Too dangerous at this health',
@@ -239,6 +242,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Затопленный фонтан',
+        summary: 'Чаша тёмной воды с монетами на дне. Пить — лечит и мочит, бросить монету — платит за твёрдость руки, нырнуть — деньги в обмен на холод.',
         action: 'Подойти к фонтану',
         inspected: 'Чаша полна тёмной воды. На дне поблёскивают монеты.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -253,6 +257,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Sunken fountain',
+        summary: 'A basin of dark water with coins on the bottom. Drinking heals and soaks, a tossed coin buys a steadier hand, diving trades cold for money.',
         action: 'Approach the fountain',
         inspected: 'The basin holds dark water. Coins glint at the bottom.',
         unsafe: 'Too dangerous at this health',
@@ -305,6 +310,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Запечатанная руна',
+        summary: 'Камень в цепях, исписанный знаками. Прочесть их — сила удара ценой крови, настроиться — лечение, расколоть — золото, яд и шум.',
         action: 'Подойти к руне',
         inspected: 'Камень в цепях. Знаки на нём ещё держат тепло.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -319,6 +325,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Warded rune',
+        summary: 'A chained stone covered in marks. Reading them buys attack with blood, attuning heals, breaking it pays in gold, poison and noise.',
         action: 'Approach the rune',
         inspected: 'A stone bound in chains. Its marks still hold warmth.',
         unsafe: 'Too dangerous at this health',
@@ -705,6 +712,53 @@ function normalizedLandmarkActor(actor = {}) {
 
 const landmarkAction = (id, enabled = true, hint = '') => Object.freeze({ id, enabled, hint });
 
+const OUTCOME_COPY = Object.freeze({
+  ru: Object.freeze({
+    power: 'сила удара',
+    limit: 'к пределу здоровья',
+    cleanse: 'снимает эффекты',
+    noise: 'шум на весь этаж',
+  }),
+  en: Object.freeze({
+    power: 'attack',
+    limit: 'to the health cap',
+    cleanse: 'clears effects',
+    noise: 'heard across the floor',
+  }),
+});
+
+/**
+ * What this choice will do, in the numbers already rolled for this floor.
+ *
+ * The three verbs on an altar told the player nothing: «Помолиться»,
+ * «Подношение», «Ограбить» — pick one and find out. The game has known the
+ * exact figures since the floor was built; it simply never said them. Ivan
+ * asked what these things are and what they are for, and this is the half of
+ * the answer that has numbers in it.
+ */
+export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = false } = {}) {
+  if (!outcome || typeof outcome !== 'object') return '';
+  const locale = language === 'en' ? 'en' : 'ru';
+  const copy = OUTCOME_COPY[locale];
+  const parts = [];
+  const cost = outcome.costGold ?? 0;
+  if (cost > 0 && !onlyGains) parts.push(`\u2212${cost}\u25cf`);
+  if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold}\u25cf`);
+  if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} ${copy.power}`);
+  if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} ${copy.limit}`);
+  // A share of the cap reads as a share; a flat number reads as a number.
+  if ((outcome.healRatio ?? 0) > 0) parts.push(`+${Math.round(outcome.healRatio * 100)}% \u2764`);
+  if ((outcome.heal ?? 0) > 0) parts.push(`+${outcome.heal} \u2764`);
+  if ((outcome.damage ?? 0) > 0 && !onlyGains) parts.push(`\u2212${outcome.damage} \u2764`);
+  if (outcome.cleanse) parts.push(copy.cleanse);
+  const status = outcome.status?.id;
+  if (status && ACTOR_EFFECTS[status] && !onlyGains) {
+    parts.push(ACTOR_EFFECTS[status].labels[locale].toLowerCase());
+  }
+  if ((outcome.noise ?? 0) > 0 && !onlyGains) parts.push(copy.noise);
+  return parts.join(' \u00b7 ');
+}
+
 /** A free action whose only effect is restoration has no consequence when nothing needs restoring. */
 function outcomeOnlyRestores(outcome) {
   return (outcome.heal ?? 0) + (outcome.healRatio ?? 0) > 0
@@ -729,12 +783,13 @@ export function landmarkActionRules({ find, actor, language = 'ru' } = {}) {
     const costGold = outcome.costGold ?? 0;
     const damage = outcome.damage ?? 0;
     const onlyRestores = outcomeOnlyRestores(outcome);
+    const gains = landmarkOutcomeSummary(outcome, locale, { onlyGains: true });
+    const refused = (reason) => landmarkAction(id, false, gains ? `${reason} · ${gains}` : reason);
     if (costGold > 0 && access.gold !== null && access.gold < costGold) {
-      // Short enough for a two-line thumb button in both languages: "Нужно 16●".
-      return landmarkAction(id, false, `${copy.goldRequired} ${costGold}●`);
+      return refused(`${copy.goldRequired} ${costGold}●`);
     }
     if (damage > 0 && access.hp !== null && access.hp <= damage) {
-      return landmarkAction(id, false, copy.unsafe);
+      return refused(copy.unsafe);
     }
     if (
       onlyRestores
@@ -745,7 +800,7 @@ export function landmarkActionRules({ find, actor, language = 'ru' } = {}) {
     ) {
       return landmarkAction(id, false, copy.nothingToHeal);
     }
-    return landmarkAction(id, true, costGold > 0 ? `−${costGold}●` : '');
+    return landmarkAction(id, true, landmarkOutcomeSummary(outcome, locale));
   });
   return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
 }
@@ -758,7 +813,8 @@ export function landmarkContextPresentation({ find, actor, inspected = false, la
   const rules = landmarkActionRules({ find, actor, language: locale });
   return Object.freeze({
     name: copy.name,
-    description: inspected ? copy.inspected : '',
+    // What the thing is comes first and always; examining it adds the detail.
+    description: inspected ? `${copy.summary} ${copy.inspected}` : copy.summary,
     icon: typeof find.icon === 'string' && find.icon.length > 0 ? find.icon : findSkinPath(find),
     accent: definition.color,
     actions: Object.freeze([landmarkAction('inspect'), ...rules.actions]),

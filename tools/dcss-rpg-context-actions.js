@@ -165,6 +165,7 @@ const COPY = Object.freeze({
     merchantName: 'Странствующий торговец',
     merchantDescription: '',
     campfireName: 'Костёр',
+    campfireUse: 'Огонь для еды: сырое мясо на нём становится сытным и безопасным.',
     campfireBrew: (label) => `Можно сварить: ${label}.`,
     campBedName: 'Спальник',
     campBedClosed: '',
@@ -239,6 +240,7 @@ const COPY = Object.freeze({
     merchantName: 'Wandering merchant',
     merchantDescription: '',
     campfireName: 'Campfire',
+    campfireUse: 'A fire to cook on: raw meat becomes filling and safe to eat.',
     campfireBrew: (label) => `Can be brewed: ${label}.`,
     campBedName: 'Bedroll',
     campBedClosed: '',
@@ -322,8 +324,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
     present: ({ target, copy }) => ({
       name: copy.campfireName,
       description: target.brewLabel
-        ? copy.campfireBrew(target.brewLabel)
-        : target.rawMeatCount > 0 ? '' : copy.campfireEmpty,
+        ? `${copy.campfireUse} ${copy.campfireBrew(target.brewLabel)}`
+        : copy.campfireUse,
       icon: 'dngn/altars/makhleb_flame1.png',
       accent: '#d88447',
       actions: [

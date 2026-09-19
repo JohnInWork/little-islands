@@ -188,9 +188,14 @@ test('action availability follows gold, health and the presence of anything to r
   assert.deepEqual(poor.actions.map(({ id }) => id), ['pray', 'offer', 'plunder']);
   assert.equal(poor.actions[0].enabled, true);
   assert.equal(poor.actions[1].enabled, false);
-  assert.equal(poor.actions[1].hint, `Нужно ${offer.costGold}●`);
+  // A refused button still says what it would have given: «зачем оно нужно»
+  // is the question that stays unanswered when only the refusal is printed.
+  assert.equal(
+    poor.actions[1].hint,
+    `Нужно ${offer.costGold}● · +${offer.rewardMaxHp} к пределу здоровья · +${offer.heal} ❤`,
+  );
   assert.equal(poor.actions[2].enabled, false);
-  assert.equal(poor.actions[2].hint, 'Слишком опасно при таком здоровье');
+  assert.equal(poor.actions[2].hint, `Слишком опасно при таком здоровье · +${plunder.rewardGold}●`);
 
   const healthy = landmarkActionRules({
     find,
@@ -200,7 +205,11 @@ test('action availability follows gold, health and the presence of anything to r
   assert.equal(healthy.actions[0].enabled, false);
   assert.equal(healthy.actions[0].hint, 'Nothing to heal');
   assert.equal(healthy.actions[1].enabled, true);
-  assert.equal(healthy.actions[1].hint, `−${offer.costGold}●`);
+  // An available action spends its hint on the promise, not on the refusal.
+  assert.equal(
+    healthy.actions[1].hint,
+    `−${offer.costGold}● · +${offer.rewardMaxHp} to the health cap · +${offer.heal} ❤`,
+  );
   assert.equal(healthy.actions[2].enabled, true);
 
   const poisoned = landmarkActionRules({
@@ -358,7 +367,7 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
   );
 });
 
-test('the shared registry presents the altar bilingually without spoiling outcomes', () => {
+test('the shared registry presents the altar bilingually and says what each choice does', () => {
   const { find } = altarFixture();
   const { costGold } = find.outcomes.offer;
   const target = { kind: 'find', ...find };
@@ -366,18 +375,24 @@ test('the shared registry presents the altar bilingually without spoiling outcom
   const ru = contextActionModel({ target, actor, language: 'ru' });
   assert.equal(ru.interactionId, 'landmark');
   assert.equal(ru.name, 'Древний алтарь');
-  assert.equal(ru.description, '');
+  // «Что это, зачем, как — непонятно» was the whole complaint: the card used
+  // to open blank and stayed blank until the player thought to examine it.
+  assert.equal(ru.description, findById('ancient-altar').copy.ru.summary);
+  assert.ok(ru.description.length > 40);
   assert.equal(ru.icon, findSkinPath(find));
   assert.deepEqual(ru.actions.map(({ id }) => id), ['inspect', 'pray', 'offer', 'plunder']);
   assert.deepEqual(ru.actions.map(({ label }) => label), ['Осмотреть', 'Молиться', 'Пожертвовать', 'Ограбить']);
   assert.ok(ru.actions.every(({ command }) => command === 'inspect' || command === 'find-interact'));
-  assert.equal(ru.actions[2].hint, `−${costGold}●`);
+  const { rewardMaxHp, heal } = find.outcomes.offer;
+  assert.equal(ru.actions[2].hint, `−${costGold}● · +${rewardMaxHp} к пределу здоровья · +${heal} ❤`);
   assert.equal(ru.actions[2].enabled, true);
 
   const inspected = contextActionModel({ target, actor, language: 'en', inspected: true });
   assert.equal(inspected.name, 'Ancient altar');
-  assert.equal(inspected.description, 'A stone altar. The bowl holds traces of old offerings.');
-  assert.doesNotMatch(inspected.description, /reward|treasure|danger|награ|ценност|получ|\d+◆|−\d+/i);
+  const english = findById('ancient-altar').copy.en;
+  assert.equal(inspected.description, `${english.summary} ${english.inspected}`);
+  // The flavour text still keeps its mouth shut; the numbers live on the buttons.
+  assert.doesNotMatch(english.inspected, /reward|treasure|danger|\d+◆|−\d+/i);
   assert.deepEqual(inspected.actions.map(({ label }) => label), ['Inspect', 'Pray', 'Offer', 'Plunder']);
 
   const broke = contextActionModel({
@@ -386,9 +401,10 @@ test('the shared registry presents the altar bilingually without spoiling outcom
     language: 'en',
   });
   assert.equal(broke.actions[2].enabled, false);
-  assert.equal(broke.actions[2].hint, `Needs ${costGold}●`);
+  const { rewardMaxHp: cap, heal: mend } = find.outcomes.offer;
+  assert.equal(broke.actions[2].hint, `Needs ${costGold}● · +${cap} to the health cap · +${mend} ❤`);
   assert.equal(broke.actions[3].enabled, false);
-  assert.equal(broke.actions[3].hint, 'Too dangerous at this health');
+  assert.equal(broke.actions[3].hint, `Too dangerous at this health · +${find.outcomes.plunder.rewardGold}●`);
   assert.throws(() => contextActionModel({ target: { kind: 'find', id: 'ancient-altar', outcomes: {} } }), TypeError);
 
   const presentation = findPresentation(find, 'en');

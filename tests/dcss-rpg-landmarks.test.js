@@ -7,6 +7,7 @@ import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 
 import { contextActionModel } from '../tools/dcss-rpg-context-actions.js';
+import { ACTOR_EFFECTS } from '../tools/dcss-rpg-effects.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { ENVIRONMENT_ROOM_THEMES } from '../tools/dcss-rpg-environment.js';
 import {
@@ -16,6 +17,7 @@ import {
   findById,
   isLandmarkFind,
   landmarkActionRules,
+  landmarkOutcomeSummary,
   landmarkResultSummary,
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
@@ -227,8 +229,52 @@ test('the shared registry speaks for every landmark in both languages', () => {
       assert.ok(model.actions.every(({ glyph }) => typeof glyph === 'string' && glyph.length > 0));
       // Four buttons share one row on a 390px phone: keep every label short.
       assert.ok(model.actions.every(({ label }) => label.length <= 12), `labels fit: ${model.actions.map(({ label }) => label).join(', ')}`);
-      assert.equal(model.description, '');
-      assert.equal(contextActionModel({ target, actor, language, inspected: true }).description, findById(id).copy[language].inspected);
+      // Every landmark says what it is the moment it opens, and examining it
+      // adds the flavour line rather than replacing the explanation.
+      const copyFor = findById(id).copy[language];
+      assert.equal(model.description, copyFor.summary);
+      assert.ok(copyFor.summary.length > 40, `${id}/${language}: the summary explains nothing`);
+      assert.equal(
+        contextActionModel({ target, actor, language, inspected: true }).description,
+        `${copyFor.summary} ${copyFor.inspected}`,
+      );
+      // And each available choice carries its own numbers on the button.
+      for (const action of model.actions.filter(({ id: actionId }) => actionId !== 'inspect')) {
+        assert.ok(action.hint.length > 0, `${id}/${language}/${action.id} promises nothing`);
+      }
     }
   }
+});
+
+test('a landmark choice states its price and its payoff before it is taken', () => {
+  for (const id of LANDMARK_CATALOG.map(({ id: found }) => found)) {
+    const { find } = landmarkFixture(id);
+    for (const key of Object.keys(find.outcomes)) {
+      const outcome = find.outcomes[key];
+      const ru = landmarkOutcomeSummary(outcome, 'ru');
+      const en = landmarkOutcomeSummary(outcome, 'en');
+      assert.ok(ru.length > 0, `${id}/${key} says nothing in Russian`);
+      assert.notEqual(ru, en, `${id}/${key} was never translated`);
+      // Every number the outcome carries has to reach the button. A cost that
+      // is not shown is the whole reason the altar felt like a lottery.
+      for (const [field, needle] of [
+        ['costGold', `\u2212${outcome.costGold}\u25cf`],
+        ['rewardGold', `+${outcome.rewardGold}\u25cf`],
+        ['damage', `\u2212${outcome.damage} \u2764`],
+        ['heal', `+${outcome.heal} \u2764`],
+        ['rewardMaxHp', `+${outcome.rewardMaxHp} `],
+        ['rewardPower', `+${outcome.rewardPower} `],
+      ]) {
+        if ((outcome[field] ?? 0) > 0) assert.ok(ru.includes(needle), `${id}/${key}: ${field} is not on the button — «${ru}»`);
+      }
+      if (outcome.status) {
+        const effect = ACTOR_EFFECTS[outcome.status.id];
+        assert.ok(ru.includes(effect.labels.ru.toLowerCase()), `${id}/${key}: the curse is not named`);
+      }
+      if (outcome.cleanse) assert.ok(ru.includes('снимает эффекты'));
+      if ((outcome.noise ?? 0) > 0) assert.ok(ru.includes('шум'));
+    }
+  }
+  assert.equal(landmarkOutcomeSummary(null), '');
+  assert.equal(landmarkOutcomeSummary({}), '', 'an outcome with no consequence promises none');
 });
