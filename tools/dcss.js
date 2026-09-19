@@ -691,8 +691,7 @@ const moveMarker = document.querySelector('#move-marker');
 const spellBar = document.querySelector('#spell-bar');
 const spellActionButtons = [...spellBar.querySelectorAll('[data-spell-slot]')];
 const bagButton = document.querySelector('#bag');
-const interactActionButton = document.querySelector('#interact-action');
-const interactActionIcon = document.querySelector('#interact-action-icon');
+const interactActions = document.querySelector('#interact-actions');
 const inventory = document.querySelector('#inventory');
 const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
@@ -1648,8 +1647,7 @@ function nearbyCompanion() {
   return allies.find((ally) => (
     ally.companion
     && ally.dead === 0
-    && Math.abs(cell.x - Math.floor(ally.x / TILE))
-      + Math.abs(cell.y - Math.floor(ally.y / TILE)) <= COMPANION_REACH
+    && cellStepDistance(cell, { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) }) <= COMPANION_REACH
   )) ?? null;
 }
 
@@ -7002,7 +7000,7 @@ function currentOnboardingSignals() {
       || liveMonsters.some((monster) => Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * 1.6),
     lootVisible: lootDefinitions.some(inSight),
     pickedUp: run.floor.collected.length > 0,
-    interactAvailable: !interactActionButton.hidden,
+    interactAvailable: interactActions.childElementCount > 0,
     interacted: onboardingInteracted || run.floor.opened.length > 0 || run.floor.resolved.length > 0,
     inCity: isCityDepth(dungeon.depth),
     houseOwned: run.house.owned,
@@ -7833,36 +7831,75 @@ function renderContextActions() {
   }));
 }
 
+/**
+ * How many things the hero may be offered at once. Standing in a corner of a
+ * camp with a door behind them, five is already every reachable thing on the
+ * floor; more than that would be a wall of icons rather than a choice.
+ */
+const INTERACT_COLUMN_LIMIT = 5;
+
+/**
+ * The column used to be rebuilt only when the hero changed cell, which was
+ * enough while it held one button for one thing the hero had walked up to. It
+ * is not enough now: a companion walks up on its own, a beast turns hostile, a
+ * fire burns out. So the list is checked on a light cadence and the DOM is
+ * touched only when its contents actually differ.
+ */
+let interactSignature = '';
+let interactPollTimer = 0;
+const INTERACT_POLL_SECONDS = 0.25;
+
+function pollInteractionUi(delta) {
+  interactPollTimer -= delta;
+  if (interactPollTimer > 0) return;
+  interactPollTimer = INTERACT_POLL_SECONDS;
+  updateInteractionUi();
+}
+
 function updateInteractionUi() {
-  const target = ready
+  const targets = ready
     && uiScreen === 'game'
     && runStatus === 'playing'
     && !hero.dead
     && !openingDoor
-    ? nearbyContextTarget()
-    : null;
-  if (!target) {
-    interactActionButton.hidden = true;
-    interactActionButton.disabled = true;
-    delete interactActionButton.dataset.interaction;
+    ? nearbyContextTargets().slice(0, INTERACT_COLUMN_LIMIT)
+    : [];
+  const signature = targets
+    .map(({ kind, value }) => `${kind}:${value?.instanceId ?? value?.id ?? ''}:${value?.x ?? ''},${value?.y ?? ''}`)
+    .join('|');
+  if (signature === interactSignature) return targets.length > 0;
+  interactSignature = signature;
+  if (targets.length === 0) {
+    interactActions.replaceChildren();
     // The column above it closes the gap rather than leaving a hole.
     document.body.dataset.interact = 'off';
     return false;
   }
-  const model = contextActionModel({
-    target: contextModelTarget(target),
-    actor: currentInteractionActor(),
-    language: itemDetailLanguage,
-    inspected: false,
-  });
-  interactActionButton.hidden = false;
-  interactActionButton.disabled = false;
   document.body.dataset.interact = 'on';
-  interactActionButton.dataset.interaction = model.interactionId;
-  interactActionButton.style.setProperty('--context-accent', model.accent);
-  interactActionButton.setAttribute('aria-label', model.triggerLabel);
-  interactActionButton.title = model.triggerLabel;
-  interactActionIcon.src = assetUrl(model.icon);
+  interactActions.replaceChildren(...targets.map((target) => {
+    const model = contextActionModel({
+      target: contextModelTarget(target),
+      actor: currentInteractionActor(),
+      language: itemDetailLanguage,
+      inspected: false,
+    });
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'interact-action pixel-frame tappable';
+    button.dataset.interaction = model.interactionId;
+    button.style.setProperty('--context-accent', model.accent);
+    button.setAttribute('aria-label', model.triggerLabel);
+    button.title = model.triggerLabel;
+    const icon = document.createElement('img');
+    icon.alt = '';
+    icon.src = assetUrl(model.icon);
+    const mark = document.createElement('b');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.textContent = '+';
+    button.append(icon, mark);
+    button.addEventListener('click', () => openContextActions(target));
+    return button;
+  }));
   return true;
 }
 
@@ -7888,8 +7925,8 @@ function openContextActions(nextTarget) {
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
-  interactActionButton.hidden = true;
-  interactActionButton.disabled = true;
+  interactActions.replaceChildren();
+  document.body.dataset.interact = 'off';
   renderContextActions();
   requestAnimationFrame(() => contextActionList.querySelector('button:not(:disabled)')?.focus());
   return true;
@@ -8377,7 +8414,7 @@ function closeChestContainerUi() {
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
   updateInteractionUi();
-  requestAnimationFrame(() => interactActionButton.focus());
+  requestAnimationFrame(() => interactActions.querySelector('button')?.focus());
   return true;
 }
 
@@ -8518,7 +8555,7 @@ function closeMerchantShop() {
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
   updateInteractionUi();
-  requestAnimationFrame(() => interactActionButton.focus());
+  requestAnimationFrame(() => interactActions.querySelector('button')?.focus());
   return true;
 }
 
@@ -8670,6 +8707,57 @@ function orderNearbyCompanion(beast) {
   return true;
 }
 
+/**
+ * Let it go. The party record is dropped and the beast walks off the floor —
+ * nothing follows the hero down, and nothing has to be killed to be rid of.
+ */
+function releaseCompanion(beast) {
+  const index = beast?.companionIndex;
+  const record = run.companions[index];
+  if (!record || beast.dead > 0) return false;
+  run.companions = createCompanionParty(run.companions.filter((entry, at) => at !== index));
+  // Indices are positions in that list, so everybody below the gap moves up.
+  allies = allies
+    .filter((ally) => ally.companionIndex !== index)
+    .map((ally) => (ally.companionIndex > index
+      ? { ...ally, companionIndex: ally.companionIndex - 1 }
+      : ally));
+  playerHasActed = true;
+  playSound('ui-tap');
+  burst(beast.x, beast.y - 8, '#9ad3b8', 16);
+  addCombatGlyph(beast.x, beast.y, '↩', '#9ad3b8', -58);
+  updateHud();
+  persistRun();
+  return true;
+}
+
+/**
+ * Turn on it. The beast leaves the party the same way it would if released, and
+ * then stands on the floor as an ordinary hostile creature: the hero struck
+ * first, and from here it is a fight like any other.
+ */
+function turnOnCompanion(beast) {
+  const index = beast?.companionIndex;
+  const record = run.companions[index];
+  if (!record || beast.dead > 0) return false;
+  const { x, y, hp, maxHp, spritePath } = beast;
+  if (!releaseCompanion(beast)) return false;
+  const [turned] = createRuntimeMonsters(dungeon, [{
+    instanceId: `monster-${dungeon.depth}-turned-${index}`,
+    id: isMercenary(record.id) ? `hired-${record.id}` : `tamed-${record.id}`,
+    x: Math.floor(x / TILE),
+    y: Math.floor(y / TILE),
+  }]);
+  if (!turned) return false;
+  turned.hp = Math.min(hp, turned.maxHp ?? maxHp);
+  turned.spritePath = spritePath ?? turned.spritePath;
+  turned.alerted = turned.pursuit + 4;
+  turned.alertFlash = 0.6;
+  monsters.push(turned);
+  damageMonster(turned, currentHeroCombat().attack, '#c76a63', { style: 'blade' });
+  return true;
+}
+
 function nearbyWildlife() {
   if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
@@ -8788,62 +8876,55 @@ function nearbyGuard() {
   )) ?? null;
 }
 
-function nearbyContextTarget() {
-  const merchant = nearbyMerchant();
-  if (merchant) return { kind: 'merchant', value: merchant };
-  const find = nearbyFind();
-  if (find) return { kind: 'find', value: find };
-  const trap = nearbyDetectedTrap();
-  if (trap) return { kind: 'trap', value: trap };
+/**
+ * Everything the hero can reach from where they stand, best first.
+ *
+ * This used to answer with one target and stop looking. Standing between a
+ * chest, a companion and a door, the game chose the chest and the other two
+ * simply did not exist — you could not talk to the beast beside you without
+ * walking away from the box first. Ivan asked for the obvious thing: show them
+ * all and let the player pick.
+ *
+ * The order is still the old priority order, so whatever answered before is
+ * still the first answer and the keyboard shortcut still finds it.
+ */
+function nearbyContextTargets() {
+  const targets = [];
+  const add = (kind, value) => { if (value) targets.push({ kind, value }); };
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const withinReach = (monster) => monster.dead === 0 && cellStepDistance(heroCell, {
+    x: Math.floor(monster.x / TILE),
+    y: Math.floor(monster.y / TILE),
+  }) <= 1;
+
+  add('merchant', nearbyMerchant());
+  add('find', nearbyFind());
+  add('trap', nearbyDetectedTrap());
   const campfire = nearbyCampfire();
-  if (campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0) {
-    return { kind: 'campfire', value: campfire };
-  }
-  const deed = nearbyCampProp('house-deed');
-  if (deed) return { kind: 'house-deed', value: deed };
-  const slot = nearbyCampProp('house-slot');
-  if (slot) return { kind: 'house-slot', value: slot };
-  const houseBed = nearbyCampProp('house-rest');
-  if (houseBed) return { kind: 'house-rest', value: houseBed };
-  const bedroll = nearbyCampProp('camp-rest');
-  if (bedroll) return { kind: 'camp-rest', value: bedroll };
-  const campChest = nearbyCampProp('camp-stash');
-  if (campChest) return { kind: 'camp-stash', value: campChest };
-  const beast = nearbyCompanion();
-  if (beast) return { kind: 'companion', value: beast };
-  const gate = nearbyCityGate();
-  if (gate) return { kind: 'city-gate', value: gate };
-  if (artifactAvailable() && onExitStair()) return { kind: 'road-end', value: dungeon.exit };
-  const cellDoor = nearbyJailDoor();
-  if (cellDoor) return { kind: 'jail-door', value: cellDoor };
-  const priest = monsters.find((monster) => (
-    monster.id === CITY_PRIEST_ID
-    && monster.dead === 0
-    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
-      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
-  ));
-  if (priest) return { kind: 'priest', value: priest };
-  const seated = monsters.find((monster) => (
-    mercenaryIdForHireMonster(monster.id)
-    && monster.dead === 0
-    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
-      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
-  ));
-  if (seated) return { kind: 'tavern-hire', value: seated };
-  const recruiter = monsters.find((monster) => (
-    monster.id === CITY_RECRUITER_ID
-    && monster.dead === 0
-    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
-      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
-  ));
-  if (recruiter) return { kind: 'recruiter', value: recruiter };
-  const guard = nearbyGuard();
-  if (guard) return { kind: 'guard', value: guard };
-  const wildlife = nearbyWildlife();
-  if (wildlife) return { kind: 'wildlife', value: wildlife };
-  if (campfire) return { kind: 'campfire', value: campfire };
-  const door = nearbyDoor();
-  return door ? { kind: 'door', value: door } : null;
+  const canCook = campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0;
+  if (canCook) add('campfire', campfire);
+  add('house-deed', nearbyCampProp('house-deed'));
+  add('house-slot', nearbyCampProp('house-slot'));
+  add('house-rest', nearbyCampProp('house-rest'));
+  add('camp-rest', nearbyCampProp('camp-rest'));
+  add('camp-stash', nearbyCampProp('camp-stash'));
+  add('companion', nearbyCompanion());
+  add('city-gate', nearbyCityGate());
+  if (artifactAvailable() && onExitStair()) add('road-end', dungeon.exit);
+  add('jail-door', nearbyJailDoor());
+  add('priest', monsters.find((monster) => monster.id === CITY_PRIEST_ID && withinReach(monster)));
+  add('tavern-hire', monsters.find((monster) => mercenaryIdForHireMonster(monster.id) && withinReach(monster)));
+  add('recruiter', monsters.find((monster) => monster.id === CITY_RECRUITER_ID && withinReach(monster)));
+  add('guard', nearbyGuard());
+  add('wildlife', nearbyWildlife());
+  // A cold campfire is still something to sit at, it is just not cooking.
+  if (campfire && !canCook) add('campfire', campfire);
+  add('door', nearbyDoor());
+  return targets;
+}
+
+function nearbyContextTarget() {
+  return nearbyContextTargets()[0] ?? null;
 }
 
 function openNearbyContextActions() {
@@ -8927,6 +9008,8 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     closeContextActions();
     if (action.id === 'feed') return feedNearbyCompanion(beast);
     if (action.id === 'treat') return treatNearbyCompanion(beast);
+    if (action.id === 'release') return releaseCompanion(beast);
+    if (action.id === 'attack') return turnOnCompanion(beast);
     return orderNearbyCompanion(beast);
   },
   'hunt-wildlife'({ target, action }) {
@@ -9451,7 +9534,7 @@ function openFloorMap() {
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
   depthBadge.disabled = true;
-  interactActionButton.hidden = true;
+  interactActions.replaceChildren();
   floorMapPointers.clear();
   floorMapGesture = null;
   floorMapModel = buildFloorMapModel();
@@ -14430,6 +14513,7 @@ function updateWorld(delta) {
   }
   updatePassiveCreatures(delta);
   updateAmbientScene(delta);
+  pollInteractionUi(delta);
   updateAllies(delta);
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];
@@ -15336,7 +15420,7 @@ characterSheetLanguageButton.addEventListener('click', () => {
   setInterfaceLanguage(itemDetailLanguage === 'ru' ? 'en' : 'ru');
 });
 bagButton.addEventListener('click', openInventory);
-interactActionButton.addEventListener('click', openNearbyContextActions);
+
 closeMerchantShopButton.addEventListener('click', closeMerchantShop);
 closeChestContainerButton.addEventListener('click', closeChestContainerUi);
 chestContainer.addEventListener('pointerdown', (event) => {

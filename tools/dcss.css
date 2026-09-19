@@ -1401,6 +1401,35 @@ body {
   pointer-events: none;
 }
 
+/*
+ * Everything within reach, stacked upward from the dock.
+ *
+ * There used to be one button here, because the game answered «what is nearby»
+ * with one thing and stopped looking: standing between a chest, a companion and
+ * a door you could only touch the chest. The column grows upward so the newest,
+ * least important thing never pushes the familiar one out from under the thumb.
+ */
+.interact-actions {
+  position: fixed;
+  z-index: 7;
+  left: var(--dock-edge);
+  bottom: calc(var(--dock-floor) + var(--dock-step));
+  display: none;
+  flex-direction: column-reverse;
+  gap: 6px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+[data-screen='game'] .interact-actions {
+  display: flex;
+}
+
+.interact-actions .interact-action {
+  position: static;
+  pointer-events: auto;
+}
+
 .interact-action {
   --context-accent: var(--gold);
   position: fixed;
@@ -1422,6 +1451,11 @@ body {
 }
 
 [data-screen='game'] .interact-action:not([hidden]) {
+  display: grid;
+}
+
+/* Inside the column the buttons place themselves; only the column is anchored. */
+.interact-actions .interact-action {
   display: grid;
 }
 

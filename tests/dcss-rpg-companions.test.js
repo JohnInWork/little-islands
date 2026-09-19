@@ -271,3 +271,41 @@ test('all five companion skills are wired, and the runtime keeps the party', asy
   // cannot reach; only a guard runs after it.
   uses("const chasing = target !== null && !errandMode;");
 });
+
+/**
+ * A companion you can neither send away nor turn on is a companion you are
+ * stuck with — and with no taming skills learned, the panel beside a hired
+ * mercenary had no actions in it at all.
+ */
+test('a companion can always be let go, and can always be turned on', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  const bare = contextActionModel({
+    target: { kind: 'companion', id: 'sellsword', icon: 'mon/unique/edmund.png' },
+  });
+  const ids = bare.actions.map(({ id }) => id);
+  assert.ok(ids.includes('release'), 'nothing lets the beast go');
+  assert.ok(ids.includes('attack'), 'nothing turns on it');
+  assert.ok(bare.actions.every(({ label }) => (label ?? '').length > 0), 'an action with no name');
+
+  // And the skills only add to that list, never replace it.
+  const skilled = contextActionModel({
+    target: {
+      kind: 'companion', id: 'sheep', icon: 'mon/animals/sheep.png',
+      careKnown: true, canFeed: true, treatKnown: true, canTreat: true, orderKnown: true,
+    },
+  });
+  assert.deepEqual(
+    skilled.actions.map(({ id }) => id),
+    ['feed', 'treat', 'order', 'release', 'attack'],
+  );
+
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /if \(action\.id === 'release'\) return releaseCompanion\(beast\);/);
+  assert.match(runtime, /if \(action\.id === 'attack'\) return turnOnCompanion\(beast\);/);
+  // Turning on it makes it an ordinary enemy that the hero has already hit once.
+  const turn = runtime.slice(runtime.indexOf('function turnOnCompanion('));
+  const body = turn.slice(0, turn.indexOf('\nfunction '));
+  assert.match(body, /releaseCompanion\(beast\)/, 'the traitor stays in the party');
+  assert.match(body, /monsters\.push\(turned\)/, 'nothing stands where the companion was');
+  assert.match(body, /damageMonster\(turned/, 'the hero swung and missed entirely');
+});

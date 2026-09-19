@@ -166,6 +166,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     kindleAttacker: () => {},
     // The dungeon's own passers-by touch nothing this file is about.
     updateAmbientScene: () => {},
+    // Neither does the column of things within reach.
+    pollInteractionUi: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     // A run always lives by two conditions; a sandbox lives by none.
     currentConditions: () => ({

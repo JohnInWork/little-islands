@@ -262,20 +262,26 @@ test('inventory list only pans vertically on touch screens', async () => {
   assert.match(css, /\.pack-item\.inventory-row\s*{[^}]*max-width:\s*100%[^}]*min-width:\s*0/s);
 });
 
-test('a thumb-reachable contextual button appears for any adjacent registered object', async () => {
+test('every reachable thing gets its own thumb-reachable button, stacked upward', async () => {
   const [html, css, runtime] = await Promise.all([
     readFile(htmlUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
     readFile(runtimeUrl, 'utf8'),
   ]);
 
-  assert.match(html, /id="interact-action"[\s\S]*id="interact-action-icon"/);
-  assert.match(css, /\.interact-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*width:\s*var\(--dock-button\)[^}]*height:\s*var\(--dock-button\)/s);
-  assert.match(css, /\[data-screen='game'\] \.interact-action:not\(\[hidden\]\)/);
+  // The column is the anchored thing now; the buttons inside it are made one per
+  // reachable target. The game used to answer «what is nearby» with one thing
+  // and stop looking, so a hero between a chest, a companion and a door could
+  // only touch the chest.
+  assert.match(html, /id="interact-actions"/);
+  assert.match(css, /\.interact-actions\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*flex-direction:\s*column-reverse/s);
+  assert.match(css, /\.interact-action\s*{[^}]*width:\s*var\(--dock-button\)[^}]*height:\s*var\(--dock-button\)/s);
   assert.match(css, /@media \(orientation: landscape\)[\s\S]*\.interact-action\s*{[^}]*left:\s*max\(12px[^}]*bottom:\s*max\(86px/s);
   assert.match(runtime, /function updateInteractionUi\(\)/);
-  assert.match(runtime, /const target = ready[\s\S]*\? nearbyContextTarget\(\)/);
-  assert.match(runtime, /interactActionButton\.addEventListener\('click', openNearbyContextActions\)/);
+  assert.match(runtime, /const targets = ready[\s\S]*\? nearbyContextTargets\(\)\.slice\(0, INTERACT_COLUMN_LIMIT\)/);
+  assert.match(runtime, /button\.addEventListener\('click', \(\) => openContextActions\(target\)\)/);
+  // And the first of them is still what the keyboard and the old code reach.
+  assert.match(runtime, /function nearbyContextTarget\(\) \{\s*return nearbyContextTargets\(\)\[0\] \?\? null;/);
   assert.match(runtime, /function startGameFromMenu\(\)[\s\S]*updateInteractionUi\(\)[\s\S]*startGameButton\.blur\(\)/);
   assert.match(runtime, /if \(heroCellKey !== lastHeroCell\)[\s\S]*updateInteractionUi\(\)/);
 });

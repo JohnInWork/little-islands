@@ -22,6 +22,7 @@ const ACTION_COPY = Object.freeze({
     feed: 'Покормить',
     treat: 'Перевязать',
     order: 'Приказ',
+    release: 'Отпустить',
     cook: 'Приготовить',
     brew: 'Сварить',
     rest: 'Отдохнуть',
@@ -67,6 +68,7 @@ const ACTION_COPY = Object.freeze({
     feed: 'Feed',
     treat: 'Bandage',
     order: 'Order',
+    release: 'Release',
     cook: 'Cook',
     brew: 'Brew',
     rest: 'Rest',
@@ -114,6 +116,7 @@ const GLYPHS = Object.freeze({
   feed: '◆',
   treat: '✚',
   order: '➤',
+  release: '↩',
   cook: '♨',
   brew: '⚗',
   rest: '☾',
@@ -590,6 +593,11 @@ export const INTERACTION_REGISTRY = Object.freeze([
           ? [{ id: 'treat', enabled: target.canTreat === true, hint: target.canTreat ? '' : target.treatHint ?? '' }]
           : []),
         ...(target.orderKnown ? [{ id: 'order' }] : []),
+        // Always both, whatever the hero has learned. A companion you can
+        // neither send away nor turn on is a companion you are stuck with —
+        // and with no taming skills the panel had no actions in it at all.
+        { id: 'release' },
+        { id: 'attack' },
       ],
     }),
   }),
