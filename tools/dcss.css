@@ -2784,8 +2784,50 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   background: #182125;
+  /* Строка стала кнопкой выбора: кнопка по умолчанию центрирует содержимое,
+     а нужен тот же ряд списка, что и был. Рамку и губу карточные кнопки в
+     проекте носят по общему правилу — «на что жмут, то выглядит нажимаемым»,
+     — но сорок восемь поднятых плашек подряд кричат, поэтому тише. */
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-color: #2a343a;
+  box-shadow:
+    inset 0 2px 0 rgb(240 255 250 / 6%),
+    inset 0 -3px 0 rgb(0 0 0 / 30%),
+    0 2px 0 #05090a;
+}
+
+.character-skill-row > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+/* Название слева, ветка под ним, состояние — справа мелким. */
+.character-skill-row > div > p {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+  color: #8d9794;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.character-skill-row .skill-branch {
+  grid-column: 1;
+}
+
+.character-skill-row:focus-visible {
+  outline: 4px solid var(--bone);
+  outline-offset: -4px;
 }
 
 .character-skill-row strong {
@@ -2822,6 +2864,115 @@ body {
 }
 
 .character-skill-row button:focus-visible {
+  outline: 4px solid var(--bone);
+  outline-offset: 2px;
+}
+
+/* Ветка школы. Ранги строго последовательны — третья ступень алхимии не
+   существует без второй, — и прямая линия узлов это и есть честная форма
+   правила. Иван просил дерево и сказал, что прямой ветки пока хватит. */
+.skill-branch {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 6px 0 0;
+}
+
+.skill-branch i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  background: #2b3539;
+  box-shadow: inset 0 0 0 1px #121a1d;
+}
+
+.skill-branch i + i::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 3px;
+  margin: 3px 0 0 -10px;
+  background: #2b3539;
+}
+
+.skill-branch i[data-node='trained'] {
+  background: #c9a84f;
+}
+
+/* Одолженное книгой отличается от выученного: оно уйдёт вместе с книгой. */
+.skill-branch i[data-node='granted'] {
+  background: #6f8fb8;
+}
+
+.skill-branch i[data-node='open'] {
+  background: #4a5a44;
+  box-shadow: inset 0 0 0 1px #9cc07a;
+}
+
+.skill-branch i + i {
+  margin-left: 10px;
+}
+
+.character-skill-row[aria-pressed='true'] {
+  background: #24313a;
+  border-color: #82713a;
+}
+
+.character-skill-detail {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px;
+  background: #182125;
+}
+
+.character-skill-detail strong {
+  color: var(--bone);
+  font-size: 13px;
+}
+
+.character-skill-detail p {
+  margin: 0;
+  color: #9faaa8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.character-skill-detail small {
+  color: #8d9794;
+  font-size: 11px;
+}
+
+.character-skill-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.character-skill-detail-actions button {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  background: #253035;
+  color: #dfe7e4;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.character-skill-detail-actions button.primary {
+  background: #82713a;
+  color: #f0e7cf;
+}
+
+.character-skill-detail-actions button:disabled {
+  background: #1e272b;
+  color: #8d9794;
+  cursor: default;
+}
+
+.character-skill-detail-actions button:focus-visible {
   outline: 4px solid var(--bone);
   outline-offset: 2px;
 }

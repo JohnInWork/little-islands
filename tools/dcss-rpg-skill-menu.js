@@ -24,6 +24,10 @@ const COPY = Object.freeze({
     notPlaying: 'Доступно во время забега',
     needsSleep: 'Сначала выспись: в лагере, дома или на постоялом дворе',
     unavailable: 'Недоступно',
+    cancel: 'Отмена',
+    cost: 'Стоит 1 очко навыка',
+    nextRank: (rank) => `Следующая ступень — ${rank}-я`,
+    rankNeeds: (rank, level) => `${rank}-я ступень открывается на ${level} уровне`,
   }),
   en: Object.freeze({
     title: 'Skills',
@@ -39,6 +43,10 @@ const COPY = Object.freeze({
     notPlaying: 'Available during a run',
     needsSleep: 'Sleep on it first: a camp, a bed at home, or an inn',
     unavailable: 'Unavailable',
+    cancel: 'Cancel',
+    cost: 'Costs 1 skill point',
+    nextRank: (rank) => `Next step is rank ${rank}`,
+    rankNeeds: (rank, level) => `Rank ${rank} opens at level ${level}`,
   }),
 });
 
@@ -54,6 +62,31 @@ function reasonLabel(reason, definition, rank, copy, availability = {}) {
     case 'needs-sleep': return copy.needsSleep;
     default: return copy.unavailable;
   }
+}
+
+/**
+ * A school drawn as a straight branch.
+ *
+ * Ivan asked to see the ranks as a tree and said a straight branch is enough
+ * for now. The branch is the honest shape of the rule: ranks are strictly
+ * sequential, so the third rank of alchemy cannot exist without the second.
+ * Each node says which of the four things it is — already trained, lent by a
+ * book, reachable now, or waiting for a higher level — and the view draws it.
+ */
+function skillBranch({ definition, trainedRank, effectiveRank, heroLevel }) {
+  const nodes = [];
+  for (let rank = 1; rank <= definition.maxRank; rank += 1) {
+    const needs = definition.rankLevels[rank - 1];
+    const state = rank <= trainedRank
+      ? 'trained'
+      : rank <= effectiveRank
+        ? 'granted'
+        : rank === trainedRank + 1 && heroLevel >= needs
+          ? 'open'
+          : 'locked';
+    nodes.push(Object.freeze({ rank, state, requiredLevel: needs }));
+  }
+  return Object.freeze(nodes);
 }
 
 /**
@@ -107,6 +140,13 @@ export function skillMenuModel({
           : learned;
         const isMaxRank = rank >= definition.maxRank;
         const canLearn = availability.ok && !isMaxRank;
+        const branch = skillBranch({
+          definition,
+          trainedRank,
+          effectiveRank: rank,
+          heroLevel,
+        });
+        const upcoming = branch.find(({ state }) => state === 'open' || state === 'locked') ?? null;
         return Object.freeze({
           id: definition.id,
           name: definition.name[locale],
@@ -120,6 +160,15 @@ export function skillMenuModel({
           maxRank: definition.maxRank,
           nextRank: isMaxRank ? null : rank + 1,
           canLearn,
+          branch,
+          // «Что я получу и когда» — the question a point is spent against.
+          nextRankNote: upcoming === null
+            ? copy.maxRank
+            : upcoming.state === 'open'
+              ? copy.nextRank(upcoming.rank)
+              : copy.rankNeeds(upcoming.rank, upcoming.requiredLevel),
+          costLabel: copy.cost,
+          cancelLabel: copy.cancel,
           actionLabel: isMaxRank ? copy.mastered : trainedRank === 0 ? copy.learn : copy.upgrade,
           reasonLabel: isMaxRank
             ? copy.maxRank

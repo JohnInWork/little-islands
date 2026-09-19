@@ -683,6 +683,14 @@ const characterSkills = document.querySelector('#character-skills');
 const characterSkillsTitle = document.querySelector('#character-skills-title');
 const characterSkillPoints = document.querySelector('#character-skill-points');
 const characterSkillGroups = document.querySelector('#character-skill-groups');
+const characterSkillDetail = document.querySelector('#character-skill-detail');
+const characterSkillDetailName = document.querySelector('#character-skill-detail-name');
+const characterSkillDetailBranch = document.querySelector('#character-skill-detail-branch');
+const characterSkillDetailText = document.querySelector('#character-skill-detail-text');
+const characterSkillDetailNext = document.querySelector('#character-skill-detail-next');
+const characterSkillDetailCost = document.querySelector('#character-skill-detail-cost');
+const characterSkillLearn = document.querySelector('#character-skill-learn');
+const characterSkillCancel = document.querySelector('#character-skill-cancel');
 const characterSpells = document.querySelector('#character-spells');
 const characterSpellsTitle = document.querySelector('#character-spells-title');
 const characterSpellsHint = document.querySelector('#character-spells-hint');
@@ -3260,6 +3268,23 @@ function learnHeroSkill(skillId, expectedRank) {
   return result;
 }
 
+/** Which skill the player is reading about. A point is spent on purpose, not by a stray tap. */
+let selectedSkillId = null;
+
+/** The branch of a school, drawn as pixel nodes joined by a line. */
+function renderSkillBranch(target, branch) {
+  target.replaceChildren(...branch.map((node) => {
+    const pip = document.createElement('i');
+    pip.dataset.node = node.state;
+    return pip;
+  }));
+}
+
+function clearSkillSelection() {
+  selectedSkillId = null;
+  characterSkillDetail.hidden = true;
+}
+
 function renderCharacterSkills() {
   const model = skillMenuModel({
     state: hero.skills,
@@ -3280,35 +3305,82 @@ function renderCharacterSkills() {
     heading.textContent = group.label;
     section.append(heading);
     for (const skill of group.skills) {
-      const row = document.createElement('article');
+      // A row is now a choice, not a purchase: the tap opens the card below and
+      // the point leaves the pocket only on «Изучить». The same fix the shop
+      // got — «магазин: тап покупает мгновенно» was the same complaint.
+      const row = document.createElement('button');
+      row.type = 'button';
       row.className = 'character-skill-row';
+      row.dataset.skillId = skill.id;
+      row.setAttribute('aria-pressed', String(selectedSkillId === skill.id));
       const details = document.createElement('div');
       const name = document.createElement('strong');
       name.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}${skill.rankAdjustmentLabel ? ` · ${skill.rankAdjustmentLabel}` : ''}`;
-      const description = document.createElement('p');
-      description.textContent = skill.description;
-      details.append(name, description);
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.skillId = skill.id;
-      button.disabled = !skill.canLearn;
-      button.textContent = skill.canLearn ? skill.actionLabel : skill.reasonLabel;
-      button.setAttribute('aria-label', `${skill.name}: ${button.textContent}`);
-      button.addEventListener('click', () => {
-        if (uiScreen !== 'character' || hero.dead || runStatus !== 'playing') return;
-        const result = learnHeroSkill(skill.id, skill.trainedRank);
-        if (!result.ok) return;
-        renderCharacterSheet();
-        const nextButton = [...characterSkills.querySelectorAll('button')]
-          .find((candidate) => candidate.dataset.skillId === skill.id && !candidate.disabled);
-        (nextButton ?? closeCharacterSheetButton).focus();
-      });
-      row.append(details, button);
+      const branch = document.createElement('div');
+      branch.className = 'skill-branch';
+      branch.setAttribute('aria-hidden', 'true');
+      renderSkillBranch(branch, skill.branch);
+      details.append(name, branch);
+      const state = document.createElement('p');
+      state.textContent = skill.canLearn ? skill.actionLabel : skill.reasonLabel;
+      details.append(state);
+      row.setAttribute('aria-label', `${skill.name}. ${skill.nextRankNote}. ${state.textContent}`);
+      row.append(details);
+      row.addEventListener('click', () => selectSkill(skill));
       section.append(row);
     }
     return section;
   }));
+  const selected = model.groups
+    .flatMap(({ skills }) => skills)
+    .find(({ id }) => id === selectedSkillId) ?? null;
+  if (selected) showSkillCard(selected);
+  else clearSkillSelection();
 }
+
+/** Reading about a skill costs nothing; that is the whole point of the step. */
+function selectSkill(skill) {
+  selectedSkillId = skill.id;
+  for (const row of characterSkillGroups.querySelectorAll('.character-skill-row')) {
+    row.setAttribute('aria-pressed', String(row.dataset.skillId === skill.id));
+  }
+  showSkillCard(skill);
+  requestAnimationFrame(() => (skill.canLearn ? characterSkillLearn : characterSkillCancel).focus());
+}
+
+function showSkillCard(skill) {
+  characterSkillDetail.hidden = false;
+  characterSkillDetailName.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}`;
+  renderSkillBranch(characterSkillDetailBranch, skill.branch);
+  characterSkillDetailText.textContent = skill.description;
+  characterSkillDetailNext.textContent = skill.nextRankNote;
+  characterSkillDetailCost.textContent = skill.costLabel;
+  characterSkillLearn.textContent = skill.canLearn ? skill.actionLabel : skill.reasonLabel;
+  characterSkillLearn.disabled = !skill.canLearn;
+  characterSkillLearn.dataset.skillId = skill.id;
+  characterSkillLearn.dataset.expectedRank = String(skill.trainedRank);
+  characterSkillCancel.textContent = skill.cancelLabel;
+}
+
+characterSkillCancel.addEventListener('click', () => {
+  clearSkillSelection();
+  for (const row of characterSkillGroups.querySelectorAll('.character-skill-row')) {
+    row.setAttribute('aria-pressed', 'false');
+  }
+  closeCharacterSheetButton.focus();
+});
+
+characterSkillLearn.addEventListener('click', () => {
+  if (uiScreen !== 'character' || hero.dead || runStatus !== 'playing') return;
+  const skillId = characterSkillLearn.dataset.skillId;
+  const expectedRank = Number(characterSkillLearn.dataset.expectedRank);
+  if (!skillId || !Number.isInteger(expectedRank)) return;
+  const result = learnHeroSkill(skillId, expectedRank);
+  if (!result.ok) return;
+  // The card stays open on the skill just learned, now showing the next step.
+  renderCharacterSheet();
+  characterSkillLearn.focus();
+});
 
 function spellCooldownSnapshot() {
   return Object.fromEntries(Object.entries(spellCooldowns).map(([id, seconds]) => [id, seconds]));

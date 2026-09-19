@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { skillMenuModel } from '../tools/dcss-rpg-skill-menu.js';
 import { createSkillState, learnSkill } from '../tools/dcss-rpg-skills.js';
 
@@ -195,6 +196,16 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
     description: 'Обнаруживает механические ловушки в радиусе 2/3/4 клеток. Не видит сквозь стены и не обезвреживает.',
     rank: 0, trainedRank: 0, rankAdjustment: 0, rankAdjustmentLabel: '', maxRank: 3, nextRank: 1,
     canLearn: true, actionLabel: 'Изучить', reasonLabel: '',
+    // The straight branch Ivan asked to see: three nodes, the first reachable
+    // now and the other two waiting for their level.
+    branch: [
+      { rank: 1, state: 'open', requiredLevel: 2 },
+      { rank: 2, state: 'locked', requiredLevel: 4 },
+      { rank: 3, state: 'locked', requiredLevel: 6 },
+    ],
+    nextRankNote: 'Следующая ступень — 1-я',
+    costLabel: 'Стоит 1 очко навыка',
+    cancelLabel: 'Отмена',
   });
   const en = skillMenuModel({ ...options(), language: 'en' });
   assert.equal(en.title, 'Skills');
@@ -271,4 +282,29 @@ test('model is deeply frozen without mutating or freezing caller state', () => {
   assert.equal(Object.isFrozen(state.ranks), false);
   assert.equal(Object.isFrozen(implementations), false);
   assert.throws(() => skillMenuModel(options(state, 10)), /skill state/i);
+});
+
+test('a skill point is spent on purpose: the row reads, the card confirms', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
+  ]);
+  // «Тап по навыку открывает описание, потом изучить или отмена» — the same
+  // complaint the shop got, and the same answer.
+  for (const id of ['character-skill-detail', 'character-skill-learn', 'character-skill-cancel']) {
+    assert.ok(html.includes(`id="${id}"`), `${id} is missing`);
+  }
+  assert.match(runtime, /row\.addEventListener\('click', \(\) => selectSkill\(skill\)\)/);
+  assert.match(runtime, /characterSkillLearn\.addEventListener\('click'/);
+  assert.match(runtime, /characterSkillCancel\.addEventListener\('click'/);
+  // Selecting must not learn: only the confirm button may call learnHeroSkill.
+  const select = runtime.slice(runtime.indexOf('function selectSkill('), runtime.indexOf('function showSkillCard('));
+  assert.doesNotMatch(select, /learnHeroSkill/, 'reading about a skill spends a point');
+  // And the branch is drawn from the model rather than invented in the view.
+  assert.match(runtime, /function renderSkillBranch\(/);
+  assert.match(runtime, /pip\.dataset\.node = node\.state/);
+  for (const state of ['trained', 'granted', 'open']) {
+    assert.ok(css.includes(`.skill-branch i[data-node='${state}']`), `${state} node has no look`);
+  }
 });
