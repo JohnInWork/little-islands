@@ -618,10 +618,28 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     const planeScale = (actor.size * groundVerticalScale) / tileSize;
     const verticalPixelsPerUnit =
       (tileSize * Math.cos(elevationRadians)) / groundVerticalScale;
-    const depthBias = WORLD_BILLBOARD_DEPTH_BIAS + (actor.depthBias ?? 0);
+    /**
+     * A sprite sorts by the cell it stands on, not by how high it was lifted.
+     *
+     * `screenOffsetY` raises a sprite, and in a tilted view raising something
+     * brings it closer to the camera — so the taller and higher a prop was
+     * drawn, the more it won the depth test against things genuinely in front
+     * of it. The tavern hearth is lifted twenty pixels and ninety-two tall,
+     * and it painted over a hero standing a whole cell nearer the camera:
+     * «камин рисуется поверх персонажей, стоишь как будто слоем ниже».
+     *
+     * `depthBias` moves a sprite along the view axis, which changes depth
+     * without moving it on screen. Cancelling exactly the depth the lift
+     * introduced leaves the picture untouched and puts the order back on the
+     * ground, where the player reads it.
+     */
+    const lift = -actor.screenOffsetY / verticalPixelsPerUnit;
+    const depthBias = WORLD_BILLBOARD_DEPTH_BIAS
+      + (actor.depthBias ?? 0)
+      - lift * Math.sin(elevationRadians);
     entry.sprite.position.set(
       (actor.x / tileSize) * groundVerticalScale,
-      -actor.screenOffsetY / verticalPixelsPerUnit + depthBias * Math.sin(elevationRadians),
+      lift + depthBias * Math.sin(elevationRadians),
       actor.y / tileSize + depthBias * Math.cos(elevationRadians),
     );
     entry.sprite.scale.set(

@@ -119,7 +119,12 @@ test('runtime sends decorations through the depth-tested 3D world and gives ligh
   // alone: giving it to some sprites only reorders them in front of the hero.
   assert.doesNotMatch(runtime, /depthBias: WORLD_DECORATION_DEPTH_BIAS/);
   const world3dSource = readFileSync(new URL('../tools/dcss-rpg-world3d.js', import.meta.url), 'utf8');
-  assert.match(world3dSource, /WORLD_BILLBOARD_DEPTH_BIAS \+ \(actor\.depthBias \?\? 0\)/);
+  assert.match(world3dSource, /WORLD_BILLBOARD_DEPTH_BIAS\s*\+ \(actor\.depthBias \?\? 0\)/);
+  // And a sprite sorts by the cell it stands on: raising one in a tilted view
+  // brings it toward the camera, which is how a tall hearth came to paint over
+  // a hero standing a whole cell in front of it.
+  assert.match(world3dSource, /- lift \* Math\.sin\(elevationRadians\)/);
+  assert.match(world3dSource, /const lift = -actor\.screenOffsetY \/ verticalPixelsPerUnit;/);
   assert.match(runtime, /filter\(\(\{ light \}\) => light\)/);
   assert.match(world3d, /decorations = \[\]/);
   assert.match(world3d, /decoration:\$\{decoration\.id\}/);
