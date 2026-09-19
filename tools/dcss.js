@@ -151,6 +151,7 @@ import {
   dominantCardinalDirection,
 } from './dcss-rpg-input.js';
 import {
+  WORLD_CAMERA_ELEVATION,
   WORLD_WALL_HEIGHT,
   createDungeonWorld3D,
 } from './dcss-rpg-world3d.js';
@@ -4765,6 +4766,20 @@ function stepAsideForHero(scenery) {
   });
 }
 
+/**
+ * How high a sprite has to sit to stand on its cell instead of in it.
+ *
+ * A billboard is centred on its position, so a gateway placed at floor level
+ * is buried to the waist — Ivan saw the down stair «провалится сквозь пол
+ * наполовину». Half the sprite, foreshortened by the camera's tilt, is exactly
+ * the lift that puts its base on the ground. Actors carry hand-tuned offsets
+ * of their own because their feet are not at the bottom of their frame; a
+ * doorway's are.
+ */
+function groundLift(size) {
+  return -(size / 2) * Math.cos((WORLD_CAMERA_ELEVATION * Math.PI) / 180);
+}
+
 function worldMarkers3D() {
   const markers = [];
   if (dungeon.sanctuary && revealed.has(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`)) {
@@ -4784,7 +4799,6 @@ function worldMarkers3D() {
     });
   }
   if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
     const finalFloor = dungeon.depth === STORY_DEPTH;
     const chapterGateLocked = Boolean(
       dungeon.objective && !finalFloor && !objectiveBossDefeated(),
@@ -4803,7 +4817,10 @@ function worldMarkers3D() {
       y: (dungeon.exit.y + 0.5) * TILE,
       size: (artifactAvailable() ? 54 : 64) * visual.scale,
       facing: 1,
-      screenOffsetY: visual.offsetY + pulse,
+      // Masonry does not hover. The stair used to bob on a sine like the
+      // artifact does, which read as a bug rather than as a beacon — and the
+      // stair up, right beside it, never bobbed at all.
+      screenOffsetY: visual.offsetY + groundLift((artifactAvailable() ? 54 : 64) * visual.scale),
       opacity: 1,
       hit: false,
       shadowScale: 0.7,
@@ -4824,7 +4841,7 @@ function worldMarkers3D() {
         y: (gate.y + 0.5) * TILE,
         size: 62,
         facing: 1,
-        screenOffsetY: -6 + (reducedMotion ? 0 : Math.sin(elapsed * 2.2 + gate.x) * 2),
+        screenOffsetY: groundLift(62),
         opacity: 1,
         hit: false,
         shadowScale: 0.7,
@@ -4845,7 +4862,7 @@ function worldMarkers3D() {
       y: (dungeon.spawn.y + 0.5) * TILE,
       size: 64 * ascentVisual.scale,
       facing: 1,
-      screenOffsetY: ascentVisual.offsetY,
+      screenOffsetY: ascentVisual.offsetY + groundLift(64 * ascentVisual.scale),
       opacity: 1,
       hit: false,
       shadowScale: 0.7,

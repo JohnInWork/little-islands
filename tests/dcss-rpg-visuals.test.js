@@ -264,3 +264,37 @@ test('the ground of a place is all one tone', () => {
     );
   }
 });
+
+/**
+ * A staircase is masonry.
+ *
+ * Ivan, on his phone: «иконка спуска вниз какая-то зелёная… и она как будто
+ * вверх-вниз летает и проваливается сквозь пол наполовину». All three were
+ * true: the tile was a green magical seal, the marker rode a sine nothing else
+ * on the floor rode, and a billboard centred on its cell is buried to the
+ * waist.
+ */
+test('the way down is stone, stands on its cell and does not hover', async () => {
+  const { EXIT_PATH, ASCENT_PATH } = await import('../tools/dcss-rpg-content.js');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const preview = new URL('../public/assets/dcss-preview/', import.meta.url);
+
+  for (const path of [EXIT_PATH, ASCENT_PATH]) {
+    await access(new URL(path, preview));
+    assert.doesNotMatch(path, /sealed_stairs/, `${path} is the green seal, not a stair`);
+  }
+  assert.notEqual(EXIT_PATH, ASCENT_PATH, 'up and down must never look the same');
+
+  // Half the sprite, foreshortened by the camera: the one rule that puts a
+  // doorway on the ground instead of in it.
+  assert.match(runtime, /function groundLift\(size\) \{\s*return -\(size \/ 2\) \* Math\.cos\(/);
+  const markers = runtime.slice(runtime.indexOf('function worldMarkers3D()'));
+  const body = markers.slice(0, markers.indexOf('\nfunction '));
+  for (const marker of ['marker:exit', 'marker:ascent', 'marker:gate']) {
+    const at = body.indexOf(marker);
+    assert.ok(at > 0, `${marker} is gone`);
+    const entry = body.slice(at, body.indexOf('});', at));
+    assert.match(entry, /screenOffsetY:[^\n]*groundLift\(/, `${marker} is buried in the floor`);
+    assert.doesNotMatch(entry, /Math\.sin\(elapsed/, `${marker} hovers`);
+  }
+});

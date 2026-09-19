@@ -3247,7 +3247,15 @@ export const EVENT_CATALOG = Object.freeze([
   },
 ]);
 
-export const EXIT_PATH = 'dngn/gateways/sealed_stairs_down.png';
+/**
+ * Спуск. Не `sealed_stairs_down`: та плитка ярко-зелёная — это печать на
+ * лестнице, а не лестница, и Иван увидел это первым же взглядом. В паке,
+ * который едет с игрой, настоящей каменной лестницы нет вообще: есть только
+ * зелёная запечатанная вниз, такая же вверх и фиолетовый портал бездны.
+ * Пока стоит каменная арка с красными огнями — её ни с чем не спутать рядом
+ * с серой аркой подъёма.
+ */
+export const EXIT_PATH = 'dngn/gateways/enter_depths.png';
 /**
  * The way back up. Deliberately not the twin of the down stair: the two sit on
  * one floor, and a player must never confuse them at a glance on a phone.
