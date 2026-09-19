@@ -28,6 +28,7 @@ import {
 import { CITY_DEPTHS } from '../tools/dcss-rpg-city.js';
 import { lootById } from '../tools/dcss-rpg-content.js';
 import { itemDetails } from '../tools/dcss-rpg-item-details.js';
+import { generatedItemDescription } from '../tools/dcss-rpg-item-description.js';
 import {
   SAVE_VERSION,
   advanceRunFloor,
@@ -219,4 +220,48 @@ test('the runtime sells the plot, furnishes it and walks the stone both ways', a
     /export function travelRunToDepth[\s\S]*house: createHouseState\(snapshot\.house\)/,
     'travel carries the deed',
   );
+});
+
+/**
+ * The stone is a door, not an exit. It anchors the floor and the tile it left
+ * and promises to put the hero back on them — and the floor memory added with
+ * the endless descent broke exactly that: from floor fifteen the city is
+ * fifteen floors away, further than the dungeon remembers, so the anchored
+ * floor was thrown out and came back fresh. Monsters alive again, chests
+ * unopened again. A promise and a loot exploit in one.
+ */
+test('the floor the stone anchored is remembered however far away it is', () => {
+  let run = createRun(31, generateDungeon({ seed: 31, depth: 1 }));
+  for (let step = 1; step < 15; step += 1) run = advanceRunFloor(run);
+  assert.equal(run.depth, 15);
+  run.floor.defeated = [generateDungeon({ seed: run.seed, depth: 15 }).monsters[0].instanceId];
+  const left = [...run.floor.defeated];
+  run.house = owned([], { depth: 15, x: run.hero.x, y: run.hero.y });
+
+  const home = travelRunToDepth(run, cityDepth, null);
+  assert.ok(Object.hasOwn(home.floors, '15'), 'этаж, с которого ушли домой, забыт');
+  assert.equal(validateRun(home), true);
+
+  const back = travelRunToDepth(home, 15, { x: run.hero.x, y: run.hero.y });
+  assert.deepEqual(back.floor.defeated, left, 'вернулись на переделанный этаж');
+  assert.equal(validateRun(back), true);
+
+  // And an ordinary far floor with no anchor on it is still let go: the
+  // exception is the promise, not a hole in the rule.
+  const noAnchor = travelRunToDepth({ ...run, house: owned([]) }, cityDepth, null);
+  assert.equal(Object.hasOwn(noAnchor.floors, '15'), false);
+});
+
+test('the way back is pulled from town, not from one particular room', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const body = runtime.match(/function useHomeStone\(\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body ?? '';
+  assert.ok(body.length > 0);
+  // Anywhere in the city with an anchor set returns the hero; standing in the
+  // bedroom was friction with no decision in it.
+  assert.match(body, /isCityDepth\(dungeon\.depth\) && run\.house\.anchor/);
+  assert.match(body, /returnFromHouse\(\{ house: run\.house \}\)/);
+  assert.match(body, /travelRunToDepth\(captureRun\(\), back\.anchor\.depth/);
+  // And the item says it works both ways, or nobody finds out that it does.
+  const ru = generatedItemDescription(lootById(HOME_STONE_ITEM_ID), 'ru').summary;
+  assert.match(ru, /обратно/);
 });

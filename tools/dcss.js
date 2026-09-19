@@ -12471,7 +12471,11 @@ function heroInsideHouse() {
  */
 function useHomeStone() {
   if (run.crime.jailed) return crimeRefusalText('in-cell', itemDetailLanguage);
-  if (heroInsideHouse()) {
+  // The thread back is pulled from town, not from one particular room. Making
+  // the hero walk into their own bedroom to use it was friction with no
+  // decision in it — and the refusal they got out in the street said only
+  // «сейчас нельзя», which explains nothing.
+  if (isCityDepth(dungeon.depth) && run.house.anchor) {
     const back = returnFromHouse({ house: run.house });
     if (!back.ok) return houseRefusalText(back.reason, itemDetailLanguage);
     run.house = back.house;

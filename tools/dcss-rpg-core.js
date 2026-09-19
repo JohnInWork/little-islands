@@ -1455,21 +1455,34 @@ const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
  */
 export const FLOOR_MEMORY = FLOORS_PER_CHAPTER;
 
-function withinFloorMemory(depth, currentDepth) {
-  return depth === CITY_DEPTH || Math.abs(depth - currentDepth) <= FLOOR_MEMORY;
+/**
+ * The home stone is the one thing that jumps further than the dungeon
+ * remembers. It anchors the floor it left and promises to put the hero back on
+ * that exact spot — so that floor is kept however far away it is, or the
+ * promise is a lie and the chests you already opened are full again.
+ */
+function anchoredDepth(snapshot) {
+  const depth = snapshot?.house?.anchor?.depth;
+  return Number.isInteger(depth) ? depth : null;
+}
+
+function withinFloorMemory(depth, currentDepth, anchorDepth = null) {
+  return depth === CITY_DEPTH
+    || depth === anchorDepth
+    || Math.abs(depth - currentDepth) <= FLOOR_MEMORY;
 }
 
 /**
  * Keeps only well-formed floors, never the one the hero stands on, and never
  * more than the dungeon can remember.
  */
-function normalizedFloorArchive(source, currentDepth) {
+function normalizedFloorArchive(source, currentDepth, anchorDepth = null) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
   const archive = {};
   for (const [key, floor] of Object.entries(source)) {
     const depth = Number(key);
     if (!isFiniteInteger(depth, CITY_DEPTH, DEEPEST_DEPTH) || depth === currentDepth) continue;
-    if (!withinFloorMemory(depth, currentDepth)) continue;
+    if (!withinFloorMemory(depth, currentDepth, anchorDepth)) continue;
     if (!validateFloorShape(floor, depth)) continue;
     archive[key] = floor;
   }
@@ -1540,7 +1553,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -1666,7 +1679,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -1807,7 +1820,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -1926,7 +1939,7 @@ export function migrateLegacyRun(snapshot) {
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
   migrated.house = createHouseState(migrated.house);
   // v42 remembers the floors the hero has left; a migrated run remembers none.
-  migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth);
+  migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
   // v43 lets the city keep a record; a migrated hero has none.
   migrated.crime = createCrimeState(migrated.crime);
   // v44 lets a beast walk with the hero; a migrated run walks alone.
@@ -2176,7 +2189,8 @@ export function validateRun(snapshot) {
     return false;
   }
   const archivedDepths = Object.keys(snapshot.floors);
-  if (archivedDepths.length > FLOOR_MEMORY * 2 + 1) return false;
+  // The chapter either side, the city, and the floor the home stone anchored.
+  if (archivedDepths.length > FLOOR_MEMORY * 2 + 2) return false;
   for (const key of archivedDepths) {
     const archivedDepth = Number(key);
     if (!isFiniteInteger(archivedDepth, CITY_DEPTH, DEEPEST_DEPTH)) return false;
@@ -2376,9 +2390,11 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   const remembered = floors[String(depth)] ?? null;
   delete floors[String(depth)];
   // Everything further than the dungeon remembers is let go here, at the one
-  // place a floor ever enters the archive.
+  // place a floor ever enters the archive — the anchored floor excepted, since
+  // the stone promised to put the hero back on it.
+  const anchor = anchoredDepth(snapshot);
   for (const key of Object.keys(floors)) {
-    if (!withinFloorMemory(Number(key), depth)) delete floors[key];
+    if (!withinFloorMemory(Number(key), depth, anchor)) delete floors[key];
   }
   const landing = arrival && isWalkableCell(dungeon.grid, arrival.x, arrival.y)
     ? { x: arrival.x, y: arrival.y }
