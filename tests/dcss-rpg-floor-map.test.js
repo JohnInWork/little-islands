@@ -16,6 +16,7 @@ import {
   floorMapTapAction,
   panFloorMapView,
   zoomFloorMapView,
+  floorMapLegend,
 } from '../tools/dcss-rpg-floor-map.js';
 
 const VIEWPORT = Object.freeze({ width: 360, height: 520 });
@@ -177,4 +178,44 @@ test('map copy is bilingual and the runtime binds the map through the depth tile
   assert.match(css, /\[data-screen='map'\] \.floor-map\s*{[^}]*visibility:\s*visible/s);
   assert.match(css, /\.floor-map-canvas\s*{[^}]*touch-action:\s*none/s);
   assert.match(css, /\[data-screen='map'\] \.move-control/);
+});
+
+/**
+ * The map drew fourteen kinds of thing as coloured shapes and never said which
+ * was which, so the only way to learn that the orange cross is a trap was to
+ * walk onto one.
+ */
+test('the map can say what its marks mean, and the way up is one of them', () => {
+  // The way back up had a shape and a place, but the kind was never allowed
+  // through the filter: the runtime pushed the marker and the map dropped it.
+  assert.ok(FLOOR_MAP_MARKER_KINDS.includes('ascent'), 'the way up is invisible again');
+  assert.ok(FLOOR_MAP_COLORS.ascent, 'the way up has no colour of its own');
+  const model = createFloorMapModel({
+    grid: [['#', '#', '#'], ['#', '.', '#'], ['#', '#', '#']],
+    revealed: new Set(['1,1']),
+    hero: { x: 1, y: 1 },
+    markers: [{ kind: 'ascent', x: 1, y: 1 }],
+  });
+  assert.equal(model.markers.filter(({ kind }) => kind === 'ascent').length, 1, 'the map still drops it');
+
+  for (const language of ['ru', 'en']) {
+    const legend = floorMapLegend(language);
+    assert.ok(legend.length >= 15, `${language}: too few marks explained`);
+    for (const row of legend) {
+      assert.ok(row.label.length > 1, `${row.kind}/${language} has no name`);
+      assert.match(row.color, /^#[0-9a-f]{3,8}$/i, `${row.kind} has no colour`);
+      assert.ok(typeof row.shape === 'string' && row.shape.length > 0, `${row.kind} has no shape`);
+    }
+    // Every mark the map can draw is a mark the legend explains.
+    const explained = new Set(legend.map(({ kind }) => kind));
+    for (const kind of FLOOR_MAP_MARKER_KINDS) {
+      assert.ok(explained.has(kind), `${kind} is drawn and never explained`);
+    }
+    assert.ok(floorMapCopy(language).legend.length > 4);
+    assert.ok(floorMapCopy(language).legendClose.length > 4);
+  }
+  assert.notDeepEqual(
+    floorMapLegend('ru').map(({ label }) => label),
+    floorMapLegend('en').map(({ label }) => label),
+  );
 });

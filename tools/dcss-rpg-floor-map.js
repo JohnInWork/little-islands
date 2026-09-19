@@ -19,6 +19,11 @@ const SIGHT_ONLY_KINDS = Object.freeze(['monster', 'boss', 'wildlife']);
 export const FLOOR_MAP_MARKER_KINDS = Object.freeze([
   'hero',
   'exit',
+  // The way back up. Its shape and its place on the map were both described,
+  // but the kind was never allowed through the filter, so the runtime pushed
+  // the marker every frame and the map silently dropped it: a player looking
+  // for the stairs they came down by could not find them.
+  'ascent',
   'sanctuary',
   'door',
   'door-open',
@@ -44,6 +49,7 @@ export const FLOOR_MAP_COLORS = Object.freeze({
   'door-open': '#6f5d40',
   hero: '#f1e8d1',
   exit: '#d0b45e',
+  ascent: '#b9c6d8',
   sanctuary: '#63b5b4',
   chest: '#d9bd67',
   crystal: '#7fc8d2',
@@ -87,6 +93,8 @@ const COPY = Object.freeze({
     zoomIn: 'Приблизить',
     zoomOut: 'Отдалить',
     empty: 'Пока ничего не разведано',
+    legend: 'Что значат значки',
+    legendClose: 'Скрыть значки',
   }),
   en: Object.freeze({
     title: (depthLabel) => `Floor map ${depthLabel}`,
@@ -98,11 +106,74 @@ const COPY = Object.freeze({
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     empty: 'Nothing explored yet',
+    legend: 'What the marks mean',
+    legendClose: 'Hide the marks',
   }),
 });
 
 export function floorMapCopy(language = 'ru') {
   return COPY[language === 'en' ? 'en' : 'ru'];
+}
+
+/**
+ * What the marks on the map mean.
+ *
+ * The map draws fourteen kinds of thing as coloured shapes and never said which
+ * was which, so the player was left to work out that the orange cross is a trap
+ * by walking onto one. The list is built from the same colours and shapes the
+ * renderer uses, so it cannot describe a map the game does not draw.
+ */
+const LEGEND_LABELS = Object.freeze({
+  ru: Object.freeze({
+    hero: 'Ты',
+    exit: 'Ход вниз',
+    ascent: 'Ход наверх',
+    door: 'Закрытая дверь',
+    'door-open': 'Открытая дверь',
+    chest: 'Сундук',
+    crystal: 'Жила кристалла',
+    grave: 'Могила',
+    altar: 'Алтарь',
+    merchant: 'Торговец',
+    campfire: 'Костёр',
+    trap: 'Ловушка',
+    loot: 'Вещь на полу',
+    house: 'Дом',
+    sanctuary: 'Святилище',
+    monster: 'Враг',
+    boss: 'Хранитель',
+    wildlife: 'Зверь',
+  }),
+  en: Object.freeze({
+    hero: 'You',
+    exit: 'Way down',
+    ascent: 'Way up',
+    door: 'Closed door',
+    'door-open': 'Open door',
+    chest: 'Chest',
+    crystal: 'Crystal vein',
+    grave: 'Grave',
+    altar: 'Altar',
+    merchant: 'Trader',
+    campfire: 'Campfire',
+    trap: 'Trap',
+    loot: 'Item on the floor',
+    house: 'House',
+    sanctuary: 'Sanctuary',
+    monster: 'Enemy',
+    boss: 'Guardian',
+    wildlife: 'Beast',
+  }),
+});
+
+export function floorMapLegend(language = 'ru') {
+  const labels = LEGEND_LABELS[language === 'en' ? 'en' : 'ru'];
+  return Object.freeze(Object.keys(labels).map((kind) => Object.freeze({
+    kind,
+    label: labels[kind],
+    color: FLOOR_MAP_COLORS[kind] ?? FLOOR_MAP_COLORS.loot,
+    shape: FLOOR_MAP_MARKER_SHAPES[kind] ?? 'square',
+  })));
 }
 
 const isCell = (value) => Number.isInteger(value?.x) && Number.isInteger(value?.y);

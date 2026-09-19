@@ -187,6 +187,7 @@ import {
   fitFloorMapView,
   floorMapCellAt,
   floorMapCopy,
+  floorMapLegend,
   floorMapTapAction,
   panFloorMapView,
   zoomFloorMapView,
@@ -757,6 +758,8 @@ const floorMapTitle = document.querySelector('#floor-map-title');
 const floorMapHint = document.querySelector('#floor-map-hint');
 const closeFloorMapButton = document.querySelector('#close-floor-map');
 const floorMapCenterButton = document.querySelector('#floor-map-center');
+const floorMapLegendList = document.querySelector('#floor-map-legend');
+const floorMapLegendToggle = document.querySelector('#floor-map-legend-toggle');
 const floorMapZoomInButton = document.querySelector('#floor-map-zoom-in');
 const floorMapZoomOutButton = document.querySelector('#floor-map-zoom-out');
 const pauseGameButton = document.querySelector('#pause-game');
@@ -9574,8 +9577,53 @@ function refreshFloorMapCopy() {
   floorMapCenterButton.setAttribute('aria-label', copy.center);
   floorMapZoomInButton.setAttribute('aria-label', copy.zoomIn);
   floorMapZoomOutButton.setAttribute('aria-label', copy.zoomOut);
+  renderFloorMapLegend();
   depthBadge.setAttribute('aria-label', copy.open(label));
   depthBadge.title = copy.open(label);
+}
+
+/**
+ * What the marks on the map mean.
+ *
+ * Fourteen kinds of thing were drawn as coloured shapes and none of them said
+ * which was which, so the only way to learn that the orange cross is a trap was
+ * to walk onto one. Ivan asked for a legend that is not always in the way, so
+ * it lives behind a «?» and remembers nothing: closing the map closes it.
+ */
+function renderFloorMapLegend() {
+  const copy = floorMapCopy(itemDetailLanguage);
+  const open = floorMapLegendToggle.getAttribute('aria-pressed') === 'true';
+  floorMapLegendToggle.setAttribute('aria-label', open ? copy.legendClose : copy.legend);
+  floorMapLegendToggle.title = open ? copy.legendClose : copy.legend;
+  floorMapLegendList.setAttribute('aria-label', copy.legend);
+  floorMapLegendList.hidden = !open;
+  if (!open) return;
+  floorMapLegendList.replaceChildren(...floorMapLegend(itemDetailLanguage).map((entry) => {
+    const row = document.createElement('li');
+    const swatch = document.createElement('canvas');
+    const label = document.createElement('span');
+    swatch.width = 18;
+    swatch.height = 18;
+    swatch.setAttribute('aria-hidden', 'true');
+    // Drawn by the same code that draws the map, so the legend cannot describe
+    // a map the game does not paint.
+    drawFloorMapMarker(
+      swatch.getContext('2d'),
+      { kind: entry.kind, shape: entry.shape, color: entry.color, x: 0, y: 0 },
+      18,
+      { x: 0, y: 0 },
+    );
+    label.textContent = entry.label;
+    row.append(swatch, label);
+    return row;
+  }));
+}
+
+function toggleFloorMapLegend() {
+  const open = floorMapLegendToggle.getAttribute('aria-pressed') === 'true';
+  floorMapLegendToggle.setAttribute('aria-pressed', String(!open));
+  renderFloorMapLegend();
+  return true;
 }
 
 function drawFloorMapMarker(context, marker, zoom, pan) {
@@ -15587,6 +15635,7 @@ audioVolumeUpButton.addEventListener('click', () => {
 });
 closeFloorMapButton.addEventListener('click', () => closeFloorMap());
 floorMapCenterButton.addEventListener('click', centerFloorMapOnHero);
+floorMapLegendToggle.addEventListener('click', toggleFloorMapLegend);
 floorMapZoomInButton.addEventListener('click', () => zoomFloorMapBy(FLOOR_MAP_ZOOM.factor));
 floorMapZoomOutButton.addEventListener('click', () => zoomFloorMapBy(1 / FLOOR_MAP_ZOOM.factor));
 floorMapCanvas.addEventListener('pointerdown', floorMapPointerDown);

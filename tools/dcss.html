@@ -496,8 +496,10 @@
             <p id="floor-map-hint">Тап по клетке: идти. Щипок или колесо: масштаб.</p>
           </header>
           <canvas id="floor-map-canvas" class="floor-map-canvas" aria-label="Разведанная часть этажа"></canvas>
+          <ul id="floor-map-legend" class="floor-map-legend" aria-label="Что значат значки" hidden></ul>
           <footer class="floor-map-actions">
             <button id="close-floor-map" type="button" aria-label="Закрыть карту">×</button>
+            <button id="floor-map-legend-toggle" type="button" aria-label="Что значат значки" aria-pressed="false">?</button>
             <button id="floor-map-center" type="button" aria-label="К герою">◎</button>
             <button id="floor-map-zoom-out" type="button" aria-label="Отдалить">−</button>
             <button id="floor-map-zoom-in" type="button" aria-label="Приблизить">+</button>
