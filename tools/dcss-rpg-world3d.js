@@ -505,11 +505,31 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     return texture;
   };
 
+  /**
+   * A picture that never loaded is a cosmetic fault; it used to be a fatal one.
+   *
+   * This threw, and it is called from the middle of the render, so one sprite
+   * whose path nobody remembered to preload stopped the world on every frame
+   * from the moment it came into view — the bag and the stick kept working and
+   * the game looked hung. That is how the city's «наружу» gate froze Ivan's
+   * run twice: its tile was never in any asset list and only rode along while
+   * the down stair happened to use the same file.
+   *
+   * Now the sprite is simply not drawn, once per path, and the run goes on.
+   */
+  const missingActorTextures = new Set();
+
   const actorTextureFor = (path, imageForPath, filter) => {
     const cacheKey = `${path}:${filter}`;
     if (actorTextureCache.has(cacheKey)) return actorTextureCache.get(cacheKey);
     const source = imageForPath(path);
-    if (!source) throw new Error(`Missing 3D actor texture: ${path}`);
+    if (!source) {
+      if (!missingActorTextures.has(path)) {
+        missingActorTextures.add(path);
+        console.warn(`DNG Codex: no picture for ${path}; that sprite is not drawn`);
+      }
+      return null;
+    }
     const actorCanvas = document.createElement('canvas');
     actorCanvas.width = source.naturalWidth || source.width;
     actorCanvas.height = source.naturalHeight || source.height;
@@ -664,6 +684,10 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
       // different pictures.
       const filter = monster.filter ? `${spriteFilter} ${monster.filter}` : spriteFilter;
       const texture = actorTextureFor(monster.path, imageForPath, filter);
+      if (!texture) {
+        activeKeys.delete(key);
+        continue;
+      }
       let entry = actorEntries.get(key);
       if (!entry) {
         entry = createActorEntry(texture);
@@ -693,6 +717,10 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
       };
       activeKeys.add(key);
       const texture = actorTextureFor(decoration.path, imageForPath, spriteFilter);
+      if (!texture) {
+        activeKeys.delete(key);
+        continue;
+      }
       let entry = actorEntries.get(key);
       if (!entry) {
         entry = createActorEntry(texture);

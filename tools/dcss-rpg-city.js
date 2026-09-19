@@ -751,11 +751,29 @@ export const CITY_GREEN_PATHS = Object.freeze([
   'dngn/floor/grass/grass0.png',
 ]);
 
+/**
+ * The three ways out of town, and the pictures that stand on them.
+ *
+ * These lived in the adapter as bare strings and were in no asset list at
+ * all: the «вниз» gate only ever loaded because the dungeon's own down stair
+ * happened to use the same file, and «наружу» never loaded at all. An actor
+ * whose picture is missing used to throw from inside the render — every
+ * frame, from the moment it came into view — so the town froze for Ivan while
+ * his backpack kept opening. The picture belongs next to the gate it stands
+ * on, and in the list that loads it.
+ */
+export const CITY_GATE_PATHS = Object.freeze({
+  deep: 'dngn/gateways/enter_depths.png',
+  surface: 'dngn/gateways/stone_arch.png',
+  vaults: 'dngn/gateways/enter_vaults_open.png',
+});
+
 export const CITY_ASSET_PATHS = Object.freeze([
   ...new Set([
     ...Object.values(CITY_PROPS).flatMap(({ frames }) => frames),
     ...TAVERN_ASSET_PATHS,
     ...CITY_GREEN_PATHS,
+    ...Object.values(CITY_GATE_PATHS),
   ]),
 ]);
 

@@ -305,6 +305,7 @@ import {
   CITY_LIGHT_MULTIPLIER,
   CITY_PRIEST_ID,
   cityInteriorAt,
+  CITY_GATE_PATHS,
   CITY_GREEN_PATHS,
   cityGreenCells,
   cityInteriorFloorCells,
@@ -905,9 +906,9 @@ const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
  * makes by walking. The pictures are placeholders until Ivan picks the real ones.
  */
 const CITY_GATE_VISUALS = Object.freeze({
-  deep: Object.freeze({ path: 'dngn/gateways/sealed_stairs_down.png', ru: 'Вниз', en: 'Down' }),
-  surface: Object.freeze({ path: 'dngn/gateways/sealed_stairs_up.png', ru: 'Наружу', en: 'Out' }),
-  vaults: Object.freeze({ path: 'dngn/gateways/stone_arch.png', ru: 'Хранилища', en: 'Vaults' }),
+  deep: Object.freeze({ path: CITY_GATE_PATHS.deep, ru: 'Вниз', en: 'Down' }),
+  surface: Object.freeze({ path: CITY_GATE_PATHS.surface, ru: 'Наружу', en: 'Out' }),
+  vaults: Object.freeze({ path: CITY_GATE_PATHS.vaults, ru: 'Хранилища', en: 'Vaults' }),
 });
 const ascentVisual = runtimeVisual('system', 'ascent', 'world', ASCENT_PATH, 1, 0);
 const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GATE_PATH, 1, 0);
@@ -8356,13 +8357,24 @@ function updateInteractionUi() {
     return false;
   }
   document.body.dataset.interact = 'on';
-  interactActions.replaceChildren(...targets.map((target) => {
-    const model = contextActionModel({
-      target: contextModelTarget(target),
-      actor: currentInteractionActor(),
-      language: itemDetailLanguage,
-      inspected: false,
-    });
+  interactActions.replaceChildren(...targets.flatMap((target) => {
+    // This runs every quarter-second inside the frame, once for every thing the
+    // hero is standing next to. `contextActionModel` throws when a target does
+    // not match its registry entry — and a throw here used to take the whole
+    // frame with it, which is a frozen world beside a working backpack. One
+    // button that fails to build is one button missing, not a dead game.
+    let model = null;
+    try {
+      model = contextActionModel({
+        target: contextModelTarget(target),
+        actor: currentInteractionActor(),
+        language: itemDetailLanguage,
+        inspected: false,
+      });
+    } catch (error) {
+      reportFrameFailure(`interact:${target.kind}`, error);
+      return [];
+    }
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'interact-action pixel-frame tappable';
@@ -8378,7 +8390,7 @@ function updateInteractionUi() {
     mark.textContent = '+';
     button.append(icon, mark);
     button.addEventListener('click', () => openContextActions(target));
-    return button;
+    return [button];
   }));
   return true;
 }

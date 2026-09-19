@@ -30,6 +30,17 @@ export const EFFECT_PATHS = Object.freeze([
   ...Array.from({ length: 4 }, (_, index) => `effect/cloud_magic_trail${index}.png`),
 ]);
 
+/**
+ * The pictures the adapter reaches for on its own: a fallback for an item with
+ * no icon of its own, and the heart on the «вылечился» toast. Neither belongs
+ * to a catalog, so neither was in any list — and a picture nobody loads is a
+ * picture that is not there when it is finally needed.
+ */
+export const RUNTIME_FALLBACK_PATHS = Object.freeze([
+  'item/misc/misc_orb.png',
+  'item/ring/i-regeneration.png',
+]);
+
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */
 export function requiredAssetPaths(extra = []) {
   return Object.freeze([...new Set([
@@ -51,6 +62,7 @@ export function requiredAssetPaths(extra = []) {
     ...CAMP_ASSET_PATHS,
     ...CITY_ASSET_PATHS,
     ...stashAssetPaths(),
+    ...RUNTIME_FALLBACK_PATHS,
     MERCHANT_ACTOR_PATH,
     MERCHANT_ICON_PATH,
     ...extra,
