@@ -22,6 +22,7 @@ const COPY = Object.freeze({
     intelligence: (value) => `Нужен интеллект ${value}`,
     bookModified: 'Изменено книгой',
     notPlaying: 'Доступно во время забега',
+    needsSleep: 'Сначала выспись: в лагере, дома или на постоялом дворе',
     unavailable: 'Недоступно',
   }),
   en: Object.freeze({
@@ -36,6 +37,7 @@ const COPY = Object.freeze({
     intelligence: (value) => `Requires intelligence ${value}`,
     bookModified: 'Modified by a book',
     notPlaying: 'Available during a run',
+    needsSleep: 'Sleep on it first: a camp, a bed at home, or an inn',
     unavailable: 'Unavailable',
   }),
 });
@@ -48,6 +50,8 @@ function reasonLabel(reason, definition, rank, copy, availability = {}) {
     case 'intelligence-required': return copy.intelligence(availability.requiredValue);
     case 'max-rank': return copy.maxRank;
     case 'not-playing': return copy.notPlaying;
+    // Nothing is lost — the points wait until the hero has slept on them.
+    case 'needs-sleep': return copy.needsSleep;
     default: return copy.unavailable;
   }
 }
@@ -66,6 +70,10 @@ export function skillMenuModel({
   systems = SKILL_SYSTEMS,
   rankAdjustments = {},
   attributes = {},
+  // Rest gates learning, not survival: an unrested hero keeps every point and
+  // can spend none of them. The menu has to say that, or the greyed-out button
+  // is a mystery.
+  rested = true,
 } = {}) {
   if (!validateSkillState(state, heroLevel)) {
     throw new TypeError('Skill menu requires valid skill state matching the hero level');
@@ -85,7 +93,7 @@ export function skillMenuModel({
         const trainedRank = state.ranks[definition.id] ?? 0;
         const rankAdjustment = rankAdjustments[definition.id] ?? 0;
         const rank = effectiveSkillRank(state, definition.id, rankAdjustments);
-        const availability = skillAvailability({
+        const learned = skillAvailability({
           state,
           heroLevel,
           runStatus,
@@ -94,6 +102,9 @@ export function skillMenuModel({
           attributes,
           ...readiness,
         });
+        const availability = learned.ok && !rested
+          ? { ...learned, ok: false, reason: 'needs-sleep' }
+          : learned;
         const isMaxRank = rank >= definition.maxRank;
         const canLearn = availability.ok && !isMaxRank;
         return Object.freeze({

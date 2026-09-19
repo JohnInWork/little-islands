@@ -40,6 +40,7 @@ const ACTION_COPY = Object.freeze({
     serve: 'Отбыть срок',
     goDeep: 'Вниз, в пещеры',
     goSurface: 'Наружу, за ворота',
+    goVaults: 'Вниз, в старые подвалы',
     retire: 'Уйти с добычей',
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
@@ -83,6 +84,7 @@ const ACTION_COPY = Object.freeze({
     serve: 'Serve your time',
     goDeep: 'Down into the caves',
     goSurface: 'Out through the gate',
+    goVaults: 'Down into the old vaults',
     claim: 'Take the artefact',
     descend: 'Go deeper',
     unbind: 'Lift the binding',
@@ -129,6 +131,7 @@ const GLYPHS = Object.freeze({
   serve: '⌛',
   goDeep: '▼',
   goSurface: '▲',
+  goVaults: '◫',
   retire: '◆',
   claim: '◆',
   descend: '▼',
@@ -178,7 +181,7 @@ const COPY = Object.freeze({
     // not bend into a sentence; the guard's own words come after it.
     guardWanted: (label, fine) => `${label}. «Плати ${fine} — или ночуешь в камере.»`,
     gateName: 'Развилка',
-    gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под открытое небо — или домой, с тем, что уже унёс.',
+    gateDescription: 'Отсюда четыре дороги. Вниз в пещеры, за ворота под небо, вниз в старые подвалы — или домой, с тем, что уже унёс.',
     retireStake: (gold) => `Унесёшь ${gold}●`,
     roadEndName: 'Конец написанной дороги',
     roadEndDescription: 'Страж пал, артефакт твой. Но лестница идёт дальше, и никто не знает, куда.',
@@ -232,7 +235,7 @@ const COPY = Object.freeze({
     companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. “Pay ${fine} or you sleep in a cell.”`,
     gateName: 'The fork',
-    gateDescription: 'Three roads from here. Caves below, open sky beyond the gate — or home, with what you already carry.',
+    gateDescription: 'Four roads from here. Caves below, open sky beyond the gate, the old vaults under the town — or home, with what you already carry.',
     retireStake: (gold) => `You bank ${gold}●`,
     roadEndName: 'The end of the written road',
     roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
@@ -420,6 +423,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
         // and a hero who climbed up out of the caves found no way down again.
         { id: 'goDeep' },
         { id: 'goSurface' },
+        { id: 'goVaults' },
         // The third road out of the gate is the one that keeps the purse — and
         // it says how much, because «go one floor deeper or bank what you have»
         // is only a decision if the player can see the stake without counting.

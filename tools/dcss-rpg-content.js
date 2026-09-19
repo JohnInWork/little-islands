@@ -6,9 +6,18 @@ import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
  * chapters, same promises — and what differs is the places and who lives in
  * them, which is exactly what `habitat` on a monster decides.
  */
-export const RUN_BRANCHES = Object.freeze(['deep', 'surface']);
+/**
+ * Three roads out of the city, and the third is a different KIND of place.
+ *
+ * `deep` and `surface` are both natural: caves water carved and country under
+ * open sky. A third natural road would have been more of the same. `vaults` is
+ * what somebody built and left — a labyrinth, a workshop, a menagerie, a
+ * marble sanctum — so the generator draws a different silhouette: bars, cages
+ * and corridors that were designed rather than worn.
+ */
+export const RUN_BRANCHES = Object.freeze(['deep', 'surface', 'vaults']);
 export const DEFAULT_RUN_BRANCH = 'deep';
-export const MONSTER_HABITATS = Object.freeze(['deep', 'surface', 'any']);
+export const MONSTER_HABITATS = Object.freeze(['deep', 'surface', 'vaults', 'any']);
 
 export function validateRunBranch(branch) {
   return RUN_BRANCHES.includes(branch);
@@ -295,6 +304,37 @@ export const MONSTER_CATALOG = Object.freeze([
     tier: 3, hp: 16, damage: 4, speed: 0.86, xp: 12,
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.8, vision: 6, windup: 0.3, pursuit: 3 },
+  },
+  // ── Хранители подвалов ──────────────────────────────────────────────────
+  // Четыре на рукотворную дорогу. Все они — сделанное: сторож, голем, ключник
+  // и то, чем кончился эксперимент. Никакой дичи: это не её место.
+  {
+    id: 'crystal-warden', kin: 'oddity', habitat: 'vaults', path: 'mon/nonliving/crystal_guardian.png',
+    tier: 3, hp: 12, damage: 7, speed: 0.9, xp: 30, boss: true, unique: true,
+    bloodColor: '#8fb6c8',
+    threat: { attackRate: 0.95, vision: 7, windup: 0.24, pursuit: 6 },
+  },
+  {
+    id: 'iron-golem', kin: 'oddity', habitat: 'vaults', path: 'mon/unique/iron_giant.png',
+    tier: 6, hp: 22, damage: 11, speed: 0.74, xp: 68, boss: true, unique: true, large: true,
+    bloodColor: '#9a9384',
+    threat: { attackRate: 0.72, vision: 7.4, windup: 0.34, pursuit: 7 },
+  },
+  {
+    id: 'keyholder', kin: 'undead', habitat: 'vaults', path: 'mon/unique/roxanne.png',
+    tier: 9, hp: 21, damage: 11, speed: 0.96, xp: 112, boss: true, unique: true,
+    bloodColor: '#6d6250',
+    inflicts: { id: 'frozen', duration: 3 },
+    threat: { attackRate: 0.88, vision: 8, windup: 0.3, pursuit: 7.5 },
+  },
+  {
+    // The fourth rung of the vaults: only met past the written road.
+    id: 'dissolution', kin: 'oddity', habitat: 'vaults', path: 'mon/unique/dissolution.png',
+    tier: 9, hp: 28, damage: 12, speed: 0.88, xp: 150, boss: true, unique: true, large: true,
+    bloodColor: '#7a8a5d',
+    inflicts: { id: 'poison', duration: 7 },
+    burst: { id: 'poison', duration: 6, radius: 2, color: '#9fb06a' },
+    threat: { attackRate: 0.94, vision: 8.4, windup: 0.3, pursuit: 9 },
   },
   {
     // The fourth rung, and the only guardian the written road never shows you.

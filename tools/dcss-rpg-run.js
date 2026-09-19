@@ -46,6 +46,9 @@ export const CHAPTER_END_DEPTHS = Object.freeze(
 export const GUARDIAN_LADDERS = Object.freeze({
   deep: Object.freeze(['ashen-guardian', 'sanctum-guardian', FINAL_BOSS_ID, 'nameless-thing']),
   surface: Object.freeze(['grove-warden', 'moor-catoblepas', 'storm-raiju', 'world-serpent']),
+  // Everything on the made road was itself made: a warden, a golem, a keyholder,
+  // and whatever the last experiment turned into.
+  vaults: Object.freeze(['crystal-warden', 'iron-golem', 'keyholder', 'dissolution']),
 });
 
 /** How many rungs the written road actually shows. */

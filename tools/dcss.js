@@ -707,6 +707,8 @@ const levelUpValue = document.querySelector('#level-up-value');
 const levelUpPoints = document.querySelector('#level-up-points');
 const healthSegments = [...document.querySelectorAll('.health i')];
 const hungerMeter = document.querySelector('#hunger-meter');
+const restMeter = document.querySelector('#rest-meter');
+const restFill = document.querySelector('#rest-fill');
 const hungerFill = document.querySelector('#hunger-fill');
 const heroEffectsHud = document.querySelector('#hero-effects');
 const hudGold = document.querySelector('#hud-gold');
@@ -2578,6 +2580,20 @@ function houseDeedDecision() {
   });
 }
 
+/** A night's sleep, wherever it was taken. Always fills the clock. */
+function sleepOnIt() {
+  const slept = sleep(hero.rest);
+  if (!slept.ok) return false;
+  hero.rest = slept.rest;
+  playerHasActed = true;
+  renderHungerHud();
+  renderCharacterSheet();
+  updateHud();
+  persistRun();
+  showLootToast({ path: CAMP_BEDROLL_PATH, rarity: 2 }, restCopy(itemDetailLanguage).slept);
+  return true;
+}
+
 function houseRestDecision() {
   return resolveHouseRest({
     house: run.house,
@@ -2663,7 +2679,12 @@ function installHouseFurniture(furnitureId) {
 
 function restAtHouse() {
   const result = houseRestDecision();
-  if (!result.ok) return false;
+  // A hero at full health used to be refused the bed entirely — which, now
+  // that sleep is what unlocks what you learned, would have meant the healthy
+  // could never spend a skill point. Lying down is worth it for the night even
+  // when there is nothing to mend.
+  if (!result.ok) return result.reason === 'nothing-to-heal' ? sleepOnIt() : false;
+  sleepOnIt();
   hero.hp = result.hp;
   hero.hunger = result.hunger;
   currentHungerStageId = hungerStage(hero.hunger).id;
@@ -2688,7 +2709,8 @@ function campRestDecision() {
 
 function restAtCamp() {
   const result = campRestDecision();
-  if (!result.ok) return false;
+  if (!result.ok) return result.reason === 'nothing-to-heal' ? sleepOnIt() : false;
+  sleepOnIt();
   hero.hp = result.hp;
   hero.hunger = result.hunger;
   run.floor.camp = result.camp;
@@ -3044,6 +3066,11 @@ function renderItemDetail(item) {
 }
 
 function learnHeroSkill(skillId, expectedRank) {
+  // The whole of the rest mechanic: nothing is lost, nothing is at risk, and
+  // what you learned on the road waits until you have slept on it.
+  if (!canSpendSkillPoints(hero.rest)) {
+    return { ok: false, reason: 'needs-sleep', state: hero.skills };
+  }
   const result = learnSkill({
     state: hero.skills,
     heroLevel: hero.level,
@@ -3071,6 +3098,7 @@ function renderCharacterSkills() {
     language: itemDetailLanguage,
     rankAdjustments: hero.skillStudy.rankAdjustments,
     attributes: { intelligence: currentHeroStats().intelligence },
+    rested: canSpendSkillPoints(hero.rest),
   });
   characterSkills.hidden = !model.visible;
   characterSkillsTitle.textContent = model.title;
@@ -3797,13 +3825,25 @@ function heroSpellCooldown(spell) {
 
 function senseCapabilities() {
   const capabilities = currentSkillCapabilities();
-  if (!currentHeroMagic().sense) return capabilities;
+  const sense = currentHeroMagic().sense;
+  const lent = sense
+    ? {
+        ...capabilities,
+        trapDetectionRadius: Math.max(capabilities.trapDetectionRadius ?? 0, SENSE_RADIUS),
+        trapDetectionTier: Math.max(capabilities.trapDetectionTier ?? 0, SENSE_TIER),
+        secretSearchRadius: Math.max(capabilities.secretSearchRadius ?? 0, SENSE_RADIUS),
+        secretSearchTier: Math.max(capabilities.secretSearchTier ?? 0, SENSE_TIER),
+      }
+    : capabilities;
+  // And the tired half: a hero who has been awake too long notices less. It
+  // takes no health and traps nobody — the floor simply stops giving things
+  // away until the next bedroll.
+  const share = restStage(hero.rest).searchPercent / 100;
+  if (share >= 1) return lent;
   return {
-    ...capabilities,
-    trapDetectionRadius: Math.max(capabilities.trapDetectionRadius ?? 0, SENSE_RADIUS),
-    trapDetectionTier: Math.max(capabilities.trapDetectionTier ?? 0, SENSE_TIER),
-    secretSearchRadius: Math.max(capabilities.secretSearchRadius ?? 0, SENSE_RADIUS),
-    secretSearchTier: Math.max(capabilities.secretSearchTier ?? 0, SENSE_TIER),
+    ...lent,
+    trapDetectionRadius: Math.floor((lent.trapDetectionRadius ?? 0) * share),
+    secretSearchRadius: Math.floor((lent.secretSearchRadius ?? 0) * share),
   };
 }
 
@@ -6914,6 +6954,11 @@ function renderHungerHud() {
   hungerMeter.dataset.stage = presentation.id;
   hungerFill.style.transform = `scaleX(${presentation.percent / 100})`;
   hungerMeter.title = `${presentation.label} · ${presentation.minutes} ${itemDetailLanguage === 'ru' ? 'мин' : 'min'}`;
+  const rest = restPresentation(hero.rest, itemDetailLanguage);
+  restMeter.dataset.stage = rest.id;
+  restFill.style.transform = `scaleX(${rest.percent / 100})`;
+  restMeter.title = `${rest.label} · ${rest.description}`;
+  restMeter.setAttribute('aria-label', rest.ariaLabel);
   hud.setAttribute(
     'aria-label',
     `${currentMainMenuModel().labels.hud}. ${presentation.ariaLabel}`,
@@ -8564,7 +8609,9 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'city-gate'({ action }) {
     closeContextActions();
     if (action.id === 'retire') return retireRun();
-    const branch = action.id === 'goSurface' ? 'surface' : 'deep';
+    const branch = action.id === 'goSurface'
+      ? 'surface'
+      : action.id === 'goVaults' ? 'vaults' : 'deep';
     if (run.branch !== branch) {
       run = switchRunBranch(captureRun(), branch);
     }
@@ -12677,6 +12724,16 @@ function updateHunger(delta) {
     ),
   );
   starve(activeSeconds);
+  // Rest runs off the same seconds hunger does — it is the same road walked,
+  // not a second thing to watch — but it never touches health.
+  const wasRested = restStage(hero.rest).id;
+  hero.rest = advanceRest(hero.rest, activeSeconds);
+  if (restStage(hero.rest).id !== wasRested) {
+    renderHungerHud();
+    renderCharacterSheet();
+    const presentation = restPresentation(hero.rest, itemDetailLanguage);
+    showLootToast({ path: CAMP_BEDROLL_PATH, rarity: 1 }, presentation.label);
+  }
   if (hero.hunger === before) return;
 
   const nextStageId = hungerStage(hero.hunger).id;

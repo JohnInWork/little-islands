@@ -13,6 +13,7 @@ import {
 import { DUNGEON_THEME_CATALOG, dungeonThemeFor } from '../tools/dcss-rpg-room-plans.js';
 import {
   BRANCH_CHAPTER_GUARDIANS,
+  GUARDIAN_LADDERS,
   CHAPTER_END_DEPTHS,
   STORY_DEPTH,
   chapterGuardianForDepth,
@@ -220,4 +221,62 @@ test('the gate says what walking away is worth', async () => {
   // Nothing to bank and nowhere to do it: no promise is made.
   const shut = contextActionModel({ target: { kind: 'city-gate', branch: 'deep', canRetire: false } });
   assert.equal(shut.actions.find((action) => action.id === 'retire').hint, '');
+});
+
+/**
+ * Two roads were natural — caves the water carved and country under open sky —
+ * and a third natural one would have been more of the same. The vaults are what
+ * somebody built and left: bars, cages and corridors that were designed rather
+ * than worn, so the generator draws a different silhouette on them.
+ */
+test('the vaults are a road of their own, made rather than worn', () => {
+  assert.ok(RUN_BRANCHES.includes('vaults'));
+  const places = DUNGEON_THEME_CATALOG.filter(({ branch }) => branch === 'vaults');
+  assert.ok(places.length >= 6, `подвалы везут только ${places.length} мест`);
+  // Its places belong to it and to nothing else.
+  for (const place of places) {
+    assert.equal(
+      DUNGEON_THEME_CATALOG.filter(({ id }) => id === place.id).length,
+      1,
+      `${place.id} записан дважды`,
+    );
+  }
+  // A whole run of them is generated without a single place from another road.
+  for (let seed = 1; seed <= 40; seed += 1) {
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
+      const dungeon = generateDungeon({ seed, depth, branch: 'vaults' });
+      const theme = DUNGEON_THEME_CATALOG.find(({ id }) => id === dungeon.themeId);
+      assert.equal(theme.branch, 'vaults', `${dungeon.themeId} принадлежит другой дороге`);
+      for (const spawn of dungeon.monsters) {
+        assert.ok(
+          monsterSuitsBranch(byId.get(spawn.id), 'vaults'),
+          `${spawn.id} нечего делать в подвалах (seed ${seed}, этаж ${depth})`,
+        );
+      }
+    }
+  }
+  // And every road has its own four guardians, sharing none.
+  const ladders = Object.values(GUARDIAN_LADDERS).flat();
+  assert.equal(new Set(ladders).size, ladders.length, 'две дороги делят хранителя');
+  for (const monsterId of GUARDIAN_LADDERS.vaults) {
+    const monster = byId.get(monsterId);
+    assert.ok(monster, monsterId);
+    assert.ok(monsterSuitsBranch(monster, 'vaults'), `${monsterId} сторожит не ту дорогу`);
+    assert.equal(monster.unique, true, `${monsterId} попадёт и в общий пул`);
+  }
+});
+
+test('the gate offers the third road, and taking it switches the run onto it', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /action\.id === 'goVaults' \? 'vaults' : 'deep'/);
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  const model = contextActionModel({
+    target: { kind: 'city-gate', branch: 'deep', canRetire: false, purse: 0 },
+    language: 'ru',
+  });
+  const ids = model.actions.map(({ id }) => id);
+  assert.deepEqual(ids, ['goDeep', 'goSurface', 'goVaults', 'retire']);
+  for (const action of model.actions) {
+    assert.ok(action.label && action.label.length > 0, action.id);
+  }
 });

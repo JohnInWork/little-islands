@@ -239,6 +239,112 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
   }),
+  // ── Подвалы ─────────────────────────────────────────────────────────────
+  // Рукотворная дорога: всё это кто-то построил и бросил.
+  defineDungeonTheme({
+    id: 'sunken-labyrinth',
+    surfaceSetId: 'sunken-labyrinth',
+    branch: 'vaults',
+    atmosphereId: 'slate',
+    chestSkinIds: ['wooden', 'pirate'],
+    roomArchetypeIds: [
+      'fallen-hall',
+      'forgotten-crypt',
+      'drowned-chapel',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'iron-workshop',
+    surfaceSetId: 'iron-workshop',
+    branch: 'vaults',
+    atmosphereId: 'iron',
+    chestSkinIds: ['wooden', 'jade-ruby'],
+    roomArchetypeIds: [
+      'fallen-hall',
+      'ashen-shrine',
+      'forgotten-crypt',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'menagerie',
+    surfaceSetId: 'menagerie',
+    branch: 'vaults',
+    atmosphereId: 'viscera',
+    chestSkinIds: ['wooden', 'pirate'],
+    roomArchetypeIds: [
+      'fallen-hall',
+      'fungal-hollow',
+      'forgotten-crypt',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'marble-sanctum',
+    surfaceSetId: 'marble-sanctum',
+    branch: 'vaults',
+    atmosphereId: 'bone',
+    chestSkinIds: ['jade-ruby', 'pharaoh'],
+    roomArchetypeIds: [
+      'fallen-hall',
+      'ashen-shrine',
+      'crystal-grotto',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'emerald-gallery',
+    surfaceSetId: 'emerald-gallery',
+    branch: 'vaults',
+    atmosphereId: 'verdigris',
+    chestSkinIds: ['jade-ruby', 'pharaoh'],
+    roomArchetypeIds: [
+      'crystal-grotto',
+      'fallen-hall',
+      'ashen-shrine',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'hive-vault',
+    surfaceSetId: 'hive-vault',
+    branch: 'vaults',
+    atmosphereId: 'ochre',
+    chestSkinIds: ['wooden', 'jade-ruby'],
+    roomArchetypeIds: [
+      'fungal-hollow',
+      'fallen-hall',
+      'crystal-grotto',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'sand-archive',
+    surfaceSetId: 'sand-archive',
+    branch: 'vaults',
+    atmosphereId: 'sepia',
+    chestSkinIds: ['pharaoh', 'wooden'],
+    roomArchetypeIds: [
+      'forgotten-crypt',
+      'fallen-hall',
+      'ashen-shrine',
+      'merchant-alcove',
+    ],
+  }),
+  defineDungeonTheme({
+    id: 'zot-cells',
+    surfaceSetId: 'zot-cells',
+    branch: 'vaults',
+    atmosphereId: 'cobalt',
+    chestSkinIds: ['jade-ruby', 'pirate'],
+    roomArchetypeIds: [
+      'fallen-hall',
+      'forgotten-crypt',
+      'crystal-grotto',
+      'merchant-alcove',
+    ],
+  }),
 ]);
 
 /**

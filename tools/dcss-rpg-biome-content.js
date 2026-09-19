@@ -185,6 +185,48 @@ export const BIOME_CONTENT = Object.freeze({
     element: Object.freeze({  }),
     loot: Object.freeze({ armour: 1.4, tool: 1.3, scroll: 0.7 }),
   }),
+  // ── Подвалы ─────────────────────────────────────────────────────────────
+  // Рукотворное место предпочитает то, что в нём держали или чем работали.
+  'sunken-labyrinth': Object.freeze({
+    kin: Object.freeze({ oddity: 1.6, undead: 1.2, humanoid: 1.0, beast: 0.8, demon: 0.7, dragon: 0.6 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ tool: 1.6, book: 1.2, armour: 0.8 }),
+  }),
+  'iron-workshop': Object.freeze({
+    kin: Object.freeze({ oddity: 1.8, humanoid: 1.3, undead: 0.9, demon: 0.8, beast: 0.7, dragon: 0.6 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ weapon: 1.7, tool: 1.4, armour: 1.1 }),
+  }),
+  'menagerie': Object.freeze({
+    kin: Object.freeze({ beast: 2.0, dragon: 1.2, oddity: 1.0, humanoid: 0.9, undead: 0.7, demon: 0.6 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ armour: 1.3, tool: 1.2, book: 0.6 }),
+  }),
+  'marble-sanctum': Object.freeze({
+    kin: Object.freeze({ undead: 1.6, humanoid: 1.2, oddity: 1.0, demon: 0.9, beast: 0.7, dragon: 0.7 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ jewellery: 1.8, book: 1.3, weapon: 0.8 }),
+  }),
+  'emerald-gallery': Object.freeze({
+    kin: Object.freeze({ oddity: 1.5, dragon: 1.3, undead: 1.0, humanoid: 0.9, demon: 0.8, beast: 0.7 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ jewellery: 1.9, book: 1.2, armour: 0.8 }),
+  }),
+  'hive-vault': Object.freeze({
+    kin: Object.freeze({ beast: 1.9, oddity: 1.2, demon: 0.9, humanoid: 0.8, undead: 0.7, dragon: 0.7 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ tool: 1.3, armour: 1.1, book: 0.7 }),
+  }),
+  'sand-archive': Object.freeze({
+    kin: Object.freeze({ undead: 1.8, humanoid: 1.1, oddity: 1.0, demon: 0.8, beast: 0.7, dragon: 0.7 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ book: 2.0, jewellery: 1.2, weapon: 0.7 }),
+  }),
+  'zot-cells': Object.freeze({
+    kin: Object.freeze({ oddity: 1.5, demon: 1.3, undead: 1.1, humanoid: 1.0, beast: 0.8, dragon: 0.8 }),
+    element: Object.freeze({}),
+    loot: Object.freeze({ weapon: 1.4, armour: 1.3, book: 0.8 }),
+  }),
 });
 
 /**

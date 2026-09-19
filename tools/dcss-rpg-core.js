@@ -90,6 +90,7 @@ import { rollMaterial, validateItemMaterial } from './dcss-rpg-materials.js';
 import { createCoatingState, validateCoatingState } from './dcss-rpg-poisoncraft.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
 import { HUNGER_MAX, validateHunger } from './dcss-rpg-hunger.js';
+import { REST_MAX, validateRest } from './dcss-rpg-rest.js';
 import {
   createItemKnowledge,
   identifiableItemIds,
@@ -1249,6 +1250,7 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
       xp: 0,
       power: 1,
       hunger: HUNGER_MAX,
+      rest: REST_MAX,
       meal: null,
       coating: null,
       effects: createActorEffects(),
@@ -1545,6 +1547,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     // v49 gives a floor its second wind; a migrated floor has not spent one.
@@ -1626,6 +1629,8 @@ export function migrateLegacyRun(snapshot) {
       snapshot.version >= 20,
     ), snapshot.version >= 21);
     if (snapshot.version < 24) migrated.hero.hunger = HUNGER_MAX;
+    // v49 gives the hero a rest clock; a migrated hero wakes up sharp.
+    migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     if (snapshot.version === 9) migrated.hero.skills = legacySkillState(snapshot.hero);
     migrated.hero.skillStudy = snapshot.version >= 26
       ? createBookStudy(snapshot.hero.skillStudy)
@@ -1671,6 +1676,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     // v49 gives a floor its second wind; a migrated floor has not spent one.
@@ -1739,6 +1745,7 @@ export function migrateLegacyRun(snapshot) {
             x: dungeon.spawn.x,
             y: dungeon.spawn.y,
             hunger: HUNGER_MAX,
+            rest: REST_MAX,
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
@@ -1748,6 +1755,7 @@ export function migrateLegacyRun(snapshot) {
         : {
             ...snapshot.hero,
             hunger: HUNGER_MAX,
+            rest: REST_MAX,
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
@@ -1812,6 +1820,7 @@ export function migrateLegacyRun(snapshot) {
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
     migrated.hero.meal = migrated.hero.meal ?? null;
+    migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
     // v49 gives a floor its second wind; a migrated floor has not spent one.
@@ -1889,6 +1898,7 @@ export function migrateLegacyRun(snapshot) {
       x: dungeon.spawn.x,
       y: dungeon.spawn.y,
       hunger: HUNGER_MAX,
+      rest: REST_MAX,
       effects: createActorEffects(snapshot.hero?.effects),
       skills: legacySkillState(snapshot.hero),
       skillStudy: createBookStudy(),
@@ -2113,6 +2123,8 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
   if (!isFiniteInteger(hero.intelligence, 0, 999)) return false;
   if (!validateHunger(hero.hunger)) return false;
+  // A save written before rest existed simply has none, and starts sharp.
+  if (hero.rest !== undefined && !validateRest(hero.rest)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateMealState(hero.meal)) return false;
   if (!validateCoatingState(hero.coating ?? null)) return false;

@@ -39,7 +39,7 @@ test('every guardian on every road has exactly one trophy', () => {
   // Going past the warden is the best-paid thing in the grid, and the only row
   // a hero who stops at eighteen can never tick.
   const beyond = GUARDIAN_TROPHIES.filter(({ beyondRoad }) => beyondRoad);
-  assert.equal(beyond.length, 2, 'one past the road on each road');
+  assert.equal(beyond.length, Object.keys(GUARDIAN_LADDERS).length, 'one past the road on each road');
   for (const trophy of beyond) {
     assert.ok(trophy.bounty > Math.max(...GUARDIAN_TROPHIES.filter((t) => !t.beyondRoad).map((t) => t.bounty)));
     assert.ok(trophy.depth > STORY_DEPTH);
