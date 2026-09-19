@@ -37,7 +37,9 @@ import {
   combatDamage,
   createMonsterStates,
   deriveHeroStats,
+  allowedSlotsForItem,
   equipInventoryItem,
+  isTwoHandedItem,
   monsterCellKey,
   occupiedMonsterCells,
   resolveHeroDamage,
@@ -857,6 +859,7 @@ const cancelAbilityTargetingButton = document.querySelector('#cancel-ability-tar
 const itemDetail = document.querySelector('#item-detail');
 const itemDetailCard = itemDetail.querySelector('.item-detail-card');
 const closeItemDetailButton = document.querySelector('#close-item-detail');
+const itemDetailOffhand = document.querySelector('#item-detail-offhand');
 const itemDetailName = document.querySelector('#item-detail-name');
 const itemDetailRarity = document.querySelector('#item-detail-rarity');
 const itemDetailSlot = document.querySelector('#item-detail-slot');
@@ -3259,8 +3262,28 @@ function renderItemDetail(item) {
       `${smithingCopy(itemDetailLanguage).reforge}: ${craft.label}${craft.hint ? `. ${craft.hint}` : ''}`,
     );
   }
+  /**
+   * Which hand.
+   *
+   * A one-handed weapon fits either, and the game used to pick — the first
+   * empty slot, or the main hand, silently displacing whatever was there.
+   * Ivan asked it to ask. With both hands empty there is nothing to ask
+   * about, so the question appears exactly when it is one.
+   */
+  const menuLabels = currentMainMenuModel().labels;
+  const handChoice = !itemDetailOffer
+    && selection?.source === 'pack'
+    && selection.item.uid === item.uid
+    && allowedSlotsForItem(presentedItem(item)).join() === 'hand1,hand2'
+    && Boolean(selected.hand1 || selected.hand2);
+  itemDetailOffhand.hidden = !handChoice;
+  if (handChoice) {
+    itemDetailOffhand.textContent = menuLabels.offHand;
+    itemDetailOffhand.setAttribute('aria-label', `${menuLabels.whichHand} ${menuLabels.offHand}`);
+  }
+
   const action = itemDetailOffer ?? selectedActionModel(selection);
-  itemDetailAction.textContent = action.label;
+  itemDetailAction.textContent = handChoice ? menuLabels.mainHand : action.label;
   itemDetailAction.setAttribute('aria-label', action.ariaLabel);
   itemDetailAction.disabled = itemDetailOffer
     ? false
@@ -6833,6 +6856,26 @@ function renderEquippedPreview() {
     button.classList.toggle('selected', slot === selectedEquipmentSlot);
     button.classList.toggle('empty', !item);
     button.disabled = !item;
+
+    // A two-handed weapon occupies the off hand too, and an empty-looking
+    // second slot beside it reads as room for a shield. Ivan asked to see the
+    // weapon itself there, faded: the hand is busy, and busy with this.
+    const twoHanded = slot === 'hand2' && isTwoHandedItem(equippedItem('hand1'))
+      ? equippedItem('hand1')
+      : null;
+    button.dataset.occupied = String(Boolean(twoHanded));
+
+    if (!item && twoHanded) {
+      const held = presentedItem(twoHanded);
+      delete button.dataset.rarity;
+      icon.src = assetUrl(spriteForItem(held));
+      paintMaterial(icon, held);
+      const name = itemPresentation(held, itemDetailLanguage).name;
+      button.title = `${slotLabel}: ${name}`;
+      button.setAttribute('aria-label', `${slotLabel}: ${labels.bothHands} — ${name}`);
+      button.onclick = null;
+      continue;
+    }
 
     if (!item) {
       delete button.dataset.rarity;
@@ -11812,7 +11855,7 @@ function useConsumable(item, index, effectOverride = null) {
   persistRun();
 }
 
-function performSelectedItemAction({ fromDetail = false, secondary = false } = {}) {
+function performSelectedItemAction({ fromDetail = false, secondary = false, requestedSlot = null } = {}) {
   const selection = selectedUiItem();
   if (!selection) return false;
   // The card's second button: an arcanist's other reading, or an enchanter's hand.
@@ -11867,7 +11910,7 @@ function performSelectedItemAction({ fromDetail = false, secondary = false } = {
     return true;
   }
 
-  const result = equipInventoryItem(currentItemState(), selection.item.uid);
+  const result = equipInventoryItem(currentItemState(), selection.item.uid, requestedSlot);
   if (!result.ok) return false;
   applyItemState(result.state);
   selectedEquipmentSlot = result.slot;
@@ -16161,6 +16204,10 @@ itemDetail.addEventListener('pointerdown', (event) => {
 inventory.addEventListener('pointerdown', (event) => {
   if (event.target === inventory) closeInventory();
 });
+itemDetailOffhand.addEventListener('click', () => performSelectedItemAction({
+  fromDetail: true,
+  requestedSlot: 'hand2',
+}));
 itemDetailAction.addEventListener('click', () => {
   // When the window was opened by the shop, its one button is the shop's.
   if (itemDetailOffer) {
@@ -16169,7 +16216,10 @@ itemDetailAction.addEventListener('click', () => {
     act();
     return;
   }
-  performSelectedItemAction({ fromDetail: true });
+  performSelectedItemAction({
+    fromDetail: true,
+    requestedSlot: itemDetailOffhand.hidden ? null : 'hand1',
+  });
 });
 itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, secondary: true }));
 itemDetailCraft.addEventListener('click', () => {

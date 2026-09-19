@@ -112,3 +112,43 @@ test('a consumable says what it did, not how much of it there was', async () => 
   assert.match(potionBody, /consumableReport\(\)\.healed/);
   assert.match(potionBody, /consumableReport\(\)\.venom/);
 });
+
+/**
+ * Which hand, and which hand is busy.
+ *
+ * A one-handed weapon fits either hand and the game used to pick — the first
+ * empty slot, or the main hand, quietly displacing whatever was in it. A
+ * two-handed weapon filled both and the off-hand slot looked empty, which
+ * reads as room for a shield. Ivan asked for both: «спрашивать, в какую руку
+ * надеть; а двуручное должно быть видно во второй руке полупрозрачной
+ * иконкой — чтобы было понятно, что рука занята им же».
+ */
+test('the card asks which hand, and a busy hand shows what is holding it', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const [html, css, runtime] = await Promise.all([
+    readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
+  ]);
+  const { allowedSlotsForItem, isTwoHandedItem } = await import('../tools/dcss-rpg-rules.js');
+  const { lootById } = await import('../tools/dcss-rpg-content.js');
+
+  // The rule the question rests on: a one-hander really does fit either hand.
+  assert.deepEqual(allowedSlotsForItem(lootById('rusty-sword')), ['hand1', 'hand2']);
+  assert.equal(isTwoHandedItem(lootById('executioner-axe')), true);
+  assert.deepEqual(allowedSlotsForItem(lootById('executioner-axe')), ['hand1']);
+
+  assert.ok(html.includes('id="item-detail-offhand"'), 'there is no second hand to choose');
+  assert.match(runtime, /itemDetailOffhand\.hidden = !handChoice;/);
+  // Asked only when it is a question: with both hands empty there is none.
+  assert.match(runtime, /&& Boolean\(selected\.hand1 \|\| selected\.hand2\);/);
+  assert.match(runtime, /requestedSlot: 'hand2',/);
+  assert.match(runtime, /requestedSlot: itemDetailOffhand\.hidden \? null : 'hand1',/);
+  // And the slot really is passed through to the rule that places it.
+  assert.match(runtime, /equipInventoryItem\(currentItemState\(\), selection\.item\.uid, requestedSlot\)/);
+
+  // The busy hand shows the weapon holding it, faded.
+  assert.match(runtime, /button\.dataset\.occupied = String\(Boolean\(twoHanded\)\);/);
+  assert.match(runtime, /slot === 'hand2' && isTwoHandedItem\(equippedItem\('hand1'\)\)/);
+  assert.match(css, /\[data-occupied='true'\] img \{[\s\S]*?opacity: 0\.38;/);
+});

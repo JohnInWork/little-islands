@@ -337,6 +337,13 @@ body {
   display: none;
 }
 
+/* Рука, занятая двуручным: её же оружие, но вполсилы — слот не пустой, и
+   видно, чем именно он занят. */
+[data-occupied='true'] img {
+  opacity: 0.38;
+  filter: grayscale(0.4);
+}
+
 .start-game-second {
   margin-top: 10px;
   min-height: 58px;
