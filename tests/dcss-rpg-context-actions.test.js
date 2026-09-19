@@ -55,7 +55,7 @@ test('inspection reveals a hidden chest mechanism through the shared registry', 
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'guard',
-    'city-gate', 'road-end', 'priest', 'recruiter', 'jail-door', 'companion', 'wildlife', 'merchant', 'door', 'trap', 'chest',
+    'city-gate', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);

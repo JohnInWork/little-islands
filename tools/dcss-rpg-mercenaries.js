@@ -25,6 +25,7 @@ export const MERCENARIES = Object.freeze([
     speed: 0.98,
     size: 70,
     labels: Object.freeze({ ru: 'Бродяга', en: 'Drifter' }),
+    short: Object.freeze({ ru: 'Бродяга', en: 'Drifter' }),
     lines: Object.freeze({
       ru: 'Дешевле не найдёшь. И лучше тоже не найдёшь, если честно.',
       en: 'You will not find cheaper. Nor better, if I am honest.',
@@ -40,6 +41,7 @@ export const MERCENARIES = Object.freeze([
     speed: 1.02,
     size: 74,
     labels: Object.freeze({ ru: 'Наёмный меч', en: 'Sellsword' }),
+    short: Object.freeze({ ru: 'Наёмник', en: 'Sellsword' }),
     lines: Object.freeze({
       ru: 'Плата вперёд, вопросов не задаю, вниз иду первым.',
       en: 'Coin up front, no questions, and I take the first step down.',
@@ -55,6 +57,7 @@ export const MERCENARIES = Object.freeze([
     speed: 1,
     size: 76,
     labels: Object.freeze({ ru: 'Ветеранка', en: 'Veteran' }),
+    short: Object.freeze({ ru: 'Ветеранка', en: 'Veteran' }),
     lines: Object.freeze({
       ru: 'Я была ниже восемнадцатого. Дорого — потому что вернулась.',
       en: 'I have been below the eighteenth. I cost what I cost because I came back.',
@@ -70,6 +73,9 @@ export const MERCENARIES = Object.freeze([
     speed: 0.96,
     size: 80,
     labels: Object.freeze({ ru: 'Странствующий рыцарь', en: 'Knight errant' }),
+    // A button on a 320-pixel phone has no room for «Странствующий рыцарь»
+    // and a price beside it, and a clipped word reads as a broken screen.
+    short: Object.freeze({ ru: 'Рыцарь', en: 'Knight' }),
     lines: Object.freeze({
       ru: 'Столько стоит доспех. Человек внутри идёт бесплатно.',
       en: 'That is the price of the armour. The man inside comes free.',
@@ -163,6 +169,7 @@ export function mercenaryModel({ gold = 0, party = [], partyLimit = 1, language 
       return Object.freeze({
         id: hire.id,
         name: hire.labels[locale],
+        shortName: (hire.short ?? hire.labels)[locale],
         line: hire.lines[locale],
         path: hire.path,
         price: hire.price,

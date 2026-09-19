@@ -2,7 +2,6 @@ import { canCloseDoor } from './dcss-rpg-doors.js';
 import {
   ARTIFACT_PATH,
   ASCENT_PATH,
-  CONTENT_PATHS,
   EXIT_PATH,
   FINAL_GATE_PATH,
   LOOT_CATALOG,
@@ -64,7 +63,6 @@ import {
   createStashState,
   parseStash,
   serializeStash,
-  stashAssetPaths,
   stashBuy,
   stashDeposit,
   stashEarned,
@@ -74,12 +72,9 @@ import {
   stashReturn,
 } from './dcss-rpg-stash.js';
 import {
-  allPlayerFoundationAssetPaths,
   composePlayerLayerStack,
-  composePlayerLayers,
 } from './dcss-rpg-player.js';
 import {
-  allEquipmentVisualAssetPaths,
   equipmentVisualForItem,
   itemSpriteFor,
   itemSpriteVariants,
@@ -87,7 +82,6 @@ import {
 import {
   PLAYER_BODY_OPTIONS,
   PLAYER_HAIR_OPTIONS,
-  allPlayerAppearanceAssetPaths,
   cyclePlayerAppearance,
   loadPlayerAppearance,
   playerAppearancePosition,
@@ -95,7 +89,6 @@ import {
   savePlayerAppearance,
 } from './dcss-rpg-appearance.js';
 import {
-  allBiomeAssetPaths,
   atmosphereThemeFor,
   BUILT_WALLS,
   HEWN_WALLS,
@@ -161,11 +154,9 @@ import {
   createDungeonWorld3D,
 } from './dcss-rpg-world3d.js';
 import {
-  allEnvironmentAssetPaths,
   createDungeonEnvironment,
 } from './dcss-rpg-environment.js';
 import {
-  FIND_ASSET_PATHS,
   findById,
   findPresentation,
   findResultPresentation,
@@ -267,9 +258,15 @@ import {
   hireMercenary,
   mercenaryById,
   mercenaryCopy,
+  isMercenary,
   mercenaryModel,
   mercenaryName,
 } from './dcss-rpg-mercenaries.js';
+import {
+  bedOffer,
+  mercenaryIdForHireMonster,
+  tavernHireMonsterId,
+} from './dcss-rpg-tavern.js';
 import {
   boundSlots,
   curseCopy,
@@ -282,6 +279,7 @@ import {
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
   CITY_PRIEST_ID,
+  cityInteriorAt,
   CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
   isCityDepth,
@@ -304,6 +302,7 @@ import {
   canTame,
   canTreat,
   careProfile,
+  createCompanionParty,
   companionModeLabel,
   companionName,
   companionRefusalText,
@@ -347,7 +346,6 @@ import {
 } from './dcss-rpg-crafting.js';
 import { eligibleItemAffixes } from './dcss-rpg-affixes.js';
 import {
-  JAIL_LOCK_TIER,
   arrestHero,
   breakOut,
   canPickCell,
@@ -381,7 +379,6 @@ import {
   CAMP_FIRE_FRAMES,
   CAMP_KIT_ITEM_ID,
   CAMP_STASH_CONTAINER_ID,
-  campLayout,
   campProfile,
   campRefusalText,
   canPitchCamp,
@@ -429,12 +426,9 @@ import {
   toggleAudioMute,
 } from './dcss-rpg-audio.js';
 import {
-  MERCHANT_ACTOR_PATH,
   MERCHANT_COMMANDS,
-  MERCHANT_ICON_PATH,
   buybackMerchantItem,
   buyMerchantItem,
-  createMerchantStates,
   merchantPresentation,
   merchantSellPrice,
   merchantStateFor,
@@ -445,7 +439,6 @@ import {
   CHEST_CONTAINER_CAPACITY,
   CHEST_CONTAINER_COMMANDS,
   HERO_BACKPACK_CAPACITY,
-  createChestContainerStates,
   openChestContainer as openChestContainerState,
   storeChestItem,
   takeChestGold,
@@ -464,7 +457,6 @@ import {
 import {
   POISON_BAIT_ITEM_ID,
   POISON_VIAL_ITEM_ID,
-  canCoat,
   coatWeapon,
   poisonProfile,
   poisonRefusalText,
@@ -560,7 +552,6 @@ import {
   resolveTargetedItemUse,
 } from './dcss-rpg-targeting.js';
 import {
-  PASSIVE_CREATURE_PATHS,
   choosePassiveWanderTarget,
   createPassiveCreatureStates,
   passiveWanderPause,
@@ -576,9 +567,18 @@ import {
   hungerPresentation,
   hungerStage,
 } from './dcss-rpg-hunger.js';
+import {
+  REST_MAX,
+  advanceRest,
+  canSpendSkillPoints,
+  restCopy,
+  restPresentation,
+  restStage,
+  sleep,
+  validateRest,
+} from './dcss-rpg-rest.js';
 import { createGameCommand } from './dcss-rpg-game-commands.js';
 import {
-  COOKED_MEAT_ITEM_ID,
   RAW_MEAT_ITEM_ID,
   SURVIVAL_COMMANDS,
   beginWildlifeHunt,
@@ -970,6 +970,7 @@ const hero = {
   xp: run.hero.xp,
   power: run.hero.power,
   hunger: run.hero.hunger,
+  rest: validateRest(run.hero.rest) ? run.hero.rest : REST_MAX,
   meal: createMealState(run.hero.meal),
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
@@ -1854,6 +1855,7 @@ function captureRun() {
     xp: hero.xp,
     power: hero.power,
     hunger: hero.hunger,
+    rest: hero.rest,
     meal: createMealState(hero.meal),
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
@@ -3556,6 +3558,12 @@ function patrolRoll(monster) {
 }
 
 function patrolTargetCell(monster) {
+  // A post inside a building is a job, not a starting point. The priest, the
+  // keeper and the four hires drinking at his tables all work indoors, and a
+  // man you came back for is no use to anybody out on the square.
+  const room = isCityDepth(dungeon.depth)
+    ? cityInteriorAt(dungeon.city, monster.post)
+    : null;
   const candidates = [];
   for (let dy = -PATROL_RADIUS; dy <= PATROL_RADIUS; dy += 1) {
     for (let dx = -PATROL_RADIUS; dx <= PATROL_RADIUS; dx += 1) {
@@ -3563,6 +3571,7 @@ function patrolTargetCell(monster) {
       const x = monster.post.x + dx;
       const y = monster.post.y + dy;
       if (!isWalkable(x, y)) continue;
+      if (room && (x < room.x || x >= room.x + room.w || y < room.y || y >= room.y + room.h)) continue;
       candidates.push({ x, y });
     }
   }
@@ -7349,6 +7358,18 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'road-end') {
     return { kind: 'road-end' };
   }
+  if (entry.kind === 'tavern-hire') {
+    const mercenaryId = mercenaryIdForHireMonster(entry.value.id);
+    const model = mercenaryModel({
+      gold,
+      party: run.companions,
+      partyLimit: currentPartyLimit(),
+      language: itemDetailLanguage,
+    });
+    const row = model.rows.find(({ id }) => id === mercenaryId);
+    if (!row) return null;
+    return { kind: 'tavern-hire', mercenaryId, row, icon: entry.value.spritePath };
+  }
   if (entry.kind === 'recruiter') {
     const model = mercenaryModel({
       gold,
@@ -7356,7 +7377,15 @@ function contextModelTarget(entry = contextTarget) {
       partyLimit: currentPartyLimit(),
       language: itemDetailLanguage,
     });
-    return { kind: 'recruiter', rows: model.rows, idle: model.copy.idle };
+    // The keeper also rents the room upstairs, which is the only bed in the
+    // city that is not the hero's own and does not cost three hundred gold.
+    const bed = bedOffer({
+      gold,
+      rest: hero.rest,
+      restMax: REST_MAX,
+      language: itemDetailLanguage,
+    });
+    return { kind: 'recruiter', rows: model.rows, idle: model.copy.idle, bed };
   }
   if (entry.kind === 'priest') {
     // One decision, made once: the price, whether there is anything to lift and
@@ -7504,6 +7533,7 @@ function contextTargetIsAdjacent(entry) {
     || entry.kind === 'guard'
     || entry.kind === 'priest'
     || entry.kind === 'recruiter'
+    || entry.kind === 'tavern-hire'
     || entry.kind === 'companion';
   const x = propTarget
     ? entry.value.gridX
@@ -7530,6 +7560,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'road-end') return distance === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'recruiter') return distance <= 1 && entry.value.dead === 0;
+  if (entry.kind === 'tavern-hire') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -8567,6 +8598,13 @@ function nearbyContextTarget() {
       + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
   ));
   if (priest) return { kind: 'priest', value: priest };
+  const seated = monsters.find((monster) => (
+    mercenaryIdForHireMonster(monster.id)
+    && monster.dead === 0
+    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
+      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
+  ));
+  if (seated) return { kind: 'tavern-hire', value: seated };
   const recruiter = monsters.find((monster) => (
     monster.id === CITY_RECRUITER_ID
     && monster.dead === 0
@@ -8628,6 +8666,12 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     return true;
   },
   recruiter({ action }) {
+    closeContextActions();
+    if (action.id === 'bed') return rentTavernBed();
+    if (!action.id.startsWith('hire:')) return false;
+    return hireIntoParty(action.id.slice('hire:'.length));
+  },
+  'tavern-hire'({ action }) {
     closeContextActions();
     if (!action.id.startsWith('hire:')) return false;
     return hireIntoParty(action.id.slice('hire:'.length));
@@ -12206,11 +12250,44 @@ function hireIntoParty(mercenaryId) {
     return false;
   }
   gold -= result.price;
+  emptySeatOf(mercenaryId);
   playSound('ui-tap');
   showLootToast(
     { path: mercenaryById(mercenaryId).path, rarity: 2 },
     mercenaryCopy(itemDetailLanguage).hired(mercenaryName(mercenaryId, itemDetailLanguage)),
   );
+  updateHud();
+  persistRun();
+  return true;
+}
+
+/**
+ * The chair a hire got up from. `floor.defeated` is the floor's list of who is
+ * no longer standing on it — the runtime reads it for nothing else — so a man
+ * who walked out with the hero belongs in it exactly as much as one who fell.
+ */
+function emptySeatOf(mercenaryId) {
+  const seated = monsters.find((monster) => (
+    monster.id === tavernHireMonsterId(mercenaryId) && monster.dead === 0
+  ));
+  if (!seated) return;
+  seated.dead = 0.01;
+  if (!run.floor.defeated.includes(seated.instanceId)) {
+    run.floor.defeated.push(seated.instanceId);
+  }
+}
+
+/** The room upstairs: gold for a whole night, and the clock fills. */
+function rentTavernBed() {
+  const offer = bedOffer({
+    gold,
+    rest: hero.rest,
+    restMax: REST_MAX,
+    language: itemDetailLanguage,
+  });
+  if (!offer.ok) return false;
+  if (!sleepOnIt()) return false;
+  gold -= offer.price;
   updateHud();
   persistRun();
   return true;

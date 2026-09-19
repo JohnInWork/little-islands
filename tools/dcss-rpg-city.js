@@ -8,6 +8,15 @@
  * level, so the rest of the game keeps working with the grid it always had.
  */
 
+import {
+  TAVERN_ASSET_PATHS,
+  TAVERN_PROPS,
+  tavernHireMonsterId,
+  tavernKeeperSpot,
+  tavernLayout,
+  tavernSeatedMercenaries,
+} from './dcss-rpg-tavern.js';
+
 /** Which floors of the run are a city. One for now, easy to move. */
 /**
  * The city is not a floor of the dungeon: it is the surface above it. Depth
@@ -40,6 +49,7 @@ export const CITY_BLOCK_KINDS = Object.freeze([
   'barracks',
   'jail',
   'plot',
+  'tavern',
   'house',
 ]);
 
@@ -127,7 +137,9 @@ export function cityBlockRects({ area, columns, rows }) {
 function buildBuilding({ grid, block, kind, rng }) {
   // The plot is the house the hero buys: it always takes its whole block, so
   // there is room for a bed, a chest and a hearth with space left to walk.
-  const roomy = kind === 'plot';
+  // The tavern takes its whole block for the same reason — a common room with
+  // an inset wall is a cupboard with a fireplace in it.
+  const roomy = kind === 'plot' || kind === 'tavern';
   const inset = !roomy && block.w > MIN_BLOCK.width && block.h > MIN_BLOCK.height && rng() < 0.5 ? 1 : 0;
   const rect = {
     x: block.x + inset,
@@ -204,7 +216,12 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
   // around them, which is a stall, not a merchant.
   // The temple is a building like any other: a door, a room, and one man in it.
   // A priest standing on the square would be a preacher, not a temple.
-  const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'temple', 'barracks', 'jail', 'plot'];
+  // The tavern is appended rather than inserted, and that is deliberate: every
+  // block before it keeps the role it had, so its door, its shop and its
+  // merchant keep the ids they were saved under. One block that used to be a
+  // solid body of the city becomes a building — wall turning into floor, which
+  // can strand nobody.
+  const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'temple', 'barracks', 'jail', 'plot', 'tavern'];
   const records = [{ kind: 'plaza', rect: { ...centre }, door: null, interior: { ...centre } }];
 
   for (const [index, block] of others.entries()) {
@@ -310,6 +327,26 @@ export function cityGuardPosts(plan, count = 5) {
   return posts;
 }
 
+/**
+ * The room a cell belongs to, or null for the street. The runtime uses it to
+ * keep a man who works indoors indoors: the city has always said the priest
+ * stands in his temple and never leaves it, and until now only the generator
+ * believed that — the patrol let him wander six cells in any direction, out of
+ * the door and across the square. A place you can come back to has to have
+ * somebody still in it.
+ */
+export function cityInteriorAt(plan, cell) {
+  if (!plan || !cell) return null;
+  const block = plan.blocks?.find(({ interior, kind }) => (
+    interior
+    && kind !== 'plaza'
+    && kind !== 'market'
+    && cell.x >= interior.x && cell.x < interior.x + interior.w
+    && cell.y >= interior.y && cell.y < interior.y + interior.h
+  ));
+  return block ? block.interior : null;
+}
+
 function insideAnyBuilding(plan, x, y) {
   return plan.blocks.some(({ interior, kind }) => (
     interior
@@ -347,10 +384,32 @@ export const CITY_PRIEST_ID = 'city-priest';
 /** And the one who does not live here at all: the recruiter on the market. */
 export const CITY_RECRUITER_ID = 'city-recruiter';
 
-/** Where hires are taken: open ground, where a hiring board belongs. */
+/** The tavern block, when the plan had room for one. */
+export function cityTavernBlock(plan) {
+  return plan.blocks.find(({ kind, interior }) => kind === 'tavern' && interior) ?? null;
+}
+
+/**
+ * Where hires are taken. The keeper stands at his own counter now: a man with
+ * a hiring board on an open square is a recruiter, and the place you actually
+ * meet people who will walk down a hole for money is a tavern. The market is
+ * kept as the fallback, so a plan with no room for a tavern can still hire.
+ */
 export function cityRecruiterSpot(plan) {
-  const block = plan.blocks.find(({ kind, interior }) => kind === 'market' && interior);
-  return block ? centreOf(block.interior) : null;
+  const tavern = cityTavernBlock(plan);
+  const keeper = tavern
+    ? tavernKeeperSpot({ interior: tavern.interior, door: tavern.door })
+    : null;
+  if (keeper) return keeper;
+  const market = plan.blocks.find(({ kind, interior }) => kind === 'market' && interior);
+  return market ? centreOf(market.interior) : null;
+}
+
+/** Who is sitting in the common room, and where, before anyone buys them. */
+export function cityTavernHires(plan) {
+  const tavern = cityTavernBlock(plan);
+  if (!tavern) return [];
+  return tavernSeatedMercenaries({ interior: tavern.interior, door: tavern.door });
 }
 
 /** Where the priest stands. Null when a small plan had no room for a temple. */
@@ -425,6 +484,19 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
       x: temple.x,
       y: temple.y,
       post: Object.freeze({ ...temple }),
+    }));
+  }
+  // The common room. Four hires sit at the tables until somebody buys one, and
+  // they are appended last on purpose: every id above them keeps its number,
+  // so a floor saved before the tavern existed still knows who it had beaten.
+  for (const hire of cityTavernHires(plan)) {
+    if (roomIndexAt(rooms, hire) < 0) continue;
+    monsters.push(Object.freeze({
+      instanceId: `monster-${depth}-${monsters.length}`,
+      id: tavernHireMonsterId(hire.mercenaryId),
+      x: hire.x,
+      y: hire.y,
+      post: Object.freeze({ x: hire.x, y: hire.y }),
     }));
   }
 
@@ -518,8 +590,37 @@ const CITY_PROPS = Object.freeze({
   }),
 });
 
+/**
+ * What stands on a street corner. The city used to put one lamp on one corner
+ * of every block and call that a town; a street with nothing on it but a lamp
+ * reads as a corridor with better lighting. These are the things people leave
+ * outside their own walls, and each block draws from the list by its own index
+ * so the same city furnishes itself the same way every time.
+ */
+const CITY_STREET_PROPS = Object.freeze([
+  TAVERN_PROPS.barrels,
+  CITY_PROPS.bush,
+  TAVERN_PROPS.woodpile,
+  TAVERN_PROPS.casks,
+  CITY_PROPS.tree,
+  TAVERN_PROPS.logs,
+  TAVERN_PROPS.basket,
+  TAVERN_PROPS.keg,
+]);
+
+/** What a working building keeps indoors, by what the building is for. */
+const CITY_INTERIOR_PROPS = Object.freeze({
+  shop: Object.freeze([TAVERN_PROPS.bar, TAVERN_PROPS.casks, TAVERN_PROPS.basket]),
+  temple: Object.freeze([TAVERN_PROPS.candelabra, TAVERN_PROPS.candles, TAVERN_PROPS.book]),
+  barracks: Object.freeze([TAVERN_PROPS.bench, TAVERN_PROPS.barrels, TAVERN_PROPS.chessboard]),
+  jail: Object.freeze([TAVERN_PROPS.jug, TAVERN_PROPS.woodpile]),
+});
+
 export const CITY_ASSET_PATHS = Object.freeze([
-  ...new Set(Object.values(CITY_PROPS).flatMap(({ frames }) => frames)),
+  ...new Set([
+    ...Object.values(CITY_PROPS).flatMap(({ frames }) => frames),
+    ...TAVERN_ASSET_PATHS,
+  ]),
 ]);
 
 /**
@@ -545,12 +646,12 @@ export function createCityEnvironment(level) {
     ]),
   ]);
   const props = [];
-  const place = (kind, cell, roomIndex) => {
+  const place = (visual, cell, roomIndex) => {
+    if (!visual) return;
     const key = cellKey(cell);
     if (reserved.has(key)) return;
     if (level.grid[cell.y]?.[cell.x] !== CITY_FLOOR) return;
     reserved.add(key);
-    const visual = CITY_PROPS[kind];
     props.push(Object.freeze({
       id: `environment-${level.depth}-${roomIndex}-${props.length}`,
       themeId: 'gate-town',
@@ -572,21 +673,44 @@ export function createCityEnvironment(level) {
       { x: rect.x + rect.w - 1, y: rect.y + rect.h - 1 },
     ];
     if (kind === 'plaza') {
-      place('fountain', { x: rect.x + 1, y: rect.y + 1 }, roomIndex);
-      place('statue', { x: rect.x + rect.w - 2, y: rect.y + rect.h - 2 }, roomIndex);
-      place('tree', corners[1], roomIndex);
-      place('tree', corners[2], roomIndex);
+      place(CITY_PROPS.fountain, { x: rect.x + 1, y: rect.y + 1 }, roomIndex);
+      place(CITY_PROPS.statue, { x: rect.x + rect.w - 2, y: rect.y + rect.h - 2 }, roomIndex);
+      place(CITY_PROPS.tree, corners[1], roomIndex);
+      place(CITY_PROPS.tree, corners[2], roomIndex);
       continue;
     }
     if (kind === 'market') {
-      place('hearth', { x: rect.x + Math.floor(rect.w / 2), y: rect.y }, roomIndex);
-      place('stall', corners[0], roomIndex);
-      place('stall', corners[3], roomIndex);
-      place('bush', corners[1], roomIndex);
+      place(CITY_PROPS.hearth, { x: rect.x + Math.floor(rect.w / 2), y: rect.y }, roomIndex);
+      place(CITY_PROPS.stall, corners[0], roomIndex);
+      place(CITY_PROPS.stall, corners[3], roomIndex);
+      place(CITY_PROPS.bush, corners[1], roomIndex);
+      placeAlongStreet(place, rect, roomIndex);
       continue;
     }
-    // A lamp on the street corner of every block, so the city is lit at night.
-    place('lamp', { x: rect.x - 1, y: rect.y - 1 }, roomIndex);
+    if (kind === 'tavern' && block.interior) {
+      for (const piece of tavernLayout({ interior: block.interior, door: block.door })) {
+        place(TAVERN_PROPS[piece.kind], piece, roomIndex);
+      }
+    } else if (block.interior && CITY_INTERIOR_PROPS[kind]) {
+      // Every other working building used to be four walls around one man.
+      // Two or three things he keeps indoors say more about what he does than
+      // the sign over his door, which the city does not have.
+      const indoors = CITY_INTERIOR_PROPS[kind];
+      const inside = block.interior;
+      const spots = [
+        { x: inside.x, y: inside.y },
+        { x: inside.x + inside.w - 1, y: inside.y },
+        { x: inside.x, y: inside.y + inside.h - 1 },
+        { x: inside.x + inside.w - 1, y: inside.y + inside.h - 1 },
+      ];
+      for (const [index, visual] of indoors.entries()) {
+        place(visual, spots[(roomIndex + index) % spots.length], roomIndex);
+      }
+    }
+    // A lamp on the street corner of every block, so the city is lit at night,
+    // and then the things people actually leave outside their own walls.
+    place(CITY_PROPS.lamp, { x: rect.x - 1, y: rect.y - 1 }, roomIndex);
+    placeAlongStreet(place, rect, roomIndex);
   }
 
   // Cooking needs a fire the hero can reach; the market hearth is that fire.
@@ -594,7 +718,7 @@ export function createCityEnvironment(level) {
     const fallback = cityFloorCells({ ...plan, grid: level.grid })
       .find((cell) => !reserved.has(cellKey(cell)));
     if (!fallback) throw new Error('The city has nowhere to put a hearth');
-    place('hearth', fallback, 0);
+    place(CITY_PROPS.hearth, fallback, 0);
   }
 
   return Object.freeze({
@@ -602,6 +726,23 @@ export function createCityEnvironment(level) {
     floorAccents: Object.freeze([]),
     roomThemes: Object.freeze(plan.blocks.map(({ kind }) => `gate-town-${kind}`)),
   });
+}
+
+/**
+ * The three street corners the lamp does not take. Which prop lands on which
+ * corner is decided by the block's own index, so it is the same city twice and
+ * two neighbouring blocks never put out the same three things.
+ */
+function placeAlongStreet(place, rect, roomIndex) {
+  const outside = [
+    { x: rect.x + rect.w, y: rect.y - 1 },
+    { x: rect.x - 1, y: rect.y + rect.h },
+    { x: rect.x + rect.w, y: rect.y + rect.h },
+  ];
+  for (const [index, cell] of outside.entries()) {
+    const visual = CITY_STREET_PROPS[(roomIndex * 3 + index) % CITY_STREET_PROPS.length];
+    place(visual, cell, roomIndex);
+  }
 }
 
 function cellKey({ x, y }) {

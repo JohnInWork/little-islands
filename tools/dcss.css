@@ -6865,6 +6865,14 @@ body {
     --dock-edge: max(8px, env(safe-area-inset-left));
   }
 
+  /* One action per row. Two columns give a label 112 pixels here, and a name
+     with a price beside it does not fit that — «Комната на ночь · 25●» ran a
+     third of its width past the button. A clipped word reads as a broken
+     screen, so the narrowest phone gets the taller list instead. */
+  .context-action-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .bag-button,
   .interact-action {
     width: var(--dock-button);

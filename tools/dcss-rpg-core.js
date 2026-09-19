@@ -112,10 +112,11 @@ import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 48;
-export const SAVE_KEY = 'dng-codex:rpg:v48';
+export const SAVE_VERSION = 49;
+export const SAVE_KEY = 'dng-codex:rpg:v49';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  'dng-codex:rpg:v48',
   'dng-codex:rpg:v47',
   'dng-codex:rpg:v46',
   'dng-codex:rpg:v45',
@@ -164,7 +165,7 @@ export const LEGACY_SAVE_KEYS = Object.freeze([
   'little-islands:dcss-rpg:v2',
   LEGACY_SAVE_KEY,
 ]);
-export const GENERATOR_VERSION = 15;
+export const GENERATOR_VERSION = 16;
 export const CONTENT_VERSION = 19;
 export const MAP_WIDTH = 36;
 export const MAP_HEIGHT = 26;
@@ -1550,7 +1551,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
-    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1679,7 +1680,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
-    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1823,7 +1824,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
     migrated.floor.camp = migrated.floor.camp ?? null;
-    // v49 gives a floor its second wind; a migrated floor has not spent one.
+    // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
@@ -1943,7 +1944,7 @@ export function migrateLegacyRun(snapshot) {
   migrated.hero.meal = migrated.hero.meal ?? null;
   migrated.hero.coating = createCoatingState(migrated.hero.coating);
   migrated.floor.camp = migrated.floor.camp ?? null;
-  // v49 gives a floor its second wind; a migrated floor has not spent one.
+  // v48 gives a floor its second wind; a migrated floor has not spent one.
   migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.

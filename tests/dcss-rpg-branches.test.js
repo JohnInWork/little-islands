@@ -110,7 +110,7 @@ test('both roads keep every promise the dungeon makes', () => {
 });
 
 test('the run remembers its road, and only the city lets it change', () => {
-  assert.equal(SAVE_VERSION, 48, 'the branch is new state, not a derivation');
+  assert.equal(SAVE_VERSION, 49, 'the branch is new state, not a derivation');
   assert.ok(RUN_BRANCHES.includes(DEFAULT_RUN_BRANCH));
   assert.equal(validateRunBranch('sideways'), false);
 

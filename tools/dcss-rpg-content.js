@@ -305,6 +305,34 @@ export const MONSTER_CATALOG = Object.freeze([
     bloodColor: '#6d3b33', spawn: 'city', neutral: true,
     threat: { attackRate: 0.8, vision: 6, windup: 0.3, pursuit: 3 },
   },
+  // ── Наёмники в таверне ──────────────────────────────────────────────────
+  // Четверо сидят за столами, пока их не наняли. Это те же самые наёмники из
+  // `dcss-rpg-mercenaries.js`, и цифры здесь — их собственные: человек, на
+  // которого замахнулись, дерётся ровно так же, как если бы шёл с тобой.
+  {
+    id: 'tavern-drifter', habitat: 'surface', kin: 'humanoid', path: 'mon/unique/grum.png',
+    tier: 2, hp: 26, damage: 4, speed: 0.98, xp: 10,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.9, vision: 6, windup: 0.26, pursuit: 4 },
+  },
+  {
+    id: 'tavern-sellsword', habitat: 'surface', kin: 'humanoid', path: 'mon/unique/edmund.png',
+    tier: 3, hp: 46, damage: 8, speed: 1.02, xp: 16,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.9, vision: 6.4, windup: 0.24, pursuit: 5 },
+  },
+  {
+    id: 'tavern-veteran', habitat: 'surface', kin: 'humanoid', path: 'mon/unique/maud.png',
+    tier: 4, hp: 72, damage: 12, speed: 1, xp: 24,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.88, vision: 6.8, windup: 0.24, pursuit: 6 },
+  },
+  {
+    id: 'tavern-knight-errant', habitat: 'surface', kin: 'humanoid', path: 'mon/unique/wiglaf.png',
+    tier: 4, hp: 104, damage: 17, speed: 0.96, xp: 32,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.84, vision: 7, windup: 0.28, pursuit: 6 },
+  },
   // ── Хранители подвалов ──────────────────────────────────────────────────
   // Четыре на рукотворную дорогу. Все они — сделанное: сторож, голем, ключник
   // и то, чем кончился эксперимент. Никакой дичи: это не её место.

@@ -12,3 +12,14 @@ directories from the official Dungeon Crawl Stone Soup tile export:
 The upstream authors request acknowledgement of the artists and the Dungeon
 Crawl Stone Soup project. The new 2D RPG loads a small active catalog from this
 library; unused PNG files are not requested by the browser.
+
+## The `licensed/` subtree
+
+Art that is not CC0 lives there, one directory per pack, each with its own
+`LICENSE.md` naming the author, the source and the terms. Nothing outside those
+directories is covered by anything but the CC0 dedication above.
+
+| Pack | Author | License |
+| --- | --- | --- |
+| `licensed/cmski-chests` | Cmski | free demo; use permitted, redistribution as a pack is not |
+| `licensed/lpc-tavern` | bluecarrot16 and others | CC-BY-SA 3.0, credits in `CREDITS-tavern.txt` |

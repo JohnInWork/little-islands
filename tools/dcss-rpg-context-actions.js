@@ -191,7 +191,9 @@ const COPY = Object.freeze({
     roadEndClaim: 'Забег закончен победой',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     priestName: 'Жрец',
-    recruiterName: 'Вербовщик',
+    recruiterName: 'Трактирщик',
+    tavernHire: 'Нанять',
+    tavernBed: 'Ночлег',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -246,7 +248,9 @@ const COPY = Object.freeze({
     roadEndClaim: 'The run ends in victory',
     roadEndDeeper: 'This stair does not carry anyone back up',
     priestName: 'Priest',
-    recruiterName: 'Recruiter',
+    recruiterName: 'Innkeeper',
+    tavernHire: 'Hire',
+    tavernBed: 'A room',
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -506,13 +510,47 @@ export const INTERACTION_REGISTRY = Object.freeze([
       description: target.idle ?? '',
       icon: 'mon/unique/donald.png',
       accent: '#c9a45f',
-      actions: target.rows.map((row) => ({
-        id: `hire:${row.id}`,
-        label: `${row.name} · ${row.price}●`,
+      actions: [
+        ...target.rows.map((row) => ({
+          id: `hire:${row.id}`,
+          label: `${row.shortName ?? row.name} · ${row.price}●`,
+          glyph: '⚔',
+          enabled: row.ok === true,
+          hint: row.ok ? `${row.maxHp} ♥ · ${row.damage} ⚔` : row.reason,
+        })),
+        // The keeper also rents the room upstairs. It is the only bed in the
+        // city that is neither the hero's own nor a bedroll on a stone floor.
+        ...(target.bed ? [{
+          id: 'bed',
+          label: `${copy.tavernBed} · ${target.bed.price}●`,
+          glyph: '☾',
+          enabled: target.bed.ok === true,
+          hint: target.bed.ok ? '' : target.bed.text,
+        }] : []),
+      ],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * One hire, at one table. Walking up to a man and asking him is a different
+     * thing from reading a list of four, and the tavern exists so that it is:
+     * the price ladder is the same, but the question is about him.
+     */
+    id: 'tavern-hire',
+    command: 'tavern-hire',
+    matches: (target) => target?.kind === 'tavern-hire' && typeof target.mercenaryId === 'string' && target.row,
+    present: ({ target, copy }) => ({
+      name: target.row.name,
+      description: target.row.line ?? '',
+      icon: target.icon ?? target.row.path,
+      accent: '#c9a45f',
+      actions: [{
+        id: `hire:${target.mercenaryId}`,
+        label: `${copy.tavernHire} · ${target.row.price}●`,
         glyph: '⚔',
-        enabled: row.ok === true,
-        hint: row.ok ? `${row.maxHp} ♥ · ${row.damage} ⚔` : row.reason,
-      })),
+        enabled: target.row.ok === true,
+        hint: target.row.ok ? `${target.row.maxHp} ♥ · ${target.row.damage} ⚔` : target.row.reason,
+      }],
     }),
   }),
   defineInteraction({
