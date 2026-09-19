@@ -41,6 +41,18 @@ export const MINION_SPELL_IDS = Object.freeze(Object.keys(MINION_BLUEPRINTS));
 export const MINION_FOLLOW_DISTANCE = 2;
 export const MINION_LEASH_DISTANCE = 7;
 
+/**
+ * What counts as threatening the hero.
+ *
+ * A servant used to go after anything within the leash of the hero — seven
+ * cells, which in a dungeon is always something — so it spent the whole run
+ * away brawling and was never once beside the person it was guarding. A
+ * bodyguard defends; it does not patrol. Three cells is arm's reach of the
+ * hero plus a step, which is what «guarding» has to mean for the order to be
+ * worth giving.
+ */
+export const MINION_GUARD_RADIUS = 3;
+
 const EMPTY_PROFILE = Object.freeze({ rank: 0, powerPercent: 0, respawnPercent: 0 });
 
 /** What the school of Necromancy adds: tougher servants that return sooner. */
@@ -109,12 +121,24 @@ export function tickMinionSlot(slot, delta) {
  */
 export function minionIntent({ minion, hero, enemies = [] } = {}) {
   if (!minion || !hero) return Object.freeze({ mode: 'hold', targetId: null });
+  /**
+   * The leash is on the servant, not on the enemy.
+   *
+   * It was written the other way round: enemies further than the leash **from
+   * the hero** were ignored, and nothing ever measured how far the servant
+   * itself had wandered. So a bodyguard that walked off after one fight kept
+   * finding the next thing to chase and never came back — a hired mercenary
+   * was simply never beside the hero who paid for it, and could not be spoken
+   * to at all. Ivan met this three times from three different directions.
+   */
+  const strayed = Math.hypot(minion.x - hero.x, minion.y - hero.y);
+  if (strayed > MINION_LEASH_DISTANCE) return Object.freeze({ mode: 'follow', targetId: null });
   let target = null;
   let best = Number.POSITIVE_INFINITY;
   for (const enemy of enemies) {
     if (!enemy || enemy.dead > 0) continue;
     const fromHero = Math.hypot(enemy.x - hero.x, enemy.y - hero.y);
-    if (fromHero > MINION_LEASH_DISTANCE) continue;
+    if (fromHero > MINION_GUARD_RADIUS) continue;
     const fromMinion = Math.hypot(enemy.x - minion.x, enemy.y - minion.y);
     if (fromMinion < best) {
       best = fromMinion;

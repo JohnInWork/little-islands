@@ -16,6 +16,7 @@ import {
   minionRespawnSeconds,
   minionStats,
   necromancyProfile,
+  MINION_GUARD_RADIUS,
 } from '../tools/dcss-rpg-minions.js';
 import { SPELL_CATALOG, spellById, spellDamage, spellStatus } from '../tools/dcss-rpg-spells.js';
 import { lootById, monsterById } from '../tools/dcss-rpg-content.js';
@@ -165,4 +166,37 @@ test('the runtime raises, walks, guards and buries its servants', async () => {
   assert.match(runtime, /\.\.\.allies\n\s+\.filter\(\(ally\) => ally\.dead <= 0\.72/, 'servants are drawn with the living');
   assert.match(runtime, /usedSpell\.kind === 'minion'[\s\S]*copy\.called/, 'pressing the slot calls the servant back');
   assert.doesNotMatch(runtime, /floor\.allies|run\.allies/, 'servants never reach the save');
+});
+
+/**
+ * A bodyguard defends; it does not patrol.
+ *
+ * The leash was written on the wrong end: enemies further than seven cells
+ * **from the hero** were ignored, and nothing ever measured how far the servant
+ * itself had wandered. In a dungeon there is always something within seven
+ * cells, so a raised beast — and a mercenary the hero had paid two hundred gold
+ * for — spent the whole run away brawling and was never once beside the person
+ * it was guarding. It could not even be spoken to: the panel needs two cells.
+ */
+test('a servant guards the hero instead of chasing the room', () => {
+  const hero = { x: 10, y: 10 };
+  const far = { instanceId: 'far', x: 16, y: 10, dead: 0 };
+  const near = { instanceId: 'near', x: 12, y: 10, dead: 0 };
+
+  // Six cells from the hero is somebody else's problem.
+  assert.equal(minionIntent({ minion: { x: 10, y: 11 }, hero, enemies: [far] }).mode, 'hold');
+  // Two cells from the hero is the thing the servant is for.
+  assert.deepEqual(
+    minionIntent({ minion: { x: 10, y: 11 }, hero, enemies: [near] }),
+    { mode: 'attack', targetId: 'near' },
+  );
+
+  // And a servant that has strayed past the leash comes back, whatever it sees.
+  const strayed = { x: hero.x + MINION_LEASH_DISTANCE + 1, y: hero.y };
+  assert.equal(minionIntent({ minion: strayed, hero, enemies: [near] }).mode, 'follow');
+
+  // Standing about: close enough is close enough, further than that is a walk.
+  assert.equal(minionIntent({ minion: { x: 10, y: 11 }, hero, enemies: [] }).mode, 'hold');
+  assert.equal(minionIntent({ minion: { x: 10, y: 14 }, hero, enemies: [] }).mode, 'follow');
+  assert.ok(MINION_GUARD_RADIUS < MINION_LEASH_DISTANCE, 'a guard radius wider than the leash is not a leash');
 });
