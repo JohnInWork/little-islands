@@ -1,5 +1,6 @@
 import { FLOORS_PER_CHAPTER, FLOORS_PER_MERCHANT } from './dcss-rpg-run.js';
 import { isCityDepth } from './dcss-rpg-city.js';
+import { TAVERN_KEEPER_ID, TAVERN_MIN_ROOM } from './dcss-rpg-tavern.js';
 
 export { FLOORS_PER_CHAPTER };
 
@@ -700,7 +701,45 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
     dangerMultiplier: 0,
     rewardMultiplier: 0,
   }),
+  defineRoomArchetype({
+    /**
+     * A wayside inn. It belongs to the road **out** and nowhere else: a lit room
+     * with beer in it and swords for hire is a thing you find on a road through
+     * woods, moor and an abandoned hamlet, and is not a thing three hundred
+     * metres down in a burning core. The surface road was also the thinnest of
+     * the three — four places that differed by tiles — and this is the first
+     * thing that is only its own.
+     *
+     * It is furnished by `dcss-rpg-tavern.js`, exactly like the city's, so the
+     * two rooms cannot drift apart.
+     */
+    id: 'wayside-inn',
+    defaultEnvironmentThemeId: 'tavern-hall',
+    role: 'service',
+    minDepth: 2,
+    weight: 0,
+    requiresDoor: false,
+    environmentThemeIds: Object.fromEntries(
+      Object.keys(COMMON_ENVIRONMENT).map((themeId) => [themeId, 'tavern-hall']),
+    ),
+    content: { actorId: TAVERN_KEEPER_ID, interactionId: 'recruiter' },
+    dangerMultiplier: 0,
+    rewardMultiplier: 0,
+  }),
 ]);
+
+/**
+ * How often the road out passes an inn. A promise, not a dice roll: a player who
+ * knows one is coming can decide to walk past this fire and rest at the next.
+ * Offset from the merchant's own rhythm so a floor rarely has to host both.
+ */
+export const FLOORS_PER_INN = 4;
+
+/**
+ * How much of the ring around a room has to be rock before it counts as a
+ * building. Not all of it: an inn has a door, and a hut on the moor has two.
+ */
+const INN_ENCLOSURE = 0.75;
 
 /**
  * The city is not a chapter, so its theme stays out of the rotation and is
@@ -887,7 +926,56 @@ function semanticArchetypes(level) {
       ));
     if (candidates.length > 0) assigned.set(candidates[0], 'merchant-alcove');
   }
+
+  // And the inn, on the road out only.
+  if (
+    level.depth % FLOORS_PER_INN === 0
+    && dungeonThemeById(level.themeId)?.branch === 'surface'
+  ) {
+    const room = level.rooms
+      .map((_room, roomIndex) => roomIndex)
+      .filter((roomIndex) => (
+        roomIndex > 0
+        && !assigned.has(roomIndex)
+        && !roomHasWater(level, roomIndex)
+        // A common room needs a common room's worth of floor.
+        && level.rooms[roomIndex].width >= TAVERN_MIN_ROOM.w + 1
+        && level.rooms[roomIndex].height >= TAVERN_MIN_ROOM.h + 1
+        && roomIsEnclosed(level, level.rooms[roomIndex])
+      ))
+      .sort((a, b) => (
+        stableHash(level.seed, level.depth, a, 0x494e4e21)
+          - stableHash(level.seed, level.depth, b, 0x494e4e21)
+      ))[0];
+    if (room !== undefined) assigned.set(room, 'wayside-inn');
+  }
   return assigned;
+}
+
+/**
+ * Whether a room is a building rather than a clearing. Out in the open a room
+ * is a patch of ground with grass on every side, and furniture standing in a
+ * field is not an inn — it is a table somebody left outside. An inn needs walls
+ * around it and a way in, so most of the ring outside the room has to be rock.
+ */
+function roomIsEnclosed(level, room) {
+  if (!Array.isArray(level.grid) || !room) return false;
+  let solid = 0;
+  let total = 0;
+  const open = (x, y) => level.grid[y]?.[x] === '.' || level.grid[y]?.[x] === '~' || level.grid[y]?.[x] === 'D';
+  for (let x = room.x - 1; x <= room.x + room.width; x += 1) {
+    for (const y of [room.y - 1, room.y + room.height]) {
+      total += 1;
+      if (!open(x, y)) solid += 1;
+    }
+  }
+  for (let y = room.y; y < room.y + room.height; y += 1) {
+    for (const x of [room.x - 1, room.x + room.width]) {
+      total += 1;
+      if (!open(x, y)) solid += 1;
+    }
+  }
+  return total > 0 && solid / total >= INN_ENCLOSURE;
 }
 
 /** A merchant never sets up shop in a flooded room. */

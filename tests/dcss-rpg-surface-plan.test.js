@@ -158,9 +158,14 @@ test('no crypt statue ever stands in a meadow', async () => {
   const { DUNGEON_THEME_CATALOG, ROOM_ARCHETYPE_CATALOG, environmentThemeFor } =
     await import('../tools/dcss-rpg-room-plans.js');
   const outdoors = new Set(['open-wood', 'mangrove-shallows', 'boneyard', 'ruined-yard']);
+  // The rule is that open country does not borrow a crypt's statuary — not that
+  // the road out has no buildings on it. The wayside inn is a room with a roof
+  // and its own furniture, and it is the only archetype allowed to be one.
+  const indoorsOnPurpose = new Map([['wayside-inn', 'tavern-hall']]);
   for (const theme of DUNGEON_THEME_CATALOG.filter(({ branch }) => branch === 'surface')) {
     for (const archetype of ROOM_ARCHETYPE_CATALOG) {
       const look = environmentThemeFor(archetype, theme.id);
+      if (indoorsOnPurpose.get(archetype.id) === look) continue;
       assert.ok(outdoors.has(look), `${archetype.id} in ${theme.id} is decorated as ${look}`);
     }
   }

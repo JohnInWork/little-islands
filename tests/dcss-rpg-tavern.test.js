@@ -210,3 +210,102 @@ test('the city keeps a tavern, and the older quarters keep their own roles', () 
     assert.equal(level.grid[person.y][person.x], '.', `${person.id} stands in a wall`);
   }
 });
+
+/**
+ * The inn belongs to the road out and nowhere else. A lit room with beer in it
+ * is a thing you find on a track through woods and moor; it is not a thing
+ * three hundred metres down in a burning core.
+ */
+test('a wayside inn stands on the road out, and only there', async () => {
+  const { FLOORS_PER_INN } = await import('../tools/dcss-rpg-room-plans.js');
+  let onTheRoadOut = 0;
+  for (let seed = 1; seed <= 20; seed += 1) {
+    for (let depth = 2; depth <= 20; depth += 1) {
+      for (const branch of ['deep', 'surface', 'vaults']) {
+        const level = generateDungeon({ seed, depth, branch });
+        const inn = level.roomPlans.some(({ archetypeId }) => archetypeId === 'wayside-inn');
+        if (!inn) continue;
+        assert.equal(branch, 'surface', `seed ${seed} floor ${depth}: an inn underground`);
+        assert.equal(depth % FLOORS_PER_INN, 0, 'an inn is a promise, not a dice roll');
+        onTheRoadOut += 1;
+      }
+    }
+  }
+  assert.ok(onTheRoadOut > 50, 'the road out passes inns often enough to matter');
+});
+
+/**
+ * An inn with nobody in it is a room with furniture. Out in the open the rooms
+ * are clearings and clearings overlap — a merchant's alcove sharing ground with
+ * the inn used to wipe the keeper and the hire when it cleared its own floor.
+ */
+test('every inn has a keeper behind the counter and one hire at the table', () => {
+  let inns = 0;
+  for (let seed = 1; seed <= 40; seed += 1) {
+    for (let depth = 4; depth <= 24; depth += 4) {
+      const level = generateDungeon({ seed, depth, branch: 'surface' });
+      const plan = level.roomPlans.find(({ archetypeId }) => archetypeId === 'wayside-inn');
+      if (!plan) continue;
+      inns += 1;
+      const room = level.rooms[plan.roomIndex];
+      const people = level.monsters.filter(({ instanceId }) => instanceId.includes('-inn-'));
+      assert.equal(people.length, 2, `seed ${seed} floor ${depth}: the inn is empty`);
+      assert.equal(people.filter(({ id }) => id === TAVERN_KEEPER_ID).length, 1);
+      assert.equal(people.filter(({ id }) => mercenaryIdForHireMonster(id)).length, 1);
+      for (const person of people) {
+        assert.equal(level.grid[person.y][person.x], '.', `${person.id} stands in a wall`);
+        assert.ok(
+          person.x >= room.x && person.x < room.x + room.width
+          && person.y >= room.y && person.y < room.y + room.height,
+          `${person.id} is not in the inn`,
+        );
+      }
+      assert.equal(new Set(people.map(({ x, y }) => `${x},${y}`)).size, 2, 'two people, two chairs');
+    }
+  }
+  assert.ok(inns > 20, 'the sample actually found inns');
+});
+
+/**
+ * The deeper the inn, the better the company: the people who get that far out
+ * are not the people who take seventy coins to do it.
+ */
+test('the company at the fire gets harder the further out the inn is', () => {
+  const tierAt = (depth) => {
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const level = generateDungeon({ seed, depth, branch: 'surface' });
+      const hire = level.monsters.find(({ id }) => mercenaryIdForHireMonster(id));
+      if (hire) return MERCENARIES.findIndex(({ id }) => id === mercenaryIdForHireMonster(hire.id));
+    }
+    return null;
+  };
+  const shallow = tierAt(4);
+  const deep = tierAt(16);
+  assert.equal(shallow, 0, 'the first inn keeps a drifter');
+  assert.equal(deep, 3, 'the last one keeps a knight');
+});
+
+/** The inn is furnished by the same module the city's tavern is. */
+test('an inn is composed, not scattered', async () => {
+  const { createDungeonEnvironment } = await import('../tools/dcss-rpg-environment.js');
+  for (let seed = 1; seed <= 30; seed += 1) {
+    const level = generateDungeon({ seed, depth: 8, branch: 'surface' });
+    const plan = level.roomPlans.find(({ archetypeId }) => archetypeId === 'wayside-inn');
+    if (!plan) continue;
+    const room = level.rooms[plan.roomIndex];
+    const inside = createDungeonEnvironment(level).props.filter(({ gridX, gridY }) => (
+      gridX >= room.x && gridX < room.x + room.width
+      && gridY >= room.y && gridY < room.y + room.height
+    ));
+    assert.ok(inside.length >= 5, `seed ${seed}: the common room is bare`);
+    const paths = inside.map(({ path }) => path);
+    assert.ok(paths.every((path) => path.startsWith('licensed/lpc-tavern/')), 'a crypt statue got in');
+    assert.ok(paths.some((path) => path.includes('bar')), 'an inn has a counter');
+    assert.ok(paths.some((path) => path.includes('fireplace')), 'and a fire');
+    // Nobody is standing under the furniture.
+    const taken = new Set(level.monsters.map(({ x, y }) => `${x},${y}`));
+    for (const prop of inside) assert.ok(!taken.has(`${prop.gridX},${prop.gridY}`), 'a barrel on the keeper');
+    return;
+  }
+  assert.fail('no inn in the sample');
+});

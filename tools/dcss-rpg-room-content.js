@@ -5,6 +5,14 @@ import {
   createMerchantStock,
 } from './dcss-rpg-merchant.js';
 import { monsterById } from './dcss-rpg-content.js';
+import { MERCENARIES } from './dcss-rpg-mercenaries.js';
+import {
+  TAVERN_KEEPER_ID,
+  tavernEntranceCell,
+  tavernHireMonsterId,
+  tavernKeeperSpot,
+  tavernSeats,
+} from './dcss-rpg-tavern.js';
 
 export const ROOM_ENCOUNTER_KINDS = Object.freeze([
   'unguarded',
@@ -300,17 +308,81 @@ function materializeDoorVault(level, plan) {
   });
 }
 
-function materializeMerchant(level, plan, occupied) {
-  const room = level.rooms[plan.roomIndex];
-  // A service room is readable and safe. If the base floor budget happened to
-  // seed ordinary hazards here, remove only those unclaimed ambient spawns.
-  for (const collection of [level.monsters, level.events, level.finds]) {
+/**
+ * Empties a service room of ambient danger — and only of that.
+ *
+ * Out in the open, rooms are clearings and clearings overlap: on the road out a
+ * merchant's alcove and a wayside inn can share ground, and a blind "remove
+ * everything standing in my room" then wipes the keeper and the hire the inn
+ * had just seated. A creature whose catalogue entry names a `spawn` was put
+ * somewhere on purpose by somebody; the floor budget's own monsters are the
+ * ones this is for.
+ */
+function clearAmbientContent(room, collections, occupied) {
+  for (const collection of collections) {
     for (let index = collection.length - 1; index >= 0; index -= 1) {
-      if (!roomContains(room, collection[index])) continue;
-      occupied.delete(cellKey(collection[index]));
+      const entry = collection[index];
+      if (!roomContains(room, entry)) continue;
+      if (monsterById(entry?.id)?.spawn) continue;
+      occupied.delete(cellKey(entry));
       collection.splice(index, 1);
     }
   }
+}
+
+/**
+ * Who is drinking in a wayside inn, and how deep it is. One hire, not four:
+ * a room on the road is a chance encounter, not a hiring hall — and **the
+ * deeper the inn, the better the company**, because the people who get this far
+ * out are not the people who take seventy coins to do it.
+ */
+function innHireFor(depth) {
+  const step = Math.floor((depth - 1) / 5);
+  return MERCENARIES[Math.min(MERCENARIES.length - 1, Math.max(0, step))];
+}
+
+/**
+ * The inn's two people. Everything else in the room — the counter, the fire,
+ * the laid tables — is placed by the environment from the same layout module,
+ * and it runs after this, so nothing is ever drawn on top of them.
+ */
+function materializeInn(level, plan, monsters, occupied) {
+  const room = level.rooms[plan.roomIndex];
+  if (!room) return;
+  clearAmbientContent(room, [monsters, level.events, level.finds], occupied);
+  const interior = { x: room.x, y: room.y, w: room.width, h: room.height };
+  const door = tavernEntranceCell({ grid: level.grid, interior });
+  const hire = innHireFor(level.depth);
+  const people = [
+    { id: TAVERN_KEEPER_ID, cell: tavernKeeperSpot({ interior, door }) },
+    { id: tavernHireMonsterId(hire.id), cell: tavernSeats({ interior, door })[0] },
+  ];
+  const centre = { x: room.x + Math.floor(room.width / 2), y: room.y + Math.floor(room.height / 2) };
+
+  for (const [index, { id, cell }] of people.entries()) {
+    // The composed spot is the one we want — behind the counter, at the near
+    // table. But a stair or a sanctuary can already own that square, and an inn
+    // with nobody in it is worse than an inn with the keeper a step off his
+    // mark, so the nearest free cell takes over.
+    const free = cell
+      && level.grid[cell.y]?.[cell.x] === '.'
+      && !occupied.has(cellKey(cell))
+      ? cell
+      : roomCells(level, room, cell ?? centre, occupied, 0x494e4e50)[0];
+    if (!free) continue;
+    occupied.add(cellKey(free));
+    monsters.push({
+      instanceId: `monster-${level.depth}-inn-${index}`,
+      id,
+      x: free.x,
+      y: free.y,
+    });
+  }
+}
+
+function materializeMerchant(level, plan, occupied) {
+  const room = level.rooms[plan.roomIndex];
+  clearAmbientContent(room, [level.monsters, level.events, level.finds], occupied);
   const anchor = {
     x: room.x + Math.floor(room.width / 2),
     y: room.y + Math.floor(room.height / 2),
@@ -360,6 +432,10 @@ export function materializeDungeonRoomContent(level) {
   const merchants = [];
 
   for (const plan of level.roomPlans) {
+    if (plan.archetypeId === 'wayside-inn') {
+      materializeInn({ ...level, monsters, events, finds }, plan, monsters, occupied);
+      continue;
+    }
     if (plan.archetypeId === 'merchant-alcove') {
       const merchant = materializeMerchant({ ...level, monsters, events, finds }, plan, occupied);
       if (merchant) merchants.push(merchant);

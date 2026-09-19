@@ -125,3 +125,38 @@ test('runtime sends decorations through the depth-tested 3D world and gives ligh
   assert.match(world3d, /decoration:\$\{decoration\.id\}/);
   assert.doesNotMatch(runtime, /kind: 'decor'/);
 });
+
+/**
+ * Every floor the generator can produce must be one the renderer can furnish.
+ *
+ * It could not. Out in the open a room is a clearing and every cell of a
+ * clearing opens onto the next, so the search for a cooking site — which only
+ * ever looked at cells that were not a walkway — came back empty on about one
+ * surface floor in thirty, threw, and took the floor down with it. The hero
+ * walked down a stair into an exception. A brazier standing in a thoroughfare
+ * is a small ugliness; a floor nobody can enter is not, so the walkway is now
+ * the second choice rather than a reason to give up.
+ */
+test('no floor the generator can build is one the environment refuses', async () => {
+  const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
+  const { createDungeonEnvironment } = await import('../tools/dcss-rpg-environment.js');
+  const failures = [];
+  for (const branch of ['deep', 'surface', 'vaults']) {
+    for (let seed = 1; seed <= 24; seed += 1) {
+      for (let depth = 1; depth <= 20; depth += 1) {
+        const level = generateDungeon({ seed, depth, branch });
+        try {
+          const environment = createDungeonEnvironment(level);
+          // And a hero who can cook anywhere can cook on every floor.
+          assert.ok(
+            environment.props.some(({ interactionId }) => interactionId === 'campfire'),
+            `${branch} seed ${seed} floor ${depth}: nowhere to cook`,
+          );
+        } catch (error) {
+          failures.push(`${branch} seed ${seed} floor ${depth}: ${error.message}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failures, [], `\n${failures.slice(0, 5).join('\n')}\n`);
+});

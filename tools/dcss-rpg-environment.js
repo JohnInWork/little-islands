@@ -1,5 +1,6 @@
 import { createRng, mixSeed } from './dcss-rpg-core.js';
 import { createCityEnvironment, isCityDepth } from './dcss-rpg-city.js';
+import { TAVERN_PROPS, tavernEntranceCell, tavernLayout } from './dcss-rpg-tavern.js';
 
 const numberedPaths = (prefix, values) => values.map((value) => `${prefix}${value}.png`);
 
@@ -205,6 +206,15 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     floorAccents: numberedPaths('dngn/floor/moss', [0, 1, 2, 3]),
   }),
   roomTheme({
+    // The wayside inn. Nothing here is placed at random: `tavernLayout` decides
+    // where the counter and the fire stand, and this entry exists so the one
+    // list of every sprite the game can ask for still names them.
+    id: 'tavern-hall',
+    features: [TAVERN_PROPS.bar, TAVERN_PROPS.fireplace, TAVERN_PROPS.table],
+    details: [TAVERN_PROPS.stool, TAVERN_PROPS.barrels, TAVERN_PROPS.cauldron],
+    floorAccents: numberedPaths('dngn/floor/limestone', [0, 1, 2, 3]),
+  }),
+  roomTheme({
     id: 'ruined-yard',
     features: [
       prop('dngn/statues/crumbled_column_2.png', { size: 66 }),
@@ -380,6 +390,51 @@ function themeForRoom(level, roomIndex, offset, stride) {
   ];
 }
 
+/**
+ * The cells you step onto entering a room: an edge cell with open ground on the
+ * other side of it. Unlike the transit set this claims no clearance, because a
+ * doorway needs a doorway kept clear and nothing more.
+ */
+function roomThresholdCells(level, room) {
+  const width = roomSize(room, 'width');
+  const height = roomSize(room, 'height');
+  const right = room.x + width - 1;
+  const bottom = room.y + height - 1;
+  const cells = new Set();
+  for (let y = room.y; y <= bottom; y += 1) {
+    for (let x = room.x; x <= right; x += 1) {
+      if (x !== room.x && x !== right && y !== room.y && y !== bottom) continue;
+      for (const direction of CARDINAL_DIRECTIONS) {
+        const outsideX = x + direction.x;
+        const outsideY = y + direction.y;
+        if (roomContainsCell(room, outsideX, outsideY)) continue;
+        if (isTransitSurface(level, outsideX, outsideY)) cells.add(`${x},${y}`);
+      }
+    }
+  }
+  return cells;
+}
+
+/** Turns one layout piece into a prop the renderer already knows how to draw. */
+function tavernProp({ piece, level, roomIndex, themeId, phase, index }) {
+  const blueprint = TAVERN_PROPS[piece.kind];
+  return Object.freeze({
+    id: `environment-${level.depth}-${roomIndex}-inn-${index}`,
+    themeId,
+    gridX: piece.x,
+    gridY: piece.y,
+    x: piece.x + 0.5,
+    y: piece.y + 0.5,
+    path: blueprint.path,
+    frames: blueprint.frames,
+    size: blueprint.size,
+    screenOffsetY: blueprint.screenOffsetY,
+    light: blueprint.light,
+    interactionId: blueprint.interactionId,
+    phase,
+  });
+}
+
 export function createDungeonEnvironment(level) {
   // A city furnishes itself: streets, stalls and lamps, not braziers and bones.
   if (isCityDepth(level.depth)) return createCityEnvironment(level);
@@ -401,12 +456,66 @@ export function createDungeonEnvironment(level) {
   const roomThemes = [];
   const themeOffset = rng.int(0, ENVIRONMENT_ROOM_THEMES.length - 1);
   const themeStride = rng.next() < 0.5 ? 1 : ENVIRONMENT_ROOM_THEMES.length - 1;
+  // Out in the open rooms are clearings and clearings overlap, so a neighbour's
+  // tree, sarcophagus or brazier can stand on ground the inn also owns — and a
+  // tree growing in a common room is worse than a bare one. The inn's floor is
+  // the landlord's: nobody else furnishes it.
+  const innFloor = new Set(
+    (level.roomPlans ?? [])
+      .filter(({ archetypeId }) => archetypeId === 'wayside-inn')
+      .flatMap(({ roomIndex }) => {
+        const room = level.rooms[roomIndex];
+        if (!room) return [];
+        const cells = [];
+        for (let y = room.y; y < room.y + roomSize(room, 'height'); y += 1) {
+          for (let x = room.x; x < room.x + roomSize(room, 'width'); x += 1) cells.push(`${x},${y}`);
+        }
+        return cells;
+      }),
+  );
+  const outsideAnyInn = ({ x, y }) => !innFloor.has(`${x},${y}`);
 
   for (const [roomIndex, room] of level.rooms.entries()) {
     const theme = themeForRoom(level, roomIndex, themeOffset, themeStride);
     roomThemes.push(theme.id);
+    // An inn is a composed room, not a wall with things leaning on it: the same
+    // module that furnishes the city's tavern furnishes this one, so the two
+    // never drift apart. People are placed before the environment runs, so a
+    // barrel is never drawn on top of the keeper.
+    if (level.roomPlans?.find((plan) => plan.roomIndex === roomIndex)?.archetypeId === 'wayside-inn') {
+      const interior = {
+        x: room.x,
+        y: room.y,
+        w: roomSize(room, 'width'),
+        h: roomSize(room, 'height'),
+      };
+      const door = tavernEntranceCell({ grid: level.grid, interior });
+      const layout = tavernLayout({ interior, door });
+      // The transit rule keeps props out of the way through a room, and in a
+      // clearing that is the whole room: six gaps in the ring, a cell of
+      // clearance each, and an inn comes out empty. Props block nothing — the
+      // hero walks through them — so what actually has to stay clear is the
+      // threshold: the cells you step onto coming in. Everything else is floor
+      // the landlord may furnish.
+      const thresholds = roomThresholdCells(level, room);
+      for (const [index, piece] of layout.entries()) {
+        const key = `${piece.x},${piece.y}`;
+        if (occupied.has(key) || thresholds.has(key)) continue;
+        if (level.grid[piece.y]?.[piece.x] !== '.') continue;
+        occupied.add(key);
+        props.push(tavernProp({
+          piece,
+          level,
+          roomIndex,
+          themeId: theme.id,
+          phase: rng.next() * 8,
+          index,
+        }));
+      }
+      continue;
+    }
     const candidates = shuffle(rng, roomEdgeCells(level, room, occupied)).filter(
-      ({ x, y }) => !transit.has(`${x},${y}`),
+      (cell) => !transit.has(`${cell.x},${cell.y}`) && outsideAnyInn(cell),
     );
     const area = roomSize(room, 'width') * roomSize(room, 'height');
     const desiredProps = roomIndex === 0 ? 3 : 2 + (area >= 30 ? 1 : 0) + rng.int(0, 1);
@@ -442,9 +551,10 @@ export function createDungeonEnvironment(level) {
 
     const accentCandidates = shuffle(
       rng,
-      roomEdgeCells(level, room, occupied).filter(({ x, y }) =>
-        !transit.has(`${x},${y}`) &&
-        Math.abs(x - level.spawn.x) + Math.abs(y - level.spawn.y) > 1
+      roomEdgeCells(level, room, occupied).filter((cell) =>
+        !transit.has(`${cell.x},${cell.y}`) &&
+        outsideAnyInn(cell) &&
+        Math.abs(cell.x - level.spawn.x) + Math.abs(cell.y - level.spawn.y) > 1
       ),
     );
     const accentCount = Math.min(accentCandidates.length, area >= 30 ? 2 : 1);
@@ -463,12 +573,27 @@ export function createDungeonEnvironment(level) {
   }
 
   if (!props.some(({ interactionId }) => interactionId === 'campfire')) {
-    const fallback = level.rooms.map((room, roomIndex) => ({
+    // Out in the open a room is a clearing, and every cell of a clearing opens
+    // onto the next one — so on a few surface floors there is no cell anywhere
+    // that is not a walkway, and this used to throw and take the floor with it.
+    // A brazier standing in a thoroughfare is a small ugliness; a floor the
+    // hero cannot enter is not. So the walkway is the second choice, not a
+    // reason to give up, and only a floor with no free ground at all fails.
+    const roomCellsFor = (room, allowTransit) => roomEdgeCells(level, room, occupied)
+      .find(({ x, y }) => allowTransit || !transit.has(`${x},${y}`));
+    const isInn = (roomIndex) => (
+      level.roomPlans?.find((plan) => plan.roomIndex === roomIndex)?.archetypeId === 'wayside-inn'
+    );
+    // An inn already has a pot on. A dungeon brazier standing in its common
+    // room is the one thing in there that is not the landlord's.
+    const search = (allowTransit) => level.rooms.map((room, roomIndex) => ({
       room,
       roomIndex,
-      cell: roomEdgeCells(level, room, occupied)
-        .find(({ x, y }) => !transit.has(`${x},${y}`)),
+      cell: isInn(roomIndex)
+        ? undefined
+        : [roomCellsFor(room, allowTransit)].filter(Boolean).find(outsideAnyInn),
     })).find(({ cell }) => cell);
+    const fallback = search(false) ?? search(true);
     if (!fallback) throw new Error('Dungeon has no safe cooking-site cell');
     const { room, roomIndex, cell } = fallback;
     const position = propPosition(rng, room, cell);
@@ -499,12 +624,15 @@ export function createDungeonEnvironment(level) {
 export function allEnvironmentAssetPaths() {
   const themes = [START_ROOM_THEME, ...ENVIRONMENT_ROOM_THEMES];
   return [
-    ...new Set(
-      themes.flatMap((theme) => [
+    ...new Set([
+      ...themes.flatMap((theme) => [
         ...theme.features.flatMap(({ frames }) => frames),
         ...theme.details.flatMap(({ frames }) => frames),
         ...theme.floorAccents,
       ]),
-    ),
+      // The inn is furnished by its own module, so the theme above names only a
+      // handful of its props. All of them can appear; all of them ship.
+      ...Object.values(TAVERN_PROPS).flatMap(({ frames }) => frames),
+    ]),
   ];
 }

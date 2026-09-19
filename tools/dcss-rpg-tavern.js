@@ -150,6 +150,31 @@ function mapper({ interior, door }) {
   return { w: h, h: w, at: (u, v) => ({ x: x + w - 1 - v, y: y + u }) };
 }
 
+/**
+ * The way into a room, as a cell just outside it. A dungeon room has no door
+ * record the way a city block does, so the first edge cell that opens onto a
+ * corridor is answer enough: the layout only needs to know which wall the
+ * guests come through, and any entrance puts the counter on a far wall.
+ */
+export function tavernEntranceCell({ grid, interior }) {
+  if (!Array.isArray(grid) || !interior) return null;
+  const walkable = (x, y) => grid[y]?.[x] === '.' || grid[y]?.[x] === 'D';
+  const right = interior.x + interior.w - 1;
+  const bottom = interior.y + interior.h - 1;
+  for (let y = interior.y; y <= bottom; y += 1) {
+    for (let x = interior.x; x <= right; x += 1) {
+      if (x !== interior.x && x !== right && y !== interior.y && y !== bottom) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const outX = x + dx;
+        const outY = y + dy;
+        const outside = outX < interior.x || outX > right || outY < interior.y || outY > bottom;
+        if (outside && walkable(outX, outY)) return { x: outX, y: outY };
+      }
+    }
+  }
+  return null;
+}
+
 /** A tavern needs a room, not a cupboard: below this it is furnished as one. */
 export const TAVERN_MIN_ROOM = Object.freeze({ w: 4, h: 3 });
 

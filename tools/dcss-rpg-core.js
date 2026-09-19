@@ -1970,7 +1970,7 @@ function isFiniteInteger(value, min, max) {
  * save standing on a floor that had one alive.
  */
 const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
-  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+)$`)
+  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+)$`)
 );
 
 /**
