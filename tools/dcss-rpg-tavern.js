@@ -116,13 +116,17 @@ export const TAVERN_PROP_KINDS = Object.freeze(Object.keys(TAVERN_PROPS));
 /**
  * The boards underfoot. A tavern standing on the moss of the moor it was built
  * on is a table somebody carried outside, and the one thing the whole room was
- * missing. Dungeon Crawl's tile library has no wooden floor at all, so these
- * four are cut from the planking of the pack's own door — same wood, same
- * palette, darkened a little so a barrel standing on them still reads as a
- * barrel. Four of them, because one board repeated is a pattern, not a floor.
+ * missing. Dungeon Crawl's tile library has no wooden floor at all — not one
+ * plank in three and a half thousand tiles — so the boards come from [LPC]
+ * Floors, which is the same Liberated Pixel Cup this tavern's furniture is
+ * from and therefore the same wood.
+ *
+ * Four tiles, a 2×2 block that repeats. Of the wooden patterns in that shade it
+ * is the only one that repeats without banding: the others alternate boards
+ * running across and along, and tiling them lays stripes across a room.
  */
 export const TAVERN_FLOOR_PATHS = Object.freeze(
-  [1, 2, 3, 4].map((index) => `${ROOT}floor/planks${index}.png`),
+  [1, 2, 3, 4].map((index) => `licensed/lpc-floors/planks${index}.png`),
 );
 
 /**

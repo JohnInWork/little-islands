@@ -156,12 +156,16 @@ test('the room upstairs is refused for a named reason', () => {
 /** Art the game asks for has to be art the game ships, and under a licence. */
 test('the tavern ships its own sprites and says whose they are', async () => {
   assert.ok(TAVERN_ASSET_PATHS.length >= 30, 'a tavern is more than a table');
+  // Two packs, two licences: the furniture is CC-BY-SA 3.0 and the boards under
+  // it are 4.0. Nothing the tavern draws may come from anywhere but these.
+  const packs = new Set(['licensed/lpc-tavern/', 'licensed/lpc-floors/']);
   for (const path of TAVERN_ASSET_PATHS) {
-    assert.ok(path.startsWith('licensed/lpc-tavern/'), `${path} is outside the pack`);
+    assert.ok([...packs].some((pack) => path.startsWith(pack)), `${path} is outside both packs`);
     await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
   }
-  for (const file of ['LICENSE.md', 'CREDITS-tavern.txt']) {
-    await access(new URL(`../public/assets/dcss-preview/licensed/lpc-tavern/${file}`, import.meta.url));
+  for (const file of ['lpc-tavern/LICENSE.md', 'lpc-tavern/CREDITS-tavern.txt',
+    'lpc-floors/LICENSE.md', 'lpc-floors/CREDITS-floors.txt']) {
+    await access(new URL(`../public/assets/dcss-preview/licensed/${file}`, import.meta.url));
   }
   // Animation is frames, not a promise: a prop with one frame never animates.
   for (const kind of ['fireplace', 'cauldron', 'torch']) {

@@ -23,3 +23,4 @@ directories is covered by anything but the CC0 dedication above.
 | --- | --- | --- |
 | `licensed/cmski-chests` | Cmski | free demo; use permitted, redistribution as a pack is not |
 | `licensed/lpc-tavern` | bluecarrot16 and others | CC-BY-SA 3.0, credits in `CREDITS-tavern.txt` |
+| `licensed/lpc-floors` | bluecarrot16 and others | CC-BY-SA 4.0, credits in `CREDITS-floors.txt` |
