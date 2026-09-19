@@ -148,6 +148,13 @@
         </article>
       </section>
 
+      <div id="frame-failure" class="frame-failure pixel-frame" role="alert" hidden>
+        <strong>Кадр не отрисовался</strong>
+        <p id="frame-failure-text"></p>
+        <small>Сфотографируй это и покажи — по тексту видно, что сломалось.</small>
+        <button id="frame-failure-close" type="button">Понятно</button>
+      </div>
+
       <header class="hud pixel-frame" aria-label="Состояние героя">
         <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
         <div class="vitals">
@@ -388,18 +395,6 @@
             <button type="button" data-merchant-tab="sell" aria-pressed="false">Продать</button>
           </nav>
           <div id="merchant-shop-list" class="merchant-shop-list"></div>
-          <div id="merchant-shop-detail" class="merchant-shop-detail pixel-frame" hidden>
-            <img id="merchant-shop-detail-icon" alt="" />
-            <div class="merchant-shop-detail-copy">
-              <strong id="merchant-shop-detail-name"></strong>
-              <small id="merchant-shop-detail-meta"></small>
-              <p id="merchant-shop-detail-text"></p>
-            </div>
-            <div class="merchant-shop-detail-actions">
-              <button id="merchant-shop-confirm" class="primary" type="button">Купить</button>
-              <button id="merchant-shop-cancel" type="button">Закрыть</button>
-            </div>
-          </div>
           <p id="merchant-shop-feedback" class="merchant-shop-feedback" role="status" aria-live="polite"></p>
           <footer class="merchant-shop-footer">
             <button id="close-merchant-shop" type="button" aria-label="Закрыть торговлю">×</button>
@@ -685,50 +680,51 @@
           </footer>
         </div>
 
-        <section
-          id="item-detail"
-          class="item-detail"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="item-detail-name"
-          aria-hidden="true"
-          inert
-        >
-          <article class="item-detail-card pixel-frame">
-            <header class="item-detail-header">
-              <div class="item-detail-heading">
-                <h2 id="item-detail-name">Предмет</h2>
-                <p>
-                  <span id="item-detail-rarity">Обычный</span><i aria-hidden="true">◆</i
-                  ><span id="item-detail-slot">Снаряжение</span>
-                </p>
+      </section>
+
+      <section
+        id="item-detail"
+        class="item-detail"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="item-detail-name"
+        aria-hidden="true"
+        inert
+      >
+        <article class="item-detail-card pixel-frame">
+          <header class="item-detail-header">
+            <div class="item-detail-heading">
+              <h2 id="item-detail-name">Предмет</h2>
+              <p>
+                <span id="item-detail-rarity">Обычный</span><i aria-hidden="true">◆</i
+                ><span id="item-detail-slot">Снаряжение</span>
+              </p>
+            </div>
+          </header>
+          <div class="item-detail-body">
+            <div class="item-detail-portrait" aria-hidden="true">
+              <img id="item-detail-icon" alt="" />
+              <i></i>
+            </div>
+            <div class="item-detail-copy">
+              <p id="item-detail-description"></p>
+              <div id="item-detail-comparison" class="item-detail-comparison" hidden>
+                <h3 id="item-detail-comparison-title">После надевания</h3>
+                <ul id="item-detail-comparison-list"></ul>
               </div>
-            </header>
-            <div class="item-detail-body">
-              <div class="item-detail-portrait" aria-hidden="true">
-                <img id="item-detail-icon" alt="" />
-                <i></i>
-              </div>
-              <div class="item-detail-copy">
-                <p id="item-detail-description"></p>
-                <div id="item-detail-comparison" class="item-detail-comparison" hidden>
-                  <h3 id="item-detail-comparison-title">После надевания</h3>
-                  <ul id="item-detail-comparison-list"></ul>
-                </div>
-                <div class="item-detail-effects" aria-label="Свойства предмета">
-                  <h3>Свойства</h3>
-                  <ul id="item-detail-effects"></ul>
-                </div>
+              <div class="item-detail-effects" aria-label="Свойства предмета">
+                <h3>Свойства</h3>
+                <ul id="item-detail-effects"></ul>
               </div>
             </div>
-            <footer class="item-detail-actions">
-              <button id="close-item-detail" type="button" aria-label="Закрыть описание">×</button>
-              <button id="item-detail-variant" type="button" hidden>Иначе</button>
-              <button id="item-detail-craft" type="button" hidden>Перековать</button>
-              <button id="item-detail-action" type="button">Надеть</button>
-            </footer>
-          </article>
-        </section>
+          </div>
+          <footer class="item-detail-actions">
+            <button id="close-item-detail" type="button" aria-label="Закрыть описание">×</button>
+            <button id="item-detail-variant" type="button" hidden>Иначе</button>
+            <button id="item-detail-craft" type="button" hidden>Перековать</button>
+            <button id="item-detail-action" type="button">Надеть</button>
+          </footer>
+        </article>
       </section>
 
       <div id="trap-announcement" class="screen-reader-message" role="status" aria-live="polite"></div>

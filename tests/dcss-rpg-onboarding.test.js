@@ -97,7 +97,11 @@ test('the runtime evaluates signals on the game screen, persists the state and r
   assert.match(runtime, /parseOnboardingState\(localStorage\.getItem\(ONBOARDING_KEY\)\)/);
   assert.match(runtime, /localStorage\.setItem\(ONBOARDING_KEY, serializeOnboardingState\(onboardingState\)\)/);
   assert.match(runtime, /function currentOnboardingSignals\(\)[\s\S]*depth: dungeon\.depth,[\s\S]*moved: playerHasActed,[\s\S]*pickedUp: run\.floor\.collected\.length > 0,[\s\S]*interactAvailable: interactActions\.childElementCount > 0,[\s\S]*exitRevealed: revealed\.has\(`\$\{dungeon\.exit\.x\},\$\{dungeon\.exit\.y\}`\),[\s\S]*descended: dungeon\.depth > 1,/);
-  assert.match(runtime, /if \(hitStop === 0\) updateWorld\(delta\);\s+\}\s+updateOnboarding\(time\);/, 'evaluated each frame on the game screen only');
+  assert.match(
+    runtime,
+    /framePhase\('world', \(\) => updateWorld\(delta\)\);\s+\}\s+framePhase\('onboarding', \(\) => updateOnboarding\(time\)\);/,
+    'evaluated each frame on the game screen only',
+  );
   assert.match(runtime, /const result = advanceOnboarding\(onboardingState, currentOnboardingSignals\(\)\);/);
   assert.match(runtime, /onboardingDismissButton\.addEventListener\('click', dismissOnboardingHint\);/);
   assert.match(runtime, /onboardingSkipButton\.addEventListener\('click', skipOnboarding\);/);

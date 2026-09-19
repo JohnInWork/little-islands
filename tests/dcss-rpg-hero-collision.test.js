@@ -23,6 +23,7 @@ import { resolveShieldBlock, shieldBlockRoll } from '../tools/dcss-rpg-shield.js
 import { findGridPath, generateDungeon, hasLineOfSight } from '../tools/dcss-rpg-core.js';
 import { choosePassiveWanderTarget, createPassiveCreatureStates } from '../tools/dcss-rpg-passive.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
+import { directionVector } from '../tools/dcss-rpg-input.js';
 import { createActorEffects, tickActorEffects } from '../tools/dcss-rpg-effects.js';
 import {
   HERO_BASE_MOVE_SPEED, MONSTER_MIN_SEPARATION, canMeleeAttack, canMonsterAdvance,
@@ -190,6 +191,9 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     }),
     projectiles: [], sparks: [], bloodDrops: [], combatGlyphs: [], impactWaves: [],
     renderShake: { amount: 0 }, camera: { x: 96, y: 96 },
+    // A held direction is input, so the sandbox has to be able to accept input.
+    ready: true, uiScreen: 'game', directionVector, heroRouteVisible: false,
+    routeTowardCell: () => { throw new Error('a step must never ask for a route'); },
   });
   installRuntime(context, [
     'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
@@ -197,6 +201,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     'resolvePendingHeroAttack', 'damageMonster', 'executionDamage', 'applyWeaponPowers',
     'surviveOnSecondWind', 'heroConditionalDamage', 'spendHunger',
     'updateWorld', 'updatePassiveCreatures',
+    'stepHeroToward', 'queueDirectionalMove',
   ]);
   return { context, grid, hazards };
 }
@@ -606,16 +611,32 @@ test('the hero walks through neighbours and never through an enemy', async () =>
  * are three hundred deliberate `throw`s in the rule modules, so this was not a
  * hypothetical. Ivan hit it twice in one session.
  */
-test('one failed frame cannot end the game', async () => {
+test('one failed frame cannot end the game, nor stop the picture', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   const animate = runtime.slice(runtime.indexOf('function animate(time) {'));
   const body = animate.slice(0, animate.indexOf('\nfunction '));
   assert.match(body, /try \{/, 'the frame is not guarded');
-  assert.match(body, /catch \(error\) \{\s*reportFrameFailure\(error\);/, 'a failure is swallowed silently');
+  assert.match(body, /catch \(error\) \{\s*reportFrameFailure\('frame', error\);/, 'a failure is swallowed silently');
   assert.match(body, /finally \{\s*frameId = requestAnimationFrame\(animate\);/, 'the next frame is not guaranteed');
   // And the very last thing the loop does must be to ask for the next frame,
   // whatever happened: no early return may skip it.
   assert.doesNotMatch(body.slice(0, body.indexOf('} catch')), /\n {2}return[; ]/, 'an early return escapes the guard');
+
+  // One guard around the whole frame kept the loop alive but not the picture:
+  // a rule that throws while the hero moves skips `render()` too, and the
+  // world sits frozen while the bag and the stick still work. Ivan reported
+  // exactly that twice. Every phase now stands on its own.
+  for (const phase of ['hero', 'world', 'onboarding', 'render']) {
+    assert.ok(body.includes(`framePhase('${phase}'`), `${phase} shares its fate with the rest of the frame`);
+  }
+  assert.doesNotMatch(body, /\n {10}updateHero\(delta\);/, 'the hero update is unguarded');
+
+  // And a phone has no console, so the game says out loud what broke.
+  const report = runtime.slice(runtime.indexOf('function reportFrameFailure('));
+  assert.match(report.slice(0, report.indexOf('\nfunction ')), /frameFailureBanner\.hidden = false/);
+  const html = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="frame-failure"'));
+  assert.ok(html.includes('id="frame-failure-text"'));
 });
 
 /**
@@ -654,4 +675,57 @@ test('a hunted beast is a target for spells, not only for sticks', async () => {
     /targetMode === 'actor' && target\.actorKind === 'wildlife'/,
     'an aimed spell cannot be pointed at the beast biting you',
   );
+});
+
+/**
+ * Holding a direction against a wall.
+ *
+ * The stick and the arrow keys went through `requestHeroMove`, the same
+ * pathfinder a tap uses, so «вперёд» into a wall asked for a route to the cell
+ * behind it — and `routeTowardCell` found one, around the corner. Ivan, playing
+ * on a phone: «упираюсь в стену, а он начинает её обходить»; and in a corridor
+ * ending in a closed door, the hero paced instead of standing at the handle.
+ */
+test('a held direction is one step or nothing, and never a detour', () => {
+  const world = runtime({
+    rows: [
+      '#####',
+      '#...#',
+      '#.#.#',
+      '#...#',
+      '#####',
+    ],
+  });
+  const at = (x, y) => { world.context.hero.x = (x + 0.5) * TILE; world.context.hero.y = (y + 0.5) * TILE; };
+  const step = (direction) => {
+    world.context.hero.path = [];
+    return vm.runInContext(`queueDirectionalMove('${direction}')`, world.context);
+  };
+
+  // Into the wall above: nothing happens, and above all no route around it.
+  at(1, 1);
+  assert.equal(step('up'), false, 'the hero walked into a wall');
+  assert.equal(world.context.hero.path.length, 0, 'a wall produced a path');
+
+  // The same cell is reachable the long way round, and that is exactly the
+  // detour the old code took. A step must not.
+  at(1, 2);
+  assert.equal(step('right'), false, 'stepped into the pillar');
+  assert.equal(world.context.hero.path.length, 0);
+
+  // And an open direction is one cell, not a plan.
+  at(1, 1);
+  assert.equal(step('right'), true);
+  assert.equal(JSON.stringify(world.context.hero.path), JSON.stringify([{ x: 2, y: 1 }]));
+
+  // Walking off the map is the same as walking into a wall.
+  at(1, 1);
+  assert.equal(step('left'), false);
+  assert.equal(world.context.hero.path.length, 0);
+
+  // The line on the floor belongs to point-and-click; a stick turns it off.
+  world.context.heroRouteVisible = true;
+  at(1, 1);
+  step('right');
+  assert.equal(world.context.heroRouteVisible, false, 'the route is drawn under a stick');
 });

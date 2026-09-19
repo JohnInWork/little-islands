@@ -185,19 +185,31 @@ test('merchant purse and buyback capacity reject sales without partial mutation'
 /**
  * A tap used to be the purchase. Ivan touched a yellow potion to find out what
  * it was and found he had bought it: the shop spent his money to answer a
- * question. Now a tap picks the thing up off the shelf and the card underneath
- * says what it is; the money moves when he says so.
+ * question.
+ *
+ * The first answer was a strip of card under the list. On a phone that strip
+ * was a sixth child in a five-row grid and the shop came apart; Ivan, on his
+ * phone: «должна открываться модалка поверх, огромная… с картинкой». So the
+ * list is a plain list again and a tap opens the full item window the backpack
+ * already uses, with the shop's verb and price on its one action.
  */
-test('the shop shows the thing before it takes the money', async () => {
+test('the shop shows the thing in the big window before it takes the money', async () => {
   const [html, runtime, styles] = await Promise.all([
     readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
     readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
     readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(html, /id="merchant-shop-detail"/);
-  assert.match(html, /id="merchant-shop-confirm"/);
-  assert.match(html, /id="merchant-shop-cancel"/);
-  assert.match(styles, /\.merchant-shop-detail\s*\{/);
+  // The strip is gone, in markup, in styles and in code.
+  for (const source of [html, runtime, styles]) {
+    assert.ok(!source.includes('merchant-shop-detail'), 'the split-screen strip is still there');
+  }
+  // And the shop card holds exactly the five rows its grid describes.
+  const card = html.slice(html.indexOf('class="merchant-shop-card'), html.indexOf('</article>', html.indexOf('class="merchant-shop-card')));
+  const children = [...card.matchAll(/\n {10}<(header|nav|div|p|footer)\b/g)].length;
+  // `minmax(0, 1fr)` is one row, not two: close the gap before counting.
+  const rows = styles.match(/\.merchant-shop-card \{[\s\S]*?grid-template-rows: ([^;]+);/)[1]
+    .replace(/,\s+/g, ',').trim().split(/\s+/).length;
+  assert.equal(children, rows, `${children} children in a ${rows}-row grid`);
 
   // Every row selects; none of them transacts on its own any more.
   for (const call of ['transactMerchantPurchase', 'transactMerchantBuyback', 'transactMerchantSale']) {
@@ -205,10 +217,12 @@ test('the shop shows the thing before it takes the money', async () => {
     assert.doesNotMatch(runtime, direct, `${call} still fires straight from the list`);
     assert.match(runtime, new RegExp(`act: \\(\\) => ${call}\\(`), `${call} is not reachable at all`);
   }
-  assert.match(runtime, /merchantShopConfirm\.addEventListener\('click', confirmMerchantSelection\)/);
-  assert.match(runtime, /merchantShopCancel\.addEventListener\('click', clearMerchantSelection\)/);
-  // Rebuilding the list drops a selection that no longer belongs to it.
-  assert.match(runtime, /merchantShopList\.replaceChildren\(\);\s*\n\s*\/\/[^\n]*\n\s*clearMerchantSelection\(\);/);
-  // And the card names the price on its own button, so the stake is never hidden.
-  assert.match(runtime, /merchantShopConfirm\.textContent = `\$\{selection\.verb\} · \$\{selection\.price\}●`/);
+  // The row opens the one window that describes a thing, and hands it the offer.
+  assert.match(runtime, /function selectMerchantItem\(selection\) \{\s*openItemDetail\(selection\.item, null, \{/);
+  assert.match(runtime, /label: `\$\{selection\.verb\} · \$\{selection\.price\}●`/);
+  // Nothing is bought until that window's button is pressed.
+  assert.match(runtime, /if \(itemDetailOffer\) \{\s*const \{ act \} = itemDetailOffer;/);
+  // The forge and the alternative belong to the backpack, not to a counter.
+  assert.match(runtime, /const secondary = !itemDetailOffer &&/);
+  assert.match(runtime, /const craft = !itemDetailOffer &&/);
 });

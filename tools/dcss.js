@@ -700,6 +700,10 @@ const characterKnownSpells = document.querySelector('#character-known-spells');
 const characterPaperdoll = document.querySelector('#character-paperdoll');
 const characterPaperContext = characterPaperdoll.getContext('2d');
 const characterIdentity = characterSheet.querySelector('.character-identity');
+const frameFailureBanner = document.querySelector('#frame-failure');
+const frameFailureText = document.querySelector('#frame-failure-text');
+const frameFailureClose = document.querySelector('#frame-failure-close');
+frameFailureClose?.addEventListener('click', () => { frameFailureBanner.hidden = true; });
 const moveControl = document.querySelector('#move-control');
 const moveStick = document.querySelector('#move-stick');
 const moveDirectionButtons = [...moveControl.querySelectorAll('[data-move]')];
@@ -813,14 +817,8 @@ const merchantShopTabs = document.querySelector('#merchant-shop-tabs');
 const merchantShopTabButtons = [...merchantShopTabs.querySelectorAll('[data-merchant-tab]')];
 const merchantShopList = document.querySelector('#merchant-shop-list');
 const merchantShopFeedback = document.querySelector('#merchant-shop-feedback');
-const merchantShopDetail = document.querySelector('#merchant-shop-detail');
-const merchantShopDetailIcon = document.querySelector('#merchant-shop-detail-icon');
-const merchantShopDetailName = document.querySelector('#merchant-shop-detail-name');
-const merchantShopDetailMeta = document.querySelector('#merchant-shop-detail-meta');
-const merchantShopDetailText = document.querySelector('#merchant-shop-detail-text');
-const merchantShopConfirm = document.querySelector('#merchant-shop-confirm');
-const merchantShopCancel = document.querySelector('#merchant-shop-cancel');
 const closeMerchantShopButton = document.querySelector('#close-merchant-shop');
+const merchantShopCard = document.querySelector('.merchant-shop-card');
 const chestContainer = document.querySelector('#chest-container');
 const chestContainerIcon = document.querySelector('#chest-container-icon');
 const chestContainerTitle = document.querySelector('#chest-container-title');
@@ -1174,6 +1172,8 @@ let menuMode = 'title';
 let modalReturnScreen = 'menu';
 let itemDetailItem = null;
 let itemDetailReturnTarget = null;
+/** Set while somebody other than the backpack is showing an item: the shop. */
+let itemDetailOffer = null;
 let gold = run.gold;
 let deathTimer = 0;
 let runStatus = run.status;
@@ -3203,7 +3203,7 @@ function renderItemDetail(item) {
       return row;
     }),
   );
-  const secondary = selection && selection.item.uid === item.uid
+  const secondary = !itemDetailOffer && selection && selection.item.uid === item.uid
     ? secondaryItemAction(selection)
     : null;
   itemDetailVariant.hidden = !secondary;
@@ -3219,7 +3219,9 @@ function renderItemDetail(item) {
       `${prefix}: ${secondary.label}${secondary.hint ? `. ${secondary.hint}` : ''}`,
     );
   }
-  const craft = selection && selection.item.uid === item.uid ? reforgeActionFor(item) : null;
+  const craft = !itemDetailOffer && selection && selection.item.uid === item.uid
+    ? reforgeActionFor(item)
+    : null;
   itemDetailCraft.hidden = !craft;
   if (craft) {
     itemDetailCraft.textContent = craft.label;
@@ -3229,10 +3231,12 @@ function renderItemDetail(item) {
       `${smithingCopy(itemDetailLanguage).reforge}: ${craft.label}${craft.hint ? `. ${craft.hint}` : ''}`,
     );
   }
-  const action = selectedActionModel(selection);
+  const action = itemDetailOffer ?? selectedActionModel(selection);
   itemDetailAction.textContent = action.label;
   itemDetailAction.setAttribute('aria-label', action.ariaLabel);
-  itemDetailAction.disabled = action.disabled || !selection || selection.item.uid !== item.uid;
+  itemDetailAction.disabled = itemDetailOffer
+    ? false
+    : action.disabled || !selection || selection.item.uid !== item.uid;
   closeItemDetailButton.setAttribute(
     'aria-label',
     itemDetailLanguage === 'ru' ? 'Закрыть описание' : 'Close item details',
@@ -3574,12 +3578,21 @@ function renderCharacterSheet() {
   );
 }
 
-function openItemDetail(item, returnTarget = null) {
+/**
+ * The one window that describes a thing.
+ *
+ * `offer` is how somebody other than the backpack borrows it: the shop passes
+ * its own verb, its own price and what to do if the player agrees, and gets
+ * the same full-screen card with the same picture and the same type line.
+ */
+function openItemDetail(item, returnTarget = null, offer = null) {
   if (!item || salvageMode) return;
   itemDetailItem = item;
   itemDetailReturnTarget = returnTarget;
+  itemDetailOffer = offer;
   renderItemDetail(item);
-  inventoryShell.inert = true;
+  // Whichever shell the window opened over is the one that must stop taking taps.
+  (offer ? merchantShopCard : inventoryShell).inert = true;
   itemDetail.inert = false;
   itemDetail.setAttribute('aria-hidden', 'false');
   requestAnimationFrame(() => closeItemDetailButton.focus());
@@ -3593,10 +3606,16 @@ function closeItemDetail({ restoreFocus = true } = {}) {
   if (!itemDetailIsOpen()) return false;
   itemDetail.setAttribute('aria-hidden', 'true');
   itemDetail.inert = true;
-  inventoryShell.inert = false;
+  const offer = itemDetailOffer;
+  itemDetailOffer = null;
+  (offer ? merchantShopCard : inventoryShell).inert = false;
   const returnTarget = itemDetailReturnTarget;
   itemDetailItem = null;
   itemDetailReturnTarget = null;
+  if (offer) {
+    if (restoreFocus) requestAnimationFrame(() => closeMerchantShopButton.focus());
+    return true;
+  }
   if (restoreFocus) {
     requestAnimationFrame(() => {
       const selector = returnTarget?.source === 'equipment'
@@ -4149,6 +4168,13 @@ function warnTrapStep(cell) {
  * broken. Walking as far that way as the known ground allows is what the player
  * meant, and it is how they explore.
  */
+/**
+ * Whether the hero's route should be drawn: true only after a tap on a cell.
+ * Set where the input arrives, because that is the only place that knows how
+ * the player asked.
+ */
+let heroRouteVisible = false;
+
 function routeTowardCell(target) {
   const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const candidates = [];
@@ -4228,13 +4254,67 @@ function commitHeroPath(nextPath, allowedHazardCell = null) {
   return true;
 }
 
+/**
+ * A direction is a step, not a destination.
+ *
+ * The stick and the arrow keys went through the same pathfinder as a tap, so
+ * holding «вперёд» against a wall asked for a route to the cell behind it —
+ * and when no route existed, `routeTowardCell` obligingly found a way round.
+ * Ivan: «упираюсь в стену, а он начинает её обходить»; the same thing in a
+ * corridor with a closed door at the end, where the hero paced left and right
+ * instead of standing at the handle.
+ *
+ * Holding a direction now does exactly one thing: the next cell, or nothing.
+ * Walking into a wall is a hero leaning on a wall.
+ */
+function stepHeroToward(cellX, cellY) {
+  const target = { x: cellX, y: cellY };
+  const intent = hazardMoveIntent({
+    state: hazardInputState,
+    origin: { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    target,
+    knownCells: currentHeroMagic().flight ? new Set() : knownTrapCells(),
+    gesture: inputGesture,
+  });
+  hazardInputState = intent.state;
+  if (!intent.allowed) {
+    hero.path = [];
+    permittedHazardCell = null;
+    if (intent.warn) warnTrapStep(`${target.x},${target.y}`);
+    return false;
+  }
+  // Walking into a living thing is a swing, whether or not there is room to
+  // step: the same rule a tap on an enemy follows.
+  const enemy = monsters.find((monster) => !monster.dead
+    && monsterCellKey(monster, TILE) === `${target.x},${target.y}`);
+  if (enemy) {
+    playerHasActed = true;
+    const approach = meleeApproachPoint(hero, enemy, TILE);
+    if (approach) return commitHeroPath([approach], intent.permittedCell);
+    if (canActorsMelee(hero, enemy)) {
+      hero.path = [];
+      return true;
+    }
+    return false;
+  }
+  // Unlike a tap, a step may go into the dark: pressing forward is how the
+  // dark gets explored, and the pathfinder treats everything unseen as wall.
+  if (!isHeroWalkable(target.x, target.y)) {
+    hero.path = [];
+    return false;
+  }
+  playerHasActed = true;
+  return commitHeroPath([target], intent.permittedCell);
+}
+
 function queueDirectionalMove(direction) {
   if (!ready || uiScreen !== 'game' || runStatus !== 'playing' || openingDoor) return false;
   const vector = directionVector(direction);
   if (!vector) return false;
+  heroRouteVisible = false;
   const targetX = Math.floor(hero.x / TILE) + vector[0];
   const targetY = Math.floor(hero.y / TILE) + vector[1];
-  return requestHeroMove(targetX, targetY);
+  return stepHeroToward(targetX, targetY);
 }
 
 function setMoveControlVisual(direction = null, offset = { x: 0, y: 0 }, active = false) {
@@ -6178,6 +6258,9 @@ function drawWallDrips() {
  */
 function drawHeroRoute() {
   if (hero.dead || runStatus !== 'playing' || hero.path.length === 0) return;
+  // Only for the player who pointed at a cell. Under a stick or the arrow keys
+  // the hero walks one cell at a time and the line is just litter on the floor.
+  if (!heroRouteVisible) return;
   const steps = hero.path;
   const destination = steps.at(-1);
   const pulse = reducedMotion ? 0.5 : 0.5 + Math.sin(elapsed * 4.4) * 0.22;
@@ -8276,35 +8359,25 @@ function replaceMerchantState(nextState) {
  * shelf — the card below the list says what it does and what it costs, and the
  * money moves when the player says so.
  */
-let merchantSelection = null;
-
-function clearMerchantSelection() {
-  merchantSelection = null;
-  merchantShopDetail.hidden = true;
-}
-
+/**
+ * The shop reads an item in the same big window everything else does.
+ *
+ * The first answer to «тап покупает мгновенно» was a strip of card under the
+ * list. On a phone that strip was a sixth child in a five-row grid: the list
+ * collapsed and the whole shop came apart. Ivan, testing on his phone: «ты всё
+ * сделал неправильно… должна открываться модалка поверх, огромная, с нормальными
+ * цифрами, кнопками купить и отменить, с картинкой».
+ *
+ * So the list is the list again, and a tap opens the item window the backpack
+ * already uses — full screen, real picture, real type — with the shop's own
+ * verb and price on its one action.
+ */
 function selectMerchantItem(selection) {
-  merchantSelection = selection;
-  const presentation = itemPresentation(presentedItem(selection.item), itemDetailLanguage);
-  const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
-  merchantShopDetail.hidden = false;
-  merchantShopDetailIcon.src = assetUrl(presentedItem(selection.item).icon);
-  merchantShopDetailName.textContent = presentation.name;
-  merchantShopDetailMeta.textContent = `${presentation.rarity} · ${presentation.slot}`;
-  merchantShopDetailText.textContent = presentation.effects.length > 0
-    ? presentation.effects.map(({ text }) => text).join(' · ')
-    : presentation.description;
-  merchantShopConfirm.textContent = `${selection.verb} · ${selection.price}●`;
-  merchantShopCancel.textContent = copy.close;
-  merchantShopConfirm.disabled = false;
-  requestAnimationFrame(() => merchantShopConfirm.focus());
-}
-
-function confirmMerchantSelection() {
-  if (!merchantSelection) return false;
-  const { act } = merchantSelection;
-  clearMerchantSelection();
-  return act();
+  openItemDetail(selection.item, null, {
+    label: `${selection.verb} · ${selection.price}●`,
+    ariaLabel: `${selection.verb}: ${itemPresentation(presentedItem(selection.item), itemDetailLanguage).name}, ${selection.price}`,
+    act: selection.act,
+  });
 }
 
 function merchantItemButton({ item, price, disabled = false, sold = false, badge = null, onActivate }) {
@@ -8363,8 +8436,6 @@ function renderMerchantShop() {
     button.textContent = copy[button.dataset.merchantTab];
   });
   merchantShopList.replaceChildren();
-  // A list that just changed is a list the old selection no longer belongs to.
-  clearMerchantSelection();
   if (merchantTab === 'buy') {
     for (const entry of activeMerchant.stock) {
       const item = materializeInventoryItem(entry.record);
@@ -15327,18 +15398,45 @@ function render() {
  * on: a single dropped update is a hiccup, a dead loop is a lost run.
  */
 let frameFailures = 0;
+let frameFailureShown = false;
 
-function reportFrameFailure(error) {
+function reportFrameFailure(phase, error) {
   frameFailures += 1;
   // Loud for the first few, then quiet: a fault that repeats every frame must
   // not bury the message that says what it was.
   if (frameFailures <= 3 || frameFailures % 240 === 0) {
-    console.error(`DNG Codex: frame ${frameFailures} failed and was skipped`, {
+    console.error(`DNG Codex: frame ${frameFailures} failed in ${phase} and was skipped`, {
       screen: uiScreen,
       depth: run?.depth,
       status: runStatus,
       error,
     });
+  }
+  // Ivan plays on a phone, where the console does not exist. A fault that
+  // repeats silently is a fault we never find out about: the game has to say
+  // what broke, in words he can photograph.
+  if (frameFailureShown || !frameFailureBanner) return;
+  frameFailureShown = true;
+  frameFailureText.textContent = `${phase}: ${error?.message ?? error} · ${uiScreen}, этаж ${run?.depth ?? '?'}`;
+  frameFailureBanner.hidden = false;
+}
+
+/**
+ * Each phase of a frame stands on its own.
+ *
+ * Wrapping the whole frame in one `try` kept the loop alive but not the
+ * picture: a rule that throws in `updateHero` skips `render()` too, so the
+ * world freezes mid-step while the bag and the stick keep working — exactly
+ * what Ivan reported twice. Now a broken update costs the update, and the
+ * screen still draws.
+ */
+function framePhase(phase, work) {
+  try {
+    work();
+    return true;
+  } catch (error) {
+    reportFrameFailure(phase, error);
+    return false;
   }
 }
 
@@ -15352,22 +15450,21 @@ function animate(time) {
         if (hitStop > 0) {
           hitStop = Math.max(0, hitStop - delta);
         } else {
-          updateHero(delta);
-          if (hitStop === 0) updateWorld(delta);
+          framePhase('hero', () => updateHero(delta));
+          if (hitStop === 0) framePhase('world', () => updateWorld(delta));
         }
-        updateOnboarding(time);
+        framePhase('onboarding', () => updateOnboarding(time));
       }
       // Static overlays (bag, map, menu…) keep the last frame; live screens render
       // at most ~60 Hz so 120 Hz phones do not double the GPU work.
       const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen);
       if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
-        render();
+        if (framePhase('render', render)) renderedScreen = uiScreen;
         lastRenderAt = time;
-        renderedScreen = uiScreen;
       }
     }
   } catch (error) {
-    reportFrameFailure(error);
+    reportFrameFailure('frame', error);
   } finally {
     frameId = requestAnimationFrame(animate);
   }
@@ -15403,6 +15500,7 @@ function moveFromPointer(event) {
   }
   if (uiScreen !== 'game' || openingDoor) return;
   inputGesture += 1;
+  heroRouteVisible = true;
   const target = dungeonWorld3D.unprojectGround(event.clientX, event.clientY);
   const worldX = target.x / TILE;
   const worldY = target.y / TILE;
@@ -15882,8 +15980,6 @@ characterSheetLanguageButton.addEventListener('click', () => {
 bagButton.addEventListener('click', openInventory);
 
 closeMerchantShopButton.addEventListener('click', closeMerchantShop);
-merchantShopConfirm.addEventListener('click', confirmMerchantSelection);
-merchantShopCancel.addEventListener('click', clearMerchantSelection);
 closeChestContainerButton.addEventListener('click', closeChestContainerUi);
 chestContainer.addEventListener('pointerdown', (event) => {
   if (event.target === chestContainer) closeChestContainerUi();
@@ -15910,7 +16006,16 @@ itemDetail.addEventListener('pointerdown', (event) => {
 inventory.addEventListener('pointerdown', (event) => {
   if (event.target === inventory) closeInventory();
 });
-itemDetailAction.addEventListener('click', () => performSelectedItemAction({ fromDetail: true }));
+itemDetailAction.addEventListener('click', () => {
+  // When the window was opened by the shop, its one button is the shop's.
+  if (itemDetailOffer) {
+    const { act } = itemDetailOffer;
+    closeItemDetail({ restoreFocus: false });
+    act();
+    return;
+  }
+  performSelectedItemAction({ fromDetail: true });
+});
 itemDetailVariant.addEventListener('click', () => performSelectedItemAction({ fromDetail: true, secondary: true }));
 itemDetailCraft.addEventListener('click', () => {
   const selection = selectedUiItem();

@@ -967,6 +967,58 @@ body {
   animation: skill-badge-awarded 720ms steps(6, end);
 }
 
+/* Телефон не показывает консоль, поэтому сломавшийся кадр говорит сам. Одно
+   сообщение за сеанс: повторяющаяся ошибка не должна закрывать игру. */
+.frame-failure {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 60;
+  display: grid;
+  gap: 6px;
+  width: min(460px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  padding: 12px 14px;
+  background: #2a1618;
+  color: #f2ddd8;
+}
+
+/* `display: grid` on a class beats the browser's rule for [hidden], so without
+   this the banner is never hidden — it just sits there with nothing in it. */
+.frame-failure[hidden] {
+  display: none;
+}
+
+.frame-failure strong {
+  color: #f0938a;
+  font-size: 13px;
+}
+
+.frame-failure p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.frame-failure small {
+  color: #c7a9a4;
+  font-size: 10px;
+}
+
+.frame-failure button {
+  justify-self: end;
+  min-height: 44px;
+  min-width: 108px;
+  padding: 8px 14px;
+  border: 0;
+  background: #7a3b38;
+  color: #f6e4e0;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .screen-reader-message {
   position: absolute;
   width: 1px;
@@ -3724,7 +3776,9 @@ body {
 
 .item-detail {
   position: fixed;
-  z-index: 24;
+  /* Above the shop as well as the bag: it is the window both of them open to
+     describe a thing, and the shop's own overlay sits at 26. */
+  z-index: 28;
   inset: 0;
   padding:
     max(14px, env(safe-area-inset-top))
@@ -4476,67 +4530,6 @@ body {
   place-items: center;
   color: #87928f;
   text-align: center;
-}
-
-/*
- * What the shop is about to do, once the player has read what it is.
- *
- * A tap used to be the purchase: touch the yellow potion to find out what it
- * does, and it was bought and paid for. The card sits under the list, says what
- * the thing is and what it costs, and only then takes the money.
- */
-.merchant-shop-detail {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 8px 10px;
-  margin: 0 0 8px;
-  padding: 8px 10px 10px;
-  color: #e4dcc6;
-  background: rgb(9 13 16 / 92%);
-  border-color: var(--gold);
-}
-
-.merchant-shop-detail img {
-  width: 40px;
-  height: 40px;
-  image-rendering: pixelated;
-}
-
-.merchant-shop-detail-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.merchant-shop-detail-copy small {
-  color: #a79a86;
-}
-
-.merchant-shop-detail-copy p {
-  margin: 2px 0 0;
-  color: #cbc2ad;
-}
-
-.merchant-shop-detail-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.merchant-shop-detail-actions button {
-  min-height: 34px;
-  padding: 0 14px;
-  color: #e4dcc6;
-  background: rgb(18 24 28 / 96%);
-  border: 2px solid #4a5560;
-  cursor: pointer;
-}
-
-.merchant-shop-detail-actions .primary {
-  color: #12181c;
-  background: var(--gold);
-  border-color: var(--gold);
 }
 
 .merchant-shop-feedback {

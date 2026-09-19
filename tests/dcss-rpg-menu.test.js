@@ -64,7 +64,7 @@ test('main menu owns input until play and keeps language selection persistent', 
   assert.match(runtime, /function setInterfaceLanguage\(language\)/);
   assert.match(runtime, /localStorage\.setItem\(ITEM_LANGUAGE_KEY, itemDetailLanguage\)/);
   assert.match(runtime, /if \(uiScreen === 'game'\) \{\s*if \(hitStop > 0\)/);
-  assert.match(runtime, /updateHero\(delta\);\s*if \(hitStop === 0\) updateWorld\(delta\)/);
+  assert.match(runtime, /framePhase\('hero', \(\) => updateHero\(delta\)\);\s*if \(hitStop === 0\) framePhase\('world'/);
   assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'menu'/);
   assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'appearance'/);
   assert.match(runtime, /function openNewRunConfirm\(\)/);
