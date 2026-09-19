@@ -23,7 +23,16 @@
  *    declare their effects as data instead of as code.
  */
 
-export const CONDITIONS_PER_RUN = 2;
+/**
+ * How many rules a run lives by — nought, for now.
+ *
+ * «Убрать условия забега из стартового меню. Пока все забеги с одинаковыми
+ * условиями.» Two conditions on top of a game the player is still learning is
+ * two variables they cannot separate from the dungeon itself. The catalogue,
+ * the draw and the effects all stay exactly as they are and are still tested:
+ * this is the one number that turns them back on, and «пока» is Ivan's word.
+ */
+export const CONDITIONS_PER_RUN = 0;
 
 /** Every knob a condition may turn, and what it means to leave it alone. */
 export const NEUTRAL_EFFECTS = Object.freeze({
@@ -129,8 +138,9 @@ const overlap = (left, right) => touches(left).some((key) => touches(right).incl
  * agrees without anything being stored, and so a shared seed — the daily one
  * above all — is the same dungeon under the same conditions for everyone.
  */
-export function runConditions(seed) {
+export function runConditions(seed, count = CONDITIONS_PER_RUN) {
   if (!Number.isInteger(seed) || seed < 0) return [];
+  if (!Number.isInteger(count) || count <= 0) return [];
   const order = [...CONDITION_CATALOG];
   // Fisher-Yates on a stream of its own, so adding a condition to the catalogue
   // does not quietly re-deal every existing seed's other choices.
@@ -147,7 +157,7 @@ export function runConditions(seed) {
   }
   const drawn = [];
   for (const condition of order) {
-    if (drawn.length === CONDITIONS_PER_RUN) break;
+    if (drawn.length === count) break;
     if (drawn.some((chosen) => overlap(chosen, condition))) continue;
     drawn.push(condition);
   }

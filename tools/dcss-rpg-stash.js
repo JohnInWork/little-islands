@@ -1,21 +1,20 @@
 /**
  * The stash: what survives a run, and what you can do about the next one.
  *
- * A run starts from zero and ends at zero — that has been the rule since the
- * outcast preset, and it stays the rule for everybody who dies down there.
- * What it never answered is why anyone would climb back up. The stairs go both
- * ways, the city is a place, and leaving it all the same was the only sensible
- * play. So there is now a third way for a run to end: **walk away**. Whatever
- * is in your purse when you retire goes into the stash, and the stash is what
- * the outfitter at the gate will take.
+ * It used to be loot you carried out. Walking away at the gate banked your
+ * purse; dying banked nothing; so the game quietly asked, every floor, whether
+ * to keep playing or to go and cash in. Ivan cut that out: «никакой добычи,
+ * которую можно вынести — игрок просто получает очки за то, что играет, и
+ * тратит их на старте следующего забега. Систему упростить.»
  *
- * Two rules keep that from turning into permanent power:
+ * So a run is paid for **being played**, and paid the same however it ends.
+ * The purse you die with is gone like everything else you were carrying; what
+ * you take home is the record of how far you got and what you met on the way.
+ * Nobody has to decide when to stop, because stopping buys nothing.
  *
- * - **Death takes everything.** Dying banks nothing, so the descent stays a
- *   gamble and the shop is paid for by judgement, not by grinding.
- * - **What you buy lasts one run.** You outfit yourself for the next descent;
- *   if it ends badly the kit ends with it. Zero is still zero — it is just a
- *   zero you earned.
+ * One rule keeps it from turning into permanent power: **what you buy lasts
+ * one run.** You outfit yourself for the next descent; if it ends badly the
+ * kit ends with it. Zero is still zero — it is just a zero you earned.
  *
  * The counter sells things the dungeon already has, at the price the merchants
  * already charge (`merchantBuyPrice`). A second economy living in its own room
@@ -105,13 +104,21 @@ export function stashBasketSize(stash) {
   return Object.values(createStashState(stash).goods).reduce((sum, count) => sum + count, 0);
 }
 
+/** Eight for every floor below the city, two for everything that died on it. */
+export const STASH_PER_FLOOR = 8;
+export const STASH_PER_KILL = 2;
+
 /**
- * What a run pays into the stash when it ends. Only walking away banks
- * anything: dying banks nothing, and winning ends the story rather than
- * funding the next chapter.
+ * What a run pays into the stash, whatever ended it.
+ *
+ * Not the purse: the purse was loot, and loot is not carried out any more. A
+ * run is paid for the ground it covered and the fights it survived, so dying
+ * on the ninth floor is worth more than walking away from the second — which
+ * is the shape Ivan asked for, and the end of deciding when to cash in.
  */
-export function stashEarned({ status, gold } = {}) {
-  return status === 'retired' ? boundedCount(gold) : 0;
+export function stashEarned({ depth = 0, kills = 0 } = {}) {
+  const floors = boundedCount(Math.max(0, Math.floor(depth)));
+  return boundedCount(floors * STASH_PER_FLOOR + boundedCount(kills) * STASH_PER_KILL);
 }
 
 export function stashDeposit(stash, gold) {
@@ -218,8 +225,8 @@ export function stashOutfit(stash) {
 const COPY = Object.freeze({
   ru: Object.freeze({
     title: 'Снаряжение',
-    wallet: 'Реальное золото',
-    empty: 'Схрон пуст. Золото приносит тот, кто ушёл из подземелья живым.',
+    wallet: 'Очки забегов',
+    empty: 'Пока пусто. Очки идут за пройденное: за каждый этаж вниз и за каждого встреченного.',
     basket: 'С собой',
     start: 'В забег',
     buy: 'Купить',
@@ -230,7 +237,7 @@ const COPY = Object.freeze({
       arms: 'Оружие', armour: 'Броня', kit: 'Снаряжение', traps: 'Ловушки', food: 'Припасы',
     }),
     refusal: Object.freeze({
-      'too-dear': 'Не хватает реального золота',
+      'too-dear': 'Не хватает очков',
       'enough-of-those': 'Больше этого не унести',
       'hands-full': 'Руки заняты',
       'not-sold': 'Этого тут не продают',
@@ -239,8 +246,8 @@ const COPY = Object.freeze({
   }),
   en: Object.freeze({
     title: 'Outfit',
-    wallet: 'Real gold',
-    empty: 'The stash is empty. Gold is carried out by whoever walks away alive.',
+    wallet: 'Run points',
+    empty: 'Empty for now. Points come from the ground covered: every floor down, and everything met on it.',
     basket: 'Taking along',
     start: 'Descend',
     buy: 'Buy',
@@ -251,7 +258,7 @@ const COPY = Object.freeze({
       arms: 'Arms', armour: 'Armour', kit: 'Kit', traps: 'Traps', food: 'Supplies',
     }),
     refusal: Object.freeze({
-      'too-dear': 'Not enough real gold',
+      'too-dear': 'Not enough points',
       'enough-of-those': 'No room for more of those',
       'hands-full': 'Hands full',
       'not-sold': 'Not sold here',

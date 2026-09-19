@@ -11,6 +11,8 @@ import {
   stashBasketSize,
   stashBuy,
   stashDeposit,
+  STASH_PER_FLOOR,
+  STASH_PER_KILL,
   stashEarned,
   stashModel,
   stashOutfit,
@@ -24,16 +26,33 @@ import { lootById } from '../tools/dcss-rpg-content.js';
 const full = (gold = 500) => stashDeposit(createStashState(null), gold);
 
 /**
- * The whole point of the stash is that it is paid for by judgement. A hero who
- * dies pays nothing in, and a hero who walks out of the city alive pays in
- * everything he is carrying.
+ * A run is paid for being played.
+ *
+ * It used to be paid at the gate, out of the purse, and only if the hero
+ * walked away on purpose — so every floor asked whether to keep going or to
+ * cash in. Ivan cut that out: «никакой добычи, которую можно вынести — игрок
+ * просто получает очки за то, что играет». Dying on the ninth floor is now
+ * worth more than turning back on the second, and nobody has to decide when
+ * to stop, because stopping buys nothing.
  */
-test('only walking away banks anything', () => {
-  assert.equal(stashEarned({ status: 'retired', gold: 140 }), 140);
-  assert.equal(stashEarned({ status: 'dead', gold: 140 }), 0);
-  assert.equal(stashEarned({ status: 'victory', gold: 140 }), 0);
-  assert.equal(stashEarned({ status: 'playing', gold: 140 }), 0);
-  assert.equal(stashEarned({ status: 'retired', gold: -5 }), 0);
+test('a run is paid for the ground it covered, however it ended', () => {
+  assert.equal(stashEarned({ depth: 0, kills: 0 }), 0, 'standing in the city earns nothing');
+  assert.equal(stashEarned({ depth: 1, kills: 0 }), STASH_PER_FLOOR);
+  assert.equal(stashEarned({ depth: 0, kills: 5 }), STASH_PER_KILL * 5);
+  assert.equal(stashEarned({ depth: 9, kills: 22 }), 9 * STASH_PER_FLOOR + 22 * STASH_PER_KILL);
+
+  // Two endings, one payment: how it ended is no longer part of the sum.
+  const deep = { depth: 9, kills: 22 };
+  assert.equal(stashEarned({ ...deep, status: 'dead' }), stashEarned({ ...deep, status: 'retired' }));
+  assert.equal(stashEarned({ ...deep, status: 'victory' }), stashEarned(deep));
+  // And the purse is no longer part of it either.
+  assert.equal(stashEarned({ ...deep, gold: 900 }), stashEarned(deep));
+
+  // Going deeper always pays more than staying shallow, whatever the fight.
+  assert.ok(stashEarned({ depth: 9, kills: 0 }) > stashEarned({ depth: 2, kills: 3 }));
+
+  assert.equal(stashEarned({ depth: -4, kills: -9 }), 0);
+  assert.equal(stashEarned({ depth: 2.7, kills: 1 }), 2 * STASH_PER_FLOOR + STASH_PER_KILL);
   assert.equal(stashEarned(), 0);
 });
 

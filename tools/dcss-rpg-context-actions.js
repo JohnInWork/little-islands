@@ -42,7 +42,7 @@ const ACTION_COPY = Object.freeze({
     goDeep: 'Вниз, в пещеры',
     goSurface: 'Наружу, за ворота',
     goVaults: 'Вниз, в старые подвалы',
-    retire: 'Уйти с добычей',
+    retire: 'Закончить забег',
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
     unbind: 'Снять оковы',
@@ -92,7 +92,7 @@ const ACTION_COPY = Object.freeze({
     descend: 'Go deeper',
     unbind: 'Lift the binding',
     hire: 'Hire',
-    retire: 'Walk away with the haul',
+    retire: 'End the run',
   }),
 });
 

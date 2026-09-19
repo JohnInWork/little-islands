@@ -113,12 +113,16 @@ test('the generator floods a rare room with its own stream and seats water creat
   let flooded = 0;
   let ordinaryFloors = 0;
   let ordinaryFlooded = 0;
+  let tideRuns = 0;
   for (let seed = 1; seed <= 90; seed += 1) {
     for (const depth of [1, 3, 6]) {
       // A run under «Большая вода» floods every floor on purpose, so the rate
       // is only meaningful on runs whose conditions leave the water alone.
+      // No run draws conditions today, so that is every run — see
+      // CONDITIONS_PER_RUN, which Ivan asked to set to nought «пока».
       const tide = runConditions(seed * 101).includes('high-water');
       if (!tide) ordinaryFloors += 1;
+      if (tide) tideRuns += 1;
       const dry = generateDungeon({ seed: seed * 101, depth, waterChance: 0 });
       const level = generateDungeon({ seed: seed * 101, depth });
       const water = [];
@@ -174,21 +178,35 @@ test('the generator floods a rare room with its own stream and seats water creat
     ordinaryFlooded > ordinaryFloors * 0.2 && ordinaryFlooded < ordinaryFloors * 0.45,
     `roughly a third of ordinary floors (${ordinaryFlooded}/${ordinaryFloors})`,
   );
-  assert.ok(flooded > ordinaryFlooded, 'a high-water run floods more than an ordinary one');
+  // The comparison the conditions used to make, made directly: the knob
+  // «Большая вода» turns is `waterChance`, and turning it all the way up
+  // floods more than the ordinary roll does. While no run draws conditions,
+  // there is no high-water run to count.
+  assert.equal(tideRuns, 0, 'a run drew a condition after all');
+  assert.equal(flooded, ordinaryFlooded);
+  let tideFlooded = 0;
+  for (let seed = 1; seed <= 30; seed += 1) {
+    for (const depth of [1, 3, 6]) {
+      const level = generateDungeon({ seed: seed * 101, depth, waterChance: 1 });
+      if (level.floodedRoomIndex !== null) tideFlooded += 1;
+    }
+  }
+  assert.ok(tideFlooded > (ordinaryFlooded / ordinaryFloors) * 90, 'high water floods no more than chance');
   // «Большая вода» is not a chance but not an absolute either: a floor whose
   // rooms are all spoken for — spawn, exit, sanctuary, guardian, surprise —
   // has nothing left to flood, and a tiny room is never flooded at all. The
   // copy says "nearly everywhere" because that is what it is.
+  // No run draws the condition today, so the knob is turned by hand — which
+  // is all the condition ever did to the generator.
   let tideFloors = 0;
   let tideWet = 0;
   for (let seed = 1; seed <= 120; seed += 1) {
-    if (!runConditions(seed).includes('high-water')) continue;
     for (const depth of [2, 5, 8]) {
       tideFloors += 1;
-      if (generateDungeon({ seed, depth }).floodedRoomIndex !== null) tideWet += 1;
+      if (generateDungeon({ seed, depth, waterChance: 1 }).floodedRoomIndex !== null) tideWet += 1;
     }
   }
-  assert.ok(tideFloors > 30, `few high-water runs sampled (${tideFloors})`);
+  assert.ok(tideFloors > 30, `few high-water floors sampled (${tideFloors})`);
   assert.ok(tideWet > tideFloors * 0.75, `high water floods nearly every floor (${tideWet}/${tideFloors})`);
 });
 

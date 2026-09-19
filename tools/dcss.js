@@ -11010,7 +11010,24 @@ function heroGearForBones() {
     .filter(Boolean);
 }
 
+/**
+ * Every ending pays the same way, in the one place every ending goes through.
+ *
+ * It used to be paid at the gate, out of the purse, and only if the hero
+ * walked away on purpose — which turned every floor into a question about
+ * cashing in. Now the run is paid for having been played, and dying on the
+ * ninth floor is worth more than turning back on the second.
+ */
+function bankRunEarnings() {
+  const earned = stashEarned({ depth: dungeon.depth, kills: run.stats.kills });
+  if (earned <= 0) return 0;
+  stashState = stashDeposit(stashState, earned);
+  persistStash();
+  return earned;
+}
+
 function recordFinishedRun(result) {
+  bankRunEarnings();
   const outcome = recordRunResult(metaState, {
     depth: dungeon.depth,
     status: result,
@@ -13289,28 +13306,20 @@ function resolveWorldInteractions() {
  */
 function retireRun() {
   if (!canRetireRun({ depth: run.depth, status: runStatus })) return false;
-  const carried = stashEarned({ status: 'retired', gold: run.gold });
   runStatus = 'retired';
   run.status = runStatus;
   hero.path = [];
   hero.pendingAttack = null;
-  stashState = stashDeposit(stashState, carried);
-  persistStash();
   playSound('victory');
   stopAmbient();
-  if (carried > 0) showLootToast({ icon: 'item/gold/16.png', rarity: 2 }, `+${carried}`);
   persistRun();
+  // The stash is paid by `showRunEndScreen`, the same as for any other ending.
   showRunEndScreen('retired');
   return true;
 }
 
 function completeVictory() {
   if (!artifactAvailable()) return false;
-  // A winner walks out through the front door, and what they carry goes into
-  // the stash like anything carried out on purpose. Before this, victory was
-  // the one ending that emptied the purse — which quietly made walking away at
-  // the gate the richer play than finishing the road.
-  const carried = stashEarned({ status: 'retired', gold });
   runStatus = 'victory';
   run.status = runStatus;
   run.gold = gold;
@@ -13324,8 +13333,6 @@ function completeVictory() {
   burst(hero.x, hero.y - 10, '#d83e82', 42);
   playSound('victory');
   stopAmbient();
-  stashState = stashDeposit(stashState, carried);
-  persistStash();
   showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');

@@ -119,7 +119,7 @@ function combatRuntime() {
     persistRun: () => { metrics.saves += 1; },
     showRunEndScreen: (result) => { metrics.endScreens.push(result); },
     // Winning banks the purse the same way walking out does.
-    stashEarned: ({ gold: carried }) => carried,
+    stashEarned: ({ depth = 0, kills = 0 }) => depth * 8 + kills * 2,
     stashDeposit: (state, carried) => ({ ...state, gold: state.gold + carried }),
     stashState: { gold: 0 },
     persistStash: () => { metrics.stashSaves += 1; },
@@ -183,9 +183,10 @@ test('victory clears attacks and prevents any further hero or monster combat mut
   assert.equal(context.projectiles.length, 0);
   assert.equal(context.hero.pendingAttack, null);
   assert.deepEqual(metrics.endScreens, ['victory']);
-  // A victor walks out through the front door and banks what they carried;
-  // before this, winning was the one ending that emptied the purse.
-  assert.equal(metrics.stashSaves, 1, 'the purse never reached the stash');
+  // Paying is no longer the ending's business. Every ending goes through the
+  // end screen, and the end screen banks what the run was worth — so winning
+  // does not reach into the stash on its own any more.
+  assert.equal(metrics.stashSaves, 0, 'victory pays the stash behind the end screen’s back');
   assertNoTerminalCombat(context, metrics);
 });
 

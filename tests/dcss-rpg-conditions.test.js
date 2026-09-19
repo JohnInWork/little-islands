@@ -49,12 +49,18 @@ test('the catalogue can always be drawn from, and every rule gives as well as ta
   assert.equal(conditionCopy('nothing-of-the-sort'), null);
 });
 
+/**
+ * The draw is dormant, not gone. Ivan asked to take the conditions out of the
+ * start menu — «пока все забеги с одинаковыми условиями» — and «пока» is the
+ * whole of it: `CONDITIONS_PER_RUN` is nought and everything behind it is
+ * still here, still fair, and still tested by asking it for two.
+ */
 test('a run draws two rules from its own seed and never stacks them on one knob', () => {
   const pairs = new Set();
   for (let seed = 0; seed < 600; seed += 1) {
-    const ids = runConditions(seed);
-    assert.equal(ids.length, CONDITIONS_PER_RUN);
-    assert.deepEqual(ids, runConditions(seed), 'the same seed is the same run');
+    const ids = runConditions(seed, 2);
+    assert.equal(ids.length, 2);
+    assert.deepEqual(ids, runConditions(seed, 2), 'the same seed is the same run');
     assert.equal(new Set(ids).size, ids.length);
     assert.ok(ids.every((id) => CONDITION_IDS.includes(id)));
     const [first, second] = ids.map((id) => Object.keys(conditionById(id).effects));
@@ -69,7 +75,10 @@ test('a run draws two rules from its own seed and never stacks them on one knob'
   // Every rule turns up; none is written and then never dealt.
   const dealt = new Set([...pairs].flatMap((pair) => pair.split('+')));
   assert.deepEqual([...dealt].sort(), [...CONDITION_IDS].sort());
-  assert.deepEqual(runConditions(-1), []);
+  assert.deepEqual(runConditions(-1, 2), []);
+  // And what the game itself deals today: nothing at all.
+  assert.equal(CONDITIONS_PER_RUN, 0);
+  for (const seed of [0, 1, 7, 4242]) assert.deepEqual(runConditions(seed), []);
   assert.deepEqual(conditionEffects([]), NEUTRAL_EFFECTS);
   assert.deepEqual(conditionEffects(['nothing-of-the-sort']), NEUTRAL_EFFECTS);
 });
@@ -129,7 +138,9 @@ test('whatever the run lives by, the dungeon still owes it everything it owed', 
     }
     assert.ok(bookPlaced, `seed ${seed}: the first spell book never landed`);
   }
-  assert.ok(seen.size >= 16, `only ${seen.size} different runs were checked`);
+  // Every run lives by the same rules today — that is the point of setting
+  // CONDITIONS_PER_RUN to nought — so the sweep above covered one set: none.
+  assert.deepEqual([...seen], [''], `runs differ by condition: ${[...seen].join(' / ')}`);
 });
 
 /**
