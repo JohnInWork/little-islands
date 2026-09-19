@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { LOOT_CATALOG } from '../tools/dcss-rpg-content.js';
 import {
@@ -81,4 +82,33 @@ test('item stat comparison formats real before and after values in both language
     { label: 'Движение', from: 108, to: 114, delta: 6, suffix: '%' },
   ]);
   assert.deepEqual(en.map(({ label }) => label), ['Attack', 'Defence', 'Move']);
+});
+
+/**
+ * «Я принял зелье и не понимаю, что со мной произошло.»
+ *
+ * A consumable reported a bare number — «12», «+2», «✓» — on a card that named
+ * the bottle. So the player learned what they had drunk and never what it did.
+ * A number is the size of a thing, not the thing.
+ */
+test('a consumable says what it did, not how much of it there was', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const table = runtime.slice(runtime.indexOf('const CONSUMABLE_REPORTS'));
+  const body = table.slice(0, table.indexOf('\nfunction consumableReport'));
+  assert.ok(body.length > 0, 'nothing reports anything');
+  for (const key of ['healed', 'healedFull', 'power', 'cleansed', 'nothingToCleanse', 'venom', 'learned']) {
+    assert.match(body, new RegExp(`${key}:`), `${key} has no wording`);
+  }
+  // Both languages, and they are not the same words.
+  assert.match(body, /ru: Object\.freeze\(\{[\s\S]*en: Object\.freeze\(\{/);
+  assert.match(body, /Исцеление/);
+  assert.match(body, /Healed/);
+
+  // And the bare numbers are gone from the places that used to return them.
+  const potion = runtime.slice(runtime.indexOf('function applyIdentifiablePotion('));
+  const potionBody = potion.slice(0, potion.indexOf('\nfunction applyBook('));
+  assert.doesNotMatch(potionBody, /return healing;/, 'healing is a number again');
+  assert.doesNotMatch(potionBody, /\? '✓' : '0'/, 'cleansing is a tick again');
+  assert.match(potionBody, /consumableReport\(\)\.healed/);
+  assert.match(potionBody, /consumableReport\(\)\.venom/);
 });

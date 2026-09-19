@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { lootById } from '../tools/dcss-rpg-content.js';
@@ -179,4 +180,35 @@ test('merchant purse and buyback capacity reject sales without partial mutation'
   assert.equal(full.ok, false);
   assert.equal(full.reason, 'merchant-full');
   assert.equal(fullState.buyback.length, 8);
+});
+
+/**
+ * A tap used to be the purchase. Ivan touched a yellow potion to find out what
+ * it was and found he had bought it: the shop spent his money to answer a
+ * question. Now a tap picks the thing up off the shelf and the card underneath
+ * says what it is; the money moves when he says so.
+ */
+test('the shop shows the thing before it takes the money', async () => {
+  const [html, runtime, styles] = await Promise.all([
+    readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
+  ]);
+  assert.match(html, /id="merchant-shop-detail"/);
+  assert.match(html, /id="merchant-shop-confirm"/);
+  assert.match(html, /id="merchant-shop-cancel"/);
+  assert.match(styles, /\.merchant-shop-detail\s*\{/);
+
+  // Every row selects; none of them transacts on its own any more.
+  for (const call of ['transactMerchantPurchase', 'transactMerchantBuyback', 'transactMerchantSale']) {
+    const direct = new RegExp(`onActivate: \\(\\) => ${call}\\(`);
+    assert.doesNotMatch(runtime, direct, `${call} still fires straight from the list`);
+    assert.match(runtime, new RegExp(`act: \\(\\) => ${call}\\(`), `${call} is not reachable at all`);
+  }
+  assert.match(runtime, /merchantShopConfirm\.addEventListener\('click', confirmMerchantSelection\)/);
+  assert.match(runtime, /merchantShopCancel\.addEventListener\('click', clearMerchantSelection\)/);
+  // Rebuilding the list drops a selection that no longer belongs to it.
+  assert.match(runtime, /merchantShopList\.replaceChildren\(\);\s*\n\s*\/\/[^\n]*\n\s*clearMerchantSelection\(\);/);
+  // And the card names the price on its own button, so the stake is never hidden.
+  assert.match(runtime, /merchantShopConfirm\.textContent = `\$\{selection\.verb\} · \$\{selection\.price\}●`/);
 });

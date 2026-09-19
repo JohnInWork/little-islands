@@ -799,6 +799,13 @@ const merchantShopTabs = document.querySelector('#merchant-shop-tabs');
 const merchantShopTabButtons = [...merchantShopTabs.querySelectorAll('[data-merchant-tab]')];
 const merchantShopList = document.querySelector('#merchant-shop-list');
 const merchantShopFeedback = document.querySelector('#merchant-shop-feedback');
+const merchantShopDetail = document.querySelector('#merchant-shop-detail');
+const merchantShopDetailIcon = document.querySelector('#merchant-shop-detail-icon');
+const merchantShopDetailName = document.querySelector('#merchant-shop-detail-name');
+const merchantShopDetailMeta = document.querySelector('#merchant-shop-detail-meta');
+const merchantShopDetailText = document.querySelector('#merchant-shop-detail-text');
+const merchantShopConfirm = document.querySelector('#merchant-shop-confirm');
+const merchantShopCancel = document.querySelector('#merchant-shop-cancel');
 const closeMerchantShopButton = document.querySelector('#close-merchant-shop');
 const chestContainer = document.querySelector('#chest-container');
 const chestContainerIcon = document.querySelector('#chest-container-icon');
@@ -7985,6 +7992,45 @@ function replaceMerchantState(nextState) {
   return replaced;
 }
 
+/**
+ * What the shop is about to do, once the player has read what it is.
+ *
+ * A tap used to be the purchase: touch the yellow potion to find out what it is
+ * and it was bought and paid for. Now a tap only picks the thing up off the
+ * shelf — the card below the list says what it does and what it costs, and the
+ * money moves when the player says so.
+ */
+let merchantSelection = null;
+
+function clearMerchantSelection() {
+  merchantSelection = null;
+  merchantShopDetail.hidden = true;
+}
+
+function selectMerchantItem(selection) {
+  merchantSelection = selection;
+  const presentation = itemPresentation(presentedItem(selection.item), itemDetailLanguage);
+  const copy = merchantPresentation(activeMerchant.variantId, itemDetailLanguage);
+  merchantShopDetail.hidden = false;
+  merchantShopDetailIcon.src = assetUrl(presentedItem(selection.item).icon);
+  merchantShopDetailName.textContent = presentation.name;
+  merchantShopDetailMeta.textContent = `${presentation.rarity} · ${presentation.slot}`;
+  merchantShopDetailText.textContent = presentation.effects.length > 0
+    ? presentation.effects.map(({ text }) => text).join(' · ')
+    : presentation.description;
+  merchantShopConfirm.textContent = `${selection.verb} · ${selection.price}●`;
+  merchantShopCancel.textContent = copy.close;
+  merchantShopConfirm.disabled = false;
+  requestAnimationFrame(() => merchantShopConfirm.focus());
+}
+
+function confirmMerchantSelection() {
+  if (!merchantSelection) return false;
+  const { act } = merchantSelection;
+  clearMerchantSelection();
+  return act();
+}
+
 function merchantItemButton({ item, price, disabled = false, sold = false, badge = null, onActivate }) {
   const displayItem = presentedItem(item);
   const presentation = itemPresentation(displayItem, itemDetailLanguage);
@@ -8041,6 +8087,8 @@ function renderMerchantShop() {
     button.textContent = copy[button.dataset.merchantTab];
   });
   merchantShopList.replaceChildren();
+  // A list that just changed is a list the old selection no longer belongs to.
+  clearMerchantSelection();
   if (merchantTab === 'buy') {
     for (const entry of activeMerchant.stock) {
       const item = materializeInventoryItem(entry.record);
@@ -8050,7 +8098,9 @@ function renderMerchantShop() {
         price: entry.price,
         disabled: sold,
         sold,
-        onActivate: () => transactMerchantPurchase(entry.entryId),
+        onActivate: () => selectMerchantItem({
+          item, price: entry.price, verb: copy.buy, act: () => transactMerchantPurchase(entry.entryId),
+        }),
       }));
     }
     for (const entry of merchantState.buyback) {
@@ -8059,7 +8109,9 @@ function renderMerchantShop() {
         item,
         price: entry.price,
         badge: copy.buyback,
-        onActivate: () => transactMerchantBuyback(entry.record.uid),
+        onActivate: () => selectMerchantItem({
+          item, price: entry.price, verb: copy.buy, act: () => transactMerchantBuyback(entry.record.uid),
+        }),
       }));
     }
   } else {
@@ -8067,7 +8119,9 @@ function renderMerchantShop() {
       merchantShopList.append(merchantItemButton({
         item,
         price: merchantSellPrice(item),
-        onActivate: () => transactMerchantSale(item.uid),
+        onActivate: () => selectMerchantItem({
+          item, price: merchantSellPrice(item), verb: copy.sell, act: () => transactMerchantSale(item.uid),
+        }),
       }));
     }
   }
@@ -10813,6 +10867,39 @@ function consumeBackpackItem(item, index) {
   }
 }
 
+/**
+ * What just happened to you, in words.
+ *
+ * A consumable used to report a bare number — «12», «+2», «✓» — on a card that
+ * named the bottle. So the player learned what they had drunk and never what it
+ * did: Ivan drank a potion and could not tell. A number is the size of a thing,
+ * not the thing.
+ */
+const CONSUMABLE_REPORTS = Object.freeze({
+  ru: Object.freeze({
+    healed: (amount) => `Исцеление +${amount}`,
+    healedFull: 'Уже полное здоровье',
+    power: (amount) => `Сила +${amount}`,
+    cleansed: 'Состояния сняты',
+    nothingToCleanse: 'Снимать было нечего',
+    venom: (damage, seconds) => `Яд: −${damage} и отравление на ${Math.round(seconds)} с`,
+    learned: (name) => `Изучено: ${name}`,
+  }),
+  en: Object.freeze({
+    healed: (amount) => `Healed +${amount}`,
+    healedFull: 'Already at full health',
+    power: (amount) => `Power +${amount}`,
+    cleansed: 'Conditions cleared',
+    nothingToCleanse: 'Nothing to clear',
+    venom: (damage, seconds) => `Venom: −${damage} and poisoned for ${Math.round(seconds)}s`,
+    learned: (name) => `Learned: ${name}`,
+  }),
+});
+
+function consumableReport() {
+  return CONSUMABLE_REPORTS[itemDetailLanguage === 'en' ? 'en' : 'ru'];
+}
+
 function applyIdentifiablePotion(item) {
   const outcome = potionOutcome(item);
   if (!outcome) return null;
@@ -10822,20 +10909,22 @@ function applyIdentifiablePotion(item) {
     hero.hp += healing;
     burst(hero.x, hero.y - 8, '#7fbd86', 14);
     addImpactWave(hero.x, hero.y - 8, '#7fbd86', 46, 0);
-    return healing;
+    return healing > 0 ? consumableReport().healed(healing) : consumableReport().healedFull;
   }
   if (outcome.type === 'power') {
     hero.power += outcome.amount;
     burst(hero.x, hero.y - 8, '#e0c778', 18);
     addImpactWave(hero.x, hero.y - 8, '#e0c778', 54, 1);
-    return `+${outcome.amount}`;
+    return consumableReport().power(outcome.amount);
   }
   if (outcome.type === 'cleanse') {
     const result = clearActorEffects(hero.effects);
     hero.effects = result.effects;
     burst(hero.x, hero.y - 8, '#87cad0', 16);
     addImpactWave(hero.x, hero.y - 8, '#87cad0', 52, 0);
-    return result.cleared.length > 0 ? '✓' : '0';
+    return result.cleared.length > 0
+      ? consumableReport().cleansed
+      : consumableReport().nothingToCleanse;
   }
   const result = damageHero(outcome.damage, {
     direct: true,
@@ -10843,7 +10932,7 @@ function applyIdentifiablePotion(item) {
     source: 'potion:venom',
   });
   if (!hero.dead) applyHeroStatus('poison', outcome.duration);
-  return `−${result?.damage ?? outcome.damage}`;
+  return consumableReport().venom(result?.damage ?? outcome.damage, outcome.duration);
 }
 
 function applyBook(item) {
@@ -10875,7 +10964,7 @@ function applyBook(item) {
     burst(hero.x, hero.y - 8, spell.color, 20);
     addImpactWave(hero.x, hero.y - 8, spell.color, 62, 1);
     renderSpellBar();
-    return spell.name[itemDetailLanguage];
+    return consumableReport().learned(spell.name[itemDetailLanguage]);
   }
   const result = readSkillBook({
     command,
@@ -11086,7 +11175,7 @@ function useConsumable(item, index, effectOverride = null) {
     playSound('drink');
     burst(hero.x, hero.y - 10, '#d8c9b4', 18);
     addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
-    feedback = `+${treatment.healed}`;
+    feedback = consumableReport().healed(treatment.healed);
   } else if (effect?.type === 'coat') {
     const result = coatWeapon({
       weapon: itemInstances.get(selected.hand1) ?? null,
@@ -15431,6 +15520,8 @@ characterSheetLanguageButton.addEventListener('click', () => {
 bagButton.addEventListener('click', openInventory);
 
 closeMerchantShopButton.addEventListener('click', closeMerchantShop);
+merchantShopConfirm.addEventListener('click', confirmMerchantSelection);
+merchantShopCancel.addEventListener('click', clearMerchantSelection);
 closeChestContainerButton.addEventListener('click', closeChestContainerUi);
 chestContainer.addEventListener('pointerdown', (event) => {
   if (event.target === chestContainer) closeChestContainerUi();

@@ -4236,6 +4236,67 @@ body {
   text-align: center;
 }
 
+/*
+ * What the shop is about to do, once the player has read what it is.
+ *
+ * A tap used to be the purchase: touch the yellow potion to find out what it
+ * does, and it was bought and paid for. The card sits under the list, says what
+ * the thing is and what it costs, and only then takes the money.
+ */
+.merchant-shop-detail {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px 10px;
+  margin: 0 0 8px;
+  padding: 8px 10px 10px;
+  color: #e4dcc6;
+  background: rgb(9 13 16 / 92%);
+  border-color: var(--gold);
+}
+
+.merchant-shop-detail img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.merchant-shop-detail-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.merchant-shop-detail-copy small {
+  color: #a79a86;
+}
+
+.merchant-shop-detail-copy p {
+  margin: 2px 0 0;
+  color: #cbc2ad;
+}
+
+.merchant-shop-detail-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.merchant-shop-detail-actions button {
+  min-height: 34px;
+  padding: 0 14px;
+  color: #e4dcc6;
+  background: rgb(18 24 28 / 96%);
+  border: 2px solid #4a5560;
+  cursor: pointer;
+}
+
+.merchant-shop-detail-actions .primary {
+  color: #12181c;
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
 .merchant-shop-feedback {
   min-height: 20px;
   margin: 4px 4px 0;
