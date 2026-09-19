@@ -170,6 +170,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     pollInteractionUi: () => {},
     // Nor the line that explains a state the hero is carrying.
     updateHeroEffectNote: () => {},
+    // Nor the glow a new level leaves on the floor.
+    updateLevelUpGlow: () => {},
     currentStaffProfile: () => ({ rank: 0, channelSeconds: 0, rangeBonus: 0, pierceTargets: 0 }),
     // A run always lives by two conditions; a sandbox lives by none.
     currentConditions: () => ({

@@ -6383,6 +6383,20 @@ function atmosphereLightSources() {
       beam: loot.definition.rarity >= 3,
     });
   }
+  if (levelUpGlow > 0 && !hero.dead) {
+    sources.push({
+      id: 'hero-level-up',
+      x: hero.x,
+      y: hero.y,
+      gridX: Math.floor(hero.x / TILE),
+      gridY: Math.floor(hero.y / TILE),
+      color: '#f5dd9a',
+      radius: 1.4 + levelUpGlow * 2.6,
+      phase: 0.2,
+      beam: false,
+      flame: false,
+    });
+  }
   if (hero.effects.burning > 0 && !hero.dead) {
     sources.push({
       id: 'hero-burning',
@@ -7147,6 +7161,46 @@ function clearLevelUpCelebration() {
   hud.classList.remove('skill-point-awarded');
 }
 
+/**
+ * A new level should feel like something.
+ *
+ * It had a panel, a chime and one puff of sparks — correct, and over before the
+ * player had looked up. Ivan asked for it to be an occasion. So the hero stands
+ * in a column of light for a moment: gold rises off them, two rings go out at
+ * different speeds, and the floor around them is genuinely brighter while it
+ * lasts. Nothing here is new art; it is the particle system and the lighting
+ * the game already has, used properly for one second.
+ */
+let levelUpGlow = 0;
+
+function updateLevelUpGlow(delta) {
+  if (levelUpGlow <= 0) return;
+  levelUpGlow = Math.max(0, levelUpGlow - delta);
+}
+
+function levelUpFlare(levelsGained) {
+  levelUpGlow = 1.6;
+  const studs = 34 + levelsGained * 10;
+  for (let index = 0; index < studs; index += 1) {
+    const spread = (index / studs - 0.5) * TILE * 1.5;
+    sparks.push({
+      x: hero.x + spread,
+      y: hero.y + 6 - Math.random() * 10,
+      vx: spread * 0.18,
+      vy: -34 - Math.random() * 30,
+      life: 0.7 + Math.random() * 0.9,
+      maxLife: 1.6,
+      color: index % 3 === 0 ? '#fff0bd' : '#e5c965',
+      drift: true,
+      size: index % 4 === 0 ? 4 : 3,
+      alpha: 0.9,
+    });
+  }
+  // Two rings at different speeds read as one thing expanding, not as a blink.
+  addImpactWave(hero.x, hero.y - 10, '#f2dc94', 58, 2);
+  addImpactWave(hero.x, hero.y - 10, '#d4b653', 104, 0);
+}
+
 function showLevelUpCelebration(progression) {
   const presentation = levelUpPresentation({
     level: hero.level,
@@ -7170,7 +7224,7 @@ function showLevelUpCelebration(progression) {
   playLevelUpChime(progression.levelsGained);
   if (!reducedMotion) {
     burst(hero.x, hero.y - 10, '#e5c965', 24 + progression.levelsGained * 4);
-    addImpactWave(hero.x, hero.y - 10, '#d4b653', 66, 2);
+    levelUpFlare(progression.levelsGained);
     beginHitStop(0.09);
   }
   levelUpTimer = window.setTimeout(clearLevelUpCelebration, LEVEL_UP_PRESENTATION_MS);
@@ -14780,6 +14834,7 @@ function updateWorld(delta) {
   updateAmbientScene(delta);
   pollInteractionUi(delta);
   updateHeroEffectNote(delta);
+  updateLevelUpGlow(delta);
   updateAllies(delta);
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index];

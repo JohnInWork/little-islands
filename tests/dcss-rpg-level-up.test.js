@@ -56,3 +56,26 @@ test('runtime level-up feedback is event-driven, non-modal and pixel styled', as
   assert.match(runtime, /beginHitStop\(0\.09\)/);
   assert.match(runtime, /playLevelUpChime\(progression\.levelsGained\)/);
 });
+
+/**
+ * «Когда игрок получает уровень, должно что-то происходить... должно быть
+ * торжественно, прикольно.» It had a panel, a chime and one puff of sparks —
+ * correct, and over before the player had looked up.
+ */
+test('a new level lights the floor the hero is standing on', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const flare = runtime.slice(runtime.indexOf('function levelUpFlare('));
+  const body = flare.slice(0, flare.indexOf('\nfunction showLevelUpCelebration'));
+  assert.ok(body.length > 0, 'nothing happens');
+  // A column of gold off the hero, using the drifting particles the game has.
+  assert.match(body, /drift: true/);
+  // Two rings at different speeds read as one thing expanding, not as a blink.
+  assert.equal((body.match(/addImpactWave\(/g) ?? []).length, 2);
+  // And the floor is genuinely brighter while it lasts.
+  assert.match(runtime, /id: 'hero-level-up'/);
+  assert.match(runtime, /radius: 1\.4 \+ levelUpGlow \* 2\.6/);
+  assert.match(runtime, /function updateLevelUpGlow\(delta\)/);
+  // Reduced motion keeps the panel and the chime and skips the spectacle.
+  const show = runtime.slice(runtime.indexOf('function showLevelUpCelebration('));
+  assert.match(show.slice(0, 1400), /if \(!reducedMotion\) \{[\s\S]*levelUpFlare\(progression\.levelsGained\)/);
+});
