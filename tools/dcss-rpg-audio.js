@@ -43,6 +43,11 @@ export const SOUND_SAMPLES = Object.freeze({
   read: sample(['sfx/read-1.mp3', 'sfx/read-2.mp3'], 0.35),
   trap: sample('sfx/trap.mp3', 0.5),
   death: sample(['sfx/death-1.mp3', 'sfx/death-2.mp3'], 0.55),
+  // The same two events in a woman's voice. Separate ids rather than a branch
+  // inside one, so the preloader fetches both sets and a hero who changes
+  // appearance mid-run never waits for a file.
+  'hero-hurt-f': sample(['sfx/hero-hurt-f-1.mp3', 'sfx/hero-hurt-f-2.mp3', 'sfx/hero-hurt-f-3.mp3'], 0.45),
+  'death-f': sample(['sfx/death-f-1.mp3', 'sfx/death-f-2.mp3'], 0.55),
   victory: sample('sfx/victory.mp3', 0.5),
   'ui-tap': sample(['sfx/ui-tap-1.mp3', 'sfx/ui-tap-2.mp3'], 0.25),
   'ui-close': sample('sfx/ui-close.mp3', 0.22),
@@ -50,6 +55,17 @@ export const SOUND_SAMPLES = Object.freeze({
 });
 
 export const SOUND_IDS = Object.freeze(Object.keys(SOUND_SAMPLES));
+
+/**
+ * The two sounds that are the hero's own voice, and what they become when the
+ * hero is a woman. Everything else — blades, coins, doors — belongs to the
+ * world and sounds the same whoever is holding the sword.
+ */
+const FEMALE_VOICE = Object.freeze({ 'hero-hurt': 'hero-hurt-f', death: 'death-f' });
+
+export function heroVoiceSound(soundId, voice) {
+  return voice === 'female' ? FEMALE_VOICE[soundId] ?? soundId : soundId;
+}
 
 /** One recorded dungeon loop for every chapter palette; the gain differs a little. */
 export const AMBIENT_SAMPLES = Object.freeze({

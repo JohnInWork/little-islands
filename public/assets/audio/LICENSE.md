@@ -83,6 +83,25 @@ from the site's public HQ previews.
 - Files: `sfx/hero-hurt-1.mp3` (hurt0), `sfx/hero-hurt-2.mp3` (hurt4),
   `sfx/death-1.mp3` (death1, tail trimmed)
 
+## cicifyre — Female RPG Voice Starter Pack
+
+- Source: <https://opengameart.org/content/female-rpg-voice-starter-pack>
+- License: CC0 1.0
+- Files: `sfx/hero-hurt-f-1.mp3` (Type 3 / damaged1), `sfx/hero-hurt-f-2.mp3`
+  (Type 3 / damaged2), `sfx/hero-hurt-f-3.mp3` (Type 3 / damaged3). The pack
+  holds three voices; the game uses the third throughout, so one hero is one
+  person rather than three women taking turns.
+
+## Galacti-Chron (voice by Sky Rae) — Dying Voices, Female, RPG
+
+- Source: <https://opengameart.org/content/dying-voices-female-rpg>
+- License: CC0 1.0 (the source page offers a second licence as well; these
+  files are taken under the public-domain one)
+- Files: `sfx/death-f-1.mp3` (High dying noise, trimmed to its first 1.7 s),
+  `sfx/death-f-2.mp3` (misc female british noise, trimmed to 1.05 s). Of the
+  pack's 54 clips these two are the wordless ones; the rest are spoken English
+  lines, and the game has no voice acting anywhere else.
+
 ## thebardofblasphemy — Grunts: Male Death and Pain
 
 - Source: <https://opengameart.org/content/grunts-male-death-and-pain>

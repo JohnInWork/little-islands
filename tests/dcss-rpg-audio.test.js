@@ -141,8 +141,8 @@ test('the runtime plays only recorded buffers through one master gain and hooks 
   for (const hook of [
     "playSound(projectile ? 'hit-projectile' : style === 'heavy' ? 'hit-heavy' : 'hit-blade')",
     "playSound('kill')",
-    "playSound(fullyBlocked ? 'block' : 'hero-hurt')",
-    "playSound('death')",
+    "playSound(fullyBlocked ? 'block' : heroVoice('hero-hurt'))",
+    "playSound(heroVoice('death'))",
     "playSound('gold')",
     "playSound('pickup')",
     "playSound('door')",
@@ -161,4 +161,41 @@ test('the runtime plays only recorded buffers through one master gain and hooks 
   }
   assert.match(html, /id="main-menu-audio"[\s\S]*id="audio-mute"[\s\S]*id="audio-volume-down"[\s\S]*id="audio-volume-value"[\s\S]*id="audio-volume-up"/);
   assert.match(css, /\.main-menu-audio\s*{/);
+});
+
+/**
+ * A woman cried out in a man's voice. The body is chosen in the appearance
+ * editor and the game has drawn it from the start — it simply never listened to
+ * it. Only the two sounds that are the hero's own voice change: a blade, a coin
+ * and a door belong to the world and sound the same whoever is holding them.
+ */
+test('the hero is hurt and dies in her own voice', async () => {
+  const { heroVoiceSound, SOUND_SAMPLES } = await import('../tools/dcss-rpg-audio.js');
+  const { playerVoice, PLAYER_BODY_OPTIONS } = await import('../tools/dcss-rpg-appearance.js');
+
+  assert.equal(playerVoice({ bodyId: 'human-f' }), 'female');
+  assert.equal(playerVoice({ bodyId: 'human-m' }), 'male');
+  assert.equal(playerVoice(null), 'male', 'an unknown body is not a crash');
+  assert.deepEqual(PLAYER_BODY_OPTIONS.map(({ id }) => id), ['human-m', 'human-f']);
+
+  assert.equal(heroVoiceSound('hero-hurt', 'female'), 'hero-hurt-f');
+  assert.equal(heroVoiceSound('death', 'female'), 'death-f');
+  assert.equal(heroVoiceSound('hero-hurt', 'male'), 'hero-hurt');
+  assert.equal(heroVoiceSound('death', 'male'), 'death');
+  // Everything else is the world, not the hero, and never changes.
+  for (const soundId of ['kill', 'block', 'gold', 'door', 'trap', 'victory']) {
+    assert.equal(heroVoiceSound(soundId, 'female'), soundId, `${soundId} is not a voice`);
+  }
+
+  // Both sets are real entries with real variation, so neither is a stub.
+  for (const soundId of ['hero-hurt-f', 'death-f']) {
+    assert.ok(SOUND_SAMPLES[soundId], `${soundId} is in the catalogue`);
+    assert.ok(SOUND_SAMPLES[soundId].files.length >= 2, `${soundId} varies between plays`);
+  }
+  assert.equal(SOUND_SAMPLES['hero-hurt-f'].gain, SOUND_SAMPLES['hero-hurt'].gain, 'both voices sit at the same level');
+  assert.equal(SOUND_SAMPLES['death-f'].gain, SOUND_SAMPLES.death.gain);
+
+  // And the runtime asks the appearance, not a constant.
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /heroVoiceSound\(soundId, playerVoice\(playerAppearance\)\)/);
 });

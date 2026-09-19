@@ -18,6 +18,16 @@ export const PLAYER_HAIR_OPTIONS = Object.freeze([
   Object.freeze({ id: 'brown-tails', layer: 'player/hair/pigtails_brown.png' }),
 ]);
 
+/**
+ * Which voice a hero has. The body is chosen in the appearance editor and the
+ * game has always drawn it; until now it did not listen to it, so a woman was
+ * hurt and died in a man's voice. Nothing else about a body implies anything,
+ * so this is the only thing derived from it.
+ */
+export function playerVoice(appearance) {
+  return appearance?.bodyId === 'human-f' ? 'female' : 'male';
+}
+
 const bodies = new Map(PLAYER_BODY_OPTIONS.map((option) => [option.id, option]));
 const hairs = new Map(PLAYER_HAIR_OPTIONS.map((option) => [option.id, option]));
 

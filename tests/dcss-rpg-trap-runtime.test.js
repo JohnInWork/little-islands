@@ -33,6 +33,8 @@ function terminalRuntime({ victory = false } = {}) {
   };
   const context = vm.createContext({
     playSound: () => false,
+    // The hero's own voice: the sandbox has no appearance, so it stays itself.
+    heroVoice: (soundId) => soundId,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,
@@ -191,6 +193,8 @@ function warningState() {
 function movementRuntime() {
   const context = vm.createContext({
     playSound: () => false,
+    // The hero's own voice: the sandbox has no appearance, so it stays itself.
+    heroVoice: (soundId) => soundId,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,
@@ -298,6 +302,8 @@ test('runtime navigation avoids discovered traps without revealing hidden traps 
   const trap = { instanceId: 'event-1-0', eventId: 'event-1-0', x: 3, y: 2, kind: 'blade', tier: 1 };
   const context = vm.createContext({
     playSound: () => false,
+    // The hero's own voice: the sandbox has no appearance, so it stays itself.
+    heroVoice: (soundId) => soundId,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,

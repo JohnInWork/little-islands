@@ -32,6 +32,8 @@ function combatRuntime() {
   };
   const context = vm.createContext({
     playSound: () => false,
+    // The hero's own voice: the sandbox has no appearance, so it stays itself.
+    heroVoice: (soundId) => soundId,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,

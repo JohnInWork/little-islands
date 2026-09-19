@@ -85,6 +85,7 @@ import {
   cyclePlayerAppearance,
   loadPlayerAppearance,
   playerAppearancePosition,
+  playerVoice,
   resolvePlayerAppearance,
   savePlayerAppearance,
 } from './dcss-rpg-appearance.js';
@@ -422,6 +423,7 @@ import {
   audioMenuModel,
   effectiveVolume,
   parseAudioSettings,
+  heroVoiceSound,
   pickSampleFile,
   serializeAudioSettings,
   soundSample,
@@ -2591,6 +2593,11 @@ function houseDeedDecision() {
     backpackCount: backpackItems.filter(Boolean).length,
     capacity: HERO_BACKPACK_CAPACITY,
   });
+}
+
+/** The hero's own voice: the body chosen in the editor decides who cries out. */
+function heroVoice(soundId) {
+  return heroVoiceSound(soundId, playerVoice(playerAppearance));
 }
 
 /** A night's sleep, wherever it was taken. Always fills the clock. */
@@ -11964,7 +11971,7 @@ function damageHero(amount, {
   const result = surviveOnSecondWind(rolled);
   hero.hp = result.hp;
   hero.hurt = fullyBlocked ? 0 : subtle ? 0.12 : 0.24;
-  if (!subtle) playSound(fullyBlocked ? 'block' : 'hero-hurt');
+  if (!subtle) playSound(fullyBlocked ? 'block' : heroVoice('hero-hurt'));
   hero.guardFlash = fullyBlocked ? 0.32 : !direct && combat.guard > 0 ? 0.22 : 0;
   const color = impactColor ?? (combat.guard > 0 ? '#84b9b8' : '#c25a4f');
   burst(hero.x, hero.y - 8, color, fullyBlocked ? 16 : subtle ? 5 : 10);
@@ -11999,7 +12006,7 @@ function damageHero(amount, {
   if (typeof lightningArcs !== 'undefined') lightningArcs.length = 0;
   deathTimer = 1.35;
   run.stats.killerId = typeof source === 'string' ? source : null;
-  playSound('death');
+  playSound(heroVoice('death'));
   stopAmbient();
   persistRun();
   return result;
