@@ -11,6 +11,7 @@ import {
   clearActorEffects,
   createActorEffects,
 } from './dcss-rpg-effects.js';
+import { cellStepDistance } from './dcss-rpg-geometry.js';
 import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 import { WATER_CELL } from './dcss-rpg-terrain.js';
 
@@ -901,8 +902,7 @@ export function resolveFindInteraction({
   ) return rejected('invalid');
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive');
   if (resolvedFindIds.includes(find.instanceId)) return rejected('resolved');
-  const distance = Math.abs(hero.x - find.x) + Math.abs(hero.y - find.y);
-  if (distance > 1) return rejected('distance');
+  if (cellStepDistance(hero, find) > 1) return rejected('distance');
   if (definition.wave === 'landmark') {
     return resolveLandmarkInteraction({
       definition,

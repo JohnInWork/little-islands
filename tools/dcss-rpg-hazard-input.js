@@ -11,7 +11,8 @@ export function hazardMoveIntent({ state, origin, target, knownCells, gesture })
     return { allowed: true, warn: false, state: createHazardInputState(), permittedCell: null };
   }
   // A distant map tap must never confirm walking through a trap automatically.
-  const adjacent = Math.abs(target.x - origin.x) + Math.abs(target.y - origin.y) === 1;
+  // Neighbouring means the ring of eight, the same as everywhere else.
+  const adjacent = Math.max(Math.abs(target.x - origin.x), Math.abs(target.y - origin.y)) === 1;
   if (!adjacent) {
     return { allowed: false, warn: false, state: createHazardInputState(), permittedCell: null };
   }

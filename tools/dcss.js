@@ -157,6 +157,7 @@ import {
 import {
   createDungeonEnvironment,
 } from './dcss-rpg-environment.js';
+import { cellStepDistance, neighbouringCells } from './dcss-rpg-geometry.js';
 import {
   AMBIENT_SCENES,
   ambientActors,
@@ -4035,6 +4036,39 @@ function warnTrapStep(cell) {
     : 'Trap. Release the control and press again to step on it deliberately.';
 }
 
+/**
+ * A tap the known map cannot answer exactly is still a tap.
+ *
+ * Route finding treats everything the hero has never seen as a wall, so tapping
+ * into the dark — or past a corner the hero has not turned yet — used to do
+ * nothing at all: the player taps, the hero stands there, and the game looks
+ * broken. Walking as far that way as the known ground allows is what the player
+ * meant, and it is how they explore.
+ */
+function routeTowardCell(target) {
+  const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const candidates = [];
+  const reach = 9;
+  for (let dy = -reach; dy <= reach; dy += 1) {
+    for (let dx = -reach; dx <= reach; dx += 1) {
+      const x = target.x + dx;
+      const y = target.y + dy;
+      if (!isHeroWalkable(x, y) || !revealed.has(`${x},${y}`)) continue;
+      if (x === from.x && y === from.y) continue;
+      candidates.push({ x, y, toTarget: Math.hypot(dx, dy) });
+    }
+  }
+  // Nearest to where the player pointed, and among equals the one that is not a
+  // detour: walking away from the tap to get closer to it reads as a bug.
+  candidates.sort((left, right) => (left.toTarget - right.toTarget)
+    || (cellStepDistance(from, left) - cellStepDistance(from, right)));
+  for (const cell of candidates.slice(0, 14)) {
+    const path = findPath(cell.x, cell.y, { allowBlockedEnd: false, heroMovement: true });
+    if (path.length > 0) return path;
+  }
+  return [];
+}
+
 function requestHeroMove(targetX, targetY) {
   const target = { x: Math.floor(targetX), y: Math.floor(targetY) };
   const intent = hazardMoveIntent({
@@ -4057,7 +4091,6 @@ function requestHeroMove(targetX, targetY) {
     playerHasActed = true;
   }
   let path = findPath(targetX, targetY, {
-    blockedCells: passiveOccupiedCells(),
     allowBlockedEnd: false,
     allowedHazardCell: intent.permittedCell,
     heroMovement: true,
@@ -4067,7 +4100,14 @@ function requestHeroMove(targetX, targetY) {
       monsterCellKey(monster, TILE) === `${target.x},${target.y}`);
     const approach = enemy && meleeApproachPoint(hero, enemy, TILE);
     if (approach) path = [approach];
+    else if (enemy && canActorsMelee(hero, enemy)) {
+      // Already touching it. There is nowhere to step, but the tap was still a
+      // real action: stop walking and let the swing land.
+      hero.path = [];
+      return true;
+    }
   }
+  if (path.length === 0) path = routeTowardCell(target);
   return commitHeroPath(path, intent.permittedCell);
 }
 
@@ -7406,7 +7446,7 @@ function nearbyClosedDoor() {
     (door) =>
       world[door.y]?.[door.x] === 'D' &&
       revealed.has(`${door.x},${door.y}`) &&
-      Math.abs(heroCell.x - door.x) + Math.abs(heroCell.y - door.y) === 1,
+      cellStepDistance(heroCell, door) === 1,
   ) ?? null;
 }
 
@@ -7414,8 +7454,7 @@ function nearbyDoor() {
   if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return doorDefinitions
-    .filter((door) => revealed.has(`${door.x},${door.y}`) &&
-      Math.abs(cell.x - door.x) + Math.abs(cell.y - door.y) <= 1)
+    .filter((door) => revealed.has(`${door.x},${door.y}`) && cellStepDistance(cell, door) <= 1)
     .sort((a, b) => Math.hypot(hero.x / TILE - a.x - 0.5, hero.y / TILE - a.y - 0.5) -
       Math.hypot(hero.x / TILE - b.x - 0.5, hero.y / TILE - b.y - 0.5))[0] ?? null;
 }
@@ -7685,7 +7724,7 @@ function contextTargetIsAdjacent(entry) {
     : pixelActor
       ? Math.floor(entry.value.y / TILE)
       : entry.value.y;
-  const distance = Math.abs(heroCell.x - x) + Math.abs(heroCell.y - y);
+  const distance = cellStepDistance(heroCell, { x, y });
   if (entry.kind === 'trap') {
     return distance === 1
       && detectedTrapIds.has(entry.value.instanceId)
@@ -10727,11 +10766,20 @@ function applyBook(item) {
 }
 
 /** Everything the hero can see within a radius, in cells, and still alive. */
+/**
+ * Everything hostile the hero can see within a radius — and a boar that is
+ * charging you is hostile. Wildlife used to be left out of this list entirely,
+ * so a hunted beast walked through fire and frost untouched while the same hero
+ * could kill it with a stick. Ivan ran from a pig and found out.
+ */
 function monstersAroundHero(radius) {
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  return monsters.filter((monster) => {
-    if (monster.dead > 0 || monster.ally) return false;
-    const cell = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
+  const hostile = [
+    ...monsters.filter((monster) => monster.dead === 0 && !monster.ally),
+    ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
+  ];
+  return hostile.filter((actor) => {
+    const cell = { x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) };
     if (Math.hypot(cell.x - heroCell.x, cell.y - heroCell.y) > radius) return false;
     return hasLineOfSight(world, heroCell, cell);
   });
@@ -11593,7 +11641,9 @@ function spellTargetCandidates(spell) {
     ...monsters,
     ...passiveCreatures.filter(({ hunted, defeated }) => hunted && !defeated),
   ]) {
-    if (spell.targetMode === 'actor' && target.actorKind === 'wildlife') continue;
+    // A beast already fighting the hero is a target like any other. Excluding
+    // wildlife here meant the aimed spells could not be pointed at the animal
+    // currently biting you.
     if (target.actorKind === 'wildlife' ? target.defeated : target.dead > 0) continue;
     const targetCell = { x: Math.floor(target.x / TILE), y: Math.floor(target.y / TILE) };
     if (!revealed.has(`${targetCell.x},${targetCell.y}`)) continue;
@@ -11731,7 +11781,8 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       const conducted = usedSpell.schoolId === 'storm-magic'
         && (monster.effects?.wet > 0 || isWaterCell(world, Math.floor(monster.x / TILE), Math.floor(monster.y / TILE)));
       damageMonster(monster, conducted ? damage * 2 : damage, usedSpell.color, { style: 'staff' });
-      if (status && monster.dead === 0) {
+      const alive = monster.actorKind === 'wildlife' ? !monster.defeated : monster.dead === 0;
+      if (status && alive) {
         monster.effects = applyActorEffect(monster.effects, status.id, status.duration).effects;
       }
     }
@@ -12903,7 +12954,7 @@ function nearbyJailDoor() {
   const door = cityJailDoor();
   if (!door) return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  return Math.abs(cell.x - door.x) + Math.abs(cell.y - door.y) <= 1 ? door : null;
+  return cellStepDistance(cell, door) <= 1 ? door : null;
 }
 
 /** Serving the sentence: the purse pays what it can and the record closes. */
@@ -14666,44 +14717,70 @@ function render() {
   drawVoidSky();
 }
 
-function animate(time) {
-  const delta = Math.min(0.04, Math.max(0, (time - previousTime) / 1000));
-  previousTime = time;
-  elapsed += delta;
-  if (!document.hidden && ready) {
-    if (uiScreen === 'game') {
-      if (hitStop > 0) {
-        hitStop = Math.max(0, hitStop - delta);
-      } else {
-        updateHero(delta);
-        if (hitStop === 0) updateWorld(delta);
-      }
-      updateOnboarding(time);
-    }
-    // Static overlays (bag, map, menu…) keep the last frame; live screens render
-    // at most ~60 Hz so 120 Hz phones do not double the GPU work.
-    const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen);
-    if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
-      render();
-      lastRenderAt = time;
-      renderedScreen = uiScreen;
-    }
+/**
+ * One bad frame used to end the game.
+ *
+ * The next frame was requested by the last line of `animate`, so anything that
+ * threw above it — and there are three hundred deliberate `throw`s in the rule
+ * modules — stopped the loop for good. The world froze mid-step while the bag,
+ * the character sheet and every other DOM button kept working, which reads to a
+ * player as "the game hung" and is cured only by reloading the page. Ivan hit it
+ * twice in one session, in two unrelated places.
+ *
+ * A frame is now allowed to fail. The error is reported once and the loop goes
+ * on: a single dropped update is a hiccup, a dead loop is a lost run.
+ */
+let frameFailures = 0;
+
+function reportFrameFailure(error) {
+  frameFailures += 1;
+  // Loud for the first few, then quiet: a fault that repeats every frame must
+  // not bury the message that says what it was.
+  if (frameFailures <= 3 || frameFailures % 240 === 0) {
+    console.error(`DNG Codex: frame ${frameFailures} failed and was skipped`, {
+      screen: uiScreen,
+      depth: run?.depth,
+      status: runStatus,
+      error,
+    });
   }
-  frameId = requestAnimationFrame(animate);
+}
+
+function animate(time) {
+  try {
+    const delta = Math.min(0.04, Math.max(0, (time - previousTime) / 1000));
+    previousTime = time;
+    elapsed += delta;
+    if (!document.hidden && ready) {
+      if (uiScreen === 'game') {
+        if (hitStop > 0) {
+          hitStop = Math.max(0, hitStop - delta);
+        } else {
+          updateHero(delta);
+          if (hitStop === 0) updateWorld(delta);
+        }
+        updateOnboarding(time);
+      }
+      // Static overlays (bag, map, menu…) keep the last frame; live screens render
+      // at most ~60 Hz so 120 Hz phones do not double the GPU work.
+      const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen);
+      if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
+        render();
+        lastRenderAt = time;
+        renderedScreen = uiScreen;
+      }
+    }
+  } catch (error) {
+    reportFrameFailure(error);
+  } finally {
+    frameId = requestAnimationFrame(animate);
+  }
 }
 
 function routeHeroBesideCell(cellX, cellY) {
-  const routes = [
-    { x: cellX + 1, y: cellY },
-    { x: cellX - 1, y: cellY },
-    { x: cellX, y: cellY + 1 },
-    { x: cellX, y: cellY - 1 },
-  ]
+  const routes = neighbouringCells({ x: cellX, y: cellY })
     .filter(({ x, y }) => isWalkable(x, y) && revealed.has(`${x},${y}`))
-    .map(({ x, y }) => findPath(x, y, {
-      blockedCells: passiveOccupiedCells(),
-      allowBlockedEnd: false,
-    }))
+    .map(({ x, y }) => findPath(x, y, { allowBlockedEnd: false }))
     .filter((route) => route.length > 0)
     .sort((a, b) => a.length - b.length);
   return commitHeroPath(routes[0] ?? []);
@@ -14754,7 +14831,7 @@ function moveFromPointer(event) {
   );
   if (merchant && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-    const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
+    const adjacent = cellStepDistance(heroCell, { x: cellX, y: cellY }) <= 1;
     if (adjacent) {
       openContextActions({ kind: 'merchant', value: merchant });
       return;
@@ -14764,7 +14841,7 @@ function moveFromPointer(event) {
   }
   if (find && findIsInteractable(find) && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-    const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) <= 1;
+    const adjacent = cellStepDistance(heroCell, { x: cellX, y: cellY }) <= 1;
     if (adjacent) {
       openContextActions({ kind: 'find', value: find });
       return;
@@ -14774,7 +14851,7 @@ function moveFromPointer(event) {
   }
   if (trap && revealed.has(`${cellX},${cellY}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-    const adjacent = Math.abs(heroCell.x - cellX) + Math.abs(heroCell.y - cellY) === 1;
+    const adjacent = cellStepDistance(heroCell, { x: cellX, y: cellY }) === 1;
     if (adjacent) {
       openContextActions({ kind: 'trap', value: trap });
       return;
@@ -14784,7 +14861,7 @@ function moveFromPointer(event) {
   }
   if (door && revealed.has(`${door.x},${door.y}`)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-    const distance = Math.abs(heroCell.x - door.x) + Math.abs(heroCell.y - door.y);
+    const distance = cellStepDistance(heroCell, door);
     const isOpen = run.floor.opened.includes(door.instanceId);
     if ((!isOpen && distance === 1) || (isOpen && distance <= 1)) {
       openContextActions({ kind: 'door', value: door });

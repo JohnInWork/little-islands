@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { canCloseDoor } from '../tools/dcss-rpg-doors.js';
+import { cellStepDistance } from '../tools/dcss-rpg-geometry.js';
 import { createHazardInputState } from '../tools/dcss-rpg-hazard-input.js';
 import { mainMenuModel } from '../tools/dcss-rpg-menu.js';
 
@@ -18,6 +19,8 @@ function fixture({ open = false } = {}) {
   const door = { instanceId: 'door-1-0', x: 2, y: 2, axis: 'x', surpriseId: 'surprise-1-0' };
   const records = { saves: 0, feedback: [], progress: [], rebuilds: 0 };
   const context = vm.createContext({
+    // Reach is one shared rule now; the sandbox borrows the real one.
+    cellStepDistance,
     playSound: () => false,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,

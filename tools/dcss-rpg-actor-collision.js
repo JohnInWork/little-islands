@@ -1,7 +1,13 @@
 import { MONSTER_MIN_SEPARATION, canMeleeAttack } from './dcss-rpg-rules.js';
 
 const EPSILON = 0.000001;
-export const MELEE_CONTACT_RANGE = 1.15;
+/**
+ * Far enough to reach a corner-to-corner neighbour (√2 ≈ 1.415 cells) and no
+ * farther: at 1.15 the diagonal was out of reach and the fight simply did not
+ * happen. `canMeleeAttack` is what actually decides who may hit whom; this is
+ * the coarse circle that gets asked first.
+ */
+export const MELEE_CONTACT_RANGE = 1.5;
 
 function assertPosition(value) {
   if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)) {

@@ -1,3 +1,5 @@
+import { cellStepDistance } from './dcss-rpg-geometry.js';
+
 export const CHEST_VARIANTS = Object.freeze([
   'unlocked',
   'locked',
@@ -402,7 +404,7 @@ export function resolveChestInteraction({
   ) return rejected('invalid');
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive');
   if (resolvedFindIds.includes(find.instanceId)) return rejected('resolved');
-  if (Math.abs(hero.x - find.x) + Math.abs(hero.y - find.y) > 1) return rejected('distance');
+  if (cellStepDistance(hero, find) > 1) return rejected('distance');
   const rules = chestActionRules({ find, actor });
   const selected = rules.actions.find(({ id }) => id === actionId);
   if (!selected) return rejected('action');

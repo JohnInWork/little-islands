@@ -466,35 +466,47 @@ test('collision-aware navigation preserves an explicitly confirmed step onto a k
   assert.ok(context.hero.x > 96);
 });
 
-test('both melee sides share one contact radius, including the floating-point boundary', () => {
+test('melee reaches the whole ring of eight, both ways, and stops there', () => {
   const grid = Array.from({ length: 6 }, () => Array(8).fill('.'));
   const target = { x: 5.5 * TILE, y: 3.5 * TILE };
-  for (const offset of [1.4, 1.45, 1.15, 1.1]) {
+  for (const offset of [1, 1.4, 1.45, 1.5, 1.6, 2]) {
     const attacker = { x: (5.5 - offset) * TILE, y: 3.5 * TILE };
-    const expected = offset <= 1.15;
+    const expected = offset <= 1.5;
     assert.equal(canActorsMeleeContact(grid, attacker, target), expected, `hero ${offset}`);
     assert.equal(canActorsMeleeContact(grid, target, attacker), expected, `monster ${offset}`);
   }
+  // Corner to corner used to be a dead spot: you walked up to a creature and
+  // nothing happened, in either direction.
+  for (const corner of [
+    { x: 4.5 * TILE, y: 2.5 * TILE },
+    { x: 6.5 * TILE, y: 4.5 * TILE },
+  ]) {
+    assert.equal(canActorsMeleeContact(grid, corner, target), true, 'the diagonal is a fight');
+    assert.equal(canActorsMeleeContact(grid, target, corner), true, 'and it is reciprocal');
+  }
+  // Two cells away on the diagonal is still two cells away.
+  const far = { x: 3.5 * TILE, y: 1.5 * TILE };
+  assert.equal(canActorsMeleeContact(grid, far, target), false);
 });
 
-test('a monster in an adjacent tile closes the old dead zone instead of getting stuck with an empty route', () => {
+test('a monster in the next tile is in reach at once, with no dead zone to cross', () => {
   const enemy = monsterAt(2, 1);
   const { context } = runtime({ monsters: [enemy] });
   context.hero.x = 1.1 * TILE;
   context.playerHasActed = true;
-  assert.equal(context.canActorsMelee(enemy, context.hero), false);
-  assert.equal(context.canHeroAttack(enemy, context.currentHeroCombat()), false);
-  for (let frame = 0; frame < 100 && enemy.attackWindup === 0; frame += 1) context.updateWorld(0.016);
-  assert.ok(enemy.x < 160);
-  assert.ok(enemy.attackWindup > 0, 'monster approached and started its real attack');
+  // Anywhere in the neighbouring cell is contact: this corner of the cell used
+  // to be a gap where the monster could not swing and the hero could not answer.
   assert.equal(context.canActorsMelee(enemy, context.hero), true);
   assert.equal(context.canHeroAttack(enemy, context.currentHeroCombat()), true);
+  for (let frame = 0; frame < 100 && enemy.attackWindup === 0; frame += 1) context.updateWorld(0.016);
+  assert.ok(enemy.attackWindup > 0, 'and the monster gets on with attacking');
 });
 
 test('an attack windup cannot hit a hero who has left the shared contact distance', () => {
-  const enemy = monsterAt(2, 1, { attackWindup: 0.1, attackCooldown: 0.8 });
+  // Two cells apart, which is now the nearest place that is genuinely out of reach.
+  const enemy = monsterAt(3, 1, { attackWindup: 0.1, attackCooldown: 0.8 });
   const { context } = runtime({ monsters: [enemy] });
-  context.hero.x = 1.05 * TILE;
+  context.hero.x = 1.5 * TILE;
   context.playerHasActed = true;
   let hits = 0;
   context.damageHero = () => { hits += 1; return null; };
@@ -541,7 +553,7 @@ test('real approach, contact, retreat and return preserve movement priority and 
   const enemy = monsterAt(3, 1);
   const { context } = runtime({ monsters: [enemy] });
   context.hero.x = 2.1 * TILE;
-  assert.equal(context.requestHeroMove(3, 1), true, 'an occupied next tile still permits sub-tile approach');
+  assert.equal(context.requestHeroMove(3, 1), true, 'tapping an enemy already in reach is still an action');
   for (let frame = 0; frame < 80; frame += 1) context.updateHero(0.016);
   assert.ok(enemy.hp < 1000);
   context.updateWorld(0.016);
@@ -577,4 +589,63 @@ test('the hero walks through neighbours and never through an enemy', async () =>
   assert.doesNotMatch(body, /merchant/i);
   // The rule that matters is still there for everything that wants you dead.
   assert.match(runtime, /heroBlockingCells\(\)/);
+});
+
+/**
+ * A run used to end on one bad frame.
+ *
+ * The next frame was requested by the last statement of `animate`, so anything
+ * that threw above it stopped the loop for good: the world froze mid-step while
+ * every DOM button kept working, and only a page reload brought it back. There
+ * are three hundred deliberate `throw`s in the rule modules, so this was not a
+ * hypothetical. Ivan hit it twice in one session.
+ */
+test('one failed frame cannot end the game', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const animate = runtime.slice(runtime.indexOf('function animate(time) {'));
+  const body = animate.slice(0, animate.indexOf('\nfunction '));
+  assert.match(body, /try \{/, 'the frame is not guarded');
+  assert.match(body, /catch \(error\) \{\s*reportFrameFailure\(error\);/, 'a failure is swallowed silently');
+  assert.match(body, /finally \{\s*frameId = requestAnimationFrame\(animate\);/, 'the next frame is not guaranteed');
+  // And the very last thing the loop does must be to ask for the next frame,
+  // whatever happened: no early return may skip it.
+  assert.doesNotMatch(body.slice(0, body.indexOf('} catch')), /\n {2}return[; ]/, 'an early return escapes the guard');
+});
+
+/**
+ * A neighbour is not a wall — and that has to hold for the route, not only for
+ * the collision. The hero could walk through a watchman but could not be routed
+ * past one, so a guard standing in a two-tile city street stopped movement
+ * outright: the tap was simply ignored.
+ */
+test('route finding pushes past neighbours and answers a tap into the dark', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const request = runtime.slice(runtime.indexOf('function requestHeroMove('));
+  const body = request.slice(0, request.indexOf('\nfunction '));
+  assert.doesNotMatch(body, /blockedCells: passiveOccupiedCells\(\)/, 'neighbours block the route again');
+  assert.match(body, /routeTowardCell\(target\)/, 'a tap the map cannot answer exactly does nothing again');
+  // The fallback walks toward the tap; it never silently walks somewhere else.
+  const toward = runtime.slice(runtime.indexOf('function routeTowardCell('));
+  assert.match(toward.slice(0, toward.indexOf('\nfunction ')), /left\.toTarget - right\.toTarget/);
+});
+
+/**
+ * Wildlife that has turned on the hero is an enemy, and spells have to reach it.
+ * It was left out of both target lists, so a charging boar walked through fire
+ * and frost untouched while a stick still killed it.
+ */
+test('a hunted beast is a target for spells, not only for sticks', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const around = runtime.slice(runtime.indexOf('function monstersAroundHero('));
+  assert.match(
+    around.slice(0, around.indexOf('\nfunction ')),
+    /passiveCreatures\.filter\(\(\{ hunted, defeated \}\) => hunted && !defeated\)/,
+    'a burst spell misses the beast fighting you',
+  );
+  const candidates = runtime.slice(runtime.indexOf('function spellTargetCandidates('));
+  assert.doesNotMatch(
+    candidates.slice(0, candidates.indexOf('\nfunction ')),
+    /targetMode === 'actor' && target\.actorKind === 'wildlife'/,
+    'an aimed spell cannot be pointed at the beast biting you',
+  );
 });

@@ -327,13 +327,35 @@ export function salvageInventoryItems(state, uids) {
   };
 }
 
+/** A cell a blow can pass through or land in: open floor or shallow water. */
+const strikeableCell = (grid, x, y) => grid[y]?.[x] === '.' || grid[y]?.[x] === '~';
+
+/**
+ * Two cells are neighbours when they touch — the ring of eight, not the cross of
+ * four. This used to be Manhattan distance 1, so a creature standing corner to
+ * corner with the hero could be neither hit nor hit back: you walked into it and
+ * nothing happened. Ivan found it by playing.
+ *
+ * A diagonal blow goes **past** a corner, not through it, so at least one of the
+ * two cells it slips between has to be open — otherwise a hero could stab
+ * through the meeting point of two walls.
+ *
+ * Shallow water counts as somewhere a fight can happen. It always was somewhere
+ * the hero could stand, and a monster wading through it was unhittable.
+ */
 export function canMeleeAttack(grid, attacker, target) {
   const from = { x: Math.floor(attacker.x), y: Math.floor(attacker.y) };
   const to = { x: Math.floor(target.x), y: Math.floor(target.y) };
-  const manhattan = Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
-  if (manhattan !== 1) return false;
-  return grid[from.y]?.[from.x] === '.' && grid[to.y]?.[to.x] === '.';
+  const dx = Math.abs(from.x - to.x);
+  const dy = Math.abs(from.y - to.y);
+  if (Math.max(dx, dy) !== 1) return false;
+  if (!strikeableCell(grid, from.x, from.y) || !strikeableCell(grid, to.x, to.y)) return false;
+  if (dx === 1 && dy === 1) {
+    return strikeableCell(grid, from.x, to.y) || strikeableCell(grid, to.x, from.y);
+  }
+  return true;
 }
+
 
 export function monsterCellKey(actor, tileSize = 64) {
   if (
