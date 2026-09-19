@@ -126,10 +126,20 @@ export function applyActorEffect(effects, id, duration) {
   });
 }
 
-export function clearActorEffects(effects) {
+/**
+ * Clears the named effects, or all of them when nothing is named. Spells that
+ * burn the cold out of a hero take only what they are aimed at: `applyActorEffect`
+ * cannot do this — a duration of zero is out of its bounds by design, because
+ * applying an effect for no time at all is a mistake, not a way to remove one.
+ */
+export function clearActorEffects(effects, ids = ACTOR_EFFECT_IDS) {
+  for (const id of ids) {
+    if (!ACTOR_EFFECT_IDS.includes(id)) throw new Error(`Unknown actor effect: ${id}`);
+  }
   const next = createActorEffects(effects);
-  const cleared = ACTOR_EFFECT_IDS.filter((id) => next[id] > 0);
-  return Object.freeze({ effects: createActorEffects(), cleared: Object.freeze(cleared) });
+  const cleared = ACTOR_EFFECT_IDS.filter((id) => next[id] > 0 && ids.includes(id));
+  for (const id of cleared) next[id] = 0;
+  return Object.freeze({ effects: Object.freeze(next), cleared: Object.freeze(cleared) });
 }
 
 export function tickActorEffects(effects, delta) {

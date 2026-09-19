@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 
 import { EVENT_CATALOG, MONSTER_CATALOG } from '../tools/dcss-rpg-content.js';
@@ -8,6 +9,7 @@ import {
   activeActorEffects,
   actorEffectModifiers,
   applyActorEffect,
+  clearActorEffects,
   createActorEffects,
   monsterInfliction,
   tickActorEffects,
@@ -96,4 +98,46 @@ test('elemental monsters and environmental events use the shared effect contract
   assert.equal(monsterInfliction(MONSTER_CATALOG.find(({ id }) => id === 'goblin')), null);
   assert.ok(EVENT_CATALOG.some(({ status }) => status?.id === 'wet'));
   assert.ok(EVENT_CATALOG.some(({ status }) => status?.id === 'burning'));
+});
+
+/**
+ * Cauterise burns the cold and the poison out of a hero and leaves the fire it
+ * is made of alone, so it needs to clear a named subset. The adapter tried to
+ * do that with `applyActorEffect(effects, id, 0)` — which throws, because a
+ * duration of zero is out of bounds on purpose: applying an effect for no time
+ * at all is a typo, never an intention. Clearing belongs here.
+ */
+test('effects can be cleared by name, and clearing everything stays the default', () => {
+  const chilled = createActorEffects({ burning: 3, chilled: 5, poison: 4, wet: 2 });
+  const partial = clearActorEffects(chilled, ['chilled', 'poison', 'wet']);
+  assert.deepEqual(partial.effects, { burning: 3, wet: 0, chilled: 0, frozen: 0, poison: 0 });
+  assert.deepEqual([...partial.cleared].sort(), ['chilled', 'poison', 'wet']);
+
+  const everything = clearActorEffects(chilled);
+  assert.deepEqual(everything.effects, createActorEffects());
+  assert.deepEqual([...everything.cleared].sort(), ['burning', 'chilled', 'poison', 'wet']);
+
+  // Only what was actually burning is reported as cleared.
+  assert.deepEqual(clearActorEffects(createActorEffects(), ['poison']).cleared, []);
+  assert.throws(() => clearActorEffects(chilled, ['sleepy']), /Unknown actor effect/);
+  assert.throws(() => applyActorEffect(createActorEffects(), 'poison', 0), /out of bounds/);
+});
+
+/**
+ * And the shape of the answer: `clearActorEffects` returns the report, not the
+ * effects. Assigning the report straight onto an actor leaves them carrying an
+ * object no validator accepts — which is exactly what `cleanse-ally` did.
+ */
+test('nobody mistakes the clearing report for the effects it describes', async () => {
+  const directory = new URL('../tools/', import.meta.url);
+  const wrong = [];
+  for (const file of (await readdir(directory)).filter((name) => name.endsWith('.js'))) {
+    const source = await readFile(new URL(file, directory), 'utf8');
+    for (const [line] of source.matchAll(/^.*clearActorEffects\([^;]*;.*$/gm)) {
+      if (/effects\s*=\s*clearActorEffects\([^;]*\)\s*;/.test(line)) {
+        wrong.push(`tools/${file}: ${line.trim()}`);
+      }
+    }
+  }
+  assert.deepEqual(wrong, [], `\n${wrong.join('\n')}\n`);
 });
