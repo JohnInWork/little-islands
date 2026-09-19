@@ -25,6 +25,7 @@ import { createActorEffects, validateActorEffects } from './dcss-rpg-effects.js'
 import { validateMealState } from './dcss-rpg-cooking.js';
 import {
   PASSIVE_CREATURE_CATALOG,
+  passiveCreaturesFor,
   passiveCreatureById,
 } from './dcss-rpg-passive.js';
 import {
@@ -949,7 +950,8 @@ export function generateDungeon({
   // Passive wildlife owns a separate RNG stream. Adding or tuning it therefore
   // cannot reshuffle rooms, hostile encounters, loot or door surprises.
   const passiveRng = createRng(mixSeed(floorSeed, 0x50415353));
-  const passivePool = PASSIVE_CREATURE_CATALOG.filter(({ minDepth }) => minDepth <= depth);
+  // Who lives here, not who exists: the farm animals stay on the surface.
+  const passivePool = passiveCreaturesFor({ branch, themeId, depth });
   const desiredPassiveCount = Math.min(
     5,
     2 + Math.floor((depth - 1) / 2) + passiveRng.int(0, 1),
@@ -957,7 +959,7 @@ export function generateDungeon({
   const passiveCreatures = [];
   for (
     let attempt = 0;
-    attempt < 120 && passiveCreatures.length < desiredPassiveCount;
+    passivePool.length > 0 && attempt < 120 && passiveCreatures.length < desiredPassiveCount;
     attempt += 1
   ) {
     const roomIndex = passiveRng.int(1, rooms.length - 1);

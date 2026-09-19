@@ -18,7 +18,7 @@ import {
   RUN_BRANCHES,
   monsterSuitsBranch,
 } from '../tools/dcss-rpg-content.js';
-import { DUNGEON_THEME_CATALOG } from '../tools/dcss-rpg-room-plans.js';
+import { DUNGEON_THEME_CATALOG, OPENING_THEME_IDS } from '../tools/dcss-rpg-room-plans.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { SUPPLY_POOL_SHARE, balanceSupplyWeights } from '../tools/dcss-rpg-loot-economy.js';
@@ -129,8 +129,14 @@ test('the place decides who lives there', () => {
       .map((monster) => monster.kin));
     for (const kin of MONSTER_KINS) {
       const seen = survey.get(themeId).kin.get(kin) ?? 0;
-      if (hosted.has(kin)) assert.ok(seen > 0, `${kin} never appears in ${themeId}`);
-      else assert.equal(seen, 0, `${kin} has no business in ${themeId}`);
+      // The two places the descent always opens with are always shallow, so the
+      // deep tiers never meet them inside the written road. That is the depth
+      // schedule talking, not the biome table — the table is checked not to
+      // silence anything by `a biome weighs, it never gates`.
+      if (hosted.has(kin) && !OPENING_THEME_IDS.includes(themeId)) {
+        assert.ok(seen > 0, `${kin} never appears in ${themeId}`);
+      }
+      if (!hosted.has(kin)) assert.equal(seen, 0, `${kin} has no business in ${themeId}`);
     }
     assert.ok(content.kin, themeId);
   }

@@ -11,6 +11,7 @@ import {
 } from '../tools/dcss-rpg-core.js';
 import {
   PASSIVE_CREATURE_CATALOG,
+  passiveCreaturesFor,
   PASSIVE_CREATURE_PATHS,
   choosePassiveWanderTarget,
   createPassiveCreatureStates,
@@ -19,13 +20,18 @@ import {
 } from '../tools/dcss-rpg-passive.js';
 
 test('passive wildlife has stable future-facing data and bundled sprites', () => {
-  assert.deepEqual(PASSIVE_CREATURE_CATALOG.map(({ id }) => id), ['sheep', 'hog', 'yak']);
+  assert.deepEqual(
+    PASSIVE_CREATURE_CATALOG.map(({ id }) => id),
+    ['sheep', 'hog', 'yak', 'cave-rodent', 'cave-toad', 'cave-turtle', 'hell-hog'],
+  );
   assert.equal(new Set(PASSIVE_CREATURE_PATHS).size, PASSIVE_CREATURE_CATALOG.length);
   for (const creature of PASSIVE_CREATURE_CATALOG) {
     assert.equal(passiveCreatureById(creature.id), creature);
     assert.ok(creature.speed > 0 && creature.speed < 1);
-    assert.ok(creature.tameDifficulty >= 1);
+    assert.ok(creature.tameDifficulty >= 1 && creature.tameDifficulty <= 3, `${creature.id} can never be tamed`);
     assert.ok(creature.meatYield >= 1);
+    // Every beast says where it lives; nothing grazes everywhere any more.
+    assert.ok(['surface', 'deep', 'any'].includes(creature.habitat), `${creature.id} lives nowhere`);
     assert.equal(
       existsSync(join(process.cwd(), 'public/assets/dcss-preview', creature.path)),
       true,
@@ -133,4 +139,29 @@ test('runtime preloads, renders, moves and persists passive wildlife outside com
   assert.match(runtime, /run\.floor\.passives = passiveCreatures\.map/);
   assert.match(runtime, /\.\.\.passiveCreatures/);
   assert.doesNotMatch(runtime, /passiveCreatures\.find\([^\n]*pendingAttack/);
+});
+
+/**
+ * A sheep in a cave is the thing Ivan saw and named at once. Farm animals live
+ * above the gate; the caves have their own, and where it burns there is one
+ * animal and it is on fire.
+ */
+test('the place decides which animals graze in it', () => {
+  const surface = passiveCreaturesFor({ branch: 'surface', themeId: 'autumn-wood', depth: 9 });
+  assert.deepEqual(surface.map(({ id }) => id), ['sheep', 'hog', 'yak']);
+
+  const caves = passiveCreaturesFor({ branch: 'deep', themeId: 'ashen-vault', depth: 9 });
+  assert.deepEqual(caves.map(({ id }) => id), ['cave-rodent', 'cave-toad', 'cave-turtle']);
+  assert.ok(!caves.some(({ id }) => ['sheep', 'hog', 'yak'].includes(id)), 'no sheep underground');
+
+  // A place somebody claimed belongs to them alone.
+  for (const themeId of ['infernal-core', 'magma-shelf']) {
+    assert.deepEqual(passiveCreaturesFor({ branch: 'deep', themeId, depth: 9 }).map(({ id }) => id), ['hell-hog']);
+  }
+
+  // Depth still gates: the big ones are not on the first floor.
+  assert.ok(!passiveCreaturesFor({ branch: 'deep', themeId: 'ashen-vault', depth: 1 })
+    .some(({ id }) => id === 'cave-turtle'));
+  // And a branch with no fauna of its own simply has none.
+  assert.deepEqual(passiveCreaturesFor({ branch: 'vaults', themeId: 'iron-workshop', depth: 9 }), []);
 });

@@ -168,6 +168,26 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.58, vision: 6, windup: 0.54, pursuit: 5 },
   },
   {
+    id: 'tamed-cave-rodent', habitat: 'any', kin: 'beast', path: 'mon/animals/quokka.png',
+    tier: 1, hp: 14, damage: 0, speed: 0.62, xp: 0, bloodColor: '#6d3030', spawn: 'summon',
+    threat: { attackRate: 0.94, vision: 6.4, windup: 0.28, pursuit: 5.2 },
+  },
+  {
+    id: 'tamed-cave-toad', habitat: 'any', kin: 'beast', path: 'mon/animals/giant_frog.png',
+    tier: 2, hp: 28, damage: 6, speed: 0.54, xp: 0, bloodColor: '#3f6a3a', spawn: 'summon',
+    threat: { attackRate: 0.76, vision: 5.8, windup: 0.44, pursuit: 4.8 },
+  },
+  {
+    id: 'tamed-cave-turtle', habitat: 'any', kin: 'beast', path: 'mon/animals/snapping_turtle.png',
+    tier: 3, hp: 64, damage: 12, speed: 0.36, xp: 0, bloodColor: '#4a5a33', spawn: 'summon',
+    threat: { attackRate: 0.5, vision: 5.6, windup: 0.62, pursuit: 4.6 },
+  },
+  {
+    id: 'tamed-hell-hog', habitat: 'any', kin: 'beast', path: 'mon/animals/hell_hog.png',
+    tier: 3, hp: 46, damage: 13, speed: 0.74, xp: 0, bloodColor: '#8a3521', spawn: 'summon',
+    threat: { attackRate: 0.82, vision: 6.6, windup: 0.34, pursuit: 5.6 },
+  },
+  {
     id: 'raised-warden', habitat: 'deep', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
     tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },

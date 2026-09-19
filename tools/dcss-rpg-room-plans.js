@@ -806,18 +806,35 @@ function themeOrderHash(seed, index) {
  * identity for three floors but which place that is changes between runs, and
  * with four themes across three chapters one of them is always left out.
  */
+/**
+ * The descent always begins the same way: plain grey caves, then the sandy
+ * ones, and only after that does the shuffle take over.
+ *
+ * Shuffling everything made the first screen of a run a lottery — one run opened
+ * in a blue cobalt mine, the next in a frozen deep — and a player has no footing
+ * to judge any of it against. The first two places are the game teaching you
+ * what ordinary looks like; everything past them is the game surprising you.
+ */
+export const OPENING_THEME_IDS = Object.freeze(['ashen-vault', 'buried-sanctum']);
+
 export function chapterThemeOrder(seed, branch = 'deep') {
   if (!Number.isInteger(seed) || seed < 0) throw new TypeError('Theme order requires a run seed');
   // A branch shuffles only its own places: the caves never open onto a meadow.
-  const order = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === branch);
-  if (order.length === 0) throw new TypeError(`No places for branch ${branch}`);
+  const places = DUNGEON_THEME_CATALOG.filter((theme) => theme.branch === branch);
+  if (places.length === 0) throw new TypeError(`No places for branch ${branch}`);
+  // Only the descent has a fixed opening; the roads out and the vaults are
+  // places you choose to go, and they owe the player no introduction.
+  const opening = branch === 'deep'
+    ? OPENING_THEME_IDS.map((id) => places.find((theme) => theme.id === id)).filter(Boolean)
+    : [];
+  const order = places.filter((theme) => !opening.includes(theme));
   // Fisher-Yates from the run seed: deterministic, and adding a theme later
   // reshuffles nothing that came before it in the list.
   for (let index = order.length - 1; index > 0; index -= 1) {
     const swap = themeOrderHash(seed, index) % (index + 1);
     [order[index], order[swap]] = [order[swap], order[index]];
   }
-  return Object.freeze(order);
+  return Object.freeze([...opening, ...order]);
 }
 
 /**

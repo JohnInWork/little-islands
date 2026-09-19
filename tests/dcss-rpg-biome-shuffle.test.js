@@ -9,6 +9,7 @@ import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
   DUNGEON_THEME_CATALOG,
+  OPENING_THEME_IDS,
   chapterThemeOrder,
   dungeonThemeById,
   dungeonThemeFor,
@@ -60,7 +61,23 @@ test('every theme the game ships gets played, and no run sees them all', () => {
       assert.ok(chapters.every((id) => places.some((place) => place.id === id)),
         `${branch} run wandered into the other branch`);
     }
-    assert.equal(openings.size, places.length, `${branch} always opens in the same place`);
+    if (branch === 'deep') {
+      // The descent is the one road with a fixed beginning: plain grey caves,
+      // then the sandy ones, and only then does the shuffle take over. A player
+      // has nothing to judge a place against until the game has shown them what
+      // ordinary looks like.
+      assert.deepEqual([...openings], [OPENING_THEME_IDS[0]], 'the descent opens somewhere else');
+      for (let seed = 0; seed < 40; seed += 1) {
+        assert.equal(
+          dungeonThemeFor(seed, 1 + FLOORS_PER_CHAPTER, branch).id,
+          OPENING_THEME_IDS[1],
+          'the second place of the descent moved',
+        );
+      }
+    } else {
+      // The roads out are places you choose to go; they owe nobody an opening.
+      assert.equal(openings.size, places.length, `${branch} always opens in the same place`);
+    }
   }
   assert.equal(met.size, DUNGEON_THEME_CATALOG.length, 'a shipped theme is never reachable');
 });

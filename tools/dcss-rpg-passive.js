@@ -1,6 +1,23 @@
+/**
+ * The neutral life of a floor: what grazes there, what you can hunt, and what
+ * turns on you if you try.
+ *
+ * Every creature says **where it lives**. It used to say nothing, so the same
+ * three farm animals grazed in the ashen vault, in the frozen deep and in the
+ * infernal core — Ivan found a sheep in a cave and said what everyone would
+ * think. A place with somebody else's animals in it is not a place.
+ *
+ * `habitat` is the branch, the same word and the same meaning the monster
+ * catalogue already uses. `themes` narrows further and works as a claim: where
+ * a creature claims a place, **only** the creatures that claimed it live there.
+ * That is how hell gets its own hog and no ordinary animal at all, without a
+ * list of exclusions that would have to be kept in step with the catalogue.
+ */
+
 export const PASSIVE_CREATURE_CATALOG = Object.freeze([
   Object.freeze({
     id: 'sheep',
+    habitat: 'surface',
     path: 'mon/animals/sheep.png',
     weight: 12,
     minDepth: 1,
@@ -20,6 +37,7 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
   }),
   Object.freeze({
     id: 'hog',
+    habitat: 'surface',
     path: 'mon/animals/hog.png',
     weight: 9,
     minDepth: 1,
@@ -39,6 +57,7 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
   }),
   Object.freeze({
     id: 'yak',
+    habitat: 'surface',
     path: 'mon/animals/yak.png',
     weight: 5,
     minDepth: 2,
@@ -56,6 +75,92 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     attackRate: 0.58,
     windup: 0.54,
     bloodColor: '#60332b',
+  }),
+  Object.freeze({
+    id: 'cave-rodent',
+    habitat: 'deep',
+    path: 'mon/animals/quokka.png',
+    weight: 12,
+    minDepth: 1,
+    speed: 0.62,
+    size: 54,
+    wanderRadius: 5,
+    tameDifficulty: 1,
+    meatYield: 1,
+    maxHp: 14,
+    defense: 0,
+    huntResponse: 'flee',
+    huntSpeed: 1.04,
+    damage: 0,
+    attackRate: 0,
+    windup: 0,
+    bloodColor: '#6d3030',
+  }),
+  Object.freeze({
+    id: 'cave-toad',
+    habitat: 'deep',
+    path: 'mon/animals/giant_frog.png',
+    weight: 9,
+    minDepth: 1,
+    speed: 0.54,
+    size: 64,
+    wanderRadius: 4,
+    tameDifficulty: 2,
+    meatYield: 2,
+    maxHp: 28,
+    defense: 1,
+    huntResponse: 'fight',
+    huntSpeed: 0.86,
+    damage: 6,
+    attackRate: 0.78,
+    windup: 0.4,
+    bloodColor: '#3f6a3a',
+  }),
+  Object.freeze({
+    id: 'cave-turtle',
+    habitat: 'deep',
+    path: 'mon/animals/snapping_turtle.png',
+    weight: 5,
+    minDepth: 2,
+    speed: 0.36,
+    size: 74,
+    wanderRadius: 3,
+    tameDifficulty: 3,
+    meatYield: 4,
+    large: true,
+    maxHp: 64,
+    defense: 4,
+    huntResponse: 'fight',
+    huntSpeed: 0.58,
+    damage: 12,
+    attackRate: 0.52,
+    windup: 0.58,
+    bloodColor: '#4a5a33',
+  }),
+  Object.freeze({
+    // Where it burns, the ordinary animals are simply absent and this one has
+    // the place to itself. A hog is a hog wherever it lives; this one is on fire.
+    id: 'hell-hog',
+    habitat: 'deep',
+    themes: Object.freeze(['infernal-core', 'magma-shelf']),
+    path: 'mon/animals/hell_hog.png',
+    weight: 10,
+    minDepth: 1,
+    speed: 0.74,
+    size: 70,
+    wanderRadius: 5,
+    // Three is the top rank a handler reaches; a beast harder than that is a
+    // beast nobody can ever tame, which is a promise the skill does not make.
+    tameDifficulty: 3,
+    meatYield: 3,
+    maxHp: 46,
+    defense: 2,
+    huntResponse: 'fight',
+    huntSpeed: 0.98,
+    damage: 13,
+    attackRate: 0.8,
+    windup: 0.36,
+    bloodColor: '#8a3521',
   }),
 ]);
 
@@ -204,4 +309,16 @@ export function choosePassiveWanderTarget({
     gridX: target.x,
     gridY: target.y,
   });
+}
+
+/**
+ * Who lives on this floor. A place that somebody claimed belongs to them alone;
+ * everywhere else gets the creatures that claimed nothing.
+ */
+export function passiveCreaturesFor({ branch = 'deep', themeId = '', depth = 1 } = {}) {
+  const here = PASSIVE_CREATURE_CATALOG.filter((creature) =>
+    creature.minDepth <= depth
+    && (creature.habitat === 'any' || creature.habitat === branch));
+  const claimed = here.filter((creature) => creature.themes?.includes(themeId));
+  return Object.freeze(claimed.length > 0 ? claimed : here.filter((creature) => !creature.themes));
 }

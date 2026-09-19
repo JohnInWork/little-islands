@@ -24,7 +24,7 @@ import {
   deterministicAtmosphereMote,
   fogAnchorsForDungeon,
 } from '../tools/dcss-rpg-visuals.js';
-import { dungeonThemeFor } from '../tools/dcss-rpg-room-plans.js';
+import { dungeonThemeFor, OPENING_THEME_IDS } from '../tools/dcss-rpg-room-plans.js';
 import { FLOORS_PER_CHAPTER, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 const biomeAt = (seed, depth) => biomeThemeFor(dungeonThemeFor(seed, depth).id);
@@ -76,8 +76,11 @@ test('every place the game ships is actually met, the infernal core included', (
   assert.equal(met.size, BIOME_THEMES.length - 1, 'a biome is still unreachable');
   assert.ok(met.has('infernal-core'), 'the infernal core is still shipped and never met');
   assert.ok(met.has('flesh-deep') && met.has('crystal-hollow') && met.has('deep-mine'));
-  // And the run does not always open in the same place.
-  assert.equal(openings.size, met.size, 'the first floor is always the same place');
+  // And the first floor of a descent is always the same place, while the roads
+  // out still open wherever the shuffle put them.
+  assert.equal(dungeonThemeFor(7, 1, 'deep').id, OPENING_THEME_IDS[0]);
+  assert.equal(dungeonThemeFor(999, 1, 'deep').id, OPENING_THEME_IDS[0]);
+  assert.ok(openings.size > 2, 'no branch opens anywhere but its one place');
 });
 
 test('biome themes are deterministic, bounded and reference local assets', async () => {
