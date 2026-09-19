@@ -78,6 +78,11 @@ function boundedDuration(value) {
   return Math.min(MAX_EFFECT_DURATION, Math.max(0, value));
 }
 
+/** Every state's picture, so the badges are drawn from a loaded image. */
+export const ACTOR_EFFECT_PATHS = Object.freeze([
+  ...new Set(Object.values(ACTOR_EFFECTS).map(({ icon }) => icon)),
+]);
+
 export function createActorEffects(source = {}) {
   return Object.fromEntries(ACTOR_EFFECT_IDS.map((id) => [id, boundedDuration(source?.[id])]));
 }

@@ -308,6 +308,49 @@ body {
   touch-action: manipulation;
 }
 
+/* Два равных выбора: «Продолжить» несёт героя, «Начать заново» стоит рядом,
+   а не прячется мелкой кнопкой сбоку. Второй тише, потому что по умолчанию
+   человек возвращается в свой забег, а не выбрасывает его. */
+.start-game {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.start-game small {
+  flex-basis: 100%;
+  color: #3a3218;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: none;
+}
+
+.start-game small:empty {
+  display: none;
+}
+
+/* Пауза — это не витрина. Иван: «меню паузы: продолжить, выйти в главное
+   меню, звук, настройки — и больше ничего». Экран паузы и есть главное меню,
+   поэтому «выйти» здесь — это «Начать заново»; внешность, снаряжение и записи
+   к остановленному забегу отношения не имеют. */
+.main-menu[data-mode='pause'] .main-menu-secondary {
+  display: none;
+}
+
+.start-game-second {
+  margin-top: 10px;
+  min-height: 58px;
+  color: #dfe7e4;
+  background: #26323a;
+  border-color: #3d4d57;
+  box-shadow: 0 6px 0 #101a1f;
+}
+
+.start-game-second span,
+.start-game-second small {
+  color: #9fb0ac;
+}
+
 .start-game span {
   color: #111718;
   font-size: 18px;

@@ -15,6 +15,7 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
     runStarted: true,
     depthLabel: 'III',
     level: 4,
+    weaponName: 'Rusty sword',
   });
   const terminal = mainMenuModel({
     language: 'ru',
@@ -35,10 +36,26 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
   assert.equal(continuing.hint, 'Floor III · Level 4');
   assert.equal(continuing.labels.inventoryTitle, 'Backpack');
   assert.equal(continuing.labels.equippedItems, 'Equipped');
-  assert.equal(terminal.action, 'Новый забег');
+  assert.equal(terminal.action, 'Начать заново');
   assert.match(terminal.hint, /Этаж II · Уровень 3/);
   assert.equal(paused.state, 'Paused');
   assert.equal(paused.action, 'Continue');
+
+  // «Главное: Начать заново и Продолжить, и во втором написано, кем играешь.»
+  // A hero who has not taken a step has nothing to continue, so there is one
+  // choice then — and it is not called «заново».
+  assert.deepEqual(fresh.actions.map(({ id }) => id), ['start']);
+  assert.equal(fresh.actions[0].label, 'Начать забег');
+  assert.deepEqual(continuing.actions.map(({ id }) => id), ['continue', 'restart']);
+  assert.equal(continuing.actions[0].detail, 'Level 4 · Rusty sword · Floor III');
+  assert.equal(continuing.actions[1].label, 'Start over');
+  assert.equal(continuing.actions[1].detail, 'Random dungeon');
+  // A run that is over cannot be continued, whatever the hero was carrying.
+  assert.deepEqual(terminal.actions.map(({ id }) => id), ['start']);
+  assert.equal(terminal.actions[0].label, 'Начать заново');
+  // A bare-handed hero simply has no weapon in the line.
+  const barehanded = mainMenuModel({ runStarted: true, depthLabel: 'V', level: 7 });
+  assert.equal(barehanded.actions[0].detail, 'Уровень 7 · Этаж V');
   assert.equal(paused.labels.appearance, 'Appearance');
 });
 
@@ -90,4 +107,26 @@ test('main menu keeps one visual signature and one dominant action', async () =>
   assert.match(language, /min-height:\s*48px/);
   assert.match(css, /\.main-menu-brand\s*{/);
   assert.match(css, /\.main-menu-actions\s*{/);
+});
+
+test('the front page offers two choices and the pause screen only what a pause needs', async () => {
+  const [html, css, runtime] = await Promise.all([
+    readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
+  ]);
+  // Two keys of the same kind, each with a line under it saying what it is.
+  for (const id of ['start-game', 'start-game-detail', 'restart-from-menu', 'restart-from-menu-detail']) {
+    assert.ok(html.includes(`id="${id}"`), `${id} is missing`);
+  }
+  assert.ok(!html.includes('new-run-from-menu'), 'the old small secondary is still there');
+  assert.match(runtime, /const \[first, second = null\] = model\.actions;/);
+  assert.match(runtime, /startGameDetail\.textContent = first\.detail;/);
+  assert.match(runtime, /newRunFromMenuButton\.hidden = second === null;/);
+  // «Кем играешь» is the hero, so the weapon in hand goes into the model.
+  assert.match(runtime, /weaponName: equippedItem\('hand1'\)/);
+  // A pause is a pause: no wardrobe, no shop, no records.
+  assert.match(css, /\.main-menu\[data-mode='pause'\] \.main-menu-secondary \{\s*display: none;/);
+  // And nothing anywhere ends a run by walking away with the haul.
+  assert.ok(!runtime.includes("action.id === 'retire'"), 'the gate can still cash out');
 });

@@ -52,15 +52,19 @@
           <div class="main-menu-actions">
             <p id="main-menu-state" class="main-menu-state" hidden>ПАУЗА</p>
             <button id="start-game" class="start-game" type="button" disabled>
-              <span aria-hidden="true">▶</span><b id="start-game-label">Начать забег</b>
+              <span aria-hidden="true">▶</span>
+              <b id="start-game-label">Начать забег</b>
+              <small id="start-game-detail"></small>
+            </button>
+            <button id="restart-from-menu" class="start-game start-game-second" type="button" hidden>
+              <span aria-hidden="true">↻</span>
+              <b id="restart-from-menu-label">Начать заново</b>
+              <small id="restart-from-menu-detail"></small>
             </button>
             <div class="main-menu-secondary">
               <button id="edit-appearance" type="button" disabled>
                 <img id="menu-appearance-icon" src="../assets/dcss-preview/player/base/human_m.png" alt="" />
                 <b id="edit-appearance-label">Внешность</b>
-              </button>
-              <button id="new-run-from-menu" type="button" hidden>
-                <span aria-hidden="true">↻</span><b id="new-run-from-menu-label">Новый забег</b>
               </button>
               <button id="open-outfit" type="button">
                 <span aria-hidden="true">◆</span><b id="open-outfit-label">Снаряжение</b>

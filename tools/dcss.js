@@ -650,8 +650,10 @@ const mainMenuState = document.querySelector('#main-menu-state');
 const editAppearanceButton = document.querySelector('#edit-appearance');
 const editAppearanceLabel = document.querySelector('#edit-appearance-label');
 const menuAppearanceIcon = document.querySelector('#menu-appearance-icon');
-const newRunFromMenuButton = document.querySelector('#new-run-from-menu');
-const newRunFromMenuLabel = document.querySelector('#new-run-from-menu-label');
+const startGameDetail = document.querySelector('#start-game-detail');
+const newRunFromMenuButton = document.querySelector('#restart-from-menu');
+const newRunFromMenuLabel = document.querySelector('#restart-from-menu-label');
+const newRunFromMenuDetail = document.querySelector('#restart-from-menu-detail');
 const appearanceEditor = document.querySelector('#appearance-editor');
 const closeAppearanceButton = document.querySelector('#close-appearance');
 const appearanceEditorTitle = document.querySelector('#appearance-editor-title');
@@ -1336,6 +1338,10 @@ function currentMainMenuModel() {
     runStatus,
     depthLabel: romanDepth(dungeon.depth),
     level: hero.level,
+    // «Кем играешь»: the weapon in hand is the shortest true answer the game has.
+    weaponName: equippedItem('hand1')
+      ? itemPresentation(presentedItem(equippedItem('hand1')), itemDetailLanguage).name
+      : '',
     paused: menuMode === 'pause',
   });
 }
@@ -1375,8 +1381,11 @@ function renderMainMenu() {
   mainMenuTitle.setAttribute('aria-label', model.title);
   mainMenuState.hidden = !model.state;
   mainMenuState.textContent = model.state ?? '';
-  startGameLabel.textContent = model.action;
-  startGameButton.setAttribute('aria-label', model.action);
+  // Two choices, each saying what it is. «Продолжить» carries the hero.
+  const [first, second = null] = model.actions;
+  startGameLabel.textContent = first.label;
+  startGameDetail.textContent = first.detail;
+  startGameButton.setAttribute('aria-label', `${first.label}. ${first.detail}`);
   mainMenuHint.textContent = model.hint;
   renderRunConditions(labels.conditions);
   appVersionLabel.textContent = `${labels.version} ${APP_VERSION}`;
@@ -1387,10 +1396,12 @@ function renderMainMenu() {
   menuAppearanceIcon.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
   // Your own face on the key that opens your own sheet.
   characterSheetFace.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
-  newRunFromMenuLabel.textContent = labels.newRun;
-  newRunFromMenuButton.setAttribute('aria-label', labels.newRun);
-  newRunFromMenuButton.hidden = isTerminalRunStatus(runStatus)
-    || (!playerHasActed && menuMode !== 'pause');
+  newRunFromMenuButton.hidden = second === null;
+  if (second) {
+    newRunFromMenuLabel.textContent = second.label;
+    newRunFromMenuDetail.textContent = second.detail;
+    newRunFromMenuButton.setAttribute('aria-label', `${second.label}. ${second.detail}`);
+  }
   mainMenu.setAttribute('aria-label', labels.menu);
   mainMenuLanguages.setAttribute('aria-label', labels.language);
   mainMenuLanguageButtons.forEach((button) => {
@@ -9551,7 +9562,8 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   },
   'city-gate'({ action }) {
     closeContextActions();
-    if (action.id === 'retire') return retireRun();
+    // «Уйти с добычей» is gone: a run ends by dying, by winning, or by the
+    // player starting the next one.
     const branch = action.id === 'goSurface'
       ? 'surface'
       : action.id === 'goVaults' ? 'vaults' : 'deep';

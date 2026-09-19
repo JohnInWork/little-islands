@@ -4,7 +4,10 @@ const COPY = Object.freeze({
     subtitle: 'Кодекс подземелий',
     newRun: 'Начать забег',
     continueRun: 'Продолжить',
-    restartRun: 'Новый забег',
+    restartRun: 'Начать заново',
+    whoYouAre: ({ level, weapon, depth }) => [`Уровень ${level}`, weapon, `Этаж ${depth}`]
+      .filter(Boolean)
+      .join(' · '),
     pause: 'Пауза',
     freshHint: 'Случайное подземелье',
     progress: ({ depth, level }) => `Этаж ${depth} · Уровень ${level}`,
@@ -112,7 +115,10 @@ const COPY = Object.freeze({
     subtitle: 'Dungeon Codex',
     newRun: 'Start run',
     continueRun: 'Continue',
-    restartRun: 'New run',
+    restartRun: 'Start over',
+    whoYouAre: ({ level, weapon, depth }) => [`Level ${level}`, weapon, `Floor ${depth}`]
+      .filter(Boolean)
+      .join(' · '),
     pause: 'Paused',
     freshHint: 'Random dungeon',
     progress: ({ depth, level }) => `Floor ${depth} · Level ${level}`,
@@ -217,23 +223,53 @@ const COPY = Object.freeze({
   }),
 });
 
+/**
+ * Two choices on the front page, not one button that changes its mind.
+ *
+ * It used to be a single key whose word depended on what had happened, with
+ * «Новый забег» hidden away as a small secondary. Ivan asked for the plain
+ * thing: «главное — Начать заново и Продолжить, и во втором написано, кем
+ * играешь». So `continue` carries the hero — their level, the weapon in their
+ * hand, the floor they stopped on — and `restart` stands beside it as an equal
+ * choice rather than an afterthought.
+ *
+ * A hero who has not taken a step has nothing to continue, so there is one
+ * choice then, and it is not called «заново».
+ */
 export function mainMenuModel({
   language = 'ru',
   runStarted = false,
   runStatus = 'playing',
   depthLabel = 'I',
   level = 1,
+  weaponName = '',
   paused = false,
 }) {
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
   const terminal = runStatus === 'dead' || runStatus === 'victory';
-  const action = terminal ? copy.restartRun : runStarted || paused ? copy.continueRun : copy.newRun;
+  const resumable = !terminal && (runStarted || paused);
+  const who = copy.whoYouAre({ level, weapon: weaponName, depth: depthLabel });
+  const action = terminal ? copy.restartRun : resumable ? copy.continueRun : copy.newRun;
   const hint = terminal
     ? copy.ended({ depth: depthLabel, level })
-    : runStarted || paused
+    : resumable
       ? copy.progress({ depth: depthLabel, level })
       : copy.freshHint;
+
+  const actions = resumable
+    ? [
+        Object.freeze({ id: 'continue', label: copy.continueRun, detail: who, primary: true }),
+        Object.freeze({ id: 'restart', label: copy.restartRun, detail: copy.freshHint, primary: false }),
+      ]
+    : [
+        Object.freeze({
+          id: 'start',
+          label: terminal ? copy.restartRun : copy.newRun,
+          detail: terminal ? copy.ended({ depth: depthLabel, level }) : copy.freshHint,
+          primary: true,
+        }),
+      ];
 
   return Object.freeze({
     language: locale,
@@ -242,6 +278,7 @@ export function mainMenuModel({
     state: paused ? copy.pause : null,
     action,
     hint,
+    actions: Object.freeze(actions),
     labels: copy.labels,
   });
 }

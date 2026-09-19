@@ -206,21 +206,18 @@ test('the city puts its merchants indoors', async () => {
 });
 
 /**
- * «Уйти с добычей или спуститься ещё» is only a decision if the stake is on
- * the screen. It was a number the player had to carry in their head.
+ * The gate used to offer a fourth road: walk away and bank the purse. Ivan
+ * took it out — «забег заканчивается только новым забегом» — and with a run
+ * paid for being played there is nothing left to cash in. Three roads, each
+ * going somewhere, and nothing that ends the run by standing still.
  */
-test('the gate says what walking away is worth', async () => {
+test('the gate offers three roads and no way to cash out', async () => {
   const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
-  for (const purse of [0, 7, 254]) {
-    const model = contextActionModel({
-      target: { kind: 'city-gate', branch: 'deep', canRetire: true, purse },
-    });
-    const retire = model.actions.find((action) => action.id === 'retire');
-    assert.ok(retire.hint.includes(String(purse)), `the stake ${purse} is not shown`);
+  for (const branch of ['deep', 'surface', 'vaults']) {
+    const model = contextActionModel({ target: { kind: 'city-gate', branch, canRetire: true, purse: 254 } });
+    assert.deepEqual(model.actions.map(({ id }) => id), ['goDeep', 'goSurface', 'goVaults']);
+    assert.ok(model.actions.every(({ label }) => label && label.length > 0), branch);
   }
-  // Nothing to bank and nowhere to do it: no promise is made.
-  const shut = contextActionModel({ target: { kind: 'city-gate', branch: 'deep', canRetire: false } });
-  assert.equal(shut.actions.find((action) => action.id === 'retire').hint, '');
 });
 
 /**
@@ -275,7 +272,7 @@ test('the gate offers the third road, and taking it switches the run onto it', a
     language: 'ru',
   });
   const ids = model.actions.map(({ id }) => id);
-  assert.deepEqual(ids, ['goDeep', 'goSurface', 'goVaults', 'retire']);
+  assert.deepEqual(ids, ['goDeep', 'goSurface', 'goVaults']);
   for (const action of model.actions) {
     assert.ok(action.label && action.label.length > 0, action.id);
   }

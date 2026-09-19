@@ -456,7 +456,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
     present: ({ target, copy }) => ({
       name: copy.gateName,
       description: copy.gateDescription,
-      icon: 'dngn/gateways/stone_stairs_down.png',
+      icon: 'dngn/gateways/enter_depths.png',
       accent: '#d8bf68',
       actions: [
         // Both roads are always open. They used to grey out the one the run was
@@ -465,14 +465,9 @@ export const INTERACTION_REGISTRY = Object.freeze([
         { id: 'goDeep' },
         { id: 'goSurface' },
         { id: 'goVaults' },
-        // The third road out of the gate is the one that keeps the purse — and
-        // it says how much, because «go one floor deeper or bank what you have»
-        // is only a decision if the player can see the stake without counting.
-        {
-          id: 'retire',
-          enabled: target.canRetire === true,
-          hint: target.canRetire === true ? copy.retireStake(target.purse ?? 0) : '',
-        },
+        // There used to be a fourth: walk away and bank the purse. Ivan took
+        // it out — «забег заканчивается только новым забегом» — and with a run
+        // paid for being played there is nothing left to cash in anyway.
       ],
     }),
   }),

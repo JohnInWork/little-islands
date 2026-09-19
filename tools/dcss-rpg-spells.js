@@ -482,6 +482,11 @@ export const SPELL_CATALOG = Object.freeze([
 
 const SPELL_BY_ID = new Map(SPELL_CATALOG.map((spell) => [spell.id, spell]));
 
+/** Every spell's picture: the bar and the book both draw from a loaded image. */
+export const SPELL_ASSET_PATHS = Object.freeze([
+  ...new Set(SPELL_CATALOG.map(({ icon }) => icon).filter(Boolean)),
+]);
+
 export function spellById(id) {
   return SPELL_BY_ID.get(id) ?? null;
 }
