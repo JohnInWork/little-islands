@@ -2730,7 +2730,7 @@ function nearbyCampProp(interactionId) {
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return dungeonEnvironment.props.find((prop) => (
     prop.interactionId === interactionId
-    && Math.abs(cell.x - prop.gridX) + Math.abs(cell.y - prop.gridY) <= 1
+    && cellStepDistance(cell, { x: prop.gridX, y: prop.gridY }) <= 1
   )) ?? null;
 }
 
@@ -3910,7 +3910,7 @@ function nearbyDetectedTrap() {
     .filter((trap) =>
       detectedTrapIds.has(trap.instanceId)
       && !resolved.has(trap.eventId)
-      && Math.abs(cell.x - trap.x) + Math.abs(cell.y - trap.y) === 1)
+      && cellStepDistance(cell, trap) === 1)
     .sort((a, b) => a.instanceId.localeCompare(b.instanceId))[0] ?? null;
 }
 
@@ -8801,7 +8801,7 @@ function nearbyMerchant() {
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return merchantDefinitions
     .filter((merchant) => revealed.has(`${merchant.x},${merchant.y}`))
-    .filter((merchant) => Math.abs(cell.x - merchant.x) + Math.abs(cell.y - merchant.y) <= 1)
+    .filter((merchant) => cellStepDistance(cell, merchant) <= 1)
     .sort((a, b) => a.instanceId.localeCompare(b.instanceId))[0] ?? null;
 }
 
@@ -8812,7 +8812,7 @@ function nearbyCampfire() {
     .filter(({ interactionId, gridX, gridY }) =>
       interactionId === 'campfire'
       && revealed.has(`${gridX},${gridY}`)
-      && Math.abs(cell.x - gridX) + Math.abs(cell.y - gridY) <= 1)
+      && cellStepDistance(cell, { x: gridX, y: gridY }) <= 1)
     .sort((left, right) => left.id.localeCompare(right.id))[0] ?? null;
 }
 
@@ -9001,9 +9001,10 @@ function nearbyWildlife() {
   return passiveCreatures
     .filter((creature) => !creature.hunted && !creature.defeated)
     .filter((creature) => revealed.has(`${Math.floor(creature.x / TILE)},${Math.floor(creature.y / TILE)}`))
-    .filter((creature) =>
-      Math.abs(cell.x - Math.floor(creature.x / TILE))
-      + Math.abs(cell.y - Math.floor(creature.y / TILE)) <= 1)
+    .filter((creature) => cellStepDistance(cell, {
+      x: Math.floor(creature.x / TILE),
+      y: Math.floor(creature.y / TILE),
+    }) <= 1)
     .sort((left, right) => left.instanceId.localeCompare(right.instanceId))[0] ?? null;
 }
 
@@ -9095,8 +9096,7 @@ function nearbyCityGate() {
   if (!isCityDepth(dungeon.depth) || runStatus !== 'playing' || hero.dead) return null;
   if (run.crime.jailed) return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  const reach = Math.abs(cell.x - dungeon.exit.x) + Math.abs(cell.y - dungeon.exit.y);
-  return reach <= 1 ? dungeon.exit : null;
+  return cellStepDistance(cell, dungeon.exit) <= 1 ? dungeon.exit : null;
 }
 
 /** The nearest guard still keeping the peace; a provoked one is just an enemy. */
@@ -9109,7 +9109,7 @@ function nearbyGuard() {
     && !monster.ghost
     && !monster.provoked
     && monster.dead === 0
-    && Math.abs(cell.x - Math.floor(monster.x / TILE)) + Math.abs(cell.y - Math.floor(monster.y / TILE)) <= 1
+    && cellStepDistance(cell, { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }) <= 1
   )) ?? null;
 }
 
@@ -9162,6 +9162,32 @@ function nearbyContextTargets() {
 
 function nearbyContextTarget() {
   return nearbyContextTargets()[0] ?? null;
+}
+
+/**
+ * Who is standing on that cell, if they are somebody the hero can talk to.
+ *
+ * Tapping a creature used to mean «walk there», which for a sheep meant walking
+ * into it and for a watchman meant walking through him. Ivan asked for the
+ * obvious thing: «я хотел бы нажать на овцу и взаимодействовать с ней». An
+ * enemy is not in this list — tapping one is still an attack, which is the
+ * interaction it offers.
+ */
+function contextTargetAtCell(cellX, cellY) {
+  const onCell = (actor) => Math.floor(actor.x / TILE) === cellX && Math.floor(actor.y / TILE) === cellY;
+  const beast = allies.find((ally) => ally.companion && ally.dead === 0 && onCell(ally));
+  if (beast) return { kind: 'companion', value: beast };
+  const creature = passiveCreatures.find((entry) => !entry.defeated && !entry.hunted && onCell(entry));
+  if (creature) return { kind: 'wildlife', value: creature };
+  const person = monsters.find((monster) => monster.dead === 0 && onCell(monster));
+  if (!person) return null;
+  if (person.id === CITY_PRIEST_ID) return { kind: 'priest', value: person };
+  if (person.id === CITY_RECRUITER_ID) return { kind: 'recruiter', value: person };
+  if (mercenaryIdForHireMonster(person.id)) return { kind: 'tavern-hire', value: person };
+  // A guard keeping the peace can be spoken to; one that has drawn on you is a
+  // fight, and a fight is answered by walking into it.
+  if (person.neutral && !person.ghost && !person.provoked) return { kind: 'guard', value: person };
+  return null;
 }
 
 function openNearbyContextActions() {
@@ -15338,6 +15364,17 @@ function moveFromPointer(event) {
       return;
     }
     routeHeroBesideCell(door.x, door.y);
+    return;
+  }
+  // Somebody standing there who is not an enemy: talk to them if they are in
+  // reach, and walk over to them if they are not.
+  const person = contextTargetAtCell(cellX, cellY);
+  if (person && revealed.has(`${cellX},${cellY}`)) {
+    if (contextTargetIsAdjacent(person)) {
+      openContextActions(person);
+      return;
+    }
+    routeHeroBesideCell(cellX, cellY);
     return;
   }
   const moved = requestHeroMove(worldX, worldY);

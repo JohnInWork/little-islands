@@ -414,3 +414,65 @@ test('the toast that says no does not look like the toast that says yes', async 
   assert.match(refused, /--rarity: #b4635c/, 'the edge keeps the colour of the thing it refused');
   assert.match(refused, /text-decoration: line-through/, 'the name is not struck through');
 });
+
+/** The body of a top-level function, from its header to the closing brace in column one. */
+function functionBody(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `${name} is gone`);
+  const end = source.indexOf('\n}', start);
+  return source.slice(start, end);
+}
+
+test('tapping a creature talks to it instead of walking through it', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const finder = functionBody(runtime, 'contextTargetAtCell');
+  const kinds = [...finder.matchAll(/kind: '([a-z-]+)'/g)].map(([, kind]) => kind);
+  assert.deepEqual(
+    kinds.sort(),
+    ['companion', 'guard', 'priest', 'recruiter', 'tavern-hire', 'wildlife'],
+    'everything on the map that can be spoken to should answer a tap',
+  );
+
+  // Reading a creature's pixel position as a grid one puts it a hundred cells
+  // away, so the tap would always route instead of ever opening the panel.
+  const adjacency = functionBody(runtime, 'contextTargetIsAdjacent');
+  const pixelActors = adjacency.slice(0, adjacency.indexOf('const x ='));
+  for (const kind of kinds) {
+    assert.ok(pixelActors.includes(`'${kind}'`), `${kind} is not read as an actor by the reach test`);
+  }
+
+  // The tap and the button column must name the same targets, or one of them lies.
+  const column = functionBody(runtime, 'nearbyContextTargets');
+  for (const kind of kinds) {
+    assert.ok(column.includes(`add('${kind}'`), `${kind} answers a tap but never gets a button`);
+  }
+
+  // An enemy is not on the list: a tap on one is a swing, not a conversation.
+  assert.ok(!finder.includes("kind: 'enemy'"));
+  assert.ok(finder.includes('!person.provoked'), 'a guard who has drawn on you is a fight');
+
+  const tap = functionBody(runtime, 'moveFromPointer');
+  const called = tap.indexOf('contextTargetAtCell(');
+  assert.notEqual(called, -1, 'the world tap never asks who is standing there');
+  assert.ok(called < tap.indexOf('requestHeroMove('), 'the hero walks before anyone is asked');
+  assert.ok(tap.includes('routeHeroBesideCell('), 'a creature out of reach should be walked up to');
+});
+
+test('everything the hero can reach is reached by one rule, diagonals included', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const finders = [
+    'nearbyMerchant', 'nearbyCampfire', 'nearbyCampProp', 'nearbyDetectedTrap',
+    'nearbyCityGate', 'nearbyGuard', 'nearbyWildlife', 'nearbyCompanion', 'nearbyDoor',
+  ];
+  for (const name of finders) {
+    const body = functionBody(runtime, name);
+    // A Manhattan sum is a diamond, not a neighbourhood: it drops the four
+    // diagonal cells that the panel behind the button counts as adjacent.
+    assert.doesNotMatch(
+      body,
+      /Math\.abs\([^)]*\)\s*\+\s*Math\.abs\(/,
+      `${name} measures reach as a diamond and hides diagonal neighbours`,
+    );
+    assert.match(body, /cellStepDistance\(/, `${name} does not use the shared reach rule`);
+  }
+});

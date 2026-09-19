@@ -117,3 +117,31 @@ test('malformed targets never reach the runtime action tray', () => {
     target: { kind: 'find', id: 'unknown', rewardGold: 1, rewardPower: 0, riskDamage: 0 },
   }), TypeError);
 });
+
+test('every creature that can stand beside the hero has a name, not an id', async () => {
+  const [{ PASSIVE_CREATURE_CATALOG }, { MERCENARIES }] = await Promise.all([
+    import('../tools/dcss-rpg-passive.js'),
+    import('../tools/dcss-rpg-mercenaries.js'),
+  ]);
+  const ids = [
+    ...PASSIVE_CREATURE_CATALOG.map(({ id }) => id),
+    ...MERCENARIES.map(({ id }) => id),
+  ];
+  assert.ok(ids.length >= 11);
+  for (const id of ids) {
+    for (const [kind, extra] of [['wildlife', {}], ['companion', {}]]) {
+      const model = contextActionModel({
+        target: { kind, id, icon: 'mon/animals/sheep.png', ...extra },
+        language: 'ru',
+      });
+      // Falling back to the id is how «cave-toad» got printed on the card in
+      // Russian: the table quietly did not cover the animals that were added
+      // to the dungeon later.
+      assert.notEqual(model.name, id, `${kind}/${id} is shown to the player by its id`);
+      assert.ok(/[А-Яа-я]/.test(model.name), `${kind}/${id}: «${model.name}» is not Russian`);
+      const english = contextActionModel({ target: { kind, id, icon: 'mon/animals/sheep.png' }, language: 'en' });
+      assert.notEqual(english.name, id, `${kind}/${id} has no English name`);
+      assert.notEqual(english.name, model.name, `${kind}/${id} was never translated`);
+    }
+  }
+});

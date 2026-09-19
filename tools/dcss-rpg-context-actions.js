@@ -174,7 +174,19 @@ const COPY = Object.freeze({
     campStashName: 'Сундук лагеря',
     campStashClosed: '',
     campfireEmpty: 'Нужно сырое мясо.',
-    wildlife: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
+    creatures: Object.freeze({
+      sheep: 'Овца',
+      hog: 'Кабан',
+      yak: 'Як',
+      'cave-rodent': 'Пещерный грызун',
+      'cave-toad': 'Пещерная жаба',
+      'cave-turtle': 'Панцирная черепаха',
+      'hell-hog': 'Огненный кабан',
+      drifter: 'Бродяга',
+      sellsword: 'Наёмный меч',
+      veteran: 'Ветеран',
+      'knight-errant': 'Странствующий рыцарь',
+    }),
     // A guard is a person doing a job, not a rule printed on a card. He says
     // what a man in that job says to a stranger with a sword — and the captain,
     // who has said it a thousand times, says it shorter.
@@ -236,7 +248,19 @@ const COPY = Object.freeze({
     campStashName: 'Camp chest',
     campStashClosed: '',
     campfireEmpty: 'Raw meat required.',
-    wildlife: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
+    creatures: Object.freeze({
+      sheep: 'Sheep',
+      hog: 'Hog',
+      yak: 'Yak',
+      'cave-rodent': 'Cave rodent',
+      'cave-toad': 'Cave toad',
+      'cave-turtle': 'Snapping turtle',
+      'hell-hog': 'Hell hog',
+      drifter: 'Drifter',
+      sellsword: 'Sellsword',
+      veteran: 'Veteran',
+      'knight-errant': 'Knight errant',
+    }),
     guardDescription: (id) => (id === 'city-captain'
       ? '“Sheathe it, and I never saw your face.”'
       : '“Walk easy, stranger. This town is watched.”'),
@@ -579,7 +603,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.id === 'string'
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
-      name: copy.wildlife[target.id] ?? target.id,
+      name: copy.creatures[target.id] ?? target.id,
       description: target.modeLabel
         ? copy.companionOrder(target.modeLabel)
         : copy.companionDescription,
@@ -608,7 +632,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.id === 'string'
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
-      name: copy.wildlife[target.id] ?? target.id,
+      name: copy.creatures[target.id] ?? target.id,
       description: target.tameHint ?? '',
       icon: target.icon,
       accent: '#b69062',
