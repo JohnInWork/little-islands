@@ -863,6 +863,16 @@ let waterPaths = WATER_PATHS;
 
 const sanctuaryVisual = runtimeVisual('system', 'sanctuary', 'world', SANCTUARY_PATH, 1, -5);
 const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
+/**
+ * The city's three ways out. One gate that asked which road is not a gate, it
+ * is a menu; three places that each go somewhere are three decisions a player
+ * makes by walking. The pictures are placeholders until Ivan picks the real ones.
+ */
+const CITY_GATE_VISUALS = Object.freeze({
+  deep: Object.freeze({ path: 'dngn/gateways/sealed_stairs_down.png', ru: 'Вниз', en: 'Down' }),
+  surface: Object.freeze({ path: 'dngn/gateways/sealed_stairs_up.png', ru: 'Наружу', en: 'Out' }),
+  vaults: Object.freeze({ path: 'dngn/gateways/stone_arch.png', ru: 'Хранилища', en: 'Vaults' }),
+});
 const ascentVisual = runtimeVisual('system', 'ascent', 'world', ASCENT_PATH, 1, 0);
 const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GATE_PATH, 1, 0);
 const artifactVisual = runtimeVisual('system', 'artifact', 'world', ARTIFACT_PATH, 1, -8);
@@ -4615,6 +4625,28 @@ function worldMarkers3D() {
       shadowScale: 0.7,
       shadowOpacity: 0.3,
     });
+  }
+  // The city's three gates, each drawn where it stands. The ordinary exit
+  // marker above is skipped there: in town the east gate is one of these three.
+  if (isCityDepth(dungeon.depth) && dungeon.gates) {
+    for (const [branch, gate] of Object.entries(dungeon.gates)) {
+      if (!revealed.has(`${gate.x},${gate.y}`)) continue;
+      const visual = CITY_GATE_VISUALS[branch];
+      if (!visual) continue;
+      markers.push({
+        id: `marker:gate:${branch}`,
+        path: visual.path,
+        x: (gate.x + 0.5) * TILE,
+        y: (gate.y + 0.5) * TILE,
+        size: 62,
+        facing: 1,
+        screenOffsetY: -6 + (reducedMotion ? 0 : Math.sin(elapsed * 2.2 + gate.x) * 2),
+        opacity: 1,
+        hit: false,
+        shadowScale: 0.7,
+        shadowOpacity: 0.3,
+      });
+    }
   }
   // The stair the hero came down by. It leads up everywhere below the surface,
   // and on the first floor that means out of the dungeon and into the city.
@@ -12476,11 +12508,20 @@ function resolveWorldInteractions() {
 
   const onStair = (cell) => heroCell.x === cell.x && heroCell.y === cell.y;
   if (hero.dead) return;
-  if (!onStair(dungeon.exit) && !onStair(dungeon.spawn)) {
+  const cityGate = isCityDepth(dungeon.depth) && dungeon.gates
+    ? Object.entries(dungeon.gates).find(([, gate]) => onStair(gate))?.[0] ?? null
+    : null;
+  if (!onStair(dungeon.exit) && !onStair(dungeon.spawn) && !cityGate) {
     stairsArmed = true;
     return;
   }
   if (!stairsArmed) return;
+  if (cityGate && runStatus === 'playing' && !run.crime.jailed) {
+    // No question asked. This gate leads one way and it always has.
+    if (run.branch !== cityGate) run = switchRunBranch(captureRun(), cityGate);
+    descendFloor();
+    return;
+  }
   if (onStair(dungeon.spawn) && dungeon.depth > CITY_DEPTH && runStatus === 'playing') {
     climbFloor();
     return;
@@ -13069,10 +13110,14 @@ function descendFloor() {
 /** The way back up. The floor above is the one the hero left, not a new one. */
 function climbFloor() {
   if (isTerminalRunStatus(runStatus) || dungeon.depth <= CITY_DEPTH) return;
+  const road = run.branch;
   run = retreatRunFloor(captureRun());
   hero.hp = run.hero.hp;
   hero.hunger = run.hero.hunger;
   replaceFloor(run.depth);
+  // Come out of the caves and you are standing at the hole you came out of, not
+  // at the far side of town. The gate you used is the gate you arrive by.
+  if (isCityDepth(run.depth) && dungeon.gates?.[road]) placeHeroAtCell(dungeon.gates[road]);
   playSound('descend');
   showLootToast({ path: ASCENT_PATH, rarity: 2 }, romanDepth(run.depth));
 }

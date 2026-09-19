@@ -218,7 +218,7 @@ test('content catalogs already expose a broad first production set with stable u
   assert.ok(EVENT_CATALOG.length >= 4);
 });
 
-test('starter encounter is visible and reserved cells never overlap across 1000 seeds', () => {
+test('the arrival room is empty, the first drop is not, and cells never overlap across 1000 seeds', () => {
   for (let seed = 1; seed <= 1000; seed += 1) {
     const depth = 1 + (seed % 12);
     // A city greets the hero with streets, not with a starter fight and a drop.
@@ -226,7 +226,24 @@ test('starter encounter is visible and reserved cells never overlap across 1000 
     const dungeon = generateDungeon({ seed, depth });
     const visible = new Set();
     revealAround(visible, dungeon.grid, dungeon.spawn, 4);
-    assert.ok(visible.has(`${dungeon.monsters[0].x},${dungeon.monsters[0].y}`));
+    // The floor used to seat its first creature inside that light, so a run
+    // began in a fight nobody had chosen yet. It waits past the door now.
+    const room = dungeon.rooms.find(({ x, y, width, height }) =>
+      dungeon.spawn.x >= x && dungeon.spawn.x < x + width
+      && dungeon.spawn.y >= y && dungeon.spawn.y < y + height);
+    const first = dungeon.monsters[0];
+    if (room) {
+      assert.ok(
+        !(first.x >= room.x && first.x < room.x + room.width
+          && first.y >= room.y && first.y < room.y + room.height),
+        `seed ${seed}: the first creature stands in the arrival room`,
+      );
+    }
+    assert.ok(
+      Math.abs(first.x - dungeon.spawn.x) + Math.abs(first.y - dungeon.spawn.y) >= 4,
+      `seed ${seed}: the first creature is on top of the stairs`,
+    );
+    // The first drop still lies in plain sight: that one is a gift, not a fight.
     assert.ok(visible.has(`${dungeon.loot[0].x},${dungeon.loot[0].y}`));
     assert.ok(lootById(dungeon.loot[0].id).slot);
     assert.ok(!['rusty-sword', 'worn-tunic'].includes(dungeon.loot[0].id), 'the first drop never duplicates the bare start');

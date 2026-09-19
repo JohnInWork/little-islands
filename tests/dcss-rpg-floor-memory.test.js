@@ -157,7 +157,11 @@ test('the runtime draws the way up and only climbs once the hero steps off it', 
   assert.ok(CONTENT_PATHS.includes(ASCENT_PATH), 'the sprite ships with the build');
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /function climbFloor\(\)[\s\S]*retreatRunFloor\(captureRun\(\)\)/);
-  assert.match(runtime, /if \(!onStair\(dungeon\.exit\) && !onStair\(dungeon\.spawn\)\) \{\s+stairsArmed = true;/);
+  // In town a third way out joins the two, so the arming check counts three.
+  assert.match(runtime, /if \(!onStair\(dungeon\.exit\) && !onStair\(dungeon\.spawn\) && !cityGate\) \{\s+stairsArmed = true;/);
+  // And each city gate goes one way, without asking which road.
+  assert.match(runtime, /if \(run\.branch !== cityGate\) run = switchRunBranch\(captureRun\(\), cityGate\);/);
+  assert.match(runtime, /if \(isCityDepth\(run\.depth\) && dungeon\.gates\?\.\[road\]\) placeHeroAtCell/, 'you come out where you went in');
   assert.match(runtime, /if \(!stairsArmed\) return;/);
   assert.match(runtime, /stairsArmed = false;/, 'arriving disarms both stairs');
   assert.match(runtime, /dungeon = hydrateDungeon\(run\);/, 'a floor change loads what the run remembers');

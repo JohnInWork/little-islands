@@ -247,14 +247,30 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
     records.push(buildBuilding({ grid, block, kind, rng }));
   }
 
+  /**
+   * Three ways out, and each one goes where it says.
+   *
+   * The city used to have a single gate that asked which road you wanted. A
+   * staircase that asks where it leads is not a staircase, and a hero who
+   * climbed up out of the caves arrived at the far side of town from the hole
+   * they came out of. Now the descent is west, the road out is east, and the
+   * vaults are south — three places, three destinations, like three doors.
+   */
   const gateRow = centre.y + Math.floor(centre.h / 2);
+  const gateColumn = centre.x + Math.floor(centre.w / 2);
   const spawn = firstStreetCell(grid, { x: area.x, y: gateRow }, 1);
   const exit = firstStreetCell(grid, { x: area.x + area.w - 1, y: gateRow }, -1);
+  const vault = firstStreetCellDown(grid, { x: gateColumn, y: area.y + area.h - 1 }, -1);
 
   return Object.freeze({
     grid,
     area: Object.freeze({ ...area }),
     plaza: Object.freeze({ ...centre }),
+    gates: Object.freeze({
+      deep: Object.freeze({ ...spawn }),
+      surface: Object.freeze({ ...exit }),
+      vaults: Object.freeze({ ...vault }),
+    }),
     blocks: Object.freeze(records.map((record) => Object.freeze({
       kind: record.kind,
       rect: Object.freeze({ ...record.rect }),
@@ -264,6 +280,17 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
     spawn: Object.freeze(spawn),
     exit: Object.freeze(exit),
   });
+}
+
+/** The same walk, along a column instead of a row. */
+function firstStreetCellDown(grid, from, step) {
+  const { x } = from;
+  let { y } = from;
+  for (let guard = 0; guard < grid.length; guard += 1) {
+    if (grid[y]?.[x] === CITY_FLOOR) return { x, y };
+    y += step;
+  }
+  throw new Error('The city plan has no street on the gate column');
 }
 
 function firstStreetCell(grid, from, step) {
@@ -521,6 +548,11 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
     monsters: Object.freeze(monsters),
     spawn: { ...plan.spawn },
     exit: { ...plan.exit },
+    gates: Object.freeze({
+      deep: Object.freeze({ ...plan.gates.deep }),
+      surface: Object.freeze({ ...plan.gates.surface }),
+      vaults: Object.freeze({ ...plan.gates.vaults }),
+    }),
     sanctuary: cityShrineCell(plan),
   };
 }

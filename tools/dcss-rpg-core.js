@@ -591,6 +591,9 @@ function generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, he
     city: city.city,
     spawn: city.spawn,
     exit: city.exit,
+    // Three ways out, each going where it says: the descent, the road out and
+    // the vaults. A staircase that asks where it leads is not a staircase.
+    gates: city.gates,
     sanctuary: city.sanctuary,
     objective: null,
     doors: city.doors,
@@ -735,15 +738,28 @@ export function generateDungeon({
 
   const initialReveal = new Set();
   revealAround(initialReveal, grid, spawn, 4);
+  /**
+   * The room the hero arrives in is empty.
+   *
+   * The floor used to seat its first creature two or three cells from the
+   * stairs, inside the light, so a run began in a fight before the player had
+   * looked at anything. Ivan said it plainly: «появляешься просто в пустой
+   * комнате, а потом уже будут монстры». The first creature now waits past the
+   * door — far enough to be met on the way out, close enough to be met soon.
+   */
+  const spawnRoom = rooms.find((room) => (
+    spawn.x >= room.x && spawn.x < room.x + room.width
+    && spawn.y >= room.y && spawn.y < room.y + room.height
+  )) ?? null;
+  const outsideSpawnRoom = (cell) => Boolean(cell) && (!spawnRoom || !(
+    cell.x >= spawnRoom.x && cell.x < spawnRoom.x + spawnRoom.width
+    && cell.y >= spawnRoom.y && cell.y < spawnRoom.y + spawnRoom.height
+  ));
+  const freeCell = (cell) => isWalkableCell(grid, cell.x, cell.y)
+    && !occupied.has(`${cell.x},${cell.y}`);
   const nearRoute = route.filter((cell) => {
     const distance = Math.abs(cell.x - spawn.x) + Math.abs(cell.y - spawn.y);
-    return (
-      distance >= 2 &&
-      distance <= 3 &&
-      initialReveal.has(`${cell.x},${cell.y}`) &&
-      isWalkableCell(grid, cell.x, cell.y) &&
-      !occupied.has(`${cell.x},${cell.y}`)
-    );
+    return distance >= 5 && distance <= 10 && outsideSpawnRoom(cell) && freeCell(cell);
   });
   const visibleFloorCells = [];
   for (const cellKey of initialReveal) {
@@ -754,7 +770,10 @@ export function generateDungeon({
     }
   }
   shuffle(rng, visibleFloorCells);
-  const starterMonsterCell = nearRoute[0] ?? visibleFloorCells[0] ?? route[0];
+  const starterMonsterCell = nearRoute[0]
+    ?? route.filter((cell) => outsideSpawnRoom(cell) && freeCell(cell))[0]
+    ?? visibleFloorCells[0]
+    ?? route[0];
   occupied.add(`${starterMonsterCell.x},${starterMonsterCell.y}`);
   const starterLootCell = visibleFloorCells.find(
     (cell) => !occupied.has(`${cell.x},${cell.y}`),
