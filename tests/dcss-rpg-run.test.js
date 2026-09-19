@@ -3,8 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  BRANCH_CHAPTER_GUARDIANS,
+  DEEPEST_DEPTH,
+  STORY_CHAPTERS,
+  CHAPTER_END_DEPTHS,
   CHAPTER_GUARDIANS,
-  FINAL_DEPTH,
+  chapterForDepth,
+  isBeyondStory,
+  STORY_DEPTH,
   FLOORS_PER_CHAPTER,
   SANCTUARY_COST,
   SANCTUARY_HEAL,
@@ -42,11 +48,11 @@ test('sanctuary transactions reject unavailable, full-health and unaffordable us
 test('boss rewards are exceptional and the artifact closes only a final run', () => {
   assert.ok(goldRewardForMonster({ tier: 3, boss: true }) > goldRewardForMonster({ tier: 3 }));
   assert.equal(
-    canClaimFinalArtifact({ depth: FINAL_DEPTH, status: 'playing', bossDefeated: true }),
+    canClaimFinalArtifact({ depth: STORY_DEPTH, status: 'playing', bossDefeated: true }),
     true,
   );
   assert.equal(
-    canClaimFinalArtifact({ depth: FINAL_DEPTH - 1, status: 'playing', bossDefeated: true }),
+    canClaimFinalArtifact({ depth: STORY_DEPTH - 1, status: 'playing', bossDefeated: true }),
     false,
   );
   assert.equal(isTerminalRunStatus('dead'), true);
@@ -54,11 +60,13 @@ test('boss rewards are exceptional and the artifact closes only a final run', ()
   assert.equal(isTerminalRunStatus('playing'), false);
 });
 
-test('nine floors form three guarded chapters and exits unlock only after their guardian', () => {
-  assert.equal(FINAL_DEPTH, 9);
-  assert.equal(FLOORS_PER_CHAPTER, 3);
-  assert.deepEqual(CHAPTER_GUARDIANS.map(({ depth }) => depth), [3, 6, 9]);
-  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+test('the run is chapters of six floors, each guarded, and exits unlock only after their guardian', () => {
+  // Length is two numbers now: how long you stay in one place, and how many
+  // places a run walks through. Everything else is derived from those.
+  assert.equal(FLOORS_PER_CHAPTER, 6);
+  assert.equal(STORY_DEPTH, FLOORS_PER_CHAPTER * STORY_CHAPTERS);
+  assert.deepEqual(CHAPTER_GUARDIANS.map(({ depth }) => depth), [...CHAPTER_END_DEPTHS]);
+  for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
     const guardian = chapterGuardianForDepth(depth);
     assert.equal(Boolean(guardian), depth % FLOORS_PER_CHAPTER === 0);
     assert.equal(
@@ -81,4 +89,62 @@ test('terminal screen CSS uses the same dead and victory statuses as the run sta
   assert.match(css, /\[data-screen='dead'\] \.run-end-screen/);
   assert.match(css, /\[data-screen='victory'\] \.run-end-screen/);
   assert.doesNotMatch(css, /\[data-screen='death'\] \.run-end-screen/);
+});
+
+/**
+ * The run used to end at a wall: floor eighteen, warden, credits. It ends two
+ * ways of its own now — the hero dies, or the hero walks out at the gate — and
+ * the ladder itself has no bottom. These are the promises that makes.
+ */
+test('the ladder of guardians repeats, and only the road ends', () => {
+  // A guardian stands at every chapter end, for as long as anybody keeps going.
+  for (let depth = 1; depth <= FLOORS_PER_CHAPTER * 12; depth += 1) {
+    const guardian = chapterGuardianForDepth(depth);
+    assert.equal(
+      guardian !== null,
+      depth % FLOORS_PER_CHAPTER === 0,
+      `floor ${depth} disagrees about whether something guards it`,
+    );
+  }
+
+  // The same three, in the same order, road after road.
+  const ladder = BRANCH_CHAPTER_GUARDIANS.deep.map(({ monsterId }) => monsterId);
+  for (let chapter = 1; chapter <= 12; chapter += 1) {
+    const depth = chapter * FLOORS_PER_CHAPTER;
+    const guardian = chapterGuardianForDepth(depth);
+    assert.equal(guardian.monsterId, ladder[(chapter - 1) % ladder.length], `chapter ${chapter}`);
+    assert.equal(guardian.depth, depth);
+  }
+
+  // «Final» is a fact about the written road, and it is true exactly once: the
+  // same warden met again on floor thirty-six ends nothing.
+  const finals = [];
+  for (let depth = FLOORS_PER_CHAPTER; depth <= FLOORS_PER_CHAPTER * 12; depth += FLOORS_PER_CHAPTER) {
+    if (chapterGuardianForDepth(depth).final) finals.push(depth);
+  }
+  assert.deepEqual(finals, [STORY_DEPTH]);
+  assert.equal(isBeyondStory(STORY_DEPTH), false);
+  assert.equal(isBeyondStory(STORY_DEPTH + 1), true);
+  assert.equal(chapterForDepth(STORY_DEPTH + 1), STORY_CHAPTERS + 1);
+});
+
+test('past the road the stair still opens, and the artefact is still owed once', () => {
+  // Nothing about the end of the road closes a floor that is past it.
+  for (const depth of [STORY_DEPTH, STORY_DEPTH + 1, STORY_DEPTH * 4, DEEPEST_DEPTH]) {
+    const guarded = depth % FLOORS_PER_CHAPTER === 0;
+    assert.equal(
+      canLeaveDungeonFloor({ depth, status: 'playing', guardianDefeated: false }),
+      !guarded,
+      `floor ${depth}`,
+    );
+    assert.equal(canLeaveDungeonFloor({ depth, status: 'playing', guardianDefeated: true }), true);
+  }
+  assert.equal(canLeaveDungeonFloor({ depth: DEEPEST_DEPTH + 1, status: 'playing' }), false);
+
+  // The artefact belongs to the end of the written road and to nowhere else:
+  // going deeper is its own reward, not a second ending.
+  for (const depth of [STORY_DEPTH - 1, STORY_DEPTH + 1, STORY_DEPTH * 2]) {
+    assert.equal(canClaimFinalArtifact({ depth, status: 'playing', bossDefeated: true }), false);
+  }
+  assert.equal(canClaimFinalArtifact({ depth: STORY_DEPTH, status: 'playing', bossDefeated: true }), true);
 });

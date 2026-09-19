@@ -22,7 +22,7 @@ function runtimeFunction(name) {
 }
 
 function combatRuntime() {
-  const metrics = { experienceAwards: 0, saves: 0, endScreens: [] };
+  const metrics = { experienceAwards: 0, saves: 0, endScreens: [], stashSaves: 0 };
   const hero = {
     x: 64, y: 64, hp: 12, maxHp: 100, level: 1, xp: 0, power: 1,
     skills: createSkillState(), dead: false, path: [{ x: 128, y: 64 }],
@@ -114,6 +114,11 @@ function combatRuntime() {
     combatImpactProfile: () => ({ particles: 0, waveSize: 0, shake: 0, hitStop: 0, staggers: false }),
     persistRun: () => { metrics.saves += 1; },
     showRunEndScreen: (result) => { metrics.endScreens.push(result); },
+    // Winning banks the purse the same way walking out does.
+    stashEarned: ({ gold: carried }) => carried,
+    stashDeposit: (state, carried) => ({ ...state, gold: state.gold + carried }),
+    stashState: { gold: 0 },
+    persistStash: () => { metrics.stashSaves += 1; },
     burst: () => {},
     addImpactWave: () => {},
     addCombatGlyph: () => {},
@@ -170,6 +175,9 @@ test('victory clears attacks and prevents any further hero or monster combat mut
   assert.equal(context.projectiles.length, 0);
   assert.equal(context.hero.pendingAttack, null);
   assert.deepEqual(metrics.endScreens, ['victory']);
+  // A victor walks out through the front door and banks what they carried;
+  // before this, winning was the one ending that emptied the purse.
+  assert.equal(metrics.stashSaves, 1, 'the purse never reached the stash');
   assertNoTerminalCombat(context, metrics);
 });
 

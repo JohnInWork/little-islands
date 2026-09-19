@@ -18,10 +18,12 @@ import {
   roomArchetypeById,
 } from '../tools/dcss-rpg-room-plans.js';
 import { floorScaling } from '../tools/dcss-rpg-scaling.js';
+import { FLOORS_PER_MERCHANT } from '../tools/dcss-rpg-run.js';
 import { biomeThemeFor } from '../tools/dcss-rpg-visuals.js';
 
 test('dungeon themes own compatible surfaces, chests and room families', () => {
-  assert.equal(FLOORS_PER_CHAPTER, 3);
+  // A chapter is one place, and six floors is how long you stay in it.
+  assert.equal(FLOORS_PER_CHAPTER, 6);
   assert.equal(new Set(DUNGEON_THEME_CATALOG.map(({ id }) => id)).size, DUNGEON_THEME_CATALOG.length);
   assert.equal(new Set(ROOM_ARCHETYPE_CATALOG.map(({ id }) => id)).size, ROOM_ARCHETYPE_CATALOG.length);
   for (const theme of DUNGEON_THEME_CATALOG) {
@@ -86,7 +88,7 @@ test('room plans are deterministic, semantic and schedule one merchant per chapt
     }));
     assert.equal(
       dungeon.roomPlans.filter(({ archetypeId }) => archetypeId === 'merchant-alcove').length,
-      depth % FLOORS_PER_CHAPTER === 0 ? 1 : 0,
+      depth % FLOORS_PER_MERCHANT === 0 ? 1 : 0,
     );
 
     const chest = dungeon.finds.find(({ id }) => id === 'sealed-cache');

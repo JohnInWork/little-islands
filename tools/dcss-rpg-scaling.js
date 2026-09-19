@@ -2,15 +2,33 @@ import {
   DEFAULT_LOOT_ABUNDANCE,
   floorLootEconomy,
 } from './dcss-rpg-loot-economy.js';
-import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
+import { STORY_DEPTH, FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SCALING_VERSION = 2;
+export const SCALING_VERSION = 3;
 
 // Единственный общий регулятор сложности новых забегов. Значение 1 оставлено
 // контрольной точкой прежнего баланса; 2.4 — новый основной профиль игры.
 export const DEFAULT_DIFFICULTY = 2.4;
 export const MIN_DIFFICULTY = 0.5;
 export const MAX_DIFFICULTY = 4;
+
+/**
+ * The climb is written against the ROAD, not against the floor number.
+ *
+ * Version 2 was tuned on a nine-floor run: by its last floor the fight had
+ * climbed eight steps, and those eight steps are the range the game actually
+ * plays well over. When the road doubled to eighteen floors, keeping a step
+ * per floor would have doubled the difficulty of the ending instead of
+ * lengthening the journey — which is not what a longer chapter is for. So
+ * version 3 spreads the same eight steps across however long the road is.
+ *
+ * Past the end of the road the climb keeps going, because that is the whole
+ * point of an endless descent: it has to kill you eventually. What does NOT
+ * keep going is the tempo — move speed, attack rate, windup, pursuit stop at
+ * `tempoCeiling`. A fight has to stay readable at any depth; it is the numbers
+ * that get out of reach, never the ability to see what is happening.
+ */
+const TUNED_CLIMB = 8;
 
 const CURVES = Object.freeze({
   1: Object.freeze({
@@ -24,8 +42,27 @@ const CURVES = Object.freeze({
     roomEveryFloors: 2,
     maximumRoomCount: 15,
     tierCurve: 'legacy',
+    roadLength: null,
+    tempoCeiling: null,
   }),
+  // A version is a promise about the past: the numbers a v2 run was generated
+  // with are written out here, not derived, so changing the road cannot reach
+  // back and alter a floor somebody is standing on.
   2: Object.freeze({
+    floorsPerChapter: 3,
+    maximumMonsterCount: 24,
+    maximumMonsterTier: 9,
+    maximumLootCount: 9,
+    baseMonsterCount: 8,
+    monsterCountPerFloor: 2,
+    baseRoomCount: 9,
+    roomEveryFloors: 2,
+    maximumRoomCount: 15,
+    tierCurve: 'road',
+    roadLength: 9,
+    tempoCeiling: null,
+  }),
+  3: Object.freeze({
     floorsPerChapter: FLOORS_PER_CHAPTER,
     maximumMonsterCount: 24,
     maximumMonsterTier: 9,
@@ -35,7 +72,9 @@ const CURVES = Object.freeze({
     baseRoomCount: 9,
     roomEveryFloors: 2,
     maximumRoomCount: 15,
-    tierCurve: 'nine-floor-run',
+    tierCurve: 'road',
+    roadLength: STORY_DEPTH,
+    tempoCeiling: TUNED_CLIMB,
   }),
 });
 
@@ -87,12 +126,20 @@ export function floorScaling(
   if (!curve) throw new RangeError(`Unsupported scaling version: ${version}`);
 
   const step = depth - 1;
+  // How far up the tuned range this floor stands. On the legacy curve that is
+  // the floor number itself; on a road curve the range is stretched over the
+  // whole road, and keeps climbing past its end.
+  const climb = curve.roadLength === null
+    ? step
+    : (step * TUNED_CLIMB) / (curve.roadLength - 1);
+  // What a fight is allowed to do to the eye. Everything читаемое stops here.
+  const tempo = curve.tempoCeiling === null ? climb : Math.min(curve.tempoCeiling, climb);
   const chapter = Math.floor(step / curve.floorsPerChapter) + 1;
   const floorInChapter = (step % curve.floorsPerChapter) + 1;
   const chapterEnd = floorInChapter === curve.floorsPerChapter;
   const baseMonsterCount = Math.min(
     curve.maximumMonsterCount,
-    curve.baseMonsterCount + step * curve.monsterCountPerFloor,
+    curve.baseMonsterCount + climb * curve.monsterCountPerFloor,
   );
   // Число врагов растёт заметно, но медленнее их силы: на мобильном экране
   // опасность должна исходить от читаемых противников, а не от визуальной свалки.
@@ -100,13 +147,16 @@ export function floorScaling(
     curve.maximumMonsterCount,
     Math.round(baseMonsterCount * (0.72 + difficulty * 0.28)),
   );
+  // The deepest creature the game owns stands at the end of the road, and the
+  // pool has nothing deeper to offer after that: the tier ladder tops out and
+  // stays there while the numbers on those same creatures keep climbing.
   const maxMonsterTier = curve.tierCurve === 'legacy'
     ? Math.min(curve.maximumMonsterTier, 1 + step * 2)
     : Math.min(
         curve.maximumMonsterTier,
-        1 + Math.floor((step * (curve.maximumMonsterTier - 1)) / (FINAL_DEPTH - 1)),
+        1 + Math.floor((climb * (curve.maximumMonsterTier - 1)) / TUNED_CLIMB),
       );
-  const averageThreat = 1 + Math.min(curve.maximumMonsterTier - 1, step * 0.6);
+  const averageThreat = 1 + Math.min(curve.maximumMonsterTier - 1, climb * 0.6);
   const baseThreatBudget = Math.round(monsterCount * averageThreat);
   // Difficulty — честный линейный множитель основных боевых параметров.
   // Поэтому 2.4 действительно означает минимум ×2.4 к HP и урону относительно
@@ -114,7 +164,7 @@ export function floorScaling(
   const difficultyHp = difficulty;
   const difficultyDamage = difficulty;
   const difficultyTempo = 0.82 + difficulty * 0.18;
-  const baseBossHp = 1.72 + Math.min(0.72, step * 0.11);
+  const baseBossHp = 1.72 + Math.min(0.72, climb * 0.11);
   const baseLootCount = Math.min(
     curve.maximumLootCount,
     4 + Math.floor(depth / 2),
@@ -140,7 +190,7 @@ export function floorScaling(
     floorInChapter,
     chapterEnd,
     dangerRating: round(
-      (1 + step * 0.62 + step ** 1.18 * 0.08) * difficulty,
+      (1 + climb * 0.62 + climb ** 1.18 * 0.08) * difficulty,
       2,
     ),
     layout: {
@@ -156,14 +206,20 @@ export function floorScaling(
       threatBudget: Math.max(monsterCount, Math.round(baseThreatBudget * difficulty)),
     },
     monsters: {
-      hpMultiplier: round((1.18 + step * 0.2) * difficultyHp),
-      damageMultiplier: round((1.28 + step * 0.18) * difficultyDamage),
-      moveSpeedMultiplier: round((1.48 + step * 0.09) * (0.94 + difficulty * 0.06)),
-      attackRateMultiplier: round((1 + step * 0.08) * difficultyTempo),
-      visionBonus: round(Math.min(1.2, step * 0.25) * difficultyTempo),
-      windupReduction: round(step * 0.01 * difficultyTempo),
-      pursuitBonus: round(step * 0.35 * difficultyTempo),
-      xpMultiplier: round(1 + step * 0.12),
+      // These are the numbers, and they never stop: sooner or later the deep
+      // wins, and how far down that happened is the score.
+      hpMultiplier: round((1.18 + climb * 0.2) * difficultyHp),
+      damageMultiplier: round((1.28 + climb * 0.18) * difficultyDamage),
+      xpMultiplier: round(1 + climb * 0.12),
+      // And this is the tempo, which does stop. A creature eleven times faster
+      // than the hero is not difficult, it is unreadable — you cannot flee it,
+      // kite it or see it wind up, so the floor stops being a fight and becomes
+      // a dice roll. The ceiling is the pace the game was tuned at.
+      moveSpeedMultiplier: round((1.48 + tempo * 0.09) * (0.94 + difficulty * 0.06)),
+      attackRateMultiplier: round((1 + tempo * 0.08) * difficultyTempo),
+      visionBonus: round(Math.min(1.2, tempo * 0.25) * difficultyTempo),
+      windupReduction: round(tempo * 0.01 * difficultyTempo),
+      pursuitBonus: round(tempo * 0.35 * difficultyTempo),
     },
     boss: {
       // Общий difficulty уже применён в monsters.*. Не умножаем босса второй

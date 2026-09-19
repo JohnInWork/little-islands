@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { LOOT_CATALOG, MONSTER_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { createRun, generateDungeon, validateRun } from '../tools/dcss-rpg-core.js';
-import { FINAL_BOSS_ID, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { FINAL_BOSS_ID, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { HUNGER_MAX, HUNGER_TUNING } from '../tools/dcss-rpg-hunger.js';
 import {
   DUAL_WIELD_OFFHAND_DAMAGE_SCALE,
@@ -427,7 +427,7 @@ test('monster health and damage create meaningful pressure by the final floor', 
 
 test('the harder baseline prevents an unequipped hero from face-tanking the guardian', () => {
   const boss = createMonsterStates({
-    depth: FINAL_DEPTH,
+    depth: STORY_DEPTH,
     monsters: [{ id: FINAL_BOSS_ID, instanceId: 'naked-run-check', x: 2, y: 2 }],
   })[0];
   const nakedEquipment = Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));

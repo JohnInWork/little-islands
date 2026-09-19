@@ -16,7 +16,7 @@ import {
   generateDungeon,
   validateRun,
 } from '../tools/dcss-rpg-core.js';
-import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 const centre = (room) => ({
   x: Math.floor(room.x + room.width / 2),
@@ -107,7 +107,7 @@ test('the same seed is the same country, and a different one is not', () => {
 /** Whatever it looks like, it is still a floor the rest of the game can use. */
 test('a surface floor is a floor: reachable exit, valid run, no crashes', () => {
   for (let seed = 1; seed <= 200; seed += 1) {
-    for (const depth of [1, 5, FINAL_DEPTH]) {
+    for (const depth of [1, 5, STORY_DEPTH]) {
       const dungeon = generateDungeon({ seed, depth, branch: 'surface' });
       assert.ok(
         findGridPath(dungeon.grid, dungeon.spawn, dungeon.exit, { allowDoors: true }).length > 0,

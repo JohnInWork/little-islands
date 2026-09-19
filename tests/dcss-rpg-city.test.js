@@ -36,7 +36,7 @@ import { createMonsterStates } from '../tools/dcss-rpg-rules.js';
 import { biomeThemeFor } from '../tools/dcss-rpg-visuals.js';
 import { requiredAssetPaths } from '../tools/dcss-rpg-required-assets.js';
 import { MAX_MERCHANTS_PER_FLOOR } from '../tools/dcss-rpg-merchant.js';
-import { FINAL_DEPTH, canLeaveDungeonFloor } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH, canLeaveDungeonFloor } from '../tools/dcss-rpg-run.js';
 import { guaranteedArtifactDepth } from '../tools/dcss-rpg-artifacts.js';
 
 const cityDepth = CITY_DEPTHS[0];
@@ -192,16 +192,16 @@ test('the city is the surface above the ladder, not a floor of it', () => {
   assert.equal(isCityDepth(4), false, 'the fourth floor is dungeon again');
   // Nine dungeon floors, and the town gate is always open.
   assert.equal(canLeaveDungeonFloor({ depth: CITY_DEPTH, status: 'playing', guardianDefeated: false }), true);
-  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+  for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
     assert.equal(isCityDepth(depth), false, `floor ${depth} is dungeon`);
     assert.notEqual(generateDungeon({ seed: 515, depth }).city, undefined === null);
   }
   // The promised artifact is scheduled among real floors, with nothing skipped.
   const depths = new Set();
-  for (let seed = 0; seed < 200; seed += 1) depths.add(guaranteedArtifactDepth(seed, FINAL_DEPTH));
+  for (let seed = 0; seed < 200; seed += 1) depths.add(guaranteedArtifactDepth(seed, STORY_DEPTH));
   assert.equal(Math.min(...depths), 2);
-  assert.equal(Math.max(...depths), FINAL_DEPTH);
-  assert.equal(depths.size, FINAL_DEPTH - 1, 'every floor from the second down can hold it');
+  assert.equal(Math.max(...depths), STORY_DEPTH);
+  assert.equal(depths.size, STORY_DEPTH - 1, 'every floor from the second down can hold it');
 });
 
 test('a run walks into the city and out the other side', () => {

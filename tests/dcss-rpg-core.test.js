@@ -14,6 +14,8 @@ import {
 import {
   CONTENT_VERSION,
   LEGACY_SAVE_KEY,
+  MAP_WIDTH,
+  MAX_MONSTERS_PER_FLOOR,
   LEGACY_SAVE_KEYS,
   SAVE_KEY,
   SAVE_VERSION,
@@ -30,7 +32,7 @@ import {
 import {
   CHAPTER_GUARDIANS,
   FINAL_BOSS_ID,
-  FINAL_DEPTH,
+  STORY_DEPTH,
 } from '../tools/dcss-rpg-run.js';
 import { DEFAULT_DIFFICULTY, SCALING_VERSION } from '../tools/dcss-rpg-scaling.js';
 import { createSkillState } from '../tools/dcss-rpg-skills.js';
@@ -93,10 +95,17 @@ test('different seeds and depths create different layouts and progressively deep
   assert.ok(deep.monsters.length > first.monsters.length);
 });
 
-test('the nine-floor run introduces one readable monster tier per depth', () => {
-  const tiersByDepth = Array.from({ length: FINAL_DEPTH }, (_, index) => index + 1).map((depth) => {
+/**
+ * The pool opens one rung at a time. On the nine-floor run that meant a new
+ * tier on every floor; on a road twice as long it means a new tier every other
+ * floor — the same climb, spread over the same road. What must not happen is a
+ * jump: a floor that skips a rung puts a creature in front of the hero that
+ * nothing prepared them for.
+ */
+test('the monster pool opens one rung at a time and tops out at the end of the road', () => {
+  const tiersByDepth = Array.from({ length: STORY_DEPTH + 12 }, (_, index) => index + 1).map((depth) => {
     const seen = new Set();
-    for (let seed = 1; seed <= 250; seed += 1) {
+    for (let seed = 1; seed <= 150; seed += 1) {
       if (isCityDepth(depth)) continue;
       for (const spawn of generateDungeon({ seed, depth }).monsters) {
         const definition = monsterById(spawn.id);
@@ -108,15 +117,31 @@ test('the nine-floor run introduces one readable monster tier per depth', () => 
     return [...seen].sort((a, b) => a - b);
   });
 
-  assert.deepEqual(
-    tiersByDepth,
-    Array.from({ length: FINAL_DEPTH }, (_, index) => (
-      // The city floor meets no pool monster, so its tier list stays empty.
-      isCityDepth(index + 1)
-        ? []
-        : Array.from({ length: index + 1 }, (_value, tierIndex) => tierIndex + 1)
-    )),
-  );
+  let previousCeiling = 0;
+  tiersByDepth.forEach((tiers, index) => {
+    const depth = index + 1;
+    // Every rung up to the ceiling is met — the pool is a range, never a band
+    // that leaves the weak behind.
+    assert.deepEqual(
+      tiers,
+      Array.from({ length: tiers.length }, (_value, tierIndex) => tierIndex + 1),
+      `floor ${depth} skips a tier`,
+    );
+    const ceiling = tiers.length;
+    assert.ok(ceiling >= previousCeiling, `floor ${depth} lost a tier`);
+    assert.ok(ceiling - previousCeiling <= 1, `floor ${depth} jumps ${ceiling - previousCeiling} tiers at once`);
+    previousCeiling = ceiling;
+  });
+
+  assert.equal(tiersByDepth[0].length, 1, 'the first floor is one tier of creature');
+  // The deepest creature the game owns stands at the end of the written road,
+  // and there is nothing deeper to introduce after it — past there the same
+  // creatures simply hit harder.
+  const ceilingAtRoadEnd = tiersByDepth[STORY_DEPTH - 1].length;
+  assert.equal(ceilingAtRoadEnd, 9);
+  for (let depth = STORY_DEPTH; depth < tiersByDepth.length; depth += 1) {
+    assert.equal(tiersByDepth[depth].length, ceilingAtRoadEnd, `floor ${depth + 1} moved the ceiling`);
+  }
 });
 
 test('revealing is bounded, repeatable and never mutates the generated grid', () => {
@@ -657,8 +682,8 @@ test('each three-floor chapter ends with a reachable guardian and only floor nin
 
 test('victory is valid only after the final guardian is defeated', () => {
   let run = createRun(891);
-  while (run.depth < FINAL_DEPTH) run = advanceRunFloor(run);
-  const dungeon = generateDungeon({ seed: run.seed, depth: FINAL_DEPTH });
+  while (run.depth < STORY_DEPTH) run = advanceRunFloor(run);
+  const dungeon = generateDungeon({ seed: run.seed, depth: STORY_DEPTH });
   run.status = 'victory';
   assert.equal(validateRun(run), false);
   run.floor.defeated.push(dungeon.objective.bossInstanceId);
@@ -699,7 +724,11 @@ test('a completed v30 prologue continues on floor four instead of becoming a fal
   legacy.contentVersion = 17;
   legacy.scalingVersion = 1;
   legacy.status = 'victory';
-  legacy.floor.defeated.push(oldFinal.objective.bossInstanceId);
+  // A v30 prologue really did end on floor three with a guardian there. The
+  // road has moved its guardians since, so there may be nothing to mark as
+  // killed on that floor any more — the migration reads the status, not the
+  // corpse.
+  if (oldFinal.objective) legacy.floor.defeated.push(oldFinal.objective.bossInstanceId);
 
   const migrated = migrateLegacyRun(legacy);
   const fourthFloor = generateDungeon({ seed: migrated.seed, depth: 4 });
@@ -798,4 +827,42 @@ test('version 2 migration restarts the current floor across the generator bounda
   assert.deepEqual(migrated.equipment, legacy.equipment);
   assert.deepEqual(migrated.inventory, legacy.inventory);
   assert.equal(validateRun(migrated), true);
+});
+
+/**
+ * The save has to accept the floors the game actually makes.
+ *
+ * This is the invariant that was missing: the floor state cap was the monster
+ * pool's number, twenty-four, while the generator seats the guardian, the
+ * chapter creature and whatever lives in the water on top of that pool. From
+ * floor four down a hero who left a busy floor without clearing it captured a
+ * run the save refused, and the stairs stopped working with nothing on screen
+ * to explain it.
+ */
+test('every floor the generator builds is a floor the save will take back', () => {
+  let busiest = 0;
+  for (let depth = 1; depth <= STORY_DEPTH + 6; depth += 1) {
+    for (let seed = 1; seed <= 25; seed += 1) {
+      const dungeon = generateDungeon({ seed, depth });
+      busiest = Math.max(busiest, dungeon.monsters.length);
+      assert.ok(
+        dungeon.monsters.length <= MAX_MONSTERS_PER_FLOOR,
+        `seed ${seed}, floor ${depth}: ${dungeon.monsters.length} creatures is more than a save may hold`,
+      );
+      // And the whole of it, alive, is a run the save takes back — which is
+      // what leaving a floor without clearing it captures.
+      const run = createRun(seed, dungeon);
+      run.floor.monsters = dungeon.monsters.map((monster, index) => ({
+        instanceId: monster.instanceId,
+        x: index % MAP_WIDTH,
+        y: 0,
+        hp: 1,
+        attackSequence: 0,
+        effects: createActorEffects(),
+      }));
+      assert.equal(validateRun(run), true, `seed ${seed}, floor ${depth}: a full floor is not a valid run`);
+    }
+  }
+  // If the generator ever gets more generous, this is the number to raise.
+  assert.ok(busiest > 24, 'the sweep never met a floor busier than the old limit');
 });

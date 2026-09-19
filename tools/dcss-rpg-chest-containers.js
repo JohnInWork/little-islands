@@ -1,5 +1,6 @@
 import { rollCacheArtifact } from './dcss-rpg-artifacts.js';
 import { rollMaterial } from './dcss-rpg-materials.js';
+import { STORY_DEPTH } from './dcss-rpg-run.js';
 import { LOOT_CATALOG, lootById } from './dcss-rpg-content.js';
 import {
   materializeItemAffixes,
@@ -203,6 +204,7 @@ export function createChestContainerStates({
         cacheVariant: find.cacheVariant,
         items: selected,
         guaranteed: guaranteedArtifact,
+        roadLength: STORY_DEPTH,
       });
       return Object.freeze({
         findId: find.instanceId,

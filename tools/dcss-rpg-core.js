@@ -29,7 +29,10 @@ import {
 } from './dcss-rpg-passive.js';
 import {
   FINAL_BOSS_ID,
-  FINAL_DEPTH,
+  DEEPEST_DEPTH,
+  STORY_CHAPTERS,
+  STORY_DEPTH,
+  chapterForDepth,
   chapterGuardianForDepth,
 } from './dcss-rpg-run.js';
 import {
@@ -54,7 +57,7 @@ import {
   validateItemAffixIds,
 } from './dcss-rpg-affixes.js';
 import {
-  guaranteedArtifactDepth,
+  owesArtifact,
   materializeProceduralArtifact,
   validateProceduralArtifactState,
 } from './dcss-rpg-artifacts.js';
@@ -632,7 +635,7 @@ export function generateDungeon({
   const budget = conditionedFloor(scaling, conditions);
   // The floor that owes the run its artefact: its cache is always sealed, and
   // its cache is always the one that pays.
-  const artifactFloor = depth === guaranteedArtifactDepth(seed, FINAL_DEPTH);
+  const artifactFloor = owesArtifact(seed, depth, STORY_DEPTH);
   // Which place this floor is. Decided from the RUN seed, then carried: the
   // floor seed below cannot be turned back into the run it came from.
   const themeId = dungeonThemeFor(seed, depth, branch).id;
@@ -976,7 +979,11 @@ export function generateDungeon({
   // other placement, so a flooded floor keeps the rooms, monsters, loot and
   // fauna of the dry one; only the floor glyphs and two water creatures differ.
   const waterRng = createRng(mixSeed(floorSeed, 0x57415452));
-  const chapterOfDepth = Math.floor((depth - 1) / FLOORS_PER_CHAPTER) + 1;
+  // Which chapter of the written road this floor rhymes with. Past the road the
+  // count wraps, the same way the ladder of guardians does: chapter four is the
+  // first chapter again, and its creature comes round with it. Without the wrap
+  // everything below floor eighteen would quietly lose its chapter creature.
+  const chapterOfDepth = ((chapterForDepth(depth) - 1) % STORY_CHAPTERS) + 1;
   // A creature tied to a chapter belongs to that chapter only; everything else
   // simply needs the floor to be deep enough.
   const belongsToFloor = (monster) => monsterSuitsBranch(monster, branch) && (
@@ -1403,9 +1410,9 @@ function migrateTwoHandedEquipment(snapshot) {
 }
 
 function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
-  const continuesCompletedPrologue = legacyStatus === 'victory' && migrated.depth < FINAL_DEPTH;
+  const continuesCompletedPrologue = legacyStatus === 'victory' && migrated.depth < STORY_DEPTH;
   const depth = Math.min(
-    FINAL_DEPTH,
+    STORY_DEPTH,
     continuesCompletedPrologue ? migrated.depth + 1 : migrated.depth,
   );
   migrated.depth = depth;
@@ -1429,13 +1436,36 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 /** What a night was worth at each camp rank before v39 wrote it into the save. */
 const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
 
-/** Keeps only well-formed floors, and never the one the hero stands on. */
+/**
+ * How far the dungeon remembers, in floors either side of the hero.
+ *
+ * A floor the hero has left keeps its own state, so the sword you dropped is
+ * still lying there when you climb back. That was free while a run had a
+ * bottom — nineteen floors at most. A descent with no bottom would keep every
+ * floor it ever made, and a save that grows without limit eventually stops
+ * being saved at all.
+ *
+ * So the dungeon remembers the chapter around you, and the city — which is
+ * home and always stays. Beyond that it re-forms, the way it always did before
+ * anybody walked it.
+ */
+export const FLOOR_MEMORY = FLOORS_PER_CHAPTER;
+
+function withinFloorMemory(depth, currentDepth) {
+  return depth === CITY_DEPTH || Math.abs(depth - currentDepth) <= FLOOR_MEMORY;
+}
+
+/**
+ * Keeps only well-formed floors, never the one the hero stands on, and never
+ * more than the dungeon can remember.
+ */
 function normalizedFloorArchive(source, currentDepth) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
   const archive = {};
   for (const [key, floor] of Object.entries(source)) {
     const depth = Number(key);
-    if (!isFiniteInteger(depth, CITY_DEPTH, FINAL_DEPTH) || depth === currentDepth) continue;
+    if (!isFiniteInteger(depth, CITY_DEPTH, DEEPEST_DEPTH) || depth === currentDepth) continue;
+    if (!withinFloorMemory(depth, currentDepth)) continue;
     if (!validateFloorShape(floor, depth)) continue;
     archive[key] = floor;
   }
@@ -1663,7 +1693,7 @@ export function migrateLegacyRun(snapshot) {
   }
   if ([2, 3, 4, 5, 6, 7, 8].includes(snapshot.version)) {
     const crossesGeneratorBoundary = true;
-    const depth = Math.min(snapshot.depth, FINAL_DEPTH);
+    const depth = Math.min(snapshot.depth, STORY_DEPTH);
     const scalingVersion = SCALING_VERSION;
     // v9 intentionally rebases every existing local run onto the new combat
     // pressure. Hero progression and owned gear survive; the current floor is
@@ -1818,7 +1848,7 @@ export function migrateLegacyRun(snapshot) {
     const index = inventory.indexOf(uid);
     if (index >= 0) inventory.splice(index, 1);
   }
-  const depth = Math.min(snapshot.depth, FINAL_DEPTH);
+  const depth = Math.min(snapshot.depth, STORY_DEPTH);
   const dungeon = generateDungeon({ seed: snapshot.seed, depth });
   const migrated = {
     ...snapshot,
@@ -1912,6 +1942,24 @@ const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
  * nothing counted twice. The run keeps several of these now, so the check
  * takes the depth it belongs to instead of reading the hero's.
  */
+/**
+ * The most creatures one floor may be carrying when it is written down.
+ *
+ * This is NOT the monster pool's own cap. The pool tops out at twenty-four, and
+ * the floor seats more on top of it out of their own streams: the chapter
+ * guardian, the creature that belongs to the chapter, whatever lives in the
+ * water, the city watch. Measured across every depth and forty seeds the real
+ * ceiling is thirty-seven.
+ *
+ * It used to read twenty-four — the pool's number, borrowed. The consequence
+ * was live and quiet: from floor four down a hero who left a busy floor without
+ * clearing enough of it captured a run the save refused, `advanceRunFloor`
+ * threw «Invalid RPG save snapshot», and the stairs simply stopped working with
+ * nothing on screen to say why. A limit that the generator itself can exceed is
+ * not a limit, it is a trap.
+ */
+export const MAX_MONSTERS_PER_FLOOR = 48;
+
 function validateFloorShape(floor, depth) {
   if (
     !floor ||
@@ -1961,7 +2009,7 @@ function validateFloorShape(floor, depth) {
   if (!validatePlacedTraps(floor.placedTraps, { depth: depth })) return false;
   if (floor.opened.some((id) => !new RegExp(`^door-${depth}-\\d+$`).test(id))) return false;
   if (floor.triggered.some((id) => !new RegExp(`^surprise-${depth}-\\d+$`).test(id))) return false;
-  if (floor.monsters.length > 24) return false;
+  if (floor.monsters.length > MAX_MONSTERS_PER_FLOOR) return false;
   if (new Set(floor.monsters.map((monster) => monster?.instanceId)).size !== floor.monsters.length)
     return false;
   if (
@@ -2016,7 +2064,7 @@ export function validateRun(snapshot) {
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
     !validateRunBranch(snapshot.branch)
-    || !isFiniteInteger(snapshot.depth, CITY_DEPTH, FINAL_DEPTH)
+    || !isFiniteInteger(snapshot.depth, CITY_DEPTH, DEEPEST_DEPTH)
   )
     return false;
   const hero = snapshot.hero;
@@ -2114,10 +2162,10 @@ export function validateRun(snapshot) {
     return false;
   }
   const archivedDepths = Object.keys(snapshot.floors);
-  if (archivedDepths.length > FINAL_DEPTH + 1) return false;
+  if (archivedDepths.length > FLOOR_MEMORY * 2 + 1) return false;
   for (const key of archivedDepths) {
     const archivedDepth = Number(key);
-    if (!isFiniteInteger(archivedDepth, CITY_DEPTH, FINAL_DEPTH)) return false;
+    if (!isFiniteInteger(archivedDepth, CITY_DEPTH, DEEPEST_DEPTH)) return false;
     if (archivedDepth === snapshot.depth) return false;
     if (!validateFloorShape(snapshot.floors[key], archivedDepth)) return false;
   }
@@ -2153,8 +2201,8 @@ export function validateRun(snapshot) {
   if (
     snapshot.status === 'victory' &&
     (
-      snapshot.depth !== FINAL_DEPTH ||
-      !floor.defeated.includes(`monster-${FINAL_DEPTH}-boss`)
+      snapshot.depth !== STORY_DEPTH ||
+      !floor.defeated.includes(`monster-${STORY_DEPTH}-boss`)
     )
   ) return false;
   return true;
@@ -2287,7 +2335,7 @@ export function hydrateDungeon(snapshot) {
 export function travelRunToDepth(snapshot, depth, arrival = null) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot travel after the run has ended');
-  if (!Number.isInteger(depth) || depth < CITY_DEPTH || depth > FINAL_DEPTH) {
+  if (!Number.isInteger(depth) || depth < CITY_DEPTH || depth > DEEPEST_DEPTH) {
     throw new Error('Travel needs a depth inside the dungeon');
   }
   if (depth === snapshot.depth) return snapshot;
@@ -2313,6 +2361,11 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   floors[String(snapshot.depth)] = snapshot.floor;
   const remembered = floors[String(depth)] ?? null;
   delete floors[String(depth)];
+  // Everything further than the dungeon remembers is let go here, at the one
+  // place a floor ever enters the archive.
+  for (const key of Object.keys(floors)) {
+    if (!withinFloorMemory(Number(key), depth)) delete floors[key];
+  }
   const landing = arrival && isWalkableCell(dungeon.grid, arrival.x, arrival.y)
     ? { x: arrival.x, y: arrival.y }
     : { x: dungeon.spawn.x, y: dungeon.spawn.y };
@@ -2362,7 +2415,9 @@ export function switchRunBranch(snapshot, branch) {
 export function advanceRunFloor(snapshot) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (snapshot.status !== 'playing') throw new Error('Cannot descend after the run has ended');
-  if (snapshot.depth >= FINAL_DEPTH) throw new Error('Final dungeon floor reached');
+  // No bottom: the only floor the ladder refuses is the far bound that exists
+  // so a broken save cannot claim a depth no hand ever reached.
+  if (snapshot.depth >= DEEPEST_DEPTH) throw new Error('Deepest dungeon floor reached');
   const depth = snapshot.depth + 1;
   const dungeon = generateDungeon({
     seed: snapshot.seed,

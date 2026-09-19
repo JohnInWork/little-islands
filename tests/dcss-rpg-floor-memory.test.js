@@ -6,9 +6,10 @@ import {
   ASCENT_PATH,
   CONTENT_PATHS,
 } from '../tools/dcss-rpg-content.js';
-import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { DEEPEST_DEPTH, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import {
+  FLOOR_MEMORY,
   SAVE_VERSION,
   advanceRunFloor,
   createRun,
@@ -57,7 +58,11 @@ test('the archive never holds the floor underfoot, and refuses nonsense', () => 
   run = advanceRunFloor(run);
   assert.equal(validateRun({ ...run, floors: { 2: run.floor } }), false, 'the current floor is not archived');
   assert.equal(validateRun({ ...run, floors: { 0: run.floors['1'] } }), false, 'there is no floor zero');
-  assert.equal(validateRun({ ...run, floors: { 99: run.floors['1'] } }), false, 'nor a floor past the last');
+  assert.equal(
+    validateRun({ ...run, floors: { [DEEPEST_DEPTH + 1]: run.floors['1'] } }),
+    false,
+    'nor a floor past the far bound',
+  );
   assert.equal(validateRun({ ...run, floors: [] }), false, 'the archive is a map, not a list');
   assert.equal(
     validateRun({ ...run, floors: { 1: { ...run.floors['1'], defeated: ['monster-9-0'] } } }),
@@ -73,17 +78,55 @@ test('climbing and descending are the same move in two directions', () => {
   assert.equal(surface.depth, CITY_DEPTH);
   assert.throws(() => retreatRunFloor(surface), /nothing above the city/);
   assert.equal(advanceRunFloor(surface).depth, 1, 'and the gate leads back down');
-  for (let step = 1; step < FINAL_DEPTH; step += 1) run = advanceRunFloor(run);
-  assert.equal(run.depth, FINAL_DEPTH);
-  assert.equal(Object.keys(run.floors).length, FINAL_DEPTH - 1, 'every floor above is remembered');
-  assert.throws(() => advanceRunFloor(run), /Final dungeon floor/);
+  for (let step = 1; step < STORY_DEPTH; step += 1) run = advanceRunFloor(run);
+  assert.equal(run.depth, STORY_DEPTH);
+  // The end of the written road is a door, not a wall: the ladder still goes
+  // down, and it keeps going for as long as anyone survives it.
+  assert.equal(advanceRunFloor(run).depth, STORY_DEPTH + 1);
   assert.equal(validateRun(run), true);
 
   let up = run;
-  for (let step = FINAL_DEPTH; step > 1; step -= 1) up = retreatRunFloor(up);
+  for (let step = STORY_DEPTH; step > 1; step -= 1) up = retreatRunFloor(up);
   assert.equal(up.depth, 1);
-  assert.equal(Object.keys(up.floors).length, FINAL_DEPTH - 1, 'and every floor below on the way back');
   assert.equal(validateRun(up), true);
+});
+
+/**
+ * A floor the hero left keeps its own state, so a dropped sword is still there
+ * when you climb back. With no bottom to the dungeon that promise cannot be
+ * unlimited: a save that grows with every floor ever made eventually stops
+ * being saved at all. So the dungeon remembers the chapter around the hero,
+ * and home.
+ */
+test('the dungeon remembers the chapter around the hero, and the city, and lets the rest go', () => {
+  let run = createRun(7011);
+  run = retreatRunFloor(run);
+  assert.equal(run.depth, CITY_DEPTH);
+  for (let step = 0; step < FLOOR_MEMORY * 2; step += 1) run = advanceRunFloor(run);
+  assert.equal(run.depth, FLOOR_MEMORY * 2);
+
+  const remembered = Object.keys(run.floors).map(Number).sort((a, b) => a - b);
+  assert.ok(remembered.includes(CITY_DEPTH), 'home is always remembered');
+  for (const depth of remembered) {
+    assert.ok(
+      depth === CITY_DEPTH || Math.abs(depth - run.depth) <= FLOOR_MEMORY,
+      `floor ${depth} is further away than the dungeon remembers`,
+    );
+  }
+  assert.ok(
+    remembered.includes(run.depth - 1),
+    'the floor directly above is always there: one step back is never a surprise',
+  );
+  assert.equal(remembered.includes(1), false, 'and the top of the dungeon has re-formed');
+  assert.equal(validateRun(run), true);
+
+  // The archive cannot grow past what the dungeon remembers, however deep it goes.
+  for (let step = 0; step < FLOOR_MEMORY * 4; step += 1) run = advanceRunFloor(run);
+  assert.ok(
+    Object.keys(run.floors).length <= FLOOR_MEMORY * 2 + 1,
+    `the archive grew to ${Object.keys(run.floors).length} floors`,
+  );
+  assert.equal(validateRun(run), true);
 });
 
 test('travelling home and back keeps the floor the hero left', () => {

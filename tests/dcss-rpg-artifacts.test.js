@@ -10,7 +10,9 @@ import {
   PROCEDURAL_ARTIFACT_POWERS,
   artifactCursePresentation,
   eligibleArtifactPowers,
+  artifactDepthOnRoad,
   guaranteedArtifactDepth,
+  owesArtifact,
   materializeProceduralArtifact,
   proceduralArtifactName,
   ARTIFACT_CACHE_VARIANTS,
@@ -38,7 +40,7 @@ import {
   resolveVampiricRecovery,
 } from '../tools/dcss-rpg-magic.js';
 import { itemPowerScore } from '../tools/dcss-rpg-scaling.js';
-import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 test('major powers are a small binary catalog with compatible bases', () => {
   assert.deepEqual(
@@ -83,10 +85,10 @@ test('an artifact is never lying on the floor: it is always inside a cache that 
   let totalArtifacts = 0;
   let runs = 0;
   for (let seed = 1; seed <= 180; seed += 1) {
-    const scheduledDepth = guaranteedArtifactDepth(seed, FINAL_DEPTH);
-    assert.ok(scheduledDepth >= ARTIFACT_MIN_DEPTH && scheduledDepth <= FINAL_DEPTH);
+    const scheduledDepth = guaranteedArtifactDepth(seed, STORY_DEPTH);
+    assert.ok(scheduledDepth >= ARTIFACT_MIN_DEPTH && scheduledDepth <= STORY_DEPTH);
     let runArtifacts = 0;
-    for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
       // The city sells; it does not scatter artifacts on the street.
       if (isCityDepth(depth)) continue;
       const dungeon = generateDungeon({ seed, depth });
@@ -251,4 +253,33 @@ test('runtime connects flight, invisibility and vampirism to movement, AI and co
   assert.match(runtime, /if \(isHeroConcealed\(\)\)[\s\S]*monster\.alerted = 0/);
   assert.match(runtime, /resolveVampiricRecovery\(\{/);
   assert.match(runtime, /vampiric: pending\.vampiric/);
+});
+
+/**
+ * One artefact was owed per run while a run had an end. The descent does not
+ * have one any more, so the debt is owed once per road: floors one to eighteen
+ * owe one, nineteen to thirty-six owe the next, and so on down. A hero who
+ * never leaves is not walking through a desert, and a hero who goes four times
+ * as deep does not collect four times the luck — the schedule is a promise, not
+ * a rate.
+ */
+test('the artefact is promised once per road, however many roads a hero walks', () => {
+  for (let seed = 1; seed <= 300; seed += 1) {
+    for (let road = 0; road < 5; road += 1) {
+      const owed = [];
+      for (let step = 1; step <= STORY_DEPTH; step += 1) {
+        const depth = road * STORY_DEPTH + step;
+        if (owesArtifact(seed, depth, STORY_DEPTH)) owed.push(depth);
+      }
+      assert.equal(owed.length, 1, `seed ${seed}, road ${road}: owed ${owed.length}`);
+      assert.ok(owed[0] >= road * STORY_DEPTH + ARTIFACT_MIN_DEPTH, 'never on the road’s first floor');
+    }
+    // And the second road does not repeat the first one's floor for everyone.
+    assert.equal(owesArtifact(seed, 0, STORY_DEPTH), false, 'the city owes nothing');
+    assert.equal(owesArtifact(seed, 1, STORY_DEPTH), false, 'nor does the first floor');
+  }
+  const secondRoadFloors = new Set(
+    Array.from({ length: 300 }, (_v, index) => artifactDepthOnRoad(index + 1, STORY_DEPTH + 1, STORY_DEPTH)),
+  );
+  assert.ok(secondRoadFloors.size > 8, 'every hero would find the second one on the same floor');
 });

@@ -133,6 +133,12 @@ function terminalRuntime({ victory = false } = {}) {
     showLootToast: () => {},
     updateHud: () => {},
     showRunEndScreen: () => {},
+    // Past the stair block the frame carries on through the rest of the world;
+    // these keep it quiet without dragging the whole dungeon in.
+    passiveCreatures: [],
+    descents: 0,
+    descendFloor() { context.descents += 1; },
+    isCityDepth: () => false,
   });
   installFunctions(context, ['updateHero', 'resolveWorldInteractions', 'damageHero', 'completeVictory']);
   return context;
@@ -151,14 +157,20 @@ test('an actual trap resolving inside updateHero cannot restart attacks after ki
   assert.equal(context.detectedTrapIds.has('event-1-0'), true);
 });
 
-test('victory resolving inside updateHero also stops the remainder of that combat frame', () => {
+/**
+ * Standing on the last stair with the warden down used to end the run then and
+ * there. It is a fork now — the panel asks whether the artefact ends the run or
+ * the stair keeps going — and the thing to guard is that walking onto the tile
+ * answers nothing on the hero's behalf.
+ */
+test('the last stair asks instead of ending the run under the hero', () => {
   const context = terminalRuntime({ victory: true });
-  context.updateHero(0.016);
-  assert.equal(context.runStatus, 'victory');
+  // The stair block itself, not the whole combat frame: victory no longer
+  // resolves inside a frame at all, so there is nothing further to stop.
+  context.resolveWorldInteractions();
+  assert.equal(context.runStatus, 'playing', 'the stair decided for the hero');
   assert.equal(context.hero.dead, false);
-  assert.equal(context.hero.attack, 0);
-  assert.equal(context.hero.pendingAttack, null);
-  assert.equal(context.projectiles.length, 0);
+  assert.equal(context.descents, 0, 'and it did not walk them down either');
 });
 
 const hazardOrigin = { x: 1, y: 2 };

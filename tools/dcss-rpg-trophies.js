@@ -25,8 +25,13 @@
 import { BRANCH_CHAPTER_GUARDIANS } from './dcss-rpg-run.js';
 import { runEndSourceName } from './dcss-rpg-run-summary.js';
 
-/** What a first kill is worth, by the depth the guardian holds. */
-export const TROPHY_BOUNTY = Object.freeze({ 3: 40, 6: 80, 9: 150 });
+/**
+ * What a first kill is worth, by how deep into the run the guardian stands —
+ * first, second, third. Keyed by the rung rather than by the floor number, so
+ * a longer chapter moves the guardians without moving the prices.
+ */
+export const TROPHY_BOUNTY = Object.freeze([40, 80, 150]);
+export const TROPHY_DEEPEST_BOUNTY = TROPHY_BOUNTY.at(-1);
 
 /**
  * Every guardian in the game, with the road it stands on. Derived from the run
@@ -34,12 +39,13 @@ export const TROPHY_BOUNTY = Object.freeze({ 3: 40, 6: 80, 9: 150 });
  */
 export const GUARDIAN_TROPHIES = Object.freeze(
   Object.entries(BRANCH_CHAPTER_GUARDIANS).flatMap(([branch, guardians]) => (
-    guardians.map((guardian) => Object.freeze({
+    guardians.map((guardian, rung) => Object.freeze({
       id: guardian.monsterId,
       branch,
       depth: guardian.depth,
+      rung,
       final: guardian.final === true,
-      bounty: TROPHY_BOUNTY[guardian.depth] ?? 40,
+      bounty: TROPHY_BOUNTY[rung] ?? TROPHY_DEEPEST_BOUNTY,
     }))
   )),
 );

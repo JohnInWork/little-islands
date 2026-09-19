@@ -15,11 +15,11 @@ import {
   itemPowerScore,
   monsterTier,
 } from '../tools/dcss-rpg-scaling.js';
-import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
 
 test('one versioned floor profile owns every progression axis', () => {
   const shallow = floorScaling(1);
-  const final = floorScaling(FINAL_DEPTH);
+  const final = floorScaling(STORY_DEPTH);
   const endless = floorScaling(24);
 
   assert.equal(shallow.version, SCALING_VERSION);
@@ -76,10 +76,10 @@ test('the curve is monotonic and bounded across future floors', () => {
 });
 
 test('one persisted difficulty value scales the complete combat pressure', () => {
-  assert.equal(floorScaling(FINAL_DEPTH).difficulty, DEFAULT_DIFFICULTY);
-  const relaxed = floorScaling(FINAL_DEPTH, SCALING_VERSION, 0.7);
-  const normal = floorScaling(FINAL_DEPTH, SCALING_VERSION, 1);
-  const brutal = floorScaling(FINAL_DEPTH, SCALING_VERSION, 1.4);
+  assert.equal(floorScaling(STORY_DEPTH).difficulty, DEFAULT_DIFFICULTY);
+  const relaxed = floorScaling(STORY_DEPTH, SCALING_VERSION, 0.7);
+  const normal = floorScaling(STORY_DEPTH, SCALING_VERSION, 1);
+  const brutal = floorScaling(STORY_DEPTH, SCALING_VERSION, 1.4);
 
   assert.ok(relaxed.encounters.threatBudget < normal.encounters.threatBudget);
   assert.ok(brutal.encounters.threatBudget > normal.encounters.threatBudget);
@@ -175,4 +175,62 @@ test('generated floors expose the same profile used for monsters and loot', () =
 
   assert.ok(MONSTER_CATALOG.every((monster) => monsterTier(monster) >= 1));
   assert.ok(LOOT_CATALOG.every((item) => effectiveLootDepth(item) >= 1));
+});
+
+/**
+ * The descent has no bottom, so the curve has to answer a question it never had
+ * to before: what happens on floor ninety?
+ *
+ * Two different answers, and keeping them apart is the whole design. The
+ * NUMBERS — hp, damage, experience — keep climbing, because an endless descent
+ * has to kill you eventually and how far down that happened is the score. The
+ * TEMPO — how fast a creature moves, how often it strikes, how long it winds up,
+ * how far it chases — stops at the pace the game was tuned at. A monster eleven
+ * times faster than the hero is not difficult, it is unreadable: you cannot
+ * flee it, kite it or see it swing, and the floor stops being a fight.
+ */
+test('past the road the numbers keep climbing and the tempo does not', () => {
+  const end = floorScaling(STORY_DEPTH).monsters;
+  const far = floorScaling(STORY_DEPTH * 5).monsters;
+
+  for (const knob of ['moveSpeedMultiplier', 'attackRateMultiplier', 'visionBonus', 'windupReduction', 'pursuitBonus']) {
+    assert.equal(far[knob], end[knob], `${knob} kept climbing past the end of the road`);
+  }
+  for (const knob of ['hpMultiplier', 'damageMultiplier', 'xpMultiplier']) {
+    assert.ok(far[knob] > end[knob] * 2, `${knob} stopped growing`);
+  }
+
+  // And the tempo rises the whole way there — a ceiling is not a flat line.
+  let previous = 0;
+  for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
+    const speed = floorScaling(depth).monsters.moveSpeedMultiplier;
+    assert.ok(speed > previous, `floor ${depth} is no faster than the one above`);
+    previous = speed;
+  }
+  // A creature never outruns the hero by more than it did at the tuned ending.
+  assert.ok(end.moveSpeedMultiplier < 2.5, `the ceiling drifted to ${end.moveSpeedMultiplier}`);
+  // The telegraph survives at any depth: a windup that reads is the whole of
+  // this game's combat.
+  assert.ok(far.windupReduction < 0.2, `the swing telegraph is gone: -${far.windupReduction}s`);
+});
+
+/**
+ * The road doubled in length because a place needs longer than three floors to
+ * feel like a place — not because the game should be twice as hard. So the
+ * climb is stretched over the whole road instead of steepened: the last floor
+ * of the new road is the last floor of the tuned nine-floor one.
+ */
+test('a longer road stretches the climb instead of steepening it', () => {
+  const tuned = floorScaling(9, 2).monsters;
+  const ending = floorScaling(STORY_DEPTH).monsters;
+  for (const knob of Object.keys(tuned)) {
+    assert.equal(ending[knob], tuned[knob], `${knob} ends somewhere else than the tuned run did`);
+  }
+  // And the first floor is untouched: the game starts where it always started.
+  assert.deepEqual(floorScaling(1).monsters, floorScaling(1, 2).monsters);
+  // Version two is a promise about the past and does not move when the road
+  // does: its chapters stay three floors long, whatever a chapter is now.
+  assert.equal(floorScaling(3, 2).chapterEnd, true);
+  assert.equal(floorScaling(3).chapterEnd, false, 'a chapter is six floors now');
+  assert.equal(floorScaling(FLOORS_PER_CHAPTER).chapterEnd, true);
 });

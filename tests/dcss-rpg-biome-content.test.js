@@ -20,6 +20,7 @@ import {
 } from '../tools/dcss-rpg-content.js';
 import { DUNGEON_THEME_CATALOG } from '../tools/dcss-rpg-room-plans.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
+import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 const kinOf = new Map(MONSTER_CATALOG.map((monster) => [monster.id, monster.kin]));
 const itemOf = new Map(LOOT_CATALOG.map((item) => [item.id, item]));
@@ -27,11 +28,12 @@ const itemOf = new Map(LOOT_CATALOG.map((item) => [item.id, item]));
 /** One sweep, reused by every measurement below; generation is seeded, so it is stable. */
 const survey = (() => {
   const themes = new Map();
-  // The whole run, not a slice of it: a dragon is tier six and never turns up
-  // on a shallow floor, so a sweep that skips the deep ones would report an
-  // empty place where there is only a shallow sample.
-  for (let seed = 1; seed <= 260; seed += 1) {
-    for (let depth = 1; depth <= 9; depth += 1) {
+  // The whole road, not a slice of it: a dragon is tier six and never turns up
+  // on a shallow floor, so a sweep that stops halfway would report an empty
+  // place where there is only a shallow sample. The seed count is halved as
+  // the road doubles, so the sample size stays what it was measured at.
+  for (let seed = 1; seed <= 130; seed += 1) {
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
       for (const branch of RUN_BRANCHES) {
       const dungeon = generateDungeon({ seed, depth, branch });
       const entry = themes.get(dungeon.themeId)
@@ -102,7 +104,7 @@ test('an item is sorted by what it is for', () => {
 });
 
 test('the place decides who lives there', () => {
-  // The numbers are shares of spawned monsters over 800 generated floors.
+  // The numbers are shares of spawned monsters over the sweep above.
   assert.ok(
     kinShare('buried-sanctum', 'undead') > kinShare('ashen-vault', 'undead') * 2.5,
     'a sanctum is full of what was buried in it',

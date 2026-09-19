@@ -41,6 +41,8 @@ const ACTION_COPY = Object.freeze({
     goDeep: 'Вниз, в пещеры',
     goSurface: 'Наружу, за ворота',
     retire: 'Уйти с добычей',
+    claim: 'Забрать артефакт',
+    descend: 'Идти глубже',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -80,6 +82,8 @@ const ACTION_COPY = Object.freeze({
     serve: 'Serve your time',
     goDeep: 'Down into the caves',
     goSurface: 'Out through the gate',
+    claim: 'Take the artefact',
+    descend: 'Go deeper',
     retire: 'Walk away with the haul',
   }),
 });
@@ -124,6 +128,8 @@ const GLYPHS = Object.freeze({
   goDeep: '▼',
   goSurface: '▲',
   retire: '◆',
+  claim: '◆',
+  descend: '▼',
 });
 
 const COPY = Object.freeze({
@@ -171,6 +177,10 @@ const COPY = Object.freeze({
     gateName: 'Развилка',
     gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под открытое небо — или домой, с тем, что уже унёс.',
     retireStake: (gold) => `Унесёшь ${gold}●`,
+    roadEndName: 'Конец написанной дороги',
+    roadEndDescription: 'Страж пал, артефакт твой. Но лестница идёт дальше, и никто не знает, куда.',
+    roadEndClaim: 'Забег закончен победой',
+    roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -220,6 +230,10 @@ const COPY = Object.freeze({
     gateName: 'The fork',
     gateDescription: 'Three roads from here. Caves below, open sky beyond the gate — or home, with what you already carry.',
     retireStake: (gold) => `You bank ${gold}●`,
+    roadEndName: 'The end of the written road',
+    roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
+    roadEndClaim: 'The run ends in victory',
+    roadEndDeeper: 'This stair does not carry anyone back up',
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -409,6 +423,30 @@ export const INTERACTION_REGISTRY = Object.freeze([
           enabled: target.canRetire === true,
           hint: target.canRetire === true ? copy.retireStake(target.purse ?? 0) : '',
         },
+      ],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * The one place the dungeon asks instead of deciding.
+     *
+     * The warden at the end of the written road used to end the run by being
+     * dead: you stepped on the stair and the credits rolled, whether or not
+     * that was what you wanted. It is a door now. Taking the artefact is a
+     * victory and stops there; walking past it is the rest of the dungeon,
+     * which has no bottom and no second artefact waiting at a known depth.
+     */
+    id: 'road-end',
+    command: 'road-end',
+    matches: (target) => target?.kind === 'road-end',
+    present: ({ target, copy }) => ({
+      name: copy.roadEndName,
+      description: copy.roadEndDescription,
+      icon: 'item/misc/misc_orb2.png',
+      accent: '#d83e82',
+      actions: [
+        { id: 'claim', hint: copy.roadEndClaim },
+        { id: 'descend', hint: copy.roadEndDeeper },
       ],
     }),
   }),

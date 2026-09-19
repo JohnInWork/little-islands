@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { DEEPEST_DEPTH } from '../tools/dcss-rpg-run.js';
+
 import {
   HOME_STONE_ITEM_ID,
   HOUSE_FURNITURE,
@@ -173,7 +175,7 @@ test('save v47 keeps the deed through descents, travel and migration', () => {
   const travelled = travelRunToDepth(deeper, cityDepth, null);
   assert.equal(travelled.depth, cityDepth);
   assert.equal(validateRun(travelled), true);
-  assert.throws(() => travelRunToDepth(deeper, 99), /inside the dungeon/);
+  assert.throws(() => travelRunToDepth(deeper, DEEPEST_DEPTH + 1), /inside the dungeon/);
 
   const legacy = structuredClone(createRun(4102));
   legacy.version = 40;

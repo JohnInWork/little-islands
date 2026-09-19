@@ -27,7 +27,7 @@ test('every guardian on every road has exactly one trophy', () => {
       assert.ok(trophy, `${guardian.monsterId} has no trophy`);
       assert.equal(trophy.branch, branch);
       assert.equal(trophy.depth, guardian.depth);
-      assert.equal(trophy.bounty, TROPHY_BOUNTY[guardian.depth]);
+      assert.equal(trophy.bounty, TROPHY_BOUNTY[trophy.rung]);
       assert.ok(trophy.bounty > 0);
     }
   }
@@ -37,7 +37,7 @@ test('every guardian on every road has exactly one trophy', () => {
 test('a first kill pays, and every kill after it pays nothing', () => {
   const first = claimTrophy([], 'grove-warden');
   assert.ok(first.ok);
-  assert.equal(first.bounty, TROPHY_BOUNTY[3]);
+  assert.equal(first.bounty, TROPHY_BOUNTY[0]);
   assert.deepEqual(first.taken, ['grove-warden']);
 
   const again = claimTrophy(first.taken, 'grove-warden');
@@ -48,7 +48,7 @@ test('a first kill pays, and every kill after it pays nothing', () => {
 
   // The deepest guardian is worth more than the first one, or the grid gives no
   // reason to go past floor three.
-  assert.ok(TROPHY_BOUNTY[9] > TROPHY_BOUNTY[6] && TROPHY_BOUNTY[6] > TROPHY_BOUNTY[3]);
+  assert.ok(TROPHY_BOUNTY[2] > TROPHY_BOUNTY[1] && TROPHY_BOUNTY[1] > TROPHY_BOUNTY[0]);
   assert.equal(claimTrophy([], 'a-passing-rat').reason, 'not-a-guardian');
 });
 

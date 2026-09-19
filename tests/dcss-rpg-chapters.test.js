@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { STORY_CHAPTERS, CHAPTER_END_DEPTHS } from '../tools/dcss-rpg-run.js';
+
 import { isCityDepth } from '../tools/dcss-rpg-city.js';
 
 import { MONSTER_CATALOG, monsterById } from '../tools/dcss-rpg-content.js';
 import { generateDungeon, isWalkableCell } from '../tools/dcss-rpg-core.js';
-import { FLOORS_PER_CHAPTER, FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { FLOORS_PER_CHAPTER, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { RUN_END_SOURCE_NAMES } from '../tools/dcss-rpg-run-summary.js';
 import { floorScaling, monsterEligibleForFloor } from '../tools/dcss-rpg-scaling.js';
 import { ACTOR_EFFECT_IDS } from '../tools/dcss-rpg-effects.js';
@@ -40,14 +42,14 @@ test('every chapter past the first has one signature creature with a mechanic of
 });
 
 test('a signature creature belongs to its chapter alone and never joins the shared pool', () => {
-  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+  for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
     const scaling = floorScaling(depth);
     for (const monster of signatures) {
       assert.equal(monsterEligibleForFloor(monster, scaling), false, `${monster.id} stays out of the pool`);
     }
   }
   const seen = new Map();
-  for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+  for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
     // The city is not a chapter floor: no signature creature lives there.
     if (isCityDepth(depth)) continue;
     for (let seed = 1; seed <= 40; seed += 1) {
@@ -83,10 +85,11 @@ test('each chapter breathes its own air', () => {
   // the three chapters of a run never breathe the same air — not that floor one
   // is always ash.
   for (const seed of [0, 5, 31, 404]) {
-    const chapters = [1, 5, 7].map((depth) => chapterWeather(dungeonThemeFor(seed, depth).atmosphereId));
+    // One floor from each chapter, wherever the chapter boundaries happen to be.
+    const chapters = CHAPTER_END_DEPTHS.map((depth) => chapterWeather(dungeonThemeFor(seed, depth).atmosphereId));
     assert.equal(
       new Set(chapters.map(({ driftX, driftY }) => `${driftX}:${driftY}`)).size,
-      3,
+      STORY_CHAPTERS,
       `seed ${seed}: two chapters share a wind`,
     );
   }

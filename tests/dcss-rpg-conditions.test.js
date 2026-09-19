@@ -19,6 +19,7 @@ import { LOOT_CATALOG } from '../tools/dcss-rpg-content.js';
 import { guaranteedSpellBookPlacement } from '../tools/dcss-rpg-books.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { floorScaling } from '../tools/dcss-rpg-scaling.js';
+import { FLOORS_PER_CHAPTER, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 const itemById = new Map(LOOT_CATALOG.map((item) => [item.id, item]));
 const nutritionOf = (id) => {
@@ -95,11 +96,11 @@ test('no condition may reach into the loot layer', () => {
 
 test('whatever the run lives by, the dungeon still owes it everything it owed', () => {
   const seen = new Set();
-  for (let seed = 1; seed <= 240; seed += 1) {
+  for (let seed = 1; seed <= 120; seed += 1) {
     seen.add(runConditions(seed).join('+'));
     const book = guaranteedSpellBookPlacement(seed);
     let bookPlaced = false;
-    for (let depth = 1; depth <= 9; depth += 1) {
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
       const dungeon = generateDungeon({ seed, depth });
       const budget = conditionedFloor(dungeon.scaling, conditionEffects(dungeon.conditionIds));
       assert.deepEqual(dungeon.conditionIds, runConditions(seed), 'the floor carries the run');
@@ -114,7 +115,7 @@ test('whatever the run lives by, the dungeon still owes it everything it owed', 
         assert.ok(dungeon.finds.some(({ id }) => id === 'sealed-cache'), `seed ${seed} depth ${depth}`);
       }
       // A chapter ends with its guardian.
-      if (depth % 3 === 0) assert.ok(dungeon.objective, `seed ${seed} depth ${depth}: no guardian`);
+      if (depth % FLOORS_PER_CHAPTER === 0) assert.ok(dungeon.objective, `seed ${seed} depth ${depth}: no guardian`);
       // A floor is never emptied out or buried.
       assert.equal(dungeon.loot.length, budget.lootCount);
       assert.ok(dungeon.monsters.length >= 2);

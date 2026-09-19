@@ -25,22 +25,35 @@ import {
   fogAnchorsForDungeon,
 } from '../tools/dcss-rpg-visuals.js';
 import { dungeonThemeFor } from '../tools/dcss-rpg-room-plans.js';
+import { FLOORS_PER_CHAPTER, STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 
 const biomeAt = (seed, depth) => biomeThemeFor(dungeonThemeFor(seed, depth).id);
 
-test('a chapter keeps one place for three floors, but which place is the run\'s own', () => {
+test('a chapter keeps one place for a whole chapter, and the places never run out', () => {
+  // Where each chapter starts, well past the end of the written road: the
+  // descent does not stop there, so neither does this.
+  const chapterStarts = Array.from({ length: 12 }, (_c, index) => index * FLOORS_PER_CHAPTER + 1);
   for (const seed of [1, 7, 42, 4242]) {
-    // Three floors of one place, then somewhere else: the chapter is still a
-    // chapter, it simply is not the same chapter every run.
-    for (const first of [1, 4, 7]) {
+    // One place for the whole chapter, then somewhere else: a chapter is still
+    // a chapter, it simply is not the same chapter every run.
+    for (const first of chapterStarts) {
       const chapter = biomeAt(seed, first);
-      assert.equal(biomeAt(seed, first + 1), chapter, `seed ${seed}, floor ${first + 1}`);
-      assert.equal(biomeAt(seed, first + 2), chapter, `seed ${seed}, floor ${first + 2}`);
+      for (let step = 1; step < FLOORS_PER_CHAPTER; step += 1) {
+        assert.equal(biomeAt(seed, first + step), chapter, `seed ${seed}, floor ${first + step}`);
+      }
+      // And the next chapter is somewhere else, every time, for as long as
+      // anybody keeps going down.
+      assert.notEqual(
+        biomeAt(seed, first + FLOORS_PER_CHAPTER).id,
+        chapter.id,
+        `seed ${seed}: floor ${first + FLOORS_PER_CHAPTER} is the same place again`,
+      );
     }
-    // A run shows three places and never the same one twice: sixteen themes,
-    // three chapters, so most of the world stays behind on any given run.
-    const met = new Set([1, 4, 7].map((depth) => biomeAt(seed, depth).id));
-    assert.equal(met.size, 3, `seed ${seed} repeats a place`);
+    // The written road shows three places and never the same one twice:
+    // sixteen themes, three chapters, so most of the world stays behind.
+    const road = chapterStarts.filter((depth) => depth <= STORY_DEPTH);
+    const met = new Set(road.map((depth) => biomeAt(seed, depth).id));
+    assert.equal(met.size, road.length, `seed ${seed} repeats a place on the road`);
   }
   // The surface is never shuffled: the town is the town.
   assert.equal(biomeThemeFor('gate-town').id, 'gate-town');
@@ -51,7 +64,9 @@ test('every place the game ships is actually met, the infernal core included', (
   const openings = new Set();
   for (const branch of RUN_BRANCHES) {
     for (let seed = 0; seed < 400; seed += 1) {
-      for (const depth of [1, 4, 7]) met.add(dungeonThemeFor(seed, depth, branch).surfaceSetId);
+      for (let depth = 1; depth <= STORY_DEPTH; depth += FLOORS_PER_CHAPTER) {
+        met.add(dungeonThemeFor(seed, depth, branch).surfaceSetId);
+      }
       openings.add(dungeonThemeFor(seed, 1, branch).surfaceSetId);
     }
   }

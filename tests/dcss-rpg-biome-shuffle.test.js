@@ -4,7 +4,7 @@ import test from 'node:test';
 import { RUN_BRANCHES } from '../tools/dcss-rpg-content.js';
 
 import { environmentThemeFor } from '../tools/dcss-rpg-room-plans.js';
-import { FINAL_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH, FLOORS_PER_CHAPTER } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
@@ -34,7 +34,7 @@ test('the shuffle is a permutation, not a reshuffle that loses things', () => {
 
 test('one seed, one world: the same run always meets the same places', () => {
   for (const seed of [0, 1, 99, 65535]) {
-    for (let depth = 1; depth <= FINAL_DEPTH; depth += 1) {
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
       assert.equal(dungeonThemeFor(seed, depth), dungeonThemeFor(seed, depth));
       // And the floor carries the answer, so nothing downstream recomputes it.
       assert.equal(generateDungeon({ seed, depth }).themeId, dungeonThemeFor(seed, depth).id);
@@ -49,7 +49,7 @@ test('every theme the game ships gets played, and no run sees them all', () => {
     const openings = new Set();
     for (let seed = 0; seed < 400; seed += 1) {
       const chapters = [];
-      for (let depth = 1; depth <= FINAL_DEPTH; depth += FLOORS_PER_CHAPTER) {
+      for (let depth = 1; depth <= STORY_DEPTH; depth += FLOORS_PER_CHAPTER) {
         chapters.push(dungeonThemeFor(seed, depth, branch).id);
       }
       for (const id of chapters) met.add(id);
@@ -69,9 +69,9 @@ test('the surface is not shuffled, and a floor keeps its place for a whole chapt
   for (const seed of [2, 8, 77]) {
     assert.equal(dungeonThemeFor(seed, CITY_DEPTH).id, 'gate-town');
     assert.equal(generateDungeon({ seed, depth: CITY_DEPTH }).themeId, 'gate-town');
-    for (let first = 1; first <= FINAL_DEPTH; first += FLOORS_PER_CHAPTER) {
+    for (let first = 1; first <= STORY_DEPTH; first += FLOORS_PER_CHAPTER) {
       const chapter = dungeonThemeFor(seed, first);
-      for (let step = 1; step < FLOORS_PER_CHAPTER && first + step <= FINAL_DEPTH; step += 1) {
+      for (let step = 1; step < FLOORS_PER_CHAPTER && first + step <= STORY_DEPTH; step += 1) {
         assert.equal(dungeonThemeFor(seed, first + step), chapter, `seed ${seed}, floor ${first + step}`);
       }
     }
@@ -82,7 +82,7 @@ test('the surface is not shuffled, and a floor keeps its place for a whole chapt
 
 test('the whole floor agrees on where it is: surfaces, rooms and finds', () => {
   for (let seed = 1; seed <= 80; seed += 1) {
-    const depth = 1 + (seed % FINAL_DEPTH);
+    const depth = 1 + (seed % STORY_DEPTH);
     const dungeon = generateDungeon({ seed, depth });
     const theme = dungeonThemeById(dungeon.themeId);
     assert.ok(theme, `seed ${seed}: floor ${depth} has no theme`);

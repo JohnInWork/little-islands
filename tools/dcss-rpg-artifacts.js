@@ -15,6 +15,21 @@ export const ARTIFACT_CACHE_VARIANTS = Object.freeze(['locked', 'trapped', 'curs
 /** The first floor teaches; it does not hand out the run's best item. */
 export const ARTIFACT_MIN_DEPTH = 2;
 
+/** Keeps each road's artefact on its own floor instead of the same one twice. */
+const ROAD_SALT = 7919;
+
+/** The road length the per-cache odds below were measured on. */
+const MEASURED_ROAD = 9;
+
+/**
+ * How much luck a whole road is allowed to hand out beyond its promise, and
+ * the most any single cache may carry. Measured, not guessed: at this value a
+ * clear majority of roads end with exactly the one artefact they were owed and
+ * the average stays well under two — see the sweep in the artefact tests.
+ */
+const ARTIFACT_ROAD_LUCK = 0.38;
+const ARTIFACT_LUCK_CAP = 0.14;
+
 export function cacheCanHoldArtifact({ depth, cacheVariant } = {}) {
   return Number.isInteger(depth)
     && depth >= ARTIFACT_MIN_DEPTH
@@ -163,17 +178,44 @@ export function eligibleArtifactPowers(item) {
   ));
 }
 
-export function guaranteedArtifactDepth(seed, finalDepth = 3) {
+export function guaranteedArtifactDepth(seed, roadLength = 3) {
   if (!Number.isInteger(seed) || seed < 0) throw new TypeError('Artifact schedule requires a seed');
-  if (!Number.isInteger(finalDepth) || finalDepth < 1) {
-    throw new TypeError('Artifact schedule requires a positive final depth');
+  if (!Number.isInteger(roadLength) || roadLength < 1) {
+    throw new TypeError('Artifact schedule requires a positive road length');
   }
-  if (finalDepth === 1) return 1;
-  const firstEligibleDepth = Math.min(2, finalDepth);
+  if (roadLength === 1) return 1;
+  const firstEligibleDepth = Math.min(2, roadLength);
   // Every floor of the dungeon can hold the promised artifact: the city is not
   // one of them any more, it is the surface above the ladder.
-  const span = finalDepth - firstEligibleDepth + 1;
+  const span = roadLength - firstEligibleDepth + 1;
   return firstEligibleDepth + (stableHash('artifact-depth-v1', seed) % span);
+}
+
+/**
+ * The promise repeats. One artefact was owed per run while a run had an end;
+ * now that the descent does not, the debt is owed once per road — floors one
+ * to eighteen owe one, nineteen to thirty-six owe the next, and so on down.
+ * A hero who never leaves is not walking through a desert, and a hero who
+ * goes twice as deep does not get twice the luck: the schedule is a promise,
+ * not a rate.
+ */
+export function artifactDepthOnRoad(seed, depth, roadLength = 3) {
+  if (!Number.isInteger(depth) || depth < 1) {
+    throw new TypeError('Artifact schedule requires a positive depth');
+  }
+  const road = Math.floor((depth - 1) / roadLength);
+  // A different draw for each road, from the same run seed: the second artefact
+  // is not on the same floor of its road as the first was of hers.
+  return road * roadLength + guaranteedArtifactDepth(seed + road * ROAD_SALT, roadLength);
+}
+
+/**
+ * Does this floor owe the run an artefact? Any floor can be asked, including
+ * the surface: the city is depth zero and its answer is simply no.
+ */
+export function owesArtifact(seed, depth, roadLength = 3) {
+  if (!Number.isInteger(depth) || depth < ARTIFACT_MIN_DEPTH) return false;
+  return depth === artifactDepthOnRoad(seed, depth, roadLength);
 }
 
 function validateRoll({ seed, depth, item, instanceId, rate }) {
@@ -232,6 +274,7 @@ export function rollCacheArtifact({
   items,
   guaranteed = false,
   rate = DEFAULT_ARTIFACT_RATE,
+  roadLength = MEASURED_ROAD,
 } = {}) {
   if (!Array.isArray(items)) throw new TypeError('Cache artifact roll requires container items');
   if (typeof findId !== 'string' || findId.length === 0) {
@@ -246,10 +289,16 @@ export function rollCacheArtifact({
     depth,
     findId,
   ));
-  // One artefact is promised per run; anything beyond it should feel like luck,
-  // not like a schedule. Across eight eligible floors these odds add up to about
-  // half an extra artefact, so most runs end with one and some with two.
-  const cacheChance = Math.min(0.14, (0.015 + Math.min(12, depth) * 0.006) * rate);
+  // One artefact is promised per road; anything beyond it should feel like luck,
+  // not like a schedule. So the odds are a share of one fixed budget spread
+  // along the road, weighted toward its deep end — a longer road spreads the
+  // same luck over more floors instead of quietly handing out more of it.
+  const floorOnRoad = ((depth - 1) % roadLength) + 1;
+  const eligibleFloors = Math.max(1, roadLength - ARTIFACT_MIN_DEPTH + 1);
+  const rung = Math.max(1, floorOnRoad - ARTIFACT_MIN_DEPTH + 1);
+  // Triangular: the shares rise with depth and sum to one across the road.
+  const share = (2 * rung) / (eligibleFloors * (eligibleFloors + 1));
+  const cacheChance = Math.min(ARTIFACT_LUCK_CAP, ARTIFACT_ROAD_LUCK * share * rate);
   if (!guaranteed && random() >= cacheChance) return null;
   const itemIndex = eligibleIndexes[Math.floor(random() * eligibleIndexes.length)];
   const item = items[itemIndex];

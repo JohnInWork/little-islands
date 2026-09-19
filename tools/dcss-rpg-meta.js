@@ -14,6 +14,7 @@ import {
   validateBonesRecord,
 } from './dcss-rpg-bones.js';
 import { createTrophyState } from './dcss-rpg-trophies.js';
+import { DEEPEST_DEPTH, STORY_DEPTH } from './dcss-rpg-run.js';
 
 export const META_KEY = 'dng-codex:meta:v1';
 export const META_VERSION = 1;
@@ -60,14 +61,28 @@ export const MILESTONES = Object.freeze([
   Object.freeze({
     id: 'the-deep',
     labels: Object.freeze({ ru: 'Дно', en: 'The deep' }),
-    hints: Object.freeze({ ru: 'Дойти до девятого этажа', en: 'Reach the ninth floor' }),
-    reached: (run) => run.depth >= 9,
+    hints: Object.freeze({
+      ru: `Дойти до ${STORY_DEPTH}-го этажа`,
+      en: `Reach floor ${STORY_DEPTH}`,
+    }),
+    reached: (run) => run.depth >= STORY_DEPTH,
   }),
   Object.freeze({
     id: 'victor',
     labels: Object.freeze({ ru: 'Победитель', en: 'Victor' }),
     hints: Object.freeze({ ru: 'Завершить забег победой', en: 'Finish a run in victory' }),
     reached: (run) => run.status === 'victory',
+  }),
+  // The road ends and the dungeon does not. This is the milestone that says so:
+  // there is no screen anywhere else that admits there is more below.
+  Object.freeze({
+    id: 'past-the-map',
+    labels: Object.freeze({ ru: 'За краем карты', en: 'Past the map' }),
+    hints: Object.freeze({
+      ru: `Спуститься ниже ${STORY_DEPTH}-го этажа`,
+      en: `Go below floor ${STORY_DEPTH}`,
+    }),
+    reached: (run) => run.depth > STORY_DEPTH,
   }),
 ]);
 
@@ -122,7 +137,9 @@ export function recordBones(meta, record) {
 
 function normalizedRecord(record) {
   if (!record || typeof record !== 'object') return null;
-  const depth = boundedCount(record.depth, 99);
+  // A depth record is not clipped: the descent has no bottom, so neither does
+  // the number it writes down.
+  const depth = boundedCount(record.depth, DEEPEST_DEPTH);
   // Three ways to end, and the table keeps them apart: winning, walking away
   // with the purse, and dying. Anything else on disk is a death.
   const status = ['victory', 'retired'].includes(record.status) ? record.status : 'dead';
@@ -139,12 +156,20 @@ function normalizedRecord(record) {
   };
 }
 
-/** Best is depth first, then what the hero did on the way: kills, then gold. */
+/**
+ * Best is how deep you got, and only then how it ended.
+ *
+ * While the run had a bottom, «won» beat every number: there was one road and
+ * finishing it was the top of the table. Now the road goes on, so a hero who
+ * walked out of floor forty did something a victory on floor eighteen did not,
+ * and a table that still put the victory first would be telling the player not
+ * to bother going deeper.
+ */
 const RUN_RANK = Object.freeze({ victory: 0, retired: 1, dead: 2 });
 
 export function compareRuns(left, right) {
-  if (left.status !== right.status) return RUN_RANK[left.status] - RUN_RANK[right.status];
   if (left.depth !== right.depth) return right.depth - left.depth;
+  if (left.status !== right.status) return RUN_RANK[left.status] - RUN_RANK[right.status];
   if (left.kills !== right.kills) return right.kills - left.kills;
   if (left.gold !== right.gold) return right.gold - left.gold;
   return left.seconds - right.seconds;
@@ -281,6 +306,9 @@ const COPY = Object.freeze({
   }),
 });
 
+/** The sign a row carries: won it, walked out of it, or died in it. */
+const RUN_MARKS = Object.freeze({ victory: '◆', retired: '▲', dead: '✝' });
+
 export function metaCopy(language = 'ru') {
   return COPY[language === 'en' ? 'en' : 'ru'];
 }
@@ -305,7 +333,11 @@ export function metaModel(meta, language = 'ru', date = new Date()) {
     dailySeed: dailySeed(date),
     best: Object.freeze(state.best.map((record, index) => Object.freeze({
       place: index + 1,
-      depth: record.status === 'victory' ? copy.victory : copy.floor(record.depth),
+      // Every row says which floor, victory included: hiding the number behind
+      // the word «victory» made the one ending you cannot compare to the rest.
+      depth: copy.floor(record.depth),
+      status: record.status,
+      mark: RUN_MARKS[record.status] ?? '',
       kills: record.kills,
       gold: record.gold,
       time: formatSeconds(record.seconds),

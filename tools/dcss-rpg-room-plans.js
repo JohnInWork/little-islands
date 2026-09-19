@@ -1,4 +1,4 @@
-import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
+import { FLOORS_PER_CHAPTER, FLOORS_PER_MERCHANT } from './dcss-rpg-run.js';
 import { isCityDepth } from './dcss-rpg-city.js';
 
 export { FLOORS_PER_CHAPTER };
@@ -752,9 +752,9 @@ function semanticArchetypes(level) {
     );
   }
 
-  // One service stop per chapter. It prefers a real door room and then the
+  // One service stop every few floors. It prefers a real door room and then the
   // calmest free alcove, so a rare map topology never loses its merchant.
-  if (level.depth % FLOORS_PER_CHAPTER === 0) {
+  if (level.depth % FLOORS_PER_MERCHANT === 0) {
     const fallbackRank = (roomIndex) => (
       assigned.has(roomIndex)
         ? 1 + MERCHANT_FALLBACK_ARCHETYPE_IDS.indexOf(assigned.get(roomIndex))

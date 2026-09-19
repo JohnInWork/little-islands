@@ -48,7 +48,8 @@ import {
   weaponCombatProfile,
 } from './dcss-rpg-rules.js';
 import {
-  FINAL_DEPTH,
+  DEEPEST_DEPTH,
+  STORY_DEPTH,
   SANCTUARY_COST,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
@@ -3318,6 +3319,12 @@ function artifactAvailable() {
   });
 }
 
+/** Is the hero standing on the down stair itself? */
+function onExitStair() {
+  return Math.floor(hero.x / TILE) === dungeon.exit.x
+    && Math.floor(hero.y / TILE) === dungeon.exit.y;
+}
+
 function activeBoss() {
   if (!dungeon.objective) return null;
   return monsters.find(
@@ -4267,7 +4274,7 @@ function worldMarkers3D() {
   }
   if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
     const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.6) * 3;
-    const finalFloor = dungeon.depth === FINAL_DEPTH;
+    const finalFloor = dungeon.depth === STORY_DEPTH;
     const chapterGateLocked = Boolean(
       dungeon.objective && !finalFloor && !objectiveBossDefeated(),
     );
@@ -7187,6 +7194,9 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
+  if (entry.kind === 'road-end') {
+    return { kind: 'road-end' };
+  }
   if (entry.kind === 'city-gate') {
     return {
       kind: 'city-gate',
@@ -7339,6 +7349,8 @@ function contextTargetIsAdjacent(entry) {
   if (propTarget) return distance <= 1;
   if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
   if (entry.kind === 'city-gate') return distance <= 1;
+  // The stair is a tile the hero stands on, not one they stand beside.
+  if (entry.kind === 'road-end') return distance === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -8366,6 +8378,7 @@ function nearbyContextTarget() {
   if (beast) return { kind: 'companion', value: beast };
   const gate = nearbyCityGate();
   if (gate) return { kind: 'city-gate', value: gate };
+  if (artifactAvailable() && onExitStair()) return { kind: 'road-end', value: dungeon.exit };
   const cellDoor = nearbyJailDoor();
   if (cellDoor) return { kind: 'jail-door', value: cellDoor };
   const guard = nearbyGuard();
@@ -8413,6 +8426,12 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'pay') return payWatchFine();
     provokeCityWatch(target.value);
     playSound('ui-tap');
+    return true;
+  },
+  'road-end'({ action }) {
+    closeContextActions();
+    if (action.id === 'claim') return completeVictory();
+    descendFloor();
     return true;
   },
   'city-gate'({ action }) {
@@ -9883,8 +9902,11 @@ function renderRecords() {
     const depth = document.createElement('span');
     const detail = document.createElement('span');
     place.textContent = `${entry.place}.`;
-    depth.textContent = entry.depth;
+    // Every row is a floor number now, with a sign for how it ended: a victory
+    // on eighteen and a death on forty have to be readable side by side.
+    depth.textContent = `${entry.mark} ${entry.depth}`.trim();
     detail.textContent = `${entry.kills} ⚔ · ${entry.gold} ◆ · ${entry.time}`;
+    row.dataset.result = entry.status;
     row.append(place, depth, detail);
     return row;
   }));
@@ -11477,7 +11499,7 @@ function defeatMonster(monster) {
     updateHud();
   }
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
-    const finalGuardian = dungeon.depth === FINAL_DEPTH;
+    const finalGuardian = dungeon.depth === STORY_DEPTH;
     showLootToast(
       { path: finalGuardian ? ARTIFACT_PATH : EXIT_PATH, rarity: 3 },
       finalGuardian ? '◆' : romanDepth(dungeon.depth),
@@ -11701,14 +11723,14 @@ function resolveWorldInteractions() {
     status: runStatus,
     guardianDefeated: objectiveBossDefeated(),
   })) return;
-  if (artifactAvailable()) {
-    completeVictory();
-    return;
-  }
+  // The end of the written road is a fork too: the panel asks whether the
+  // artefact ends the run or the stair keeps going. Stepping on it must not
+  // answer that for the hero.
+  if (artifactAvailable()) return;
   // In the city the gate is a fork, not a staircase: the panel asks which road,
   // and stepping on it must not choose for the hero.
   if (isCityDepth(dungeon.depth)) return;
-  if (dungeon.depth < FINAL_DEPTH) descendFloor();
+  descendFloor();
 }
 
 /**
@@ -11735,9 +11757,15 @@ function retireRun() {
 }
 
 function completeVictory() {
-  if (!artifactAvailable()) return;
+  if (!artifactAvailable()) return false;
+  // A winner walks out through the front door, and what they carry goes into
+  // the stash like anything carried out on purpose. Before this, victory was
+  // the one ending that emptied the purse — which quietly made walking away at
+  // the gate the richer play than finishing the road.
+  const carried = stashEarned({ status: 'retired', gold });
   runStatus = 'victory';
   run.status = runStatus;
+  run.gold = gold;
   hero.path = [];
   hero.pendingAttack = null;
   hero.attackEmpowered = false;
@@ -11748,9 +11776,12 @@ function completeVictory() {
   burst(hero.x, hero.y - 10, '#d83e82', 42);
   playSound('victory');
   stopAmbient();
+  stashState = stashDeposit(stashState, carried);
+  persistStash();
   showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');
+  return true;
 }
 
 function healAtSanctuary() {
@@ -12138,7 +12169,8 @@ function useHomeStone() {
 }
 
 function descendFloor() {
-  if (isTerminalRunStatus(runStatus) || dungeon.depth >= FINAL_DEPTH) return;
+  // No bottom: past the written road the stair simply keeps going.
+  if (isTerminalRunStatus(runStatus) || dungeon.depth >= DEEPEST_DEPTH) return;
   run = advanceRunFloor(captureRun());
   hero.hp = run.hero.hp;
   hero.hunger = run.hero.hunger;

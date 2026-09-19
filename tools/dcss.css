@@ -575,6 +575,20 @@ body {
   font-size: 10px;
 }
 
+/* The first span is the floor the run reached — the score, so it reads first. */
+.records-best li span:first-of-type {
+  color: #d7d2c4;
+  font-size: 11px;
+}
+
+.records-best li[data-result='victory'] span:first-of-type {
+  color: #d83e82;
+}
+
+.records-best li[data-result='retired'] span:first-of-type {
+  color: #d8bf68;
+}
+
 .records-empty {
   margin: 0;
   font-size: 11px;
