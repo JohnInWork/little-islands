@@ -114,13 +114,16 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.6, vision: 8, windup: 0.22, pursuit: 8 },
   },
   {
+    // Rare, late and genuinely dangerous. It was tier one with eight health,
+    // which is a surprise rather than a monster; it now waits past the first
+    // chapter, so it is allowed to be worth the fright.
     id: 'chest-mimic', habitat: 'any', kin: 'oddity',
     path: 'licensed/cmski-chests/wooden/4.png',
-    tier: 1,
-    hp: 8,
-    damage: 7,
+    tier: 4,
+    hp: 46,
+    damage: 15,
     speed: 1.08,
-    xp: 12,
+    xp: 48,
     unique: true,
     bloodColor: '#5b3528',
     threat: { attackRate: 1.12, vision: 7, windup: 0.2, pursuit: 6.5 },

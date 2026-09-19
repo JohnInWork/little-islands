@@ -71,9 +71,13 @@ const command = (find, action, overrides = {}) => ({
 
 test('chest profiles are deterministic, depth-scaled and include every authored variant', () => {
   const seen = new Set();
+  // The whole road, not its first three floors: a mimic waits past the first
+  // chapter now, so a sweep that stops at floor three reports it as missing
+  // content when it is only the depth talking.
   for (let seed = 1; seed <= 1000; seed += 1) {
-    const first = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardGold: 10 });
-    const second = createChestProfile({ seed, depth: 1 + (seed % 3), roomIndex: seed % 8, rewardGold: 10 });
+    const depth = 1 + (seed % 18);
+    const first = createChestProfile({ seed, depth, roomIndex: seed % 8, rewardGold: 10 });
+    const second = createChestProfile({ seed, depth, roomIndex: seed % 8, rewardGold: 10 });
     assert.deepEqual(first, second);
     assert.ok(first.rewardGold >= 10);
     assert.ok(first.lockTier >= 0 && first.lockTier <= 3);
@@ -152,14 +156,28 @@ test('traps, curses and mimics trade health for loot while skill creates a safe 
     hero: { x: 5, y: 5, hp: 15, power: 2 },
   })).reason, 'unsafe');
 
+  // Two words on every chest, so nothing about the buttons says which is which.
+  // Guess right and you strike first and take nothing; guess wrong and it is on
+  // you before you have let go of the lid.
   const mimic = chest({ cacheVariant: 'mimic', hazardDamage: 14, mimicMonsterId: 'monster-1-4' });
   const ambush = resolveChestInteraction(command(mimic, 'open'));
-  const prepared = resolveChestInteraction(command(mimic, 'attack'));
+  const prepared = resolveChestInteraction(command(mimic, 'smash'));
   assert.equal(ambush.damage, 14);
-  assert.equal(prepared.damage, 7);
+  assert.deepEqual(ambush.struckMonsterIds, []);
+  assert.equal(prepared.damage, 0, 'a right guess still cost the hero blood');
+  assert.deepEqual(prepared.struckMonsterIds, ['monster-1-4'], 'the first blow never landed');
   assert.equal(prepared.rewardGold, 0);
   assert.equal(prepared.deferredRewardGold, mimic.rewardGold);
   assert.deepEqual(prepared.activatedMonsterIds, ['monster-1-4']);
+  // And an ordinary box offers the same two, so the pair is not a tell.
+  assert.deepEqual(
+    chestActionRules({ find: chest({ cacheVariant: 'unlocked' }) }).actions.map(({ id }) => id),
+    ['open', 'smash'],
+  );
+  assert.deepEqual(
+    chestActionRules({ find: mimic }).actions.map(({ id }) => id),
+    ['open', 'smash'],
+  );
 });
 
 test('inspection hides unknown hazards until the player chooses to examine the chest', () => {
@@ -168,11 +186,13 @@ test('inspection hides unknown hazards until the player chooses to examine the c
   const known = chestContextPresentation({ find, language: 'en', inspected: true });
   assert.equal(hidden.name, 'Древний сундук');
   assert.doesNotMatch(hidden.description, /13/);
-  assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open']);
+  // Both words show before the chest is examined, and they are the same two an
+  // ordinary box shows: the buttons must not answer the question for the player.
+  assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
   assert.equal(known.name, 'Living chest');
   assert.equal(known.description, 'The chest breathes.');
   assert.doesNotMatch(known.description, /13|reward|damage|loot/i);
-  assert.deepEqual(known.actions.map(({ id }) => id), ['inspect', 'open', 'attack']);
+  assert.deepEqual(known.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
 
   const opened = chestContextPresentation({
     find: chest({ containerOpened: true }),

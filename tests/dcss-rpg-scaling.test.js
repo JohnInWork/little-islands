@@ -156,7 +156,13 @@ test('generated floors expose the same profile used for monsters and loot', () =
       // The profile still governs; the run's two conditions bend it, and this is
       // the only thing they are allowed to bend.
       const budget = conditionedFloor(profile, conditionEffects(dungeon.conditionIds));
-      const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
+      // `unique` is placed by the thing that owns it — the mimic by its chest —
+      // and never drawn from the floor's pool, so the floor's tier cap is not
+      // its cap. It passed before only because the mimic was tier one.
+      const pooled = dungeon.monsters.filter(({ id }) => {
+        const monster = monsterById(id);
+        return !monster.spawn && !monster.chapter && !monster.unique;
+      });
       assert.ok(pooled.length <= budget.monsterCount);
       assert.ok(
         pooled.every(

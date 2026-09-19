@@ -124,6 +124,22 @@ function clampTier(value) {
   return Math.max(1, Math.min(3, value));
 }
 
+/**
+ * How mean the chests on a floor are allowed to be.
+ *
+ * This used to be the floor number itself, so «tier three» began on floor
+ * **three** and the nastiest table — the one with the mimic in it — was in force
+ * for almost the whole run. Ivan met a mimic at the very start of a descent and
+ * said what a mimic should be: rare, late and dangerous. It is the chapter that
+ * measures pressure everywhere else in the game, so it measures it here too.
+ */
+const FLOORS_PER_PRESSURE_STEP = 6;
+
+export function chestPressure(depth) {
+  if (!Number.isInteger(depth) || depth < 1) return 1;
+  return clampTier(Math.ceil(depth / FLOORS_PER_PRESSURE_STEP));
+}
+
 function stableHash(seed, depth, roomIndex, salt = 0) {
   let value = (seed ^ Math.imul(depth + 1, 0x9e3779b1) ^ Math.imul(roomIndex + 3, 0x85ebca6b) ^ salt) >>> 0;
   value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
@@ -153,13 +169,16 @@ export function chestVisualFrames({ seed = 0, depth, roomIndex, skinIds = null }
 }
 
 function weightedVariant(roll, depth, skipPlain = false) {
-  const pressure = clampTier(depth);
+  const pressure = chestPressure(depth);
+  // No mimic in the first chapter at all. A creature that eats a hero for
+  // opening a box has to be something the player has heard of before they meet
+  // it, not the second thing that happens to them.
   const tables = {
     1: [
-      ['unlocked', 30], ['locked', 32], ['trapped', 20], ['cursed', 12], ['mimic', 6],
+      ['unlocked', 32], ['locked', 34], ['trapped', 21], ['cursed', 13], ['mimic', 0],
     ],
     2: [
-      ['unlocked', 18], ['locked', 30], ['trapped', 25], ['cursed', 17], ['mimic', 10],
+      ['unlocked', 18], ['locked', 30], ['trapped', 25], ['cursed', 21], ['mimic', 6],
     ],
     3: [
       ['unlocked', 10], ['locked', 28], ['trapped', 27], ['cursed', 21], ['mimic', 14],
@@ -282,7 +301,7 @@ export function chestActionRules({ find, actor } = {}) {
   const locale = actor?.language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
   const actions = [];
-  if (find.cacheVariant === 'unlocked') actions.push(action('open'));
+  if (find.cacheVariant === 'unlocked') actions.push(action('open'), action('smash'));
   if (find.cacheVariant === 'locked') {
     actions.push(action('use-key', access.keyCount > 0, access.keyCount > 0 ? '' : copy.noKey));
     const requiredTier = find.lockTier;
@@ -306,7 +325,10 @@ export function chestActionRules({ find, actor } = {}) {
     actions.push(action('smash'));
   }
   if (find.cacheVariant === 'cursed') actions.push(action('open'), action('smash'));
-  if (find.cacheVariant === 'mimic') actions.push(action('open'), action('attack'));
+  // The same two words as every other chest. The mimic used to offer «open» and
+  // «attack» while an ordinary box offered «open» and «smash», which told the
+  // player which was which before they had guessed anything.
+  if (find.cacheVariant === 'mimic') actions.push(action('open'), action('smash'));
   return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
 }
 
@@ -345,12 +367,13 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
     cursed: copy.cursed,
     mimic: copy.mimic,
   };
+  // An unexamined chest shows the two things anybody can do to a box: open it
+  // or hit it. The mimic used to show only «open» — which is a tell, and the
+  // wrong way round: the one chest you might want to hit first was the one the
+  // game would not let you.
   let visibleActions = rules.actions;
-  if (!inspected && ['trapped', 'cursed'].includes(find.cacheVariant)) {
+  if (!inspected && ['trapped', 'cursed', 'mimic'].includes(find.cacheVariant)) {
     visibleActions = rules.actions.filter(({ id }) => ['open', 'smash'].includes(id));
-  }
-  if (!inspected && find.cacheVariant === 'mimic') {
-    visibleActions = rules.actions.filter(({ id }) => id === 'open');
   }
   const accent = {
     unlocked: '#b5a77d', locked: '#d9bd67', trapped: '#c59663', cursed: '#a96d9d', mimic: '#b45c58',
@@ -425,9 +448,10 @@ export function resolveChestInteraction({
   if (find.cacheVariant === 'cursed') {
     damage = actionId === 'smash' ? Math.ceil(find.hazardDamage / 2) : find.hazardDamage;
   }
-  if (find.cacheVariant === 'mimic') {
-    damage = actionId === 'attack' ? Math.ceil(find.hazardDamage / 2) : find.hazardDamage;
-  }
+  // Guess right and you strike first and take nothing; guess wrong and it is on
+  // you before you have let go of the lid.
+  const struckMimic = find.cacheVariant === 'mimic' && actionId === 'smash';
+  if (find.cacheVariant === 'mimic') damage = struckMimic ? 0 : find.hazardDamage;
   if (damage >= hero.hp) return rejected('unsafe');
 
   const awakensMimic = find.cacheVariant === 'mimic' && typeof find.mimicMonsterId === 'string';
@@ -460,6 +484,9 @@ export function resolveChestInteraction({
     noise: awakensMimic ? 8 : actionId === 'smash' ? 7 : actionId === 'attack' ? 5 : 0,
     status,
     activatedMonsterIds: Object.freeze(awakensMimic ? [find.mimicMonsterId] : []),
+    // The blow that landed before it was awake. The runtime deals it with all
+    // the usual weapons and skills; this only says that it happened.
+    struckMonsterIds: Object.freeze(struckMimic && awakensMimic ? [find.mimicMonsterId] : []),
     consumed: Object.freeze(consumed),
     state: Object.freeze({
       hero: Object.freeze({ ...hero, hp: hero.hp - damage }),

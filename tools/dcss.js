@@ -296,6 +296,7 @@ import {
   CITY_LIGHT_MULTIPLIER,
   CITY_PRIEST_ID,
   cityInteriorAt,
+  cityInteriorFloorCells,
   CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
   isCityDepth,
@@ -981,7 +982,10 @@ let merchantDefinitions = dungeon.merchants.map((merchant) => ({ ...merchant }))
 let builtWallCells = new Set(dungeon.builtWalls ?? []);
 let thicketCells = new Set(dungeon.thicketWalls ?? []);
 let hewnWallCells = new Set(dungeon.hewnWalls ?? []);
-let boardedFloorCells = tavernFloorCells(dungeon);
+let boardedFloorCells = new Set([
+  ...tavernFloorCells(dungeon),
+  ...cityInteriorFloorCells(dungeon.city),
+]);
 waterPaths = waterTiles(dungeon.themeId);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
@@ -7349,11 +7353,16 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
       : {}),
   }));
   const awakened = createRuntimeMonsters(dungeon, awakenedSpawns);
+  const struck = new Set(result.struckMonsterIds ?? []);
   for (const monster of awakened) {
     monster.alerted = monster.pursuit + 3;
     monster.alertFlash = 0.55;
     monster.attackCooldown = Math.max(monster.attackCooldown, 0.28);
     monsters.push(monster);
+    // Guessed right: the hero hit it before it knew it had been found out.
+    if (struck.has(monster.instanceId)) {
+      damageMonster(monster, currentHeroCombat().attack, '#d8bf68', { style: 'blade' });
+    }
     burst(monster.x, monster.y - 8, '#b45c58', 24);
     addImpactWave(monster.x, monster.y - 4, '#b45c58', 62, 3);
     addCombatGlyph(monster.x, monster.y, '!', '#e0c778', -58);
@@ -12847,7 +12856,12 @@ function replaceFloor(nextDepth, arrival = null) {
   builtWallCells = new Set(dungeon.builtWalls ?? []);
   thicketCells = new Set(dungeon.thicketWalls ?? []);
   hewnWallCells = new Set(dungeon.hewnWalls ?? []);
-  boardedFloorCells = tavernFloorCells(dungeon);
+  boardedFloorCells = new Set([
+    ...tavernFloorCells(dungeon),
+    // And every other roof in town: a house with the street's own ground
+    // inside it is a fenced piece of street, not a house.
+    ...cityInteriorFloorCells(dungeon.city),
+  ]);
   waterPaths = waterTiles(dungeon.themeId);
   openingDoor = null;
   activeChestFindId = null;

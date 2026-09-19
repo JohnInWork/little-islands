@@ -548,7 +548,10 @@ export const BIOME_THEMES = Object.freeze([
   Object.freeze({
     id: 'gate-town',
     palette: 'town',
-    floors: numberedPaths('dngn/floor/pebble_brown', [0, 1, 2, 3, 4, 5, 6, 7, 8]),
+    // Trodden earth with grass pushing through it. The town used to stand on
+    // brown cobbles, so its trees and bushes looked planted in stone — Ivan saw
+    // that at once. A town above ground has ground under it.
+    floors: numberedPaths('dngn/floor/dirt', [0, 1, 2]),
     walls: numberedPaths('dngn/wall/brick_brown', [0, 1, 2, 3, 4, 5, 6, 7]),
     accentWalls: numberedPaths('dngn/wall/church', [0, 1, 2, 3, 4]),
     accentModulo: 13,

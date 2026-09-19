@@ -356,7 +356,7 @@ test('a tavern has boards under it, in the city and on the road', async () => {
 
   // A floor nobody lays is a floor nobody sees: the renderer asks for these.
   const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  assert.match(adapter, /boardedFloorCells = tavernFloorCells\(dungeon\)/);
+  assert.match(adapter, /boardedFloorCells = new Set\(\[\s*\.\.\.tavernFloorCells\(dungeon\)/);
   assert.match(
     adapter,
     /function floorTextureAt[\s\S]{0,600}boardedFloorCells\.has[\s\S]{0,120}TAVERN_FLOOR_PATHS/,
@@ -374,4 +374,34 @@ test('nothing else in the game gets a wooden floor by accident', async () => {
   }
   assert.equal(tavernFloorCells(null).size, 0);
   assert.equal(tavernFloorCells({}).size, 0);
+});
+
+/**
+ * The town stands on the surface, with trees and bushes along its streets, and
+ * it used to stand on brown cobbles — so everything growing in it looked planted
+ * in stone. Now the streets are earth and every roof in town has boards under it.
+ */
+test('the town has ground outside and boards indoors', async () => {
+  const city = await import('../tools/dcss-rpg-city.js');
+  const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
+  const { biomeThemeFor } = await import('../tools/dcss-rpg-visuals.js');
+
+  const ground = biomeThemeFor('gate-town').floors;
+  assert.ok(ground.every((path) => path.includes('dirt')), 'the town is paved again');
+  assert.ok(ground.length >= 3, 'one tile repeated is a chequerboard');
+
+  for (const seed of [1, 7, 91]) {
+    const town = generateDungeon({ seed, depth: 0 });
+    const boards = city.cityInteriorFloorCells(town.city);
+    assert.ok(boards.size > 40, `seed ${seed}: the town has no floors indoors`);
+    // Every building with a room inside it, not only the tavern.
+    const housed = town.city.blocks.filter(({ interior }) => interior);
+    assert.ok(housed.length >= 4, 'a town with no buildings');
+    for (const block of housed) {
+      const { x, y } = block.interior;
+      assert.ok(boards.has(`${x},${y}`), `seed ${seed}: ${block.kind} stands on the street`);
+    }
+    // And the street itself keeps its ground.
+    assert.ok(!boards.has(`${town.gates.deep.x},${town.gates.deep.y}`), 'the gate is indoors');
+  }
 });

@@ -308,6 +308,28 @@ function firstStreetCell(grid, from, step) {
  * The market square keeps its ground and loses its traders — a man standing in
  * the open with no walls around him is a stall, and the city has shops.
  */
+/**
+ * The boards inside the town's walls.
+ *
+ * A house with the street's own ground inside it is not a house, it is a fenced
+ * piece of street — and once the town stands on earth, with trees and bushes in
+ * it, an earthen floor indoors reads as a mistake rather than as poverty.
+ * Every building somebody lives or works in gets a floor they laid.
+ */
+export function cityInteriorFloorCells(plan) {
+  const cells = new Set();
+  for (const block of plan?.blocks ?? []) {
+    const room = block.interior;
+    if (!room) continue;
+    const width = room.w ?? room.width;
+    const height = room.h ?? room.height;
+    for (let y = room.y; y < room.y + height; y += 1) {
+      for (let x = room.x; x < room.x + width; x += 1) cells.add(`${x},${y}`);
+    }
+  }
+  return cells;
+}
+
 export function cityMerchantSpots(plan) {
   const spots = [];
   for (const block of plan.blocks) {

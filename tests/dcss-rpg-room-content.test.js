@@ -40,8 +40,10 @@ test('treasure room content is deterministic and consumes the existing floor bud
 
 test('every chest variant materializes a distinct playable room scenario', () => {
   const seen = new Set();
+  // Past the first chapter too: the mimic waits there now, and a sweep of
+  // three floors would report it as content the game never makes.
   for (let seed = 1; seed <= 1600; seed += 1) {
-    const depth = 1 + (seed % 3);
+    const depth = 1 + (seed % 18);
     const dungeon = generateDungeon({ seed, depth });
     const chest = dungeon.finds.find(({ id }) => id === 'sealed-cache');
     const encounter = dungeon.roomEncounters.find(({ findId }) => findId === chest.instanceId);
