@@ -557,10 +557,13 @@ export const BIOME_THEMES = Object.freeze([
       floorTint: '#fff4e4',
       wallTint: '#fff1de',
       actorTint: '#f4ece0',
-      background: '#080b12',
-      fog: '#0b1018',
-      fogDensity: 0.012,
+      background: '#0f141d',
+      fog: '#141b26',
+      fogDensity: 0.008,
       ambient: '#9aa6b4',
+      // A town is the one place that is not a cave: it is lit before the hero
+      // gets there, and everything people left on its streets can be seen.
+      ambientIntensity: 1.05,
       keyLight: '#f4d79a',
     }),
   }),

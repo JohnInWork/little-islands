@@ -30,9 +30,17 @@ export function isCityDepth(depth) {
   return depth === CITY_DEPTH;
 }
 
-/** A town is lit: the hero sees the street, not a torch-lit corridor. */
+/**
+ * A town is lit: the hero sees the street, not a torch-lit corridor.
+ *
+ * The multiplier does two things at once — it widens the lit pool around the
+ * hero and thins the veil of darkness by the same amount. At 1.7 the city was
+ * still a night: the streets had barrels, woodpiles, bushes and trees on them
+ * and the player walked past most of them without ever seeing one. Decoration
+ * nobody can make out is decoration nobody added.
+ */
 export const CITY_REVEAL_RADIUS = 9;
-export const CITY_LIGHT_MULTIPLIER = 1.7;
+export const CITY_LIGHT_MULTIPLIER = 2.6;
 
 export const CITY_WALL = '#';
 export const CITY_FLOOR = '.';
@@ -585,7 +593,10 @@ const CITY_PROPS = Object.freeze({
     frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
     size: 46,
     screenOffsetY: -22,
-    light: Object.freeze({ color: '#f0c079', radius: 2.2, beam: false }),
+    // A street lamp that lights two cells lights the post it stands on. Its
+    // reach is now most of the way to the next corner, which is what a lamp on
+    // a corner is for.
+    light: Object.freeze({ color: '#f0c079', radius: 3.8, beam: false }),
     interactionId: null,
   }),
 });

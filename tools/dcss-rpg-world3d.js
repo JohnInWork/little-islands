@@ -848,6 +848,11 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     scene.fog = new THREE.FogExp2(theme.world3d.fog, theme.world3d.fogDensity);
     actorTint.set(theme.world3d.actorTint);
     hemisphere.color.set(theme.world3d.ambient);
+    // How bright a place is before any lamp is lit. A cave is dark and that is
+    // the point; a town is not a cave, and its streets had decoration on them
+    // that nobody could make out. Places that do not say otherwise keep the
+    // dungeon's own dark.
+    ambient.intensity = theme.world3d.ambientIntensity ?? WORLD_AMBIENT_INTENSITY;
     keyLight.color.set(theme.world3d.keyLight);
   };
 
