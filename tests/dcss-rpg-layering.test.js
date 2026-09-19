@@ -81,3 +81,24 @@ test('effects in the world are drawn in pixels, not in lines', async () => {
   }
   assert.ok(!world.includes('rotate(Math.PI / 4)'), 'a tilted square is a hairline diamond again');
 });
+
+/**
+ * Tapping a far cell sent the hero off with nothing to show for it — no mark on
+ * the target, no line of travel — so the player watched a figure walk and
+ * guessed whether it had understood them.
+ */
+test('the hero shows where they are going, in studs like everything else', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const fn = runtime.slice(runtime.indexOf('function drawHeroRoute('));
+  const body = fn.slice(0, fn.indexOf('\nfunction drawSparks('));
+  assert.ok(body.length > 0, 'nothing draws the route');
+  // Only while a route is live, and never over a corpse or a menu.
+  assert.match(body, /hero\.path\.length === 0\) return;/);
+  assert.match(body, /runStatus !== 'playing'/);
+  // The destination is ringed with the shared pixel ring, not a hairline box.
+  assert.match(body, /drawPixelRing\(target\.x, target\.y/);
+  assert.doesNotMatch(body, /strokeRect|lineTo/, 'the world is drawn in pixels');
+  // Under the actors: a route must never cover the fight it leads into.
+  const order = runtime.slice(runtime.indexOf('drawProjectiles();'));
+  assert.match(order.slice(0, 200), /drawProjectiles\(\);\s*\n\s*drawHeroRoute\(\);\s*\n\s*const actors/);
+});

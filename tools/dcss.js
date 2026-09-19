@@ -6091,6 +6091,40 @@ function drawWallDrips() {
   context.restore();
 }
 
+/**
+ * Where the hero is going, drawn on the floor.
+ *
+ * Tapping a far cell sent the hero off with nothing to show for it: no mark on
+ * the target, no line of travel, so the player watched a figure walk and
+ * guessed whether it had understood them. Ivan asked for both, and he is right
+ * that it is mostly a comfort — but a comfort on every single move.
+ *
+ * It is drawn under the actors and only while a route is live, so it never
+ * competes with a fight.
+ */
+function drawHeroRoute() {
+  if (hero.dead || runStatus !== 'playing' || hero.path.length === 0) return;
+  const steps = hero.path;
+  const destination = steps.at(-1);
+  const pulse = reducedMotion ? 0.5 : 0.5 + Math.sin(elapsed * 4.4) * 0.22;
+  context.save();
+  context.fillStyle = '#e8dcbb';
+  // The route still to walk, one stud per cell. Nearer steps are firmer: the
+  // far end of a long route is a suggestion, not a promise.
+  for (let index = 0; index < steps.length - 1; index += 1) {
+    const point = worldToScreen(steps[index].x, steps[index].y);
+    context.globalAlpha = Math.max(0.12, 0.42 - (index / Math.max(1, steps.length)) * 0.2);
+    context.fillRect(pixelRound(point.x - 2), pixelRound(point.y - 2), 4, 4);
+  }
+  // And the cell the player actually pointed at, ringed in studs like every
+  // other mark in the world: a hairline rectangle is not this game's drawing.
+  const target = worldToScreen(destination.x, destination.y);
+  context.globalAlpha = 0.34 + pulse * 0.3;
+  context.fillStyle = '#f0e3bd';
+  drawPixelRing(target.x, target.y, TILE * 0.38, { squash: 0.62, stud: 3, gap: 1.6 });
+  context.restore();
+}
+
 function drawSparks() {
   for (const spark of sparks) {
     const position = worldToScreen(spark.x, spark.y);
@@ -15073,6 +15107,7 @@ function render() {
   drawLoot();
   drawEvents();
   drawProjectiles();
+  drawHeroRoute();
   const actors = [
     ...monsters.map((monster) => ({ kind: 'monster', monster, y: monster.y })),
     ...allies.map((ally) => ({ kind: 'monster', monster: ally, y: ally.y })),
