@@ -1493,6 +1493,27 @@ body {
   transform: translate(-50%, 0);
 }
 
+/* The one toast that says no. Red edge, struck-through name, dimmed icon:
+   whatever else the player takes from it, they must not take it for a pickup. */
+.loot-toast[data-refused='true'] {
+  --rarity: #b4635c;
+  color: #c8b4ae;
+}
+
+.loot-toast[data-refused='true'] img {
+  opacity: 0.45;
+}
+
+.loot-toast[data-refused='true'] strong {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.loot-toast[data-refused='true'] em {
+  color: #e0938a;
+  font-style: normal;
+}
+
 /*
  * The dungeon naming what it just did. It sits above the loot toast, is never
  * the colour of loot or of damage, and carries its scene's own colour on the

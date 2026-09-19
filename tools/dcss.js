@@ -6738,6 +6738,11 @@ function renderLootToast({ item, value }) {
   lootToast.style.setProperty('--rarity', color);
   lootToast.dataset.informative = String(informative);
   lootToast.querySelector('img').src = assetUrl(displayItem?.icon ?? displayItem?.path);
+  // A refusal must not look like a gift. The full backpack used to be shown on
+  // exactly the card a pickup uses — same icon, same name, same rarity, with
+  // one small line changed — so the player read «taken» and then found the
+  // thing still lying there. Ivan hit it twice before saying so.
+  lootToast.dataset.refused = String(value === 'full');
 
   if (informative) {
     const presentation = itemPresentation(displayItem, itemDetailLanguage);

@@ -390,3 +390,21 @@ test('atmosphere is rendered on a pixel grid without smooth fullscreen noise', a
   assert.match(runtime, /mistAnchors = createMistAnchors\(dungeon\)/);
   assert.doesNotMatch(runtime, /worldToScreen\(hero\.x, hero\.y\)\.x/);
 });
+
+/**
+ * A refusal must not look like a gift.
+ *
+ * The full backpack was announced on exactly the card a pickup uses: same icon,
+ * same name, same rarity marks, one small line changed. So the player read the
+ * card as «taken», walked on, and found the thing still lying where it was —
+ * which reads as an item that cannot be picked up rather than as a full bag.
+ */
+test('the toast that says no does not look like the toast that says yes', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /lootToast\.dataset\.refused = String\(value === 'full'\)/);
+  const styles = await readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8');
+  const refused = styles.slice(styles.indexOf(".loot-toast[data-refused='true']"));
+  assert.ok(refused.length > 0, 'the refusal has no look of its own');
+  assert.match(refused, /--rarity: #b4635c/, 'the edge keeps the colour of the thing it refused');
+  assert.match(refused, /text-decoration: line-through/, 'the name is not struck through');
+});
