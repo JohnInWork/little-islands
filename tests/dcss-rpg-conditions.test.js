@@ -150,15 +150,29 @@ test('no rule can reach the larder', () => {
       assert.equal(nutritionOn(wet), nutritionOn(dry), `seed ${seed} depth ${depth}`);
     }
   }
-  // And the run as a whole still feeds the hero for about half of a hunger bar,
-  // which is what the number was before conditions existed.
+  /**
+   * And the road as a whole feeds the hero for most of a bar, but not for the
+   * road. That gap is the point: hunger became a clock rather than a debuff —
+   * an empty bar takes health now — so the number is calibrated against what a
+   * road costs, not against half a bar. Eighteen floors hand out about fifty
+   * minutes of sixty, which means a hero who starts full lives the second half
+   * close to empty and cannot also clear every room.
+   */
   let nutrition = 0;
   const runs = 120;
   for (let seed = 1; seed <= runs; seed += 1) {
-    for (let depth = 1; depth <= 9; depth += 1) nutrition += nutritionOn(generateDungeon({ seed, depth }));
+    for (let depth = 1; depth <= STORY_DEPTH; depth += 1) {
+      nutrition += nutritionOn(generateDungeon({ seed, depth }));
+    }
   }
   const minutes = nutrition / runs / 60;
-  assert.ok(minutes > 28 && minutes < 42, `the run's supply is ${minutes.toFixed(1)} minutes of 60`);
+  assert.ok(minutes > 42 && minutes < 58, `the road's supply is ${minutes.toFixed(1)} minutes of 60`);
+  // The shallow half is never the hungry half: the teaching floors feed you.
+  let early = 0;
+  for (let seed = 1; seed <= runs; seed += 1) {
+    for (let depth = 1; depth <= 6; depth += 1) early += nutritionOn(generateDungeon({ seed, depth }));
+  }
+  assert.ok(early / runs / 60 > 8, `the first chapter only feeds ${(early / runs / 60).toFixed(1)} minutes`);
 });
 
 test('the runtime reads the run it is standing on, and shows it before the first step', async () => {

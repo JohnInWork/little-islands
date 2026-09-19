@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
 import vm from 'node:vm';
@@ -141,6 +142,9 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     currentHeroCleave: () => axeCleaveProfile(null, {}),
     currentHeroStats: () => ({ attack: 10, moveSpeed: 1 }),
     currentHeroMagic: () => equipmentMagic({}, []),
+    // The clock a swing spends; the fixture only needs it to exist.
+    hungerAccumulator: 0,
+    HUNGER_COST: { strike: 1.5, spell: 4 },
     actorEffectModifiers: () => ({ moveSpeed: 1 }), tickActorEffects,
     equippedItem: () => null,
     rarityGlow: ['#ffffff'],
@@ -181,7 +185,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
     'updateHero', 'canHeroAttack', 'isCurrentlyVisible', 'canActorsMelee',
     'resolvePendingHeroAttack', 'damageMonster', 'executionDamage', 'applyWeaponPowers',
-    'surviveOnSecondWind', 'heroConditionalDamage',
+    'surviveOnSecondWind', 'heroConditionalDamage', 'spendHunger',
     'updateWorld', 'updatePassiveCreatures',
   ]);
   return { context, grid, hazards };
@@ -546,4 +550,27 @@ test('real approach, contact, retreat and return preserve movement priority and 
   for (let frame = 0; frame < 50; frame += 1) context.updateHero(0.016);
   assert.equal(context.hero.x, 160);
   assert.ok(context.hero.pendingAttack || context.hero.attackCooldown > 0);
+});
+
+/**
+ * An enemy is a wall; a neighbour is not.
+ *
+ * Everything standing in a street used to block the hero the same way a wall
+ * did — the watch, the priest, four traders and any sheep that wandered into a
+ * doorway. The city is made of narrow streets with all of those in them, and
+ * being stopped by a shopkeeper is not a decision anybody made. The rule is
+ * hostility now, and it flips the moment a neighbour turns on you.
+ */
+test('the hero walks through neighbours and never through an enemy', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const body = runtime.match(/function heroBlockingCells\(\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body ?? '';
+  assert.ok(body.length > 0, 'heroBlockingCells пропала');
+  // Hostile monsters block; neutral ones only once provoked.
+  assert.match(body, /monsters\.filter\(\(monster\) => !monster\.neutral \|\| monster\.provoked\)/);
+  // Wildlife blocks only once it is in the fight.
+  assert.match(body, /passiveCreatures\.filter\(\(creature\) => !creature\.defeated && creature\.hunted\)/);
+  // And a trader is never a wall: the shop is three tiles wide.
+  assert.doesNotMatch(body, /merchant/i);
+  // The rule that matters is still there for everything that wants you dead.
+  assert.match(runtime, /heroBlockingCells\(\)/);
 });

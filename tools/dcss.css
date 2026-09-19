@@ -1071,6 +1071,21 @@ body {
   animation: hunger-warning 900ms steps(2, end) infinite;
 }
 
+/* Empty is not «nearly empty»: this is the bar that is taking health now, so
+   the whole meter pulses rather than just the icon beside it. */
+.hunger-meter[data-stage='empty'] {
+  --hunger-color: #f0473f;
+}
+
+.hunger-meter[data-stage='empty'] > span,
+.hunger-meter[data-stage='empty'] > i {
+  animation: hunger-warning 520ms steps(2, end) infinite;
+}
+
+.hunger-meter[data-stage='empty'] > i {
+  box-shadow: inset 0 -2px #141a1c, 0 0 0 1px #f0473f;
+}
+
 @keyframes hunger-warning {
   50% {
     opacity: 0.4;

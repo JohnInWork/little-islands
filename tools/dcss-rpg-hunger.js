@@ -1,3 +1,21 @@
+/**
+ * Hunger, and what makes it a clock rather than a debuff.
+ *
+ * It used to bottom out and stop: at zero the hero simply kept walking at
+ * −45 % attack forever. Nothing forced a decision, so food was something you
+ * ate when you remembered to, and a supply run had no failure state at all.
+ *
+ * Three things changed that, and they are all here rather than in the adapter:
+ *
+ * - **Empty kills.** At zero the bar starts taking health, and it does not
+ *   stop until something is eaten. That is the whole difference between a
+ *   penalty and a clock.
+ * - **The clock runs on what you do.** A second of walking costs a second; a
+ *   swing and a spell cost more. A long fight is expensive, and going round a
+ *   room is now worth something beyond the risk it avoids.
+ * - **You cannot eat in reach of a monster.** Food is planning, not a button
+ *   you press when the bar goes red.
+ */
 export const HUNGER_MAX = 60 * 60;
 export const HUNGER_TUNING = Object.freeze({
   mildAt: 40 * 60,
@@ -5,6 +23,26 @@ export const HUNGER_TUNING = Object.freeze({
   starvingAt: 5 * 60,
   autosaveEvery: 15,
 });
+
+/**
+ * What an action costs the clock, in seconds, on top of the time it took.
+ *
+ * Deliberately small per action and large over a fight: thirty swings is close
+ * to a minute of the bar, which is what makes «walk round that room» a real
+ * answer rather than cowardice.
+ */
+export const HUNGER_COST = Object.freeze({
+  strike: 1.5,
+  spell: 4,
+});
+
+/**
+ * Starving takes health, in a share of the hero's own maximum so it stays a
+ * threat at every level, and slowly enough to be a warning rather than an
+ * ambush: about a minute from full health to dead if it is ignored completely.
+ */
+export const STARVATION_TICK_SECONDS = 5;
+export const STARVATION_DAMAGE_PERCENT = 8;
 
 const STAGES = Object.freeze({
   fed: Object.freeze({
@@ -43,6 +81,17 @@ const STAGES = Object.freeze({
       en: 'Stats are heavily reduced.',
     }),
   }),
+  // An empty bar is a different thing from a nearly empty one, and the screen
+  // has to say so: this is the state that is taking health right now.
+  empty: Object.freeze({
+    id: 'empty',
+    modifiers: Object.freeze({ attack: 0.55, defense: 0.5, moveSpeed: 0.7, attackSpeed: 0.65 }),
+    labels: Object.freeze({ ru: 'Голод убивает', en: 'Starving to death' }),
+    descriptions: Object.freeze({
+      ru: `Здоровье уходит: −${STARVATION_DAMAGE_PERCENT}% каждые ${STARVATION_TICK_SECONDS} с, пока не поешь.`,
+      en: `Health is draining: −${STARVATION_DAMAGE_PERCENT}% every ${STARVATION_TICK_SECONDS}s until you eat.`,
+    }),
+  }),
 });
 
 export const HUNGER_STAGE_IDS = Object.freeze(Object.keys(STAGES));
@@ -56,7 +105,7 @@ export function hungerStage(value) {
   if (value > HUNGER_TUNING.mildAt) return STAGES.fed;
   if (value > HUNGER_TUNING.strongAt) return STAGES.mild;
   if (value > HUNGER_TUNING.starvingAt) return STAGES.strong;
-  return STAGES.starving;
+  return value > 0 ? STAGES.starving : STAGES.empty;
 }
 
 export function hungerStatModifiers(value) {
@@ -68,6 +117,34 @@ export function advanceHunger(value, activeSeconds) {
     throw new TypeError('Hunger tick requires valid integer seconds');
   }
   return Math.max(0, value - activeSeconds);
+}
+
+/**
+ * What starving costs, over a stretch of time. Returns whole points of damage
+ * and the seconds left over, so the caller carries the remainder instead of
+ * rounding it away — a tick that rounds down never fires on a fast frame.
+ */
+export function starvationToll({ hunger, maxHp, seconds } = {}) {
+  const idle = Object.freeze({ damage: 0, remainder: 0 });
+  if (!validateHunger(hunger) || hunger > 0) return idle;
+  if (!Number.isFinite(maxHp) || maxHp < 1 || !Number.isFinite(seconds) || seconds <= 0) return idle;
+  const ticks = Math.floor(seconds / STARVATION_TICK_SECONDS);
+  if (ticks < 1) return Object.freeze({ damage: 0, remainder: seconds });
+  const perTick = Math.max(1, Math.round((maxHp * STARVATION_DAMAGE_PERCENT) / 100));
+  return Object.freeze({
+    damage: perTick * ticks,
+    remainder: seconds - ticks * STARVATION_TICK_SECONDS,
+  });
+}
+
+/**
+ * Whether the hero may eat right now. Not in reach of something that wants to
+ * kill them: chewing a ration mid-swing is the thing that made food a button.
+ */
+export function canEatNow({ threatened = false } = {}) {
+  return threatened
+    ? Object.freeze({ ok: false, reason: 'threatened' })
+    : Object.freeze({ ok: true, reason: 'clear' });
 }
 
 export function consumeFood({ hunger, hp, maxHp, nutrition, healing = 0 } = {}) {
@@ -95,6 +172,21 @@ export function consumeFood({ hunger, hp, maxHp, nutrition, healing = 0 } = {}) 
     healed: nextHp - hp,
     state: Object.freeze({ hunger: nextHunger, hp: nextHp }),
   });
+}
+
+const COPY = Object.freeze({
+  ru: Object.freeze({
+    threatened: 'Не поесть в бою',
+    starving: 'Голод убивает',
+  }),
+  en: Object.freeze({
+    threatened: 'Not while something is on you',
+    starving: 'Starving',
+  }),
+});
+
+export function hungerCopy(language = 'ru') {
+  return COPY[language === 'en' ? 'en' : 'ru'];
 }
 
 export function hungerPresentation(value, requestedLanguage = 'ru') {

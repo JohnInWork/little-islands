@@ -162,3 +162,10 @@ test('the death screen names the thing that actually killed you', () => {
   // And an unknown mark falls back to the plain name rather than to nonsense.
   assert.equal(runEndSourceName('wolf@not-a-mark', 'ru'), 'Волк');
 });
+
+test('starving has a name on the death screen', () => {
+  // The clock can kill, so it has to be able to say so: a cause of death the
+  // player can learn from, not «неизвестно».
+  assert.equal(runEndSourceName('hunger', 'ru'), 'Голод');
+  assert.equal(runEndSourceName('hunger', 'en'), 'Starvation');
+});

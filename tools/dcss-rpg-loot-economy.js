@@ -77,7 +77,16 @@ function weightedPick(rng, entries, weightOf) {
  * lottery belongs. Only a floor that came up empty gets topped up, and the
  * cheapest drop it was going to hand out is what makes room.
  */
-export const SUPPLY_POOL_SHARE = 0.055;
+/**
+ * How much of a floor's draw is food.
+ *
+ * Calibrated against the clock, not against a feeling: a whole road of eighteen
+ * floors hands out about fifty minutes of the sixty-minute bar. A hero who
+ * starts full therefore has roughly a hundred and ten minutes for a road that
+ * costs somewhere near a hundred — so the second half is lived close to empty,
+ * and clearing every room instead of walking round it is what tips it over.
+ */
+export const SUPPLY_POOL_SHARE = 0.032;
 
 /**
  * Holds the larder's share of the draw steady.

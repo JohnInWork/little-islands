@@ -76,6 +76,9 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'wildlife:sheep': pair('Овца', 'Sheep'),
   'wildlife:hog': pair('Кабан', 'Hog'),
   'wildlife:yak': pair('Як', 'Yak'),
+  // Not a creature, but it is the thing that killed you, and a death screen
+  // that says «неизвестно» teaches nothing.
+  hunger: pair('Голод', 'Starvation'),
   'effect:burning': pair('Огонь', 'Fire'),
   'effect:poison': pair('Яд', 'Poison'),
   'trap:blade-trap': pair('Ловушка с лезвиями', 'Blade trap'),

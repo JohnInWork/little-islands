@@ -21,6 +21,7 @@ import {
 import { DUNGEON_THEME_CATALOG } from '../tools/dcss-rpg-room-plans.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
+import { SUPPLY_POOL_SHARE, balanceSupplyWeights } from '../tools/dcss-rpg-loot-economy.js';
 
 const kinOf = new Map(MONSTER_CATALOG.map((monster) => [monster.id, monster.kin]));
 const itemOf = new Map(LOOT_CATALOG.map((item) => [item.id, item]));
@@ -157,13 +158,32 @@ test('no biome is the hungry one', () => {
       assert.equal(lootBiomeWeight(item, themeId), 1, `${item.id} in ${themeId}`);
     }
   }
-  // And the floors of every place still feed the hero at about the same rate.
-  const perFloor = [...survey.values()].map((entry) => entry.nutrition / entry.floors);
-  const mean = perFloor.reduce((sum, value) => sum + value, 0) / perFloor.length;
-  for (const value of perFloor) {
+  /**
+   * And every place draws the same share of food — checked at the mechanism,
+   * exactly, rather than by averaging over seeds.
+   *
+   * The average was how this was checked before, and it was never able to say
+   * much: food is rare enough that the noise of a sample is bigger than any
+   * leak worth catching, and it got noisier every time the supply was tuned
+   * down. `balanceSupplyWeights` makes the share an arithmetic fact, so it is
+   * read as one.
+   */
+  const isSupply = (item) => item.useEffect?.type === 'food';
+  for (const themeId of Object.keys(BIOME_CONTENT)) {
+    const pool = LOOT_CATALOG.map((item) => ({
+      ...item,
+      weight: (item.weight ?? 1) * lootBiomeWeight(item, themeId),
+    }));
+    const balanced = balanceSupplyWeights(pool, isSupply);
+    const total = balanced.reduce((sum, item) => sum + item.weight, 0);
+    const supply = balanced.filter(isSupply).reduce((sum, item) => sum + item.weight, 0);
     assert.ok(
-      Math.abs(value - mean) / mean < 0.45,
-      `a floor of one place feeds ${value.toFixed(0)} against ${mean.toFixed(0)}`,
+      Math.abs(supply / total - SUPPLY_POOL_SHARE) < 0.001,
+      `${themeId} draws ${(supply / total * 100).toFixed(1)}% food against ${(SUPPLY_POOL_SHARE * 100).toFixed(1)}%`,
     );
+  }
+  // And the sweep still sees food everywhere, which no arithmetic can promise.
+  for (const [themeId, entry] of survey) {
+    assert.ok(entry.nutrition > 0, `${themeId} fed nobody in the whole sweep`);
   }
 });

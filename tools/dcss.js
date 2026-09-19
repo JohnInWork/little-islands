@@ -558,8 +558,12 @@ import {
   passiveWanderPause,
 } from './dcss-rpg-passive.js';
 import {
+  HUNGER_COST,
   HUNGER_TUNING,
   advanceHunger,
+  canEatNow,
+  hungerCopy,
+  starvationToll,
   consumeFood,
   hungerPresentation,
   hungerStage,
@@ -3655,16 +3659,24 @@ function passiveOccupiedCells() {
   return blockingActorCells(passiveCreatures.filter((creature) => !creature.defeated), TILE);
 }
 
+/**
+ * What the hero cannot walk through.
+ *
+ * An enemy is a wall — walking past something that is trying to kill you is not
+ * a thing this game allows, and it is what makes a corridor a corridor. But
+ * everything ELSE standing in the street was a wall too, and the city is made
+ * of narrow streets with a watchman, a priest and four traders in them. A sheep
+ * in a doorway stopped the hero the same way a wall did, and nothing about that
+ * was a decision anybody made.
+ *
+ * So the rule is hostility, not existence. The watch, the priest, the traders
+ * and the wildlife are people and animals: you push past them. The moment one
+ * of them turns on you it becomes a wall like any other enemy.
+ */
 function heroBlockingCells() {
-  const merchants = (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
-    .map((merchant) => ({
-      x: (merchant.x + 0.5) * TILE,
-      y: (merchant.y + 0.5) * TILE,
-    }));
   return blockingActorCells([
-    ...monsters,
-    ...passiveCreatures.filter((creature) => !creature.defeated),
-    ...merchants,
+    ...monsters.filter((monster) => !monster.neutral || monster.provoked),
+    ...passiveCreatures.filter((creature) => !creature.defeated && creature.hunted),
   ], TILE);
 }
 
@@ -10529,6 +10541,13 @@ function useConsumable(item, index, effectOverride = null) {
     hero.hp += feedback;
     playSound('drink');
   } else if (effect?.type === 'food') {
+    // Not with something in reach. Chewing a ration mid-swing is what made food
+    // a button you press when the bar goes red instead of a thing you plan.
+    const mayEat = canEatNow({ threatened: heroIsThreatened() });
+    if (!mayEat.ok) {
+      showLootToast(item, hungerCopy(itemDetailLanguage).threatened);
+      return;
+    }
     const result = consumeFood({
       hunger: hero.hunger,
       hp: hero.hp,
@@ -11359,6 +11378,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     }
     hero.spells = toggled.state;
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
     if (usedSpell.id === 'invisibility' && toggled.active) hero.invisibilityReveal = 0;
     playSound('spell-toggle');
     burst(hero.x, hero.y - 10, usedSpell.color, toggled.active ? 18 : 8);
@@ -11385,6 +11405,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called);
     }
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
   } else if (usedSpell.kind === 'camp') {
     const refusal = summonCamp();
     if (refusal !== '') {
@@ -11397,6 +11418,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.attackStyle = 'staff';
     hero.attackCooldown = Math.max(hero.attackCooldown, 0.34);
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 70, 1);
   } else if (usedSpell.kind === 'burst') {
@@ -11425,6 +11447,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       }
     }
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
   } else if (usedSpell.kind === 'unbind') {
     const slots = boundSlots(selected, itemInstances);
     if (slots.length === 0) {
@@ -11438,6 +11461,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     hero.attackStyle = 'staff';
     hero.attackCooldown = Math.max(hero.attackCooldown, 0.32);
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
   } else if (usedSpell.kind === 'purge') {
     const ritual = resolveCleansing({
       effects: hero.effects,
@@ -11464,6 +11488,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     for (const id of ritual.cleared) showEffectRelief(id);
     renderHeroEffectsHud();
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -11480,6 +11505,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     );
     hero.hp += amount;
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
@@ -11528,6 +11554,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       status: spellStatus(usedSpell.id, stats.intelligence),
     });
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
+    spendHunger('spell');
     burst(hero.x + Math.cos(angle) * 20, hero.y + Math.sin(angle) * 20 - 8, usedSpell.color, 10);
   }
   playerHasActed = true;
@@ -12583,6 +12610,47 @@ function updateHeroEffects(delta) {
   }
 }
 
+/**
+ * An empty bar is not a debuff, it is a clock. It keeps taking health until
+ * something is eaten, and it names itself on the death screen — «Голод» is a
+ * cause of death a player can learn from, «неизвестно» is not.
+ */
+let starvationCarry = 0;
+/** Is something hostile close enough to interrupt a meal? */
+function heroIsThreatened() {
+  return monsters.some((monster) => (
+    monster.dead === 0
+    && (!monster.neutral || monster.provoked)
+    && Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * 1.6
+  ));
+}
+
+function starve(activeSeconds) {
+  if (hero.hunger > 0) {
+    starvationCarry = 0;
+    return;
+  }
+  const toll = starvationToll({
+    hunger: hero.hunger,
+    maxHp: currentHeroStats().maxHp,
+    seconds: starvationCarry + activeSeconds,
+  });
+  starvationCarry = toll.remainder;
+  if (toll.damage <= 0) return;
+  damageHero(toll.damage, { direct: true, impactColor: '#c9a45f', source: 'hunger' });
+  addCombatGlyph(hero.x, hero.y, '✘', '#c9a45f', -66);
+}
+
+/**
+ * A swing and a spell cost the clock on top of the second they took. Thirty
+ * swings is close to a minute of the bar, which is what makes «go round that
+ * room» an answer rather than cowardice.
+ */
+function spendHunger(action) {
+  if (runStatus !== 'playing' || hero.dead) return;
+  hungerAccumulator += HUNGER_COST[action] ?? 0;
+}
+
 function updateHunger(delta) {
   if (!playerHasActed || runStatus !== 'playing' || hero.dead) return;
   hungerAccumulator += delta;
@@ -12604,6 +12672,7 @@ function updateHunger(delta) {
         * (appetite.gluttony ? 2 : 1),
     ),
   );
+  starve(activeSeconds);
   if (hero.hunger === before) return;
 
   const nextStageId = hungerStage(hero.hunger).id;
@@ -12732,6 +12801,7 @@ function updateHero(delta) {
     hero.attack = combat.attackDuration;
     hero.attackStyle = combat.style;
     hero.attackCooldown = combat.cooldown;
+    spendHunger('strike');
     hero.targetAngle = Math.atan2(nearest.y - hero.y, nearest.x - hero.x);
     hero.facing = nearest.x < hero.x ? -1 : 1;
     if (currentHeroMagic().invisibility) hero.invisibilityReveal = INVISIBILITY_REVEAL_SECONDS;
