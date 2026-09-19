@@ -9,6 +9,7 @@
  * do, how it is patched up, what it shares, and how many may follow.
  */
 
+import { mercenaryById } from './dcss-rpg-mercenaries.js';
 import { passiveCreatureById } from './dcss-rpg-passive.js';
 
 /** Any real meal will do; the hero gives one up to make a friend. */
@@ -101,8 +102,17 @@ export function packProfile(capabilities = {}) {
 }
 
 /** What the beast is worth once it walks beside the hero. */
+/**
+ * Who may walk with the hero. Two kinds and one lookup: an animal you fed, and
+ * a sword arm you paid for. Everything below — wounds, orders, the party limit,
+ * the save — reads this and never learns there are two kinds.
+ */
+export function companionDefinitionById(id) {
+  return mercenaryById(id) ?? passiveCreatureById(id);
+}
+
 export function companionStats({ creatureId = '', profile = EMPTY_TAMING } = {}) {
-  const creature = passiveCreatureById(creatureId);
+  const creature = companionDefinitionById(creatureId);
   if (!creature) return null;
   return Object.freeze({
     id: creature.id,
@@ -115,7 +125,7 @@ export function companionStats({ creatureId = '', profile = EMPTY_TAMING } = {})
 
 export function createCompanionState(source = null) {
   if (!source || typeof source !== 'object') return null;
-  const creature = passiveCreatureById(source.id);
+  const creature = companionDefinitionById(source.id);
   if (!creature) return null;
   const hp = Number.isFinite(source.hp) ? Math.round(source.hp) : 0;
   if (hp <= 0) return null;
@@ -138,7 +148,7 @@ export function createCompanionParty(source = null) {
 export function validateCompanionState(companion) {
   if (!companion || typeof companion !== 'object' || Array.isArray(companion)) return false;
   if (Object.keys(companion).sort().join(',') !== 'hp,id,mode') return false;
-  if (!passiveCreatureById(companion.id)) return false;
+  if (!companionDefinitionById(companion.id)) return false;
   if (!COMPANION_MODES.includes(companion.mode)) return false;
   return Number.isInteger(companion.hp) && companion.hp > 0 && companion.hp <= 9999;
 }
@@ -271,7 +281,11 @@ const COPY = Object.freeze({
     treated: 'Зверь перевязан',
     lost: 'Зверь пал',
     modes: Object.freeze({ guard: 'Защищать', search: 'Искать', fetch: 'Приносить' }),
-    names: Object.freeze({ sheep: 'Овца', hog: 'Кабан', yak: 'Як' }),
+    names: Object.freeze({
+      sheep: 'Овца', hog: 'Кабан', yak: 'Як',
+      drifter: 'Бродяга', sellsword: 'Наёмный меч',
+      veteran: 'Ветеранка', 'knight-errant': 'Странствующий рыцарь',
+    }),
   }),
   en: Object.freeze({
     tame: 'Tame',
@@ -293,7 +307,11 @@ const COPY = Object.freeze({
     treated: 'The beast is bandaged',
     lost: 'Your beast has fallen',
     modes: Object.freeze({ guard: 'Defend', search: 'Search', fetch: 'Fetch' }),
-    names: Object.freeze({ sheep: 'Sheep', hog: 'Hog', yak: 'Yak' }),
+    names: Object.freeze({
+      sheep: 'Sheep', hog: 'Hog', yak: 'Yak',
+      drifter: 'Drifter', sellsword: 'Sellsword',
+      veteran: 'Veteran', 'knight-errant': 'Knight errant',
+    }),
   }),
 });
 

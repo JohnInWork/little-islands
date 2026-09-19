@@ -344,6 +344,14 @@ export const CITY_GUARD_ID = 'city-guard';
 export const CITY_CAPTAIN_ID = 'city-captain';
 /** And the one man who is not the watch: the priest, inside the temple. */
 export const CITY_PRIEST_ID = 'city-priest';
+/** And the one who does not live here at all: the recruiter on the market. */
+export const CITY_RECRUITER_ID = 'city-recruiter';
+
+/** Where hires are taken: open ground, where a hiring board belongs. */
+export function cityRecruiterSpot(plan) {
+  const block = plan.blocks.find(({ kind, interior }) => kind === 'market' && interior);
+  return block ? centreOf(block.interior) : null;
+}
 
 /** Where the priest stands. Null when a small plan had no room for a temple. */
 export function cityTempleSpot(plan) {
@@ -399,6 +407,16 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
   }
   // The priest keeps his own post and never leaves it: the temple is where the
   // altar is, and a man who wanders is not somewhere you can come back to.
+  const recruiter = cityRecruiterSpot(plan);
+  if (recruiter && roomIndexAt(rooms, recruiter) >= 0) {
+    monsters.push(Object.freeze({
+      instanceId: `monster-${depth}-${monsters.length}`,
+      id: CITY_RECRUITER_ID,
+      x: recruiter.x,
+      y: recruiter.y,
+      post: Object.freeze({ ...recruiter }),
+    }));
+  }
   const temple = cityTempleSpot(plan);
   if (temple) {
     monsters.push(Object.freeze({

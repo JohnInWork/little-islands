@@ -264,6 +264,13 @@ import {
   resolveBandage,
 } from './dcss-rpg-field-medicine.js';
 import {
+  hireMercenary,
+  mercenaryById,
+  mercenaryCopy,
+  mercenaryModel,
+  mercenaryName,
+} from './dcss-rpg-mercenaries.js';
+import {
   boundSlots,
   curseCopy,
   templeOffer,
@@ -275,6 +282,7 @@ import {
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
   CITY_PRIEST_ID,
+  CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
   isCityDepth,
 } from './dcss-rpg-city.js';
@@ -1481,7 +1489,7 @@ function raiseCompanion(index) {
   if (!stats || !cell) return null;
   const [beast] = createRuntimeMonsters(dungeon, [{
     instanceId: `ally-companion-${index}`,
-    id: `tamed-${record.id}`,
+    id: `${isMercenary(record.id) ? 'hired' : 'tamed'}-${record.id}`,
     x: cell.x,
     y: cell.y,
   }]);
@@ -7341,6 +7349,15 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'road-end') {
     return { kind: 'road-end' };
   }
+  if (entry.kind === 'recruiter') {
+    const model = mercenaryModel({
+      gold,
+      party: run.companions,
+      partyLimit: currentPartyLimit(),
+      language: itemDetailLanguage,
+    });
+    return { kind: 'recruiter', rows: model.rows, idle: model.copy.idle };
+  }
   if (entry.kind === 'priest') {
     // One decision, made once: the price, whether there is anything to lift and
     // the line the priest says all come out of the same answer.
@@ -7407,7 +7424,7 @@ function contextModelTarget(entry = contextTarget) {
     });
     return {
       kind: 'companion',
-      id: record?.id ?? beast.id.replace('tamed-', ''),
+      id: record?.id ?? beast.id.replace(/^(tamed|hired)-/, ''),
       icon: beast.spritePath,
       modeLabel: training.modes.length > 0 ? companionModeLabel(beast.mode, itemDetailLanguage) : '',
       careKnown: care.rank > 0,
@@ -7486,6 +7503,7 @@ function contextTargetIsAdjacent(entry) {
     || entry.kind === 'wildlife'
     || entry.kind === 'guard'
     || entry.kind === 'priest'
+    || entry.kind === 'recruiter'
     || entry.kind === 'companion';
   const x = propTarget
     ? entry.value.gridX
@@ -7511,6 +7529,7 @@ function contextTargetIsAdjacent(entry) {
   // The stair is a tile the hero stands on, not one they stand beside.
   if (entry.kind === 'road-end') return distance === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
+  if (entry.kind === 'recruiter') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
@@ -8548,6 +8567,13 @@ function nearbyContextTarget() {
       + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
   ));
   if (priest) return { kind: 'priest', value: priest };
+  const recruiter = monsters.find((monster) => (
+    monster.id === CITY_RECRUITER_ID
+    && monster.dead === 0
+    && Math.abs(Math.floor(monster.x / TILE) - Math.floor(hero.x / TILE))
+      + Math.abs(Math.floor(monster.y / TILE) - Math.floor(hero.y / TILE)) <= 1
+  ));
+  if (recruiter) return { kind: 'recruiter', value: recruiter };
   const guard = nearbyGuard();
   if (guard) return { kind: 'guard', value: guard };
   const wildlife = nearbyWildlife();
@@ -8600,6 +8626,11 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'claim') return completeVictory();
     descendFloor();
     return true;
+  },
+  recruiter({ action }) {
+    closeContextActions();
+    if (!action.id.startsWith('hire:')) return false;
+    return hireIntoParty(action.id.slice('hire:'.length));
   },
   priest({ action }) {
     closeContextActions();
@@ -12148,6 +12179,41 @@ function liftBindings(uids) {
   updateHud();
   persistRun();
   return changed;
+}
+
+/** How many may walk with the hero right now: the taming school decides. */
+function currentPartyLimit() {
+  return packProfile(currentSkillCapabilities()).limit;
+}
+
+/**
+ * Taking a hire. The money leaves only after the companion is standing there,
+ * the same order the priest uses: a purse that empties with nothing to show for
+ * it is the worst kind of bug a paid thing can have.
+ */
+function hireIntoParty(mercenaryId) {
+  const result = hireMercenary({
+    mercenaryId,
+    gold,
+    party: run.companions,
+    partyLimit: currentPartyLimit(),
+  });
+  if (!result.ok) return false;
+  run.companions = createCompanionParty([...run.companions, result.companion]);
+  const index = run.companions.length - 1;
+  if (!raiseCompanion(index)) {
+    run.companions = createCompanionParty(run.companions.slice(0, index));
+    return false;
+  }
+  gold -= result.price;
+  playSound('ui-tap');
+  showLootToast(
+    { path: mercenaryById(mercenaryId).path, rarity: 2 },
+    mercenaryCopy(itemDetailLanguage).hired(mercenaryName(mercenaryId, itemDetailLanguage)),
+  );
+  updateHud();
+  persistRun();
+  return true;
 }
 
 function payPriestForUnbinding() {

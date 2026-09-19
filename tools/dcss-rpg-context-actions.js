@@ -45,6 +45,7 @@ const ACTION_COPY = Object.freeze({
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
     unbind: 'Снять оковы',
+    hire: 'Нанять',
   }),
   en: Object.freeze({
     inspect: 'Inspect',
@@ -88,6 +89,7 @@ const ACTION_COPY = Object.freeze({
     claim: 'Take the artefact',
     descend: 'Go deeper',
     unbind: 'Lift the binding',
+    hire: 'Hire',
     retire: 'Walk away with the haul',
   }),
 });
@@ -136,6 +138,7 @@ const GLYPHS = Object.freeze({
   claim: '◆',
   descend: '▼',
   unbind: '⛓',
+  hire: '⚔',
 });
 
 const COPY = Object.freeze({
@@ -188,6 +191,7 @@ const COPY = Object.freeze({
     roadEndClaim: 'Забег закончен победой',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     priestName: 'Жрец',
+    recruiterName: 'Вербовщик',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
     deedName: 'Участок на продажу',
@@ -242,6 +246,7 @@ const COPY = Object.freeze({
     roadEndClaim: 'The run ends in victory',
     roadEndDeeper: 'This stair does not carry anyone back up',
     priestName: 'Priest',
+    recruiterName: 'Recruiter',
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
     deedName: 'Plot for sale',
@@ -260,12 +265,15 @@ const validFind = (target, id) => target.kind === 'find'
   && Number.isFinite(target.rewardPower)
   && Number.isFinite(target.riskDamage);
 
-const commandAction = ({ id, enabled = true, hint = '' }, command) => Object.freeze({
+const commandAction = ({ id, enabled = true, hint = '', label = null, glyph = null }, command) => Object.freeze({
   id,
   command: id === 'inspect' ? 'inspect' : command,
-  glyph: GLYPHS[id],
+  // Most actions are a fixed verb with a fixed sign. A few — the hires — are
+  // rows of a list, and carry their own name, price and sign with them.
+  glyph: glyph ?? GLYPHS[id],
   enabled,
   hint,
+  ...(label ? { label } : {}),
 });
 
 const defineInteraction = (definition) => Object.freeze(definition);
@@ -485,6 +493,29 @@ export const INTERACTION_REGISTRY = Object.freeze([
     }),
   }),
   defineInteraction({
+    /**
+     * Hired help. The whole design is the price ladder: a strong one costs a
+     * lot and a weak one is cheap, so hiring asks a question about this run —
+     * a sword arm now, or your own gear and walk in alone.
+     */
+    id: 'recruiter',
+    command: 'recruiter',
+    matches: (target) => target?.kind === 'recruiter' && Array.isArray(target.rows),
+    present: ({ target, copy }) => ({
+      name: copy.recruiterName,
+      description: target.idle ?? '',
+      icon: 'mon/unique/donald.png',
+      accent: '#c9a45f',
+      actions: target.rows.map((row) => ({
+        id: `hire:${row.id}`,
+        label: `${row.name} · ${row.price}●`,
+        glyph: '⚔',
+        enabled: row.ok === true,
+        hint: row.ok ? `${row.maxHp} ♥ · ${row.damage} ⚔` : row.reason,
+      })),
+    }),
+  }),
+  defineInteraction({
     id: 'jail-door',
     command: 'jail-door',
     matches: (target) => target?.kind === 'jail-door' && Number.isInteger(target.fine),
@@ -678,7 +709,9 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     closeLabel: locale === 'ru' ? 'Закрыть действия' : 'Close actions',
     actions: Object.freeze(actions.map((action) => Object.freeze({
       ...action,
-      label: ACTION_COPY[locale][action.id],
+      // Most actions are a fixed verb from the table. A few — the hires — are
+      // a row of a list and carry their own name and price with them.
+      label: action.label ?? ACTION_COPY[locale][action.id],
     }))),
   });
 }

@@ -356,6 +356,14 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.98, vision: 8.8, windup: 0.28, pursuit: 9.5 },
   },
   {
+    // Takes hires on the market square. Neutral like the rest of the town: the
+    // watch takes a dim view of people who punch the recruiter.
+    id: 'city-recruiter', habitat: 'surface', kin: 'humanoid', path: 'mon/unique/donald.png',
+    tier: 3, hp: 18, damage: 6, speed: 0.94, xp: 14,
+    bloodColor: '#6d3b33', spawn: 'city', neutral: true,
+    threat: { attackRate: 0.86, vision: 6.4, windup: 0.26, pursuit: 4 },
+  },
+  {
     id: 'orc', habitat: 'any', kin: 'humanoid', path: 'mon/orc.png', tier: 2, hp: 5, damage: 6, speed: 1, xp: 7, bloodColor: '#5e3529',
     threat: { attackRate: 0.92, vision: 5.8, windup: 0.22, pursuit: 4 },
   },
@@ -582,6 +590,30 @@ export const MONSTER_CATALOG = Object.freeze([
     bloodColor: '#7a512b',
     inflicts: { id: 'burning', duration: 8 },
     threat: { attackRate: 0.76, vision: 9.5, windup: 0.44, pursuit: 10 },
+  },
+  // ── Наёмники в бою ──────────────────────────────────────────────────────
+  // Как `tamed-*` для прирученных зверей: у наёмника в своём модуле лежат
+  // цена и характеристики, а здесь — спрайт и повадки того, кто идёт рядом.
+  // `spawn: 'summon'` держит их вне общего пула: они не водятся, их нанимают.
+  {
+    id: 'hired-drifter', habitat: 'any', kin: 'humanoid', path: 'mon/unique/grum.png',
+    tier: 1, hp: 26, damage: 4, speed: 0.98, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 1.0, vision: 6.0, windup: 0.28, pursuit: 4 },
+  },
+  {
+    id: 'hired-sellsword', habitat: 'any', kin: 'humanoid', path: 'mon/unique/edmund.png',
+    tier: 3, hp: 46, damage: 8, speed: 1.02, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 0.95, vision: 6.6, windup: 0.24, pursuit: 5 },
+  },
+  {
+    id: 'hired-veteran', habitat: 'any', kin: 'humanoid', path: 'mon/unique/maud.png',
+    tier: 5, hp: 72, damage: 12, speed: 1.0, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 0.88, vision: 7.2, windup: 0.26, pursuit: 6 },
+  },
+  {
+    id: 'hired-knight-errant', habitat: 'any', kin: 'humanoid', path: 'mon/unique/wiglaf.png',
+    tier: 7, hp: 104, damage: 17, speed: 0.96, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 0.8, vision: 7.6, windup: 0.3, pursuit: 6 },
   },
 ]);
 export const LOOT_CATALOG = Object.freeze([

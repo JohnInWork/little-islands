@@ -7,6 +7,7 @@ import {
   CITY_ASSET_PATHS,
   CITY_CAPTAIN_ID,
   CITY_PRIEST_ID,
+  CITY_RECRUITER_ID,
   CITY_DEPTHS,
   CITY_GUARD_ID,
   cityBlockRects,
@@ -135,7 +136,7 @@ test('traders keep a stall each, and the watch keeps the streets', () => {
   assert.ok(level.monsters.length >= 3, 'the watch is on duty');
   for (const spawn of level.monsters) {
     assert.match(spawn.instanceId, new RegExp(`^monster-${cityDepth}-\\d+$`));
-    assert.ok([CITY_GUARD_ID, CITY_CAPTAIN_ID, CITY_PRIEST_ID].includes(spawn.id));
+    assert.ok([CITY_GUARD_ID, CITY_CAPTAIN_ID, CITY_PRIEST_ID, CITY_RECRUITER_ID].includes(spawn.id));
     assert.deepEqual(spawn.post, { x: spawn.x, y: spawn.y });
     assert.equal(level.grid[spawn.y][spawn.x], '.');
   }
