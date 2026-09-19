@@ -1332,7 +1332,10 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'bandage',
-    icon: 'item/scroll/scroll-grey.png',
+    // A bandage drawn as a scroll reads as a spell, which is what Ivan saw. The
+    // library has no bandage at all, so this is a roll of linen painted from
+    // the ration bundle — the same shape, none of the bread.
+    icon: 'derived/tools/bandage.png',
     slot: null,
     kind: 'tool',
     useEffect: { type: 'bandage' },

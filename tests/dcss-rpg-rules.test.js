@@ -521,6 +521,19 @@ test('weapon reach respects cardinal lanes and ranged line of sight', () => {
   assert.equal(canWeaponAttack(openLane, from, diagonal, spear), false);
   assert.equal(canWeaponAttack(openLane, from, diagonal, staff, true), true);
   assert.equal(canWeaponAttack(openLane, from, diagonal, staff, false), false);
+
+  // The shallows are part of the floor. An eel standing in water could not be
+  // shot at from dry land, and a hero wading could not swing at anything: both
+  // cells had to be dry, so the only way to reach the eel was to be killed by it.
+  const shallows = [
+    ['.', '~', '~', '.'],
+    ['.', '.', '~', '.'],
+    ['.', '.', '.', '.'],
+  ];
+  const inWater = { x: 2.5, y: 0.5 };
+  assert.equal(canWeaponAttack(shallows, from, inWater, staff, true), true, 'the staff still will not shoot into water');
+  assert.equal(canWeaponAttack(shallows, from, twoCellsRight, spear), true, 'a spear cannot reach across a puddle');
+  assert.equal(canWeaponAttack(shallows, { x: 1.5, y: 1.5 }, { x: 2.5, y: 1.5 }, blade), true, 'a wading hero cannot swing');
 });
 
 test('weapon tempo and guard alter outcomes without random rolls', () => {

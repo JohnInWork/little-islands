@@ -165,3 +165,34 @@ test('the place decides which animals graze in it', () => {
   // And a branch with no fauna of its own simply has none.
   assert.deepEqual(passiveCreaturesFor({ branch: 'vaults', themeId: 'iron-workshop', depth: 9 }), []);
 });
+
+/**
+ * A frog killed Ivan while he hit it for pennies, and that was not a frog
+ * problem: the wildlife was written on a scale of its own — eighteen health for
+ * a sheep where a goblin had three — and the floor multiplier was then applied
+ * to both alike. Hunting is a way to eat, not the hardest fight on the floor.
+ */
+test('a beast is no tougher than the creatures it shares a floor with', async () => {
+  const { MONSTER_CATALOG } = await import('../tools/dcss-rpg-content.js');
+  const goblin = MONSTER_CATALOG.find(({ id }) => id === 'goblin');
+  const orc = MONSTER_CATALOG.find(({ id }) => id === 'orc-warrior');
+  const beast = (id) => PASSIVE_CREATURE_CATALOG.find((creature) => creature.id === id);
+
+  // The two that run away are below the weakest thing that fights back.
+  for (const id of ['sheep', 'cave-rodent']) {
+    assert.equal(beast(id).huntResponse, 'flee', id);
+    assert.equal(beast(id).damage, 0, `${id} hurts somebody`);
+    assert.ok(beast(id).maxHp <= goblin.hp * 2, `${id} outlives two goblins`);
+  }
+  // A frog is a snack, whatever else it is.
+  assert.ok(beast('cave-toad').maxHp <= goblin.hp * 2, 'the frog is a monster again');
+  assert.ok(beast('cave-toad').damage < goblin.damage, 'the frog hits harder than a goblin');
+  // And the biggest game is a real fight, but not more than the floor's soldiers.
+  for (const id of ['yak', 'cave-turtle', 'hell-hog']) {
+    assert.ok(beast(id).maxHp <= orc.hp * 2, `${id} is tougher than two orcs`);
+    assert.ok(beast(id).damage <= orc.damage, `${id} hits harder than an orc`);
+  }
+  // Size still means meat: what is hard to kill is worth killing.
+  const byHp = [...PASSIVE_CREATURE_CATALOG].sort((a, b) => a.maxHp - b.maxHp);
+  assert.ok(byHp.at(0).meatYield <= byHp.at(-1).meatYield, 'the smallest beast feeds best');
+});

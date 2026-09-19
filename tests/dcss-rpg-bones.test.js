@@ -14,6 +14,7 @@ import {
   createBonesState,
   ghostStats,
   rememberBones,
+  ghostWakes,
   validateBonesRecord,
 } from '../tools/dcss-rpg-bones.js';
 import {
@@ -159,4 +160,30 @@ test('the runtime places the ghost without writing it into the floor', async () 
   assert.match(runtime, /function placeFloorGhost\(\)[\s\S]*seed: bones\.seed,/);
   assert.match(runtime, /function ghostActor3D\(\)[\s\S]*layers: ghost\.layers,/);
   assert.match(runtime, /function ghostLayers\(bones\)[\s\S]*composePlayerLayerStack\(/);
+});
+
+/**
+ * Meeting your own predecessor should be the strangest thing that happens all
+ * evening. The dungeon kept one body per depth and raised its ghost every
+ * single time the hero walked that floor again, so it became furniture.
+ */
+test('the remembered dead stand up rarely, and always the same way twice', () => {
+  let woke = 0;
+  let floors = 0;
+  for (let seed = 0; seed < 3000; seed += 1) {
+    for (let depth = 1; depth <= 18; depth += 1) {
+      floors += 1;
+      if (ghostWakes({ seed, depth })) woke += 1;
+    }
+  }
+  const share = woke / floors;
+  assert.ok(share > 0.18 && share < 0.33, `${(share * 100).toFixed(1)}% of remembered floors`);
+  assert.equal(share < 0.5, true, 'a ghost on most floors is furniture, not a ghost');
+
+  // A floor rebuilt from the same save says the same thing twice: a ghost that
+  // flickers in and out on reload is a glitch, not a haunting.
+  assert.equal(ghostWakes({ seed: 77, depth: 4 }), ghostWakes({ seed: 77, depth: 4 }));
+  assert.equal(ghostWakes({ seed: 77, depth: 4, chance: 1 }), true);
+  assert.equal(ghostWakes({ seed: 77, depth: 4, chance: 0 }), false);
+  assert.equal(ghostWakes({ seed: Number.NaN, depth: 4 }), false);
 });

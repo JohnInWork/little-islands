@@ -221,7 +221,14 @@ import {
 } from './dcss-rpg-marksmanship.js';
 import { resolveRangedShot } from './dcss-rpg-ranged.js';
 import { materialFilter } from './dcss-rpg-materials.js';
-import { bonesCopy, bonesForDepth, bonesKey, bonesPlacement, ghostStats } from './dcss-rpg-bones.js';
+import {
+  bonesCopy,
+  bonesForDepth,
+  bonesKey,
+  bonesPlacement,
+  ghostStats,
+  ghostWakes,
+} from './dcss-rpg-bones.js';
 import { SURFACE_LIGHT_MULTIPLIER, SURFACE_REVEAL_RADIUS } from './dcss-rpg-surface-plan.js';
 import { conditionCopy, conditionEffects } from './dcss-rpg-conditions.js';
 import {
@@ -12842,6 +12849,8 @@ function placeFloorGhost() {
   if (isCityDepth(dungeon.depth)) return;
   const bones = bonesForDepth(metaState.bones, dungeon.depth, { excludeSeed: run.seed });
   if (!bones) return;
+  // Remembered is not the same as met. Most floors keep their body to themselves.
+  if (!ghostWakes({ seed: run.seed, depth: dungeon.depth })) return;
   const spawnCell = { x: Math.floor(dungeon.spawn.x), y: Math.floor(dungeon.spawn.y) };
   const busy = new Set([
     `${spawnCell.x},${spawnCell.y}`,

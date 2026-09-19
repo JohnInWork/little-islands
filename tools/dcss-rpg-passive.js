@@ -14,6 +14,18 @@
  * list of exclusions that would have to be kept in step with the catalogue.
  */
 
+/**
+ * Why these numbers are small.
+ *
+ * The wildlife was written on a scale of its own — a «sheep» had eighteen
+ * health where a goblin on the same floor had three, a yak fifty-eight where an
+ * orc had eight — and then the floor multiplier was applied to both alike. On
+ * the third floor that made an ordinary pig twice the hell-hound, and a frog a
+ * ninety-health monster that killed Ivan while he hit it for pennies. Hunting
+ * is a way to eat, not the hardest fight on the floor, so every beast now sits
+ * on the scale of the creatures it shares that floor with: a rodent below a
+ * goblin, a hog around a gnoll, a yak around an orc.
+ */
 export const PASSIVE_CREATURE_CATALOG = Object.freeze([
   Object.freeze({
     id: 'sheep',
@@ -26,7 +38,7 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 4,
     tameDifficulty: 1,
     meatYield: 2,
-    maxHp: 18,
+    maxHp: 4,
     defense: 0,
     huntResponse: 'flee',
     huntSpeed: 0.92,
@@ -46,11 +58,11 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 4,
     tameDifficulty: 2,
     meatYield: 3,
-    maxHp: 34,
+    maxHp: 8,
     defense: 1,
     huntResponse: 'fight',
     huntSpeed: 0.82,
-    damage: 7,
+    damage: 5,
     attackRate: 0.72,
     windup: 0.42,
     bloodColor: '#74342f',
@@ -67,11 +79,11 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     tameDifficulty: 3,
     meatYield: 5,
     large: true,
-    maxHp: 58,
-    defense: 3,
+    maxHp: 14,
+    defense: 2,
     huntResponse: 'fight',
     huntSpeed: 0.68,
-    damage: 11,
+    damage: 8,
     attackRate: 0.58,
     windup: 0.54,
     bloodColor: '#60332b',
@@ -87,7 +99,7 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 5,
     tameDifficulty: 1,
     meatYield: 1,
-    maxHp: 14,
+    maxHp: 3,
     defense: 0,
     huntResponse: 'flee',
     huntSpeed: 1.04,
@@ -107,11 +119,11 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     wanderRadius: 4,
     tameDifficulty: 2,
     meatYield: 2,
-    maxHp: 28,
-    defense: 1,
+    maxHp: 5,
+    defense: 0,
     huntResponse: 'fight',
     huntSpeed: 0.86,
-    damage: 6,
+    damage: 3,
     attackRate: 0.78,
     windup: 0.4,
     bloodColor: '#3f6a3a',
@@ -128,11 +140,11 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     tameDifficulty: 3,
     meatYield: 4,
     large: true,
-    maxHp: 64,
-    defense: 4,
+    maxHp: 12,
+    defense: 2,
     huntResponse: 'fight',
     huntSpeed: 0.58,
-    damage: 12,
+    damage: 6,
     attackRate: 0.52,
     windup: 0.58,
     bloodColor: '#4a5a33',
@@ -153,11 +165,11 @@ export const PASSIVE_CREATURE_CATALOG = Object.freeze([
     // beast nobody can ever tame, which is a promise the skill does not make.
     tameDifficulty: 3,
     meatYield: 3,
-    maxHp: 46,
-    defense: 2,
+    maxHp: 10,
+    defense: 1,
     huntResponse: 'fight',
     huntSpeed: 0.98,
-    damage: 13,
+    damage: 7,
     attackRate: 0.8,
     windup: 0.36,
     bloodColor: '#8a3521',

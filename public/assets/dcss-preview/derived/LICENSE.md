@@ -23,3 +23,13 @@ Six book covers, recoloured to an absolute hue from six library covers:
 Two unidentified books that look the same are not a puzzle, they are a bug: the
 game needs one distinct cover per book type. The library holds twenty-four and
 the game now has thirty spellbooks, so six were painted.
+
+## `tools/`
+
+| file | from | change |
+| --- | --- | --- |
+| `bandage.png` | `item/food/bread_ration.png` | recoloured to linen |
+
+The library ships no bandage of any kind, and a bandage drawn as a scroll reads
+as a spell. The ration is the right shape — a wrapped bundle — so it was
+repainted white and lost its bread.

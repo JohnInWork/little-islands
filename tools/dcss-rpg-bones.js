@@ -24,6 +24,32 @@
 export const BONES_VERSION = 1;
 /** How many deaths the dungeon keeps. Older ones are simply forgotten. */
 export const BONES_LIMIT = 4;
+
+/**
+ * How often a remembered death actually shows itself.
+ *
+ * The dungeon kept one body per depth and raised its ghost every single time
+ * the hero walked that floor again, so meeting your own predecessor — which
+ * ought to be the strangest thing that happens to you all evening — became the
+ * ordinary furniture of every run. Rare is the whole point: one floor in four
+ * where a body is remembered at all.
+ */
+export const GHOST_APPEARANCE_CHANCE = 0.25;
+
+/**
+ * Whether the body remembered on this floor stands up for this run. Decided by
+ * the run and the depth, so a floor rebuilt from the same save says the same
+ * thing twice — a ghost that flickers in and out on reload is a glitch.
+ */
+export function ghostWakes({ seed = 0, depth = 1, chance = GHOST_APPEARANCE_CHANCE } = {}) {
+  if (!Number.isFinite(seed) || !Number.isFinite(depth)) return false;
+  if (!(chance > 0)) return false;
+  if (chance >= 1) return true;
+  let value = (Math.imul(seed >>> 0, 0x9e3779b1) ^ Math.imul(depth + 1, 0xc2b2ae35)) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
+  value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+  return ((value ^ (value >>> 15)) >>> 0) / 4294967296 < chance;
+}
 /** How far from the fatal cell the body may be laid instead. */
 export const BONES_SEARCH_RADIUS = 6;
 

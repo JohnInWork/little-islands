@@ -409,7 +409,10 @@ export const REACH_STYLES = Object.freeze(['spear', 'whip']);
 export function canWeaponAttack(grid, attacker, target, combat, lineOfSight = true) {
   const from = { x: Math.floor(attacker.x), y: Math.floor(attacker.y) };
   const to = { x: Math.floor(target.x), y: Math.floor(target.y) };
-  if (grid[from.y]?.[from.x] !== '.' || grid[to.y]?.[to.x] !== '.') return false;
+  // Shallow water is somewhere a fight happens — the same rule melee already
+  // learned. An eel in the shallows could not be shot at from dry land: the
+  // only way to reach it was to wade in and be killed by it.
+  if (!strikeableCell(grid, from.x, from.y) || !strikeableCell(grid, to.x, to.y)) return false;
 
   if (combat?.projectile) {
     const distance = Math.hypot(to.x - from.x, to.y - from.y);
@@ -425,7 +428,7 @@ export function canWeaponAttack(grid, attacker, target, combat, lineOfSight = tr
   const stepX = Math.sign(dx);
   const stepY = Math.sign(dy);
   for (let step = 1; step <= distance; step += 1) {
-    if (grid[from.y + stepY * step]?.[from.x + stepX * step] !== '.') return false;
+    if (!strikeableCell(grid, from.x + stepX * step, from.y + stepY * step)) return false;
   }
   return true;
 }
