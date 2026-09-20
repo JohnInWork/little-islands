@@ -15724,6 +15724,34 @@ function mateTakeLoot(ally) {
   return true;
 }
 
+/**
+ * Напарник лечится сам.
+ *
+ * Надевать он ничего не умеет — у спутника нет слотов, — но выпить зелье и
+ * съесть еду обязан: иначе раздельные карманы означают, что второй игрок
+ * таскает лечение для чужого здоровья и не может потратить его на своё.
+ */
+function mateUseSelected(ally) {
+  const entry = matePack[matePick];
+  const effect = entry?.definition?.useEffect;
+  if (!effect || effect.type !== 'heal') return false;
+  const healed = Math.min(effect.amount ?? 0, ally.maxHp - ally.hp);
+  if (healed <= 0) {
+    showLootToast({ icon: entry.definition.icon, rarity: 0 },
+      itemDetailLanguage === 'ru' ? 'Нечего лечить' : 'Nothing to heal');
+    return false;
+  }
+  ally.hp += healed;
+  matePack = matePack.filter((_, index) => index !== matePick);
+  matePick = Math.max(0, Math.min(Math.max(0, matePack.length - 1), matePick));
+  playSound('spell-heal');
+  burst(ally.x, ally.y - 8, '#d4c27e', 18);
+  showLootToast(entry.definition, `P2 +${healed} ❤`);
+  renderCoopBag();
+  updateCoopHud();
+  return true;
+}
+
 /** Дверь в шаге от напарника: второй игрок открывает её сам. */
 function mateOpenDoor(ally) {
   const cell = { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) };
@@ -15802,6 +15830,23 @@ function toggleHeroBag(open) {
   heroBagOpen = open ?? !heroBagOpen;
   coopHeroBag.hidden = !heroBagOpen;
   if (heroBagOpen) renderHeroBag();
+}
+
+/**
+ * Надеть или выпить выбранное, не открывая полный рюкзак.
+ *
+ * Панель обязана уметь то, ради чего в рюкзак вообще лезут в бою. Действие идёт
+ * тем же путём, что и с карточки предмета, — просто выбор ставится отсюда.
+ */
+function heroUseSelected() {
+  if (!backpackItems[heroPick]) return false;
+  selectedEquipmentSlot = null;
+  selectedPackIndex = heroPick;
+  const done = performSelectedItemAction();
+  heroPick = Math.max(0, Math.min(Math.max(0, backpackItems.length - 1), heroPick));
+  renderHeroBag();
+  updateCoopHud();
+  return done;
 }
 
 /** Отдать вещь напарнику — зеркало обмена в другую сторону. */
@@ -15900,6 +15945,7 @@ function closeTopScreen() {
   if (uiScreen === 'inventory') closeInventory();
   else if (uiScreen === 'character') closeCharacterSheet();
   else if (uiScreen === 'context') closeContextActions({ restoreFocus: true });
+  else if (uiScreen === 'menu' && menuMode === 'pause') startGameFromMenu();
   else document.querySelector(`[data-screen='${uiScreen}'] [data-close]`)?.click();
 }
 
@@ -15917,7 +15963,8 @@ function pollGamepads(delta) {
         heroPick += step === 'down' ? 1 : -1;
         renderHeroBag();
       }
-      if (edge.has('cross')) heroGiveToMate();
+      if (edge.has('cross')) heroUseSelected();
+      if (edge.has('triangle')) heroGiveToMate();
       if (edge.has('circle')) toggleHeroBag(false);
     } else {
       if (uiScreen === 'game' && step) queueDirectionalMove(step);
@@ -15930,7 +15977,7 @@ function pollGamepads(delta) {
       if (coopActive && uiScreen === 'game') toggleHeroBag();
       else (uiScreen === 'inventory' ? closeInventory : openInventory)();
     }
-    if (edge.has('triangle') && uiScreen === 'game') openCharacterSheet();
+    if (edge.has('triangle') && uiScreen === 'game' && !heroPanel) openCharacterSheet();
     if (edge.has('options')) openMainMenu();
     // На открытом экране стик водит фокус по кнопкам, а крестик их нажимает:
     // рюкзак, который можно открыть и нельзя тронуть, — половина рюкзака.
@@ -15969,7 +16016,8 @@ function pollGamepads(delta) {
       matePick += step === 'down' ? 1 : -1;
       renderCoopBag();
     }
-    if (edge.has('cross')) mateGiveToHero();
+    if (edge.has('cross')) mateUseSelected(mate);
+    if (edge.has('triangle')) mateGiveToHero();
     if (edge.has('circle')) toggleCoopBag(false);
     updateCoopHud();
     return;
