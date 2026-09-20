@@ -4792,6 +4792,20 @@ body[data-coop='on'] .open-portal {
   opacity: 0;
 }
 
+/*
+ * Окно взаимодействия встаёт на стороне того, кто его открыл.
+ *
+ * Вдвоём экран поделён по интерфейсу, и окно посередине принадлежало бы обоим
+ * сразу — то есть никому: второй игрок не понимал бы, его ли это вопрос.
+ */
+body[data-coop='on'] .context-actions[data-owner='p1'] {
+  justify-items: start;
+}
+
+body[data-coop='on'] .context-actions[data-owner='p2'] {
+  justify-items: end;
+}
+
 .context-actions {
   position: fixed;
   z-index: 24;

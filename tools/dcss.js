@@ -8999,10 +8999,11 @@ function updateInteractionUi() {
   return true;
 }
 
-function openContextActions(nextTarget) {
+function openContextActions(nextTarget, owner = 'p1') {
   if (!ready || uiScreen !== 'game' || hero.dead || openingDoor || !contextTargetIsAdjacent(nextTarget)) {
     return false;
   }
+  contextActions.dataset.owner = owner;
   clearMoveControl();
   hero.path = [];
   hero.pendingAttack = null;
