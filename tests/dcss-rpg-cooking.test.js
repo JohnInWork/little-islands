@@ -127,7 +127,7 @@ test('dishes are real items only a fire produces', () => {
 
 test('save v47 keeps the dish on the hero', () => {
   const run = createRun(4001);
-  assert.equal(SAVE_VERSION, 49);
+  assert.equal(SAVE_VERSION, 50);
   assert.equal(run.hero.meal, null);
   assert.equal(validateRun(run), true);
   run.hero.meal = startMeal('stew');
@@ -139,7 +139,7 @@ test('save v47 keeps the dish on the hero', () => {
   legacy.version = 39;
   delete legacy.hero.meal;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 49);
+  assert.equal(migrated.version, 50);
   assert.equal(migrated.hero.meal, null);
   assert.equal(validateRun(migrated), true);
 });

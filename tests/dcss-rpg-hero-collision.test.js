@@ -114,6 +114,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     actorInWater: () => false,
     isWaterCell: () => false,
     updateHeroTerrain: () => {},
+    updateCampFire: () => {},
     heroWading: () => false,
     stopAmbient: () => {},
     startAmbient: () => {},

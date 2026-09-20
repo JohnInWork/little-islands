@@ -4,13 +4,17 @@ import test from 'node:test';
 
 import {
   CAMP_ASSET_PATHS,
+  CAMP_FIRE_OUT_PATH,
+  CAMP_FIRE_SECONDS,
   CAMP_KIT_ITEM_ID,
   CAMP_REST_HUNGER_COST,
   CAMP_SAFE_DISTANCE,
   CAMP_SPELL_RANK,
   CAMP_SPELL_REST_PERCENT,
   CAMP_STASH_CONTAINER_ID,
+  burnCampFire,
   campFeaturesForRank,
+  campFireBurning,
   campLayout,
   campProfile,
   campRefusalText,
@@ -209,7 +213,7 @@ test('save v47 carries the stash down the stairs and leaves the camp behind', ()
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 49);
+  assert.equal(migrated.version, 50);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
@@ -229,7 +233,7 @@ test('save v47 carries the stash down the stairs and leaves the camp behind', ()
     ],
   };
   const movedIn = migrateLegacyRun(camped);
-  assert.equal(movedIn.version, 49);
+  assert.equal(movedIn.version, 50);
   assert.equal(movedIn.floor.camp.restPercent, 40);
   assert.equal(validateRun(movedIn), true);
 });
@@ -366,4 +370,93 @@ test('the runtime summons a camp from the spell bar', async () => {
     'a refused summon says why and keeps the cooldown',
   );
   assert.match(runtime, /restPercent: profile\.restPercent,/, 'the camp stores the comfort it was built with');
+});
+
+/**
+ * A fire that never goes out turns a camp into a room: pitch it once and cook
+ * for the rest of the run. Ivan asked for the opposite — «пусть он горит 1 или
+ * 2 минуты, потом он в потухший превращается и использовать его нельзя» — so
+ * the fire is a clock the camp carries, and when it runs out the wood is still
+ * there and the cooking is not.
+ */
+test('the camp fire burns for two minutes, goes out once, and stays out', () => {
+  const camp = createCampState({
+    cell: { x: 5, y: 5 },
+    places: [{ feature: 'fire', x: 5, y: 4 }, { feature: 'bedroll', x: 6, y: 5 }],
+    rank: 2,
+    restPercent: 40,
+  });
+  assert.equal(camp.fire, CAMP_FIRE_SECONDS);
+  assert.equal(campFireBurning(camp), true);
+  assert.equal(validateCampState(camp), true);
+
+  // A minute in it is still a fire; nothing announces anything.
+  let state = camp;
+  let announcements = 0;
+  for (let tick = 0; tick < 60; tick += 1) {
+    const step = burnCampFire(state, 1);
+    state = step.camp;
+    if (step.wentOut) announcements += 1;
+  }
+  assert.equal(campFireBurning(state), true, 'a minute ate the whole fire');
+  assert.equal(announcements, 0);
+
+  // The rest of it, and the one moment worth saying out loud.
+  for (let tick = 0; tick < 120; tick += 1) {
+    const step = burnCampFire(state, 1);
+    state = step.camp;
+    if (step.wentOut) announcements += 1;
+  }
+  assert.equal(state.fire, 0);
+  assert.equal(campFireBurning(state), false);
+  assert.equal(announcements, 1, 'going out is announced once, not every frame after');
+
+  // Everything else about the camp survives burning down — the bed still sleeps.
+  assert.equal(state.places.length, 2);
+  assert.equal(state.restPercent, 40);
+  assert.equal(validateCampState(state), true);
+  const rest = resolveCampRest({ camp: state, hp: 10, maxHp: 100, hunger: 3600 });
+  assert.equal(rest.ok, true, 'a cold fire took the bedroll with it');
+  assert.equal(rest.camp.fire, 0, 'sleeping relit the fire');
+
+  // A camp with no fire in it has no clock to run down.
+  const fireless = createCampState({
+    cell: { x: 1, y: 1 },
+    places: [{ feature: 'bedroll', x: 1, y: 2 }],
+    rank: 1,
+  });
+  assert.equal(fireless.fire, 0);
+  assert.equal(burnCampFire(fireless, 5).wentOut, false, 'a camp with no fire put one out');
+
+  // And the clock is saved with everything else: a tea break does not relight it.
+  const reloaded = JSON.parse(JSON.stringify(burnCampFire(camp, 30).camp));
+  assert.equal(validateCampState(reloaded), true);
+  assert.equal(reloaded.fire, CAMP_FIRE_SECONDS - 30);
+  assert.equal(validateCampState({ ...camp, fire: -1 }), false);
+  assert.equal(validateCampState({ ...camp, fire: CAMP_FIRE_SECONDS + 1 }), false);
+  const { fire, ...withoutFire } = camp;
+  assert.equal(validateCampState(withoutFire), false, 'a camp with no clock passes for a camp');
+});
+
+test('the runtime swaps the flame for cold wood and takes the cooking with it', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Cold wood is a prop with no light and no interaction: that is the whole of
+  // «использовать его нельзя», and it needs no special case anywhere else.
+  const visual = runtime.slice(runtime.indexOf("'fire-out': Object.freeze({"));
+  const body = visual.slice(0, visual.indexOf('}),') + 3);
+  assert.match(body, /path: CAMP_FIRE_OUT_PATH/);
+  assert.match(body, /light: null/);
+  assert.match(body, /interactionId: null/);
+  // The picture is chosen by the clock, every time the props are built.
+  assert.match(
+    runtime,
+    /CAMP_PROP_VISUALS\[feature === 'fire' && !burning \? 'fire-out' : feature\]/,
+    'the camp draws the same fire whether or not it is lit',
+  );
+  // And the clock is wound by the world, not by the hero doing something.
+  assert.match(runtime, /function updateWorld\(delta\) \{[\s\S]{0,200}updateCampFire\(delta\);/);
+  const burn = runtime.slice(runtime.indexOf('function updateCampFire(delta) {'));
+  const burnBody = burn.slice(0, burn.indexOf('\nfunction '));
+  assert.match(burnBody, /applyCampProps\(\);/, 'the flame is still drawn after it went out');
+  assert.ok(CAMP_ASSET_PATHS.includes(CAMP_FIRE_OUT_PATH), 'the cold wood does not ship');
 });

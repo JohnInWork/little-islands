@@ -160,7 +160,7 @@ test('the stone is an item the deed hands over, never found and never sold', () 
 });
 
 test('save v47 keeps the deed through descents, travel and migration', () => {
-  assert.equal(SAVE_VERSION, 49);
+  assert.equal(SAVE_VERSION, 50);
   const run = createRun(4101);
   assert.deepEqual(run.house, { owned: false, furniture: [], anchor: null });
   assert.equal(validateRun(run), true);
@@ -182,7 +182,7 @@ test('save v47 keeps the deed through descents, travel and migration', () => {
   legacy.version = 40;
   delete legacy.house;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 49);
+  assert.equal(migrated.version, 50);
   assert.deepEqual(migrated.house, { owned: false, furniture: [], anchor: null });
   assert.equal(validateRun(migrated), true);
 });

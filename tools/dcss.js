@@ -416,8 +416,11 @@ import {
   CAMP_BEDROLL_PATH,
   CAMP_CHEST_PATH,
   CAMP_FIRE_FRAMES,
+  CAMP_FIRE_OUT_PATH,
   CAMP_KIT_ITEM_ID,
   CAMP_STASH_CONTAINER_ID,
+  burnCampFire,
+  campFireBurning,
   campProfile,
   campRefusalText,
   canPitchCamp,
@@ -2566,11 +2569,23 @@ const CAMP_PROP_VISUALS = Object.freeze({
     light: Object.freeze({ color: '#d88447', radius: 2.35, beam: false }),
     interactionId: 'campfire',
   }),
+  // Cold wood on the same spot: no light, and nothing to interact with, which
+  // is what «использовать его нельзя» means in a sentence the runtime can read.
+  'fire-out': Object.freeze({
+    path: CAMP_FIRE_OUT_PATH,
+    frames: Object.freeze([CAMP_FIRE_OUT_PATH]),
+    size: 62,
+    screenOffsetY: -10,
+    light: null,
+    interactionId: null,
+  }),
   bedroll: Object.freeze({
     path: CAMP_BEDROLL_PATH,
     frames: Object.freeze([CAMP_BEDROLL_PATH]),
-    size: 58,
-    screenOffsetY: -2,
+    // A tent is a thing you walk into, not a thing you step over: it stands
+    // about two cells wide and looks like shelter beside a person.
+    size: 132,
+    screenOffsetY: -34,
     light: null,
     interactionId: 'camp-rest',
   }),
@@ -2586,8 +2601,9 @@ const CAMP_PROP_VISUALS = Object.freeze({
 
 function campPropsFor(camp) {
   if (!camp) return [];
+  const burning = campFireBurning(camp);
   return camp.places.map(({ feature, x, y }) => {
-    const visual = CAMP_PROP_VISUALS[feature];
+    const visual = CAMP_PROP_VISUALS[feature === 'fire' && !burning ? 'fire-out' : feature];
     return Object.freeze({
       id: `camp-${feature}`,
       ...visual,
@@ -2598,6 +2614,25 @@ function campPropsFor(camp) {
       phase: 0,
     });
   });
+}
+
+/**
+ * The camp fire burning down. Only the floor the hero is standing on burns:
+ * a camp two floors up is not on fire while nobody is there to watch it.
+ */
+function updateCampFire(delta) {
+  const camp = run.floor.camp;
+  if (!camp || !campFireBurning(camp)) return;
+  const burnt = burnCampFire(camp, delta);
+  run.floor.camp = burnt.camp;
+  if (!burnt.wentOut) return;
+  applyCampProps();
+  const place = camp.places.find(({ feature }) => feature === 'fire');
+  if (place) {
+    burst((place.x + 0.5) * TILE, (place.y + 0.5) * TILE, '#6f6a63', 14);
+    addCombatGlyph((place.x + 0.5) * TILE, (place.y + 0.5) * TILE, '\u2022', '#9a9188', -58);
+  }
+  if (typeof updateInteractionUi === 'function') updateInteractionUi();
 }
 
 /** The plot the city sells, or null on every floor that is not the city. */
@@ -15120,6 +15155,7 @@ function updateWorld(delta) {
   updateDoorOpening(delta);
   updateHeroTerrain();
   refreshVisibleSecrets();
+  updateCampFire(delta);
   const cryomancyRank = typeof currentSkillCapabilities === 'function'
     ? currentSkillCapabilities().cryomancyRank ?? 0
     : 0;

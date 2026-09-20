@@ -15,17 +15,39 @@ export { CAMP_STASH_CONTAINER_ID };
 export const CAMP_KIT_ITEM_ID = 'camp-kit';
 export const CAMP_FEATURE_IDS = Object.freeze(['fire', 'bedroll', 'chest']);
 
-/** The camp's own sprites, listed here so the packager ships them. */
+/**
+ * The camp's own sprites, listed here so the packager ships them.
+ *
+ * The fire used to be an altar's flame — `makhleb_flame`, a pillar of fire on
+ * a stone plinth, because Dungeon Crawl has no campfire: «костёр каменный, а
+ * нужен обычный деревянный с дровами». And the bedroll was a folded cloak,
+ * which is what a cloak looks like, not what a camp looks like. Both now come
+ * from the village pack, which turned out to carry a whole camping section.
+ */
 export const CAMP_FIRE_FRAMES = Object.freeze(
-  Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`),
+  Array.from({ length: 5 }, (_, index) => `licensed/lpc-village/cut/campfire-${index + 1}.png`),
 );
-export const CAMP_BEDROLL_PATH = 'item/armour/cloak2.png';
+/** The same wood once the flame is gone, aligned to the burning frames. */
+export const CAMP_FIRE_OUT_PATH = 'licensed/lpc-village/cut/campfire-out.png';
+export const CAMP_BEDROLL_PATH = 'licensed/lpc-village/cut/tent.png';
 export const CAMP_CHEST_PATH = 'licensed/cmski-chests/wooden/4.png';
 export const CAMP_ASSET_PATHS = Object.freeze([
   ...CAMP_FIRE_FRAMES,
+  CAMP_FIRE_OUT_PATH,
   CAMP_BEDROLL_PATH,
   CAMP_CHEST_PATH,
 ]);
+/**
+ * How long a camp fire lasts, in seconds of play.
+ *
+ * Ivan: «пусть он горит 1 или 2 минуты, потом он в потухший превращается и
+ * использовать его нельзя». A fire that never goes out makes a camp a room:
+ * pitch it once, cook forever, brew forever. Two minutes is long enough to
+ * cook what the hero is carrying and short enough that the camp is a stop on
+ * the way rather than a place to live. The clock is play time, not wall time,
+ * so nothing burns down while the game is paused or the hero is a floor away.
+ */
+export const CAMP_FIRE_SECONDS = 120;
 /** No camp within this many cells of anything alive that can see the spot. */
 export const CAMP_SAFE_DISTANCE = 6;
 /** Sleeping costs a real bite of the hunger bar, which is 3600 seconds wide. */
@@ -149,21 +171,50 @@ export function canPitchCamp({
  * what the hero studies afterwards.
  */
 export function createCampState({ cell, places = [], rank = 1, restPercent = 0 } = {}) {
+  const laid = places.map((place) => Object.freeze({ ...place }));
   return Object.freeze({
     x: cell.x,
     y: cell.y,
     rank: boundedInteger(rank, 1, 3),
     restPercent: boundedInteger(restPercent, 0, 100),
     rested: false,
-    places: Object.freeze(places.map((place) => Object.freeze({ ...place }))),
+    // A camp without a fire has no fire to burn down.
+    fire: laid.some(({ feature }) => feature === 'fire') ? CAMP_FIRE_SECONDS : 0,
+    places: Object.freeze(laid),
   });
+}
+
+/**
+ * The fire burning down, one frame's worth at a time.
+ *
+ * `wentOut` is true on the single step that spends the last second and never
+ * again, because that is the moment worth saying out loud — and the moment the
+ * runtime has to rebuild the camp's props so the flame becomes cold wood.
+ */
+export function burnCampFire(camp, seconds) {
+  if (!camp || !Number.isFinite(seconds) || seconds <= 0) {
+    return Object.freeze({ camp, wentOut: false });
+  }
+  const left = Number.isFinite(camp.fire) ? camp.fire : 0;
+  if (left <= 0) return Object.freeze({ camp, wentOut: false });
+  const next = Math.max(0, left - seconds);
+  return Object.freeze({
+    camp: Object.freeze({ ...camp, fire: next, places: camp.places }),
+    wentOut: next === 0,
+  });
+}
+
+/** Is there a fire to cook on? A camp that never had one answers no as well. */
+export function campFireBurning(camp) {
+  return Boolean(camp) && Number.isFinite(camp.fire) && camp.fire > 0;
 }
 
 export function validateCampState(camp) {
   if (camp === null || camp === undefined) return true;
   if (typeof camp !== 'object' || Array.isArray(camp)) return false;
   const keys = Object.keys(camp).sort();
-  if (keys.join(',') !== 'places,rank,restPercent,rested,x,y') return false;
+  if (keys.join(',') !== 'fire,places,rank,restPercent,rested,x,y') return false;
+  if (!Number.isFinite(camp.fire) || camp.fire < 0 || camp.fire > CAMP_FIRE_SECONDS) return false;
   if (!Number.isInteger(camp.restPercent) || camp.restPercent < 0 || camp.restPercent > 100) return false;
   if (!Number.isInteger(camp.x) || camp.x < 0 || camp.x > 200) return false;
   if (!Number.isInteger(camp.y) || camp.y < 0 || camp.y > 200) return false;

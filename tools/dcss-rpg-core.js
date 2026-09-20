@@ -116,12 +116,12 @@ import {
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
 import { WATER_LIFE_MINIMUM, WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
-import { createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
+import { CAMP_FIRE_SECONDS, createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 49;
-export const SAVE_KEY = 'dng-codex:rpg:v49';
+export const SAVE_VERSION = 50;
+export const SAVE_KEY = 'dng-codex:rpg:v50';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
   'dng-codex:rpg:v48',
@@ -1498,6 +1498,19 @@ function rebaseLegacyRunForExpandedDungeon(migrated, legacyStatus) {
 }
 
 /** What a night was worth at each camp rank before v39 wrote it into the save. */
+/**
+ * A camp saved before v50 had a fire that burned for ever, because nothing
+ * ever put it out. Reloading one lights it again rather than finding it cold:
+ * the hero pitched a camp and is entitled to the camp they pitched.
+ */
+function withCampFire(camp) {
+  if (!camp || typeof camp !== 'object') return camp ?? null;
+  if (Number.isFinite(camp.fire)) return camp;
+  const hasFire = Array.isArray(camp.places)
+    && camp.places.some((place) => place?.feature === 'fire');
+  return { ...camp, fire: hasFire ? CAMP_FIRE_SECONDS : 0 };
+}
+
 const LEGACY_CAMP_REST_PERCENT = Object.freeze({ 1: 0, 2: 25, 3: 40 });
 
 /**
@@ -1620,7 +1633,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
-    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -1749,7 +1762,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
-    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -1893,7 +1906,7 @@ export function migrateLegacyRun(snapshot) {
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
-    migrated.floor.camp = migrated.floor.camp ?? null;
+    migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -2013,7 +2026,7 @@ export function migrateLegacyRun(snapshot) {
   // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
   migrated.hero.meal = migrated.hero.meal ?? null;
   migrated.hero.coating = createCoatingState(migrated.hero.coating);
-  migrated.floor.camp = migrated.floor.camp ?? null;
+  migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
   // v48 gives a floor its second wind; a migrated floor has not spent one.
   migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
   migrated.camp = migrated.camp ?? { stash: createCampStash() };

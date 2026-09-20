@@ -104,8 +104,8 @@ test('v30 migrates v29 additively when the wand pool expands', () => {
   legacy.version = 29;
   legacy.contentVersion = 16;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 49);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v49');
+  assert.equal(SAVE_VERSION, 50);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v50');
   assert.equal(CONTENT_VERSION, 19);
   assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.contentVersion, CONTENT_VERSION);

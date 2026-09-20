@@ -42,3 +42,36 @@ test('no picture is drawn that was never asked for', async () => {
   assert.deepEqual(absent, [], `no such file: ${absent.join(', ')}`);
   assert.deepEqual(missing, [], `never loaded: ${missing.join(', ')}`);
 });
+
+/**
+ * Every picture the world draws is a SQUARE picture.
+ *
+ * A billboard in the 3D layer is a `THREE.Sprite` scaled `size × size` — the
+ * same number twice — and decorations are handed to it with no `scaleX` or
+ * `scaleY`. So the texture is stretched to fill a square whatever shape the
+ * file is, and a tall picture is squashed by exactly its own aspect ratio.
+ *
+ * Nobody noticed because Dungeon Crawl's own library is 32×32 throughout. The
+ * licensed packs are not: the street lamps that went in yesterday are 32×96,
+ * which is to say they stood in the city crushed to a third of their height,
+ * and the market awnings are 32×128. Padding a cut to a square is free — the
+ * added pixels are transparent — and it is the only place this can be fixed,
+ * because the renderer cannot know which way a picture was meant to go.
+ */
+test('every picture the world loads is square, or it is drawn squashed', async () => {
+  const { readFile: read } = await import('node:fs/promises');
+  const shipped = new URL('../public/assets/dcss-preview/', import.meta.url);
+  const squashed = [];
+  for (const path of requiredAssetPaths()) {
+    if (!path.endsWith('.png')) continue;
+    const file = new URL(path, shipped);
+    if (!existsSync(file)) continue;
+    // The PNG header: width and height are two big-endian 32-bit numbers at a
+    // fixed offset, so no image library is needed to read them.
+    const header = (await read(file)).subarray(16, 24);
+    const width = header.readUInt32BE(0);
+    const height = header.readUInt32BE(4);
+    if (width !== height) squashed.push(`${path} ${width}×${height}`);
+  }
+  assert.deepEqual(squashed, [], 'these are stretched into squares when drawn');
+});
