@@ -24,7 +24,8 @@
 
 import { generateDungeon, isWalkableCell } from './dcss-rpg-core.js';
 import { createMonsterStates } from './dcss-rpg-rules.js';
-import { biomeThemeFor } from './dcss-rpg-visuals.js';
+import { VISIBILITY_TUNING, biomeThemeFor } from './dcss-rpg-visuals.js';
+import { createDungeonWorld3D } from './dcss-rpg-world3d.js';
 import { lootById } from './dcss-rpg-content.js';
 import {
   COOP_HERO_LOOKS,
@@ -49,6 +50,19 @@ const STAIR_PATH = 'dngn/gateways/enter_depths.png';
 
 const canvas = document.querySelector('#world');
 const context = canvas.getContext('2d');
+/**
+ * Мир рисует тот же слой, что и основная игра.
+ *
+ * Иван: «а где 3D, где всё? Это должна быть та же самая игра». Полноценно
+ * двоих в основной клиент быстро не вставить — адаптер обращается к герою
+ * тысячу раз, — но сам мир вынесен отдельным модулем и про героя не знает
+ * ничего: ему дают сетку, тему, камеру и список фигур. Поэтому здесь стоит он,
+ * а не плоская заглушка, и этаж выглядит как этаж.
+ *
+ * Второй игрок встаёт на место призрака: модуль собирает его теми же слоями,
+ * что и героя, и это единственное готовое место для второй куклы.
+ */
+const world3d = createDungeonWorld3D({ canvas: document.querySelector('#world-3d'), tileSize: TILE });
 const notice = document.querySelector('#notice');
 const noticeTitle = document.querySelector('#notice-title');
 const noticeText = document.querySelector('#notice-text');
@@ -144,6 +158,27 @@ function applyPickup(hero, definition) {
   return attack > 0 ? 'weapon' : 'keep';
 }
 
+/** Пол и стена клетки — тем же правилом, что и в плоской отрисовке. */
+function floorPathAt(x, y, cell, theme) {
+  const set = cell === '#' ? theme.walls : theme.floors;
+  return set[Math.abs(x * 7 + y * 13) % set.length];
+}
+
+/** Фигура игрока для мира: слои куклы, размер и место. */
+function heroFigure(hero, index) {
+  return {
+    layers: HERO_LOOK[index].map((path) => ({ path, filter: null })),
+    x: hero.x,
+    y: hero.y,
+    size: TILE * 1.28,
+    screenOffsetY: -6,
+    opacity: hero.downed > 0 ? 0.5 : 1,
+    facing: hero.facing ?? 1,
+    hit: hero.hitFlash > 0,
+    shadowScale: 1,
+  };
+}
+
 function enterFloor(nextDepth) {
   depth = nextDepth;
   dungeon = generateDungeon({ seed, depth, branch: 'deep' });
@@ -154,7 +189,17 @@ function enterFloor(nextDepth) {
     hero.y = (dungeon.spawn.y + 0.5) * TILE;
   }
   depthLabel.textContent = `Этаж ${'I'.repeat(Math.min(3, depth))}${depth > 3 ? ` ${depth}` : ''}`;
-  return loadFloorAssets();
+  return loadFloorAssets().then(() => {
+    const theme = biomeThemeFor(dungeon.themeId);
+    world3d.rebuild({
+      grid: dungeon.grid,
+      doors: [],
+      theme,
+      imageForPath: drawn,
+      floorPathAt: (x, y, cell) => floorPathAt(x, y, cell, theme),
+      wallPathAt: (x, y, cell) => floorPathAt(x, y, cell, theme),
+    });
+  });
 }
 
 const walkable = (x, y) => isWalkableCell(dungeon.grid, Math.floor(x / TILE), Math.floor(y / TILE));
@@ -295,99 +340,112 @@ function camera() {
   return { x: midX, y: midY, scale };
 }
 
-function drawSprite(path, x, y, size) {
-  const sprite = drawn(path);
-  if (!sprite) return;
-  context.drawImage(sprite, Math.round(x - size / 2), Math.round(y - size), size, size);
+/**
+ * Камера одна на двоих.
+ *
+ * Делить экран пополам на телевизоре — делить и внимание. Камера стоит между
+ * героями и отъезжает, когда они расходятся; дальше отъезжать некуда — мир
+ * рисуется ортографически, и после какого-то предела он превращается в карту.
+ */
+function partyCentre() {
+  const alive = party.filter((hero) => hero.downed === 0);
+  const seen = alive.length > 0 ? alive : party;
+  return {
+    x: seen.reduce((total, hero) => total + hero.x, 0) / seen.length,
+    y: seen.reduce((total, hero) => total + hero.y, 0) / seen.length,
+  };
 }
 
 function render() {
-  const view = camera();
-  const { width, height } = canvas;
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.fillStyle = '#05080a';
-  context.fillRect(0, 0, width, height);
-  context.translate(width / 2, height / 2);
-  context.scale(view.scale, view.scale);
+  const centre = partyCentre();
   const jitter = shake > 0 ? (Math.random() - 0.5) * shake : 0;
-  context.translate(-view.x + jitter, -view.y + jitter);
+  world3d.syncActors({
+    hero: heroFigure(party[0], 0),
+    // Второй игрок идёт слотом призрака: модуль собирает его теми же слоями.
+    ghost: heroFigure(party[1], 1),
+    monsters: monsters.map((monster) => ({
+      id: monster.instanceId,
+      path: monster.spritePath ?? monster.path,
+      x: monster.x,
+      y: monster.y,
+      size: TILE * 1.05,
+      screenOffsetY: -4,
+      opacity: monster.dead > 0 ? Math.max(0, 1 - monster.dead / 0.8) : 1,
+      facing: monster.facing ?? 1,
+      hit: monster.hit > 0,
+    })),
+    decorations: loot.map((entry) => ({
+      id: entry.instanceId,
+      path: entry.definition.icon,
+      x: entry.x,
+      y: entry.y,
+      size: TILE * 0.62,
+      screenOffsetY: -2,
+      opacity: 1,
+    })),
+    imageForPath: drawn,
+    spriteFilter: VISIBILITY_TUNING.spriteFilter,
+  });
+  // Свет идёт от самих игроков: факел у каждого, и тьма между ними общая.
+  world3d.syncLights({
+    sources: party.filter((hero) => hero.downed === 0).map((hero) => ({
+      id: `torch-${hero.slot}`,
+      x: hero.x,
+      y: hero.y,
+      gridX: Math.floor(hero.x / TILE),
+      gridY: Math.floor(hero.y / TILE),
+      color: '#f0d9a6',
+      radius: 6.2,
+      intensity: 1,
+    })),
+    focus: centre,
+    elapsed: performance.now() / 1000,
+  });
+  world3d.render({ worldX: centre.x + jitter, worldY: centre.y + jitter });
+  drawMarkers();
+}
 
-  const theme = biomeThemeFor(dungeon.themeId);
-  const span = Math.ceil(Math.max(width, height) / view.scale / TILE / 2) + 2;
-  const centreX = Math.floor(view.x / TILE);
-  const centreY = Math.floor(view.y / TILE);
-  for (let y = centreY - span; y <= centreY + span; y += 1) {
-    for (let x = centreX - span; x <= centreX + span; x += 1) {
-      const cell = dungeon.grid[y]?.[x];
-      if (cell === undefined) continue;
-      const set = cell === '#' ? theme.walls : theme.floors;
-      const path = set[(x * 7 + y * 13) % set.length];
-      const sprite = drawn(path);
-      if (sprite) context.drawImage(sprite, x * TILE, y * TILE, TILE, TILE);
-      else {
-        context.fillStyle = cell === '#' ? '#1b2124' : '#2a2320';
-        context.fillRect(x * TILE, y * TILE, TILE, TILE);
-      }
-    }
-  }
-
-  drawSprite(STAIR_PATH, (dungeon.exit.x + 0.5) * TILE, (dungeon.exit.y + 1) * TILE, TILE);
-
-  for (const entry of loot) drawSprite(entry.definition.icon, entry.x, entry.y + TILE * 0.35, TILE * 0.7);
-
-  for (const monster of monsters) {
-    context.globalAlpha = monster.dead > 0 ? Math.max(0, 1 - monster.dead / 0.8) : 1;
-    if (monster.hit > 0) {
-      context.fillStyle = 'rgb(214 96 92 / 55%)';
-      context.fillRect(monster.x - TILE * 0.4, monster.y - TILE, TILE * 0.8, TILE);
-    }
-    drawSprite(monster.spritePath ?? monster.path, monster.x, monster.y + TILE * 0.4, TILE);
-    context.globalAlpha = 1;
-  }
-
+/**
+ * Метки игроков поверх мира.
+ *
+ * На этаже ходят человекоподобные монстры в одежде, и через полтора метра от
+ * телевизора свой герой неотличим от орка. Кольцо цвета ищут глазами быстро,
+ * номер читают, когда сомневаются. Место на экране берём у самого мира — он
+ * умеет переводить точку пола в пиксели.
+ */
+function drawMarkers() {
+  const ratio = canvas.width / window.innerWidth;
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, window.innerWidth, window.innerHeight);
   for (const [index, hero] of party.entries()) {
-    /*
-     * Метка игрока, а не украшение.
-     *
-     * На этаже ходят человекоподобные монстры в одежде, и через полтора метра
-     * от телевизора свой герой неотличим от орка. Поэтому под ногами лежит
-     * цветное кольцо с тёмной обводкой, а над головой стоит цифра: цвет ищут
-     * глазами быстро, цифру читают, когда сомневаются.
-     */
+    const at = world3d.project(hero.x, hero.y);
     context.save();
-    context.globalAlpha = hero.downed > 0 ? 0.4 : 1;
+    context.globalAlpha = hero.downed > 0 ? 0.45 : 1;
     context.beginPath();
-    context.ellipse(hero.x, hero.y + TILE * 0.32, 20, 7, 0, 0, Math.PI * 2);
+    context.ellipse(at.x, at.y, 19, 7, 0, 0, Math.PI * 2);
     context.fillStyle = HERO_COLOUR[index];
     context.fill();
     context.lineWidth = 2;
     context.strokeStyle = '#05080a';
     context.stroke();
     context.restore();
-    if (hero.hitFlash > 0) {
-      context.fillStyle = 'rgb(214 96 92 / 60%)';
-      context.fillRect(hero.x - TILE * 0.35, hero.y - TILE * 0.9, TILE * 0.7, TILE * 0.9);
-    }
-    context.globalAlpha = hero.downed > 0 ? 0.45 : 1;
-    for (const layer of HERO_LOOK[index]) drawSprite(layer, hero.x, hero.y + TILE * 0.28, TILE);
-    context.globalAlpha = 1;
-    context.save();
-    context.font = 'bold 15px ui-monospace, monospace';
+
+    const above = world3d.project(hero.x, hero.y, 1.55);
+    context.font = 'bold 14px ui-monospace, monospace';
     context.textAlign = 'center';
     context.fillStyle = '#05080a';
-    context.fillRect(hero.x - 13, hero.y - TILE * 1.02, 26, 17);
+    context.fillRect(above.x - 13, above.y - 9, 26, 17);
     context.fillStyle = HERO_COLOUR[index];
-    context.fillText(`P${hero.slot}`, hero.x, hero.y - TILE * 1.02 + 13);
-    context.restore();
+    context.fillText(`P${hero.slot}`, above.x, above.y + 4);
+
     if (hero.downed > 0) {
       const share = Math.min(1, hero.revives / REVIVE_SECONDS);
       context.fillStyle = '#1b2225';
-      context.fillRect(hero.x - 22, hero.y - TILE * 1.26, 44, 6);
+      context.fillRect(above.x - 22, above.y - 22, 44, 6);
       context.fillStyle = HERO_COLOUR[index];
-      context.fillRect(hero.x - 22, hero.y - TILE * 1.26, 44 * share, 6);
+      context.fillRect(above.x - 22, above.y - 22, 44 * share, 6);
     }
   }
-  context.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 function renderHud() {
@@ -434,6 +492,7 @@ function resize() {
   const ratio = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = Math.round(window.innerWidth * ratio);
   canvas.height = Math.round(window.innerHeight * ratio);
+  world3d.resize(window.innerWidth, window.innerHeight);
 }
 
 async function start() {
