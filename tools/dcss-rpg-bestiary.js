@@ -210,7 +210,7 @@ const ROSTER = [
 
   // ── Хранилища: всё сделанное. Живых тут нет, кроме нетопырей под сводом ──
   { id: 'microbat', habitat: 'vaults', kin: 'beast', sprite: 'vault/microbat.png', tier: 1, style: 'skirmisher', flying: true, ru: 'Микронетопырь', en: 'Microbat' },
-  { id: 'clockwork-mite', habitat: 'vaults', kin: 'oddity', sprite: 'nonliving/insubstantial_wisp.png', tier: 1, style: 'skirmisher', flying: true, ru: 'Блуждающий огонёк', en: 'Insubstantial wisp' },
+  { id: 'battlesphere', habitat: 'vaults', kin: 'oddity', sprite: 'nonliving/battlesphere.png', tier: 1, style: 'skirmisher', flying: true, ru: 'Боевая сфера', en: 'Battlesphere' },
   { id: 'phase-bat', habitat: 'vaults', kin: 'beast', sprite: 'vault/phase_bat.png', tier: 2, style: 'skirmisher', flying: true, ru: 'Фазовая мышь', en: 'Phase bat' },
   { id: 'megabat', habitat: 'vaults', kin: 'beast', sprite: 'vault/megabat.png', tier: 2, style: 'stalker', flying: true, ru: 'Крылан', en: 'Megabat' },
   { id: 'spectral-blade', habitat: 'vaults', kin: 'oddity', sprite: 'nonliving/spectral_sbl.png', tier: 2, style: 'skirmisher', flying: true, ru: 'Призрачный клинок', en: 'Spectral blade' },
@@ -248,7 +248,7 @@ const ROSTER = [
   { id: 'jiangshi', habitat: 'crypt', kin: 'undead', sprite: 'undead/jiangshi.png', tier: 4, style: 'skirmisher', ru: 'Цзянши', en: 'Jiangshi' },
   { id: 'macabre-mass', habitat: 'crypt', kin: 'undead', sprite: 'undead/macabre_mass.png', tier: 5, style: 'brute', large: true, inflicts: poison(7), ru: 'Мертвецкая груда', en: 'Macabre mass' },
   { id: 'phantasmal-warrior', habitat: 'crypt', kin: 'undead', sprite: 'undead/phantasmal_warrior.png', tier: 5, style: 'skirmisher', flying: true, ru: 'Призрачный воин', en: 'Phantasmal warrior' },
-  { id: 'death-cob', habitat: 'crypt', kin: 'undead', sprite: 'undead/death_cob.png', tier: 5, style: 'stalker', ru: 'Мёртвый початок', en: 'Death cob' },
+  { id: 'stitched-horror', habitat: 'crypt', kin: 'undead', sprite: 'vault/cigotuvis_monster.png', tier: 5, style: 'stalker', large: true, inflicts: poison(6), ru: 'Сшитая тварь', en: 'Stitched horror' },
   { id: 'silent-spectre', habitat: 'crypt', kin: 'undead', sprite: 'undead/silent_spectre.png', tier: 6, style: 'stalker', flying: true, ru: 'Безмолвный спектр', en: 'Silent spectre' },
   { id: 'necromancer', habitat: 'crypt', kin: 'humanoid', sprite: 'necromancer.png', tier: 6, style: 'caster', ru: 'Некромант', en: 'Necromancer' },
   { id: 'vampire-mage', habitat: 'crypt', kin: 'undead', sprite: 'undead/vampire_mage.png', tier: 7, style: 'caster', ru: 'Вампир-маг', en: 'Vampire mage' },
