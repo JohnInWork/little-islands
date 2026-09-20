@@ -815,6 +815,14 @@ const salvageConfirm = document.querySelector('#salvage-confirm');
 const salvageLabel = document.querySelector('#salvage-label');
 const salvageConfirmLabel = document.querySelector('#salvage-confirm-label');
 const inventoryCount = document.querySelector('#inventory-count');
+const inventoryVitals = document.querySelector('#inventory-vitals');
+const inventoryHealth = document.querySelector('#inventory-health');
+const inventoryHungerMeter = document.querySelector('#inventory-hunger-meter');
+const inventoryRestMeter = document.querySelector('#inventory-rest-meter');
+const inventoryHungerFill = document.querySelector('#inventory-hunger-fill');
+const inventoryRestFill = document.querySelector('#inventory-rest-fill');
+const inventoryHunger = document.querySelector('#inventory-hunger');
+const inventoryRest = document.querySelector('#inventory-rest');
 const currency = document.querySelector('.currency');
 const currencyValue = currency.querySelector('b');
 const lootToast = document.querySelector('#loot-toast');
@@ -833,7 +841,15 @@ const levelUpCelebration = document.querySelector('#level-up-celebration');
 const levelUpLabel = document.querySelector('#level-up-label');
 const levelUpValue = document.querySelector('#level-up-value');
 const levelUpPoints = document.querySelector('#level-up-points');
-const healthSegments = [...document.querySelectorAll('.health i')];
+/*
+ * Полоска здоровья есть и в панели, и в рюкзаке.
+ *
+ * Иван: «это всё должно отображаться так же, как в игре, с такими же
+ * индикаторами, чтобы было привычней». Поэтому они не копии по виду, а те же
+ * самые деления: список хранится по полоскам, чтобы каждая заполнялась своей
+ * долей, а не общей на двенадцать делений.
+ */
+const healthBars = [...document.querySelectorAll('.health')].map((bar) => [...bar.querySelectorAll('i')]);
 const hungerMeter = document.querySelector('#hunger-meter');
 const restMeter = document.querySelector('#rest-meter');
 const restFill = document.querySelector('#rest-fill');
@@ -7557,12 +7573,41 @@ function renderPack() {
     packGrid.append(empty);
   }
 
+  renderInventoryVitals();
   const itemCount = backpackItems.filter(Boolean).length;
   bagButton.querySelector('b').textContent = String(itemCount);
   const capacity = currentBackpackCapacity();
   inventoryCount.textContent = `${itemCount}/${capacity}`;
   inventoryCount.setAttribute('aria-label', `${labels.itemCount}: ${itemCount} / ${capacity}`);
   updateInventoryViewUi();
+}
+
+/**
+ * Здоровье, сытость и бодрость — числами, в шапке рюкзака.
+ *
+ * Иван: «я должен в инвентаре видеть своё хп, голод и сон, а то не понимаю,
+ * сколько мне прибавит еда». Карточка обещает «+10 ❤» и «+5 мин», и сравнить
+ * это обещание было не с чем: полоски в верхней панели показывают долю, а не
+ * счёт, и на них не написано ни сколько есть, ни сколько всего.
+ */
+function renderInventoryVitals() {
+  const maxHp = currentHeroStats().maxHp;
+  inventoryHealth.textContent = `${Math.max(0, Math.round(hero.hp))}/${maxHp}`;
+  const hunger = hungerPresentation(hero.hunger, itemDetailLanguage);
+  const rest = restPresentation(hero.rest, itemDetailLanguage);
+  const short = itemDetailLanguage === 'ru' ? 'мин' : 'min';
+  inventoryHunger.textContent = `${hunger.minutes} ${short}`;
+  inventoryRest.textContent = `${rest.minutes} ${short}`;
+  // Полоски наполняет `renderHungerHud`, но рюкзак могут открыть раньше, чем
+  // она успеет пройти следующий раз.
+  renderHungerHud();
+  const health = itemDetailLanguage === 'ru' ? 'Здоровье' : 'Health';
+  inventoryVitals.setAttribute(
+    'aria-label',
+    `${health} ${inventoryHealth.textContent}`
+      + ` · ${hunger.label} ${hunger.minutes} ${short}`
+      + ` · ${rest.label} ${rest.minutes} ${short}`,
+  );
 }
 
 function focusSelectedInventoryRow() {
@@ -8261,6 +8306,11 @@ function renderHungerHud() {
   restFill.style.transform = `scaleX(${rest.percent / 100})`;
   restMeter.title = meterNote(rest);
   restMeter.setAttribute('aria-label', rest.ariaLabel);
+  // Те же две полоски стоят в рюкзаке и наполняются отсюда же.
+  inventoryHungerMeter.dataset.stage = presentation.id;
+  inventoryHungerFill.style.transform = `scaleX(${presentation.percent / 100})`;
+  inventoryRestMeter.dataset.stage = rest.id;
+  inventoryRestFill.style.transform = `scaleX(${rest.percent / 100})`;
   hud.setAttribute(
     'aria-label',
     `${currentMainMenuModel().labels.hud}. ${presentation.ariaLabel}`,
@@ -8271,11 +8321,14 @@ function updateHud() {
   updatePortalButton();
   const stats = currentHeroStats();
   const combat = currentHeroCombat();
-  const filled = Math.ceil((hero.hp / stats.maxHp) * healthSegments.length);
+  const share = stats.maxHp > 0 ? hero.hp / stats.maxHp : 0;
   skillPointsBadge.hidden = hero.skills.points === 0;
   skillPointsBadge.textContent = `+${hero.skills.points}`;
   skillPointsBadge.title = itemDetailLanguage === 'ru' ? 'Очки навыков' : 'Skill points';
-  healthSegments.forEach((segment, index) => segment.classList.toggle('empty', index >= filled));
+  for (const segments of healthBars) {
+    const filled = Math.ceil(share * segments.length);
+    segments.forEach((segment, index) => segment.classList.toggle('empty', index >= filled));
+  }
   // Style and reach used to sit here as two 12px pictograms with no label —
   // crossed swords at that size read as a typo, and nothing said what the
   // number meant. The character sheet spells both out in words, one tap away
@@ -12545,9 +12598,9 @@ function useConsumable(item, index, effectOverride = null) {
     hero.hp += feedback;
     playSound('drink');
   } else if (effect?.type === 'food') {
-    // Not with something in reach. Chewing a ration mid-swing is what made food
-    // a button you press when the bar goes red instead of a thing you plan.
-    const mayEat = canEatNow({ threatened: heroIsThreatened() });
+    // Еда лечит и в драке: зелье в забеге одно, и без этого лечиться в бою
+    // было нечем — а еда лежала в мешке и не давалась.
+    const mayEat = canEatNow();
     if (!mayEat.ok) {
       showLootToast(item, hungerCopy(itemDetailLanguage).threatened);
       return;

@@ -609,6 +609,32 @@
             <div class="currency" aria-label="Золото: 86"><span>●</span><b>86</b></div>
           </header>
 
+          <!--
+            Здоровье, сытость и бодрость числами.
+
+            Иван: «я должен в инвентаре видеть своё хп, голод и сон, а то я не
+            понимаю, сколько мне прибавит еда». Карточка еды обещает «+10 ❤» и
+            «+5 мин», и без текущих чисел это обещание не с чем сравнить.
+          -->
+          <div id="inventory-vitals" class="inventory-vitals" role="group" aria-label="Состояние героя">
+            <span class="vital">
+              <span class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <b id="inventory-health">0/0</b>
+            </span>
+            <span class="vital">
+              <span id="inventory-hunger-meter" class="hunger-meter" data-stage="fed" aria-hidden="true">
+                <img class="meter-icon" src="../assets/dcss-preview/item/food/bread_ration.png" alt="" /><i><b id="inventory-hunger-fill"></b></i>
+              </span>
+              <b id="inventory-hunger">0</b>
+            </span>
+            <span class="vital">
+              <span id="inventory-rest-meter" class="hunger-meter rest-meter" data-stage="rested" aria-hidden="true">
+                <img class="meter-icon" src="../assets/dcss-preview/derived/hud/moon.png" alt="" /><i><b id="inventory-rest-fill"></b></i>
+              </span>
+              <b id="inventory-rest">0</b>
+            </span>
+          </div>
+
           <nav id="inventory-filters" class="inventory-filters" aria-label="Фильтр предметов">
             <button type="button" data-inventory-filter="all" aria-label="Все предметы" aria-pressed="true">
               <span class="filter-all" aria-hidden="true"><i></i><i></i><i></i><i></i></span>

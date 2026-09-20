@@ -138,13 +138,19 @@ export function starvationToll({ hunger, maxHp, seconds } = {}) {
 }
 
 /**
- * Whether the hero may eat right now. Not in reach of something that wants to
- * kill them: chewing a ration mid-swing is the thing that made food a button.
+ * Есть можно всегда, в том числе в драке.
+ *
+ * Запрет держался на честной мысли: жевать паёк на замахе — не дело, и еда
+ * не должна быть кнопкой «полечиться». Но на этом правиле лечиться в бою
+ * оказалось нечем вовсе: зелье в забеге одно, а еда — вот она, в мешке, и
+ * игра её не давала ровно в ту минуту, когда она нужна. Иван решил: «еда
+ * лечит в бою».
+ *
+ * Функция остаётся: отказ может понадобиться снова (сон, вода, оковы), и
+ * вызов уже стоит на месте.
  */
-export function canEatNow({ threatened = false } = {}) {
-  return threatened
-    ? Object.freeze({ ok: false, reason: 'threatened' })
-    : Object.freeze({ ok: true, reason: 'clear' });
+export function canEatNow() {
+  return Object.freeze({ ok: true, reason: 'clear' });
 }
 
 export function consumeFood({ hunger, hp, maxHp, nutrition, healing = 0 } = {}) {

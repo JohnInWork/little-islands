@@ -63,10 +63,13 @@ test('an empty bar takes health, and only an empty one does', () => {
   assert.ok(seconds > 40 && seconds < 90, `голод убивает за ${seconds} с`);
 });
 
-test('food is planning, not a button pressed when the bar goes red', () => {
+test('есть можно всегда, в том числе в драке', () => {
+  // Запрет держался на честной мысли — жевать паёк на замахе не дело, — но
+  // лечиться в бою тогда оказалось нечем: зелье в забеге одно, а еда лежала
+  // в мешке и не давалась. Иван: «еда лечит в бою».
   assert.equal(canEatNow({ threatened: false }).ok, true);
-  assert.equal(canEatNow({ threatened: true }).ok, false);
-  assert.equal(canEatNow({ threatened: true }).reason, 'threatened');
+  assert.equal(canEatNow({ threatened: true }).ok, true);
+  assert.equal(canEatNow().reason, 'clear');
   // And a swing costs the clock on top of the second it took, so a long fight
   // is expensive and walking round a room is worth something.
   assert.ok(HUNGER_COST.strike > 0);
@@ -138,7 +141,7 @@ test('runtime advances hunger only inside active gameplay and exposes a compact 
   assert.match(starve, /if \(hero\.hunger > 0\)/);
   assert.match(starve, /damageHero\(toll\.damage[\s\S]{0,80}?source: 'hunger'/);
   // Eating is refused in reach of something hostile.
-  assert.match(runtime, /canEatNow\(\{ threatened: heroIsThreatened\(\) \}\)/);
+  assert.match(runtime, /canEatNow\(\)/);
   assert.match(css, /\.hunger-meter\[data-stage='empty'\]/);
   assert.match(runtime, /if \(uiScreen === 'game'\)[\s\S]*updateHero\(delta\)/);
   assert.match(runtime, /effect\?\.type === 'food'/);

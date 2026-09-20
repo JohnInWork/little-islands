@@ -2825,6 +2825,55 @@ body {
 }
 
 .character-sheet-card,
+/*
+ * Состояние героя в рюкзаке: три числа в строку.
+ *
+ * Читать их приходится рядом с обещанием на карточке вещи («+10 ❤», «+5
+ * мин»), поэтому они стоят в шапке, а не прячутся за значком.
+ */
+.inventory-vitals {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  /* Строка не имеет права распирать рюкзак шире экрана. */
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 8px;
+  color: #d5c77f;
+  font: 700 12px/1 ui-monospace, 'SFMono-Regular', monospace;
+}
+
+.inventory-vitals .vital {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.inventory-vitals img {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+}
+
+.inventory-vitals .vital > b {
+  color: #9fb0a8;
+  /* «60 мин» — одно число, и разрывать его переносом нечего. */
+  white-space: nowrap;
+}
+
+/* Те же полоски, что в верхней панели, только пошире под число рядом. */
+.inventory-vitals .health {
+  width: 62px;
+}
+
+.inventory-vitals .hunger-meter {
+  width: 46px;
+}
+
+.inventory-vitals .vital {
+  flex: 0 0 auto;
+}
+
 .inventory-shell {
   position: relative;
 }
@@ -3419,7 +3468,8 @@ body {
   height: min(610px, 100%);
   min-height: 350px;
   display: grid;
-  grid-template-rows: 60px 1fr 72px;
+  /* Шапка, состояние героя, фильтры, список, подвал. */
+  grid-template-rows: 60px auto 1fr 72px;
   background: var(--coal);
   border-color: #657173;
   transform: scale(0.96);
@@ -5582,7 +5632,7 @@ body {
 .inventory-shell {
   width: min(520px, 100%);
   height: min(720px, 100%);
-  grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+  grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
 }
 
 .inventory-header {
@@ -5857,7 +5907,7 @@ body {
     width: 100%;
     height: 100%;
     min-height: 0;
-    grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+    grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
   }
 
   .inventory-body {
@@ -5924,7 +5974,7 @@ body {
   .inventory-shell {
     width: min(520px, 68vw);
     height: 100%;
-    grid-template-rows: 50px 52px minmax(0, 1fr) 54px;
+    grid-template-rows: 50px auto 52px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -5985,7 +6035,7 @@ body {
   width: min(620px, 100%);
   height: min(820px, 100%);
   min-height: 430px;
-  grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+  grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
 }
 
 .inventory-header {
@@ -6272,7 +6322,7 @@ body {
     width: 100%;
     height: 100%;
     min-height: 0;
-    grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+    grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
   }
 
   .inventory-body {
@@ -6331,7 +6381,7 @@ body {
 
 @media (max-width: 640px) and (max-height: 720px) and (orientation: portrait) {
   .inventory-shell {
-    grid-template-rows: 50px 50px minmax(0, 1fr) 54px;
+    grid-template-rows: 50px auto 50px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -6362,7 +6412,7 @@ body {
     width: min(660px, 82vw);
     height: 100%;
     min-height: 0;
-    grid-template-rows: 48px 46px minmax(0, 1fr) 54px;
+    grid-template-rows: 48px auto 46px minmax(0, 1fr) 54px;
   }
 
   .inventory-header {
@@ -6584,7 +6634,7 @@ body {
 @media (max-width: 640px) and (max-height: 720px) and (orientation: portrait) {
   .inventory-shell {
     min-height: 0;
-    grid-template-rows: 50px 1fr 54px;
+    grid-template-rows: 50px auto 1fr 54px;
   }
 
   .inventory-body {
@@ -6742,7 +6792,7 @@ body {
   .inventory-shell {
     height: calc(100dvh - 14px);
     min-height: 0;
-    grid-template-rows: 48px 1fr 52px;
+    grid-template-rows: 48px auto 1fr 52px;
   }
 
   .inventory-body {
@@ -6961,7 +7011,7 @@ body {
     width: 100%;
     height: 100%;
     min-height: 0;
-    grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+    grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
   }
 
   .inventory-body {
@@ -6990,7 +7040,7 @@ body {
 
 @media (max-width: 640px) and (orientation: portrait) {
   .inventory-shell {
-    grid-template-rows: 58px 58px minmax(0, 1fr) 66px;
+    grid-template-rows: 58px auto 58px minmax(0, 1fr) 66px;
   }
 
   .inventory-body {
@@ -7012,7 +7062,7 @@ body {
 
 @media (max-width: 640px) and (max-height: 720px) and (orientation: portrait) {
   .inventory-shell {
-    grid-template-rows: 50px 50px minmax(0, 1fr) 54px;
+    grid-template-rows: 50px auto 50px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -7028,7 +7078,7 @@ body {
 
   .inventory-shell {
     width: min(660px, 82vw);
-    grid-template-rows: 48px 46px minmax(0, 1fr) 54px;
+    grid-template-rows: 48px auto 46px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -7603,7 +7653,7 @@ body {
 
 @media (max-width: 640px) and (max-height: 720px) and (orientation: portrait) {
   .inventory-shell {
-    grid-template-rows: 50px 50px minmax(0, 1fr) 54px;
+    grid-template-rows: 50px auto 50px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -7624,7 +7674,7 @@ body {
     width: min(660px, 82vw);
     height: 100%;
     min-height: 0;
-    grid-template-rows: 48px 46px minmax(0, 1fr) 54px;
+    grid-template-rows: 48px auto 46px minmax(0, 1fr) 54px;
   }
 
   .inventory-body {
@@ -8531,5 +8581,5 @@ body {
  * запросе, поэтому переписывать их не нужно.
  */
 .inventory-shell:has(> #inventory-filters[hidden]) {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
