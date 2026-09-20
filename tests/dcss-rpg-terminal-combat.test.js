@@ -130,6 +130,9 @@ function combatRuntime() {
     beginHitStop: () => {},
     showLevelUpCelebration: () => {},
     showLootToast: () => {},
+    // Приз финала выбирается по глубине: на восемнадцатом артефакт, на
+    // двадцать четвёртом руна своей ветки. Песочнице достаточно, что он есть.
+    roadPrize: () => ({ path: 'artifact.png', name: null, scale: 1, offsetY: 0 }),
     updateHud: () => {},
     updateBossHud: () => {},
   });

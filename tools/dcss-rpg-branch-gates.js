@@ -129,6 +129,47 @@ export const BRANCH_STAIR_PATHS = Object.freeze([
 ]);
 
 /**
+ * Приз второго финала: руна своей дороги.
+ *
+ * Артефакт на восемнадцатом этаже у всех веток один — он про забег. Руна
+ * другая у каждой: она про то, ГДЕ ты дошёл до конца, и берётся только тем,
+ * кто отказался от артефакта и пошёл дальше. Три из пяти — родные руны тех
+ * же мест из библиотеки; спуску досталась эльфийская (в оригинале эльфийские
+ * залы лежат под рудниками), открытой местности — болотная.
+ */
+export const BRANCH_RUNES = Object.freeze({
+  deep: Object.freeze({
+    path: 'item/misc/runes/rune_elven.png',
+    name: Object.freeze({ ru: 'Руна рудников', en: 'Rune of the mines' }),
+  }),
+  surface: Object.freeze({
+    path: 'item/misc/runes/rune_swamp.png',
+    name: Object.freeze({ ru: 'Руна топей', en: 'Rune of the mire' }),
+  }),
+  vaults: Object.freeze({
+    path: 'item/misc/runes/rune_vaults.png',
+    name: Object.freeze({ ru: 'Руна хранилищ', en: 'Rune of the vaults' }),
+  }),
+  crypt: Object.freeze({
+    path: 'item/misc/runes/rune_tomb.png',
+    name: Object.freeze({ ru: 'Руна гробниц', en: 'Rune of the tombs' }),
+  }),
+  hell: Object.freeze({
+    path: 'item/misc/runes/rune_gehenna.png',
+    name: Object.freeze({ ru: 'Руна геенны', en: 'Rune of gehenna' }),
+  }),
+});
+
+export const BRANCH_RUNE_PATHS = Object.freeze([
+  ...new Set(Object.values(BRANCH_RUNES).map(({ path }) => path)),
+]);
+
+/** Руна этой дороги; руна спуска для всего неназванного. */
+export function branchRune(branch) {
+  return BRANCH_RUNES[branch] ?? BRANCH_RUNES.deep;
+}
+
+/**
  * How hard a road is, as a plain multiplier on what its monsters are worth
  * being. Ivan: «чтобы адская ветка была сложной, реально, чтобы сложно было,
  * чтобы там другие ветки были попроще <...> и логично их нужно расставить».

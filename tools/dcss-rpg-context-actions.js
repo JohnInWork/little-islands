@@ -259,6 +259,10 @@ const COPY = Object.freeze({
     roadEndDescription: 'Страж пал, артефакт твой. Но лестница идёт дальше, и никто не знает, куда.',
     roadEndClaim: 'Забег закончен победой',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
+    beyondEndName: 'Конец неписаной дороги',
+    beyondEndDescription: 'Дальше лестница идёт вниз без конца и без счёта. Эта руна — последнее, что здесь ещё кому-то принадлежит.',
+    beyondEndTake: 'Забрать руну',
+    beyondEndClaim: 'Забег закончен победой',
     priestName: 'Жрец',
     chasmName: 'Провал',
     chasmDescription: (floors, cost) => floors === 1
@@ -337,6 +341,10 @@ const COPY = Object.freeze({
     gateName: 'The fork',
     gateDescription: 'Four roads from here. Caves below, open sky beyond the gate, the old vaults under the town — or home, with what you already carry.',
     retireStake: (gold) => `You bank ${gold}●`,
+    beyondEndName: 'The end of the unwritten road',
+    beyondEndDescription: 'Below this the stair runs down without end and without count. This rune is the last thing here that still belongs to anyone.',
+    beyondEndTake: 'Take the rune',
+    beyondEndClaim: 'The run ends in victory',
     roadEndName: 'The end of the written road',
     roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
     roadEndClaim: 'The run ends in victory',
@@ -548,22 +556,37 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * The warden at the end of the written road used to end the run by being
      * dead: you stepped on the stair and the credits rolled, whether or not
      * that was what you wanted. It is a door now. Taking the artefact is a
-     * victory and stops there; walking past it is the rest of the dungeon,
-     * which has no bottom and no second artefact waiting at a known depth.
+     * victory and stops there; walking past it is the rest of the dungeon.
+     *
+     * И у той дороги теперь тоже есть конец. Четвёртый страж каждой ветки
+     * стоит на двадцать четвёртом этаже, и за ним лежит руна этой ветки —
+     * второй финал, к которому нельзя прийти, не отказавшись от первого.
+     * Карточка одна на оба: разное в ней только имя, картинка приза и то,
+     * что обещает кнопка.
      */
     id: 'road-end',
     command: 'road-end',
     matches: (target) => target?.kind === 'road-end',
-    present: ({ target, copy }) => ({
-      name: copy.roadEndName,
-      description: copy.roadEndDescription,
-      icon: 'item/misc/misc_orb2.png',
-      accent: '#d83e82',
-      actions: [
-        { id: 'claim', hint: copy.roadEndClaim },
-        { id: 'descend', hint: copy.roadEndDeeper },
-      ],
-    }),
+    present: ({ target, copy }) => {
+      const beyond = target.ending === 'beyond';
+      return {
+        name: beyond ? (target.prizeName || copy.beyondEndName) : copy.roadEndName,
+        description: beyond ? copy.beyondEndDescription : copy.roadEndDescription,
+        icon: target.prizeIcon || 'item/misc/misc_orb2.png',
+        accent: beyond ? '#c7a24a' : '#d83e82',
+        actions: [
+          {
+            id: 'claim',
+            // Кнопка обещает ровно тот приз, который лежит на лестнице: на
+            // двадцать четвёртом этаже это не артефакт, и говорить «Забрать
+            // артефакт» там — врать игроку картинкой и словом сразу.
+            ...(beyond ? { label: copy.beyondEndTake } : {}),
+            hint: beyond ? copy.beyondEndClaim : copy.roadEndClaim,
+          },
+          { id: 'descend', hint: copy.roadEndDeeper },
+        ],
+      };
+    },
   }),
   defineInteraction({
     /**

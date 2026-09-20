@@ -116,11 +116,14 @@ export function chapterGuardianForDepth(depth, branch = 'deep') {
   const rung = (chapterForDepth(depth) - 1) % ladder.length;
   // `final` is a fact about the written road, so it is true once and only at
   // its end: the same warden met again on floor forty-two ends nothing.
+  // `ending` says the same thing about both finales: которая из двух дорог
+  // здесь кончается — написанная или та, что за ней.
   return Object.freeze({
     depth,
     rung,
     monsterId: ladder[rung],
     final: depth === STORY_DEPTH,
+    ending: roadEndingAt(depth),
   });
 }
 
@@ -146,8 +149,31 @@ export function useSanctuary({ depth, hp, maxHp, gold }) {
 }
 
 /** The artefact at the end of the written road, offered once, to whoever gets there. */
+/**
+ * Конец неписаной дороги.
+ *
+ * Четвёртый страж каждой ветки стоял на двадцать четвёртом этаже с самого
+ * начала — и не значил ничего: приз и победа были прописаны на восемнадцатом,
+ * и дальше спуск шёл в пустоту. Иван: «давай чтобы в конце каждой ветки был
+ * свой босс». Он там есть; не хватало финала.
+ *
+ * Теперь дорога кончается дважды. На восемнадцатом — артефакт, и это победа.
+ * На двадцать четвёртом — руна своей ветки, и это победа, которой нельзя
+ * добиться, не отказавшись от первой: чтобы дойти, надо было пройти мимо
+ * артефакта и закрыть за собой лестницу.
+ */
+export const BEYOND_ROAD_DEPTH = STORY_DEPTH + FLOORS_PER_CHAPTER;
+
+/** Какой из двух финалов стоит на этой глубине, или null между ними. */
+export function roadEndingAt(depth) {
+  if (!Number.isInteger(depth)) return null;
+  if (depth === STORY_DEPTH) return 'road';
+  if (depth === BEYOND_ROAD_DEPTH) return 'beyond';
+  return null;
+}
+
 export function canClaimFinalArtifact({ depth, status, bossDefeated }) {
-  return depth === STORY_DEPTH && status === 'playing' && bossDefeated === true;
+  return roadEndingAt(depth) !== null && status === 'playing' && bossDefeated === true;
 }
 
 export function canLeaveDungeonFloor({ depth, status, guardianDefeated }) {

@@ -7,8 +7,11 @@ import {
   BRANCH_DIFFICULTY,
   BRANCH_GATES,
   BRANCH_GATE_PATHS,
+  BRANCH_RUNES,
+  BRANCH_RUNE_PATHS,
   BRANCH_STAIRS,
   BRANCH_STAIR_PATHS,
+  branchRune,
   branchDifficulty,
   branchGateCopy,
   branchGateFor,
@@ -170,6 +173,87 @@ test('the runtime draws the stairs of the road the run is on', async () => {
   assert.doesNotMatch(runtime, /\bASCENT_PATH\b/, 'the adapter still hard-codes one stair up');
   assert.match(runtime, /path: exitVisual\(\)\.path/);
   assert.match(runtime, /path: ascentVisual\(\)\.path/);
+});
+
+/**
+ * «Давай чтобы в конце каждой ветки был свой босс.» Он там стоял с самого
+ * начала — четвёртый страж лестницы, на двадцать четвёртом этаже, — и не
+ * значил ничего: приз и победа были прописаны на восемнадцатом, а дальше
+ * лестница вела в пустоту.
+ */
+test('дорога кончается дважды, и у второго конца своя руна', async () => {
+  const {
+    BEYOND_ROAD_DEPTH, GUARDIAN_LADDERS, STORY_DEPTH,
+    canClaimFinalArtifact, chapterGuardianForDepth, roadEndingAt,
+  } = await import('../tools/dcss-rpg-run.js');
+
+  assert.equal(BEYOND_ROAD_DEPTH, 24);
+  assert.equal(roadEndingAt(STORY_DEPTH), 'road');
+  assert.equal(roadEndingAt(BEYOND_ROAD_DEPTH), 'beyond');
+  for (const depth of [1, 6, 12, 17, 19, 23, 25, 30, 36]) {
+    assert.equal(roadEndingAt(depth), null, `эт.${depth} внезапно что-то заканчивает`);
+  }
+  // Забрать приз можно ровно на двух глубинах и только со сбитым стражем.
+  for (const depth of [STORY_DEPTH, BEYOND_ROAD_DEPTH]) {
+    assert.equal(canClaimFinalArtifact({ depth, status: 'playing', bossDefeated: true }), true);
+    assert.equal(canClaimFinalArtifact({ depth, status: 'playing', bossDefeated: false }), false);
+    assert.equal(canClaimFinalArtifact({ depth, status: 'victory', bossDefeated: true }), false);
+  }
+  assert.equal(canClaimFinalArtifact({ depth: 30, status: 'playing', bossDefeated: true }), false);
+
+  const loaded = requiredAssetPaths();
+  const preview = new URL('../public/assets/dcss-preview/', import.meta.url);
+  assert.deepEqual(Object.keys(BRANCH_RUNES).sort(), [...RUN_BRANCHES].sort());
+  for (const branch of RUN_BRANCHES) {
+    // На двадцать четвёртом каждой ветки стоит ЕЁ четвёртый страж.
+    const guardian = chapterGuardianForDepth(BEYOND_ROAD_DEPTH, branch);
+    assert.equal(guardian.ending, 'beyond');
+    assert.equal(guardian.monsterId, GUARDIAN_LADDERS[branch][3]);
+    assert.notEqual(guardian.monsterId, chapterGuardianForDepth(STORY_DEPTH, branch).monsterId);
+
+    const rune = branchRune(branch);
+    assert.ok(rune.name.ru && rune.name.en && rune.name.ru !== rune.name.en, branch);
+    assert.ok(existsSync(new URL(rune.path, preview)), `${rune.path} не поставляется`);
+    assert.ok(loaded.includes(rune.path), `${rune.path} не грузится`);
+  }
+  // Руна у каждой дороги своя: приз про место, а не про забег.
+  assert.equal(BRANCH_RUNE_PATHS.length, RUN_BRANCHES.length);
+  const names = RUN_BRANCHES.map((branch) => branchRune(branch).name.ru);
+  assert.equal(new Set(names).size, names.length);
+  assert.equal(branchRune('нет такой'), BRANCH_RUNES.deep);
+});
+
+test('лестница второго конца обещает руну, а не артефакт', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  for (const language of ['ru', 'en']) {
+    const road = contextActionModel({ target: { kind: 'road-end', ending: 'road' }, language });
+    const beyond = contextActionModel({
+      target: {
+        kind: 'road-end',
+        ending: 'beyond',
+        prizeIcon: BRANCH_RUNES.hell.path,
+        prizeName: BRANCH_RUNES.hell.name[language],
+      },
+      language,
+    });
+    assert.notEqual(beyond.name, road.name, `${language}: оба конца называются одинаково`);
+    assert.equal(beyond.name, BRANCH_RUNES.hell.name[language]);
+    assert.equal(beyond.icon, BRANCH_RUNES.hell.path);
+    const claim = (model) => model.actions.find(({ id }) => id === 'claim');
+    // Кнопка обещает тот приз, который лежит: «Забрать артефакт» над руной —
+    // это враньё картинкой и словом сразу.
+    assert.notEqual(claim(beyond).label, claim(road).label, `${language}: кнопка обещает одно и то же`);
+    assert.ok(claim(beyond).label.length > 0 && claim(beyond).hint.length > 0);
+    // Уйти глубже можно с обоих: победа остаётся выбором, а не развязкой.
+    assert.ok(beyond.actions.some(({ id }) => id === 'descend'));
+  }
+  // Адаптер берёт приз по глубине, а не по одному зашитому артефакту.
+  assert.match(runtime, /function roadPrize\(\) \{/);
+  assert.match(runtime, /roadEndingAt\(dungeon\.depth\) !== 'beyond'/);
+  assert.match(runtime, /const rune = branchRune\(dungeon\.branch\);/);
+  assert.match(runtime, /ending: roadEndingAt\(dungeon\.depth\),/);
+  assert.match(runtime, /showLootToast\(\{ path: roadPrize\(\)\.path, rarity: 3 \}/);
 });
 
 /**

@@ -49,7 +49,7 @@ import {
 } from './dcss-rpg-rules.js';
 import {
   DEEPEST_DEPTH,
-  STORY_DEPTH,
+  roadEndingAt,
   SANCTUARY_COST,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
@@ -437,7 +437,7 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
-import { BRANCH_GATES, BRANCH_STAIRS, branchGateCopy } from './dcss-rpg-branch-gates.js';
+import { BRANCH_GATES, BRANCH_STAIRS, branchGateCopy, branchRune } from './dcss-rpg-branch-gates.js';
 import {
   CHASM_CELL,
   CHASM_FALL_PERCENT,
@@ -970,6 +970,23 @@ const CITY_GATE_VISUALS = Object.freeze({
 });
 const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GATE_PATH, 1, 0);
 const artifactVisual = runtimeVisual('system', 'artifact', 'world', ARTIFACT_PATH, 1, -8);
+/**
+ * Приз, который лежит на лестнице этого этажа. На восемнадцатом — артефакт,
+ * один на все дороги: он про забег. На двадцать четвёртом — руна своей
+ * дороги: она про то, где именно ты дошёл до конца.
+ */
+function roadPrize() {
+  if (roadEndingAt(dungeon.depth) !== 'beyond') {
+    return { path: artifactVisual.path, name: null, scale: artifactVisual.scale, offsetY: artifactVisual.offsetY };
+  }
+  const rune = branchRune(dungeon.branch);
+  return {
+    path: rune.path,
+    name: rune.name[itemDetailLanguage === 'en' ? 'en' : 'ru'],
+    scale: artifactVisual.scale,
+    offsetY: artifactVisual.offsetY,
+  };
+}
 const armedPlayerTrapVisual = runtimeVisual('trap', 'player-armed', 'world', PLAYER_TRAP_PATH, 1, 5);
 const spentPlayerTrapVisual = runtimeVisual('trap', 'player-spent', 'world', PLAYER_TRAP_PATH, 0.86, 5);
 // A bait is not a machine: it looks like what it is, a piece of bad meat.
@@ -5113,13 +5130,13 @@ function worldMarkers3D() {
     });
   }
   if (revealed.has(`${dungeon.exit.x},${dungeon.exit.y}`)) {
-    const finalFloor = dungeon.depth === STORY_DEPTH;
+    const finalFloor = roadEndingAt(dungeon.depth) !== null;
     const chapterGateLocked = Boolean(
       dungeon.objective && !finalFloor && !objectiveBossDefeated(),
     );
     const visual = finalFloor
       ? artifactAvailable()
-        ? artifactVisual
+        ? { ...artifactVisual, path: roadPrize().path }
         : finalGateVisual
       : chapterGateLocked
         ? finalGateVisual
@@ -8463,7 +8480,13 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'camp-stash' };
   }
   if (entry.kind === 'road-end') {
-    return { kind: 'road-end' };
+    const prize = roadPrize();
+    return {
+      kind: 'road-end',
+      ending: roadEndingAt(dungeon.depth),
+      prizeIcon: prize.path,
+      prizeName: prize.name,
+    };
   }
   if (entry.kind === 'tavern-hire') {
     const mercenaryId = mercenaryIdForHireMonster(entry.value.id);
@@ -13611,9 +13634,9 @@ function defeatMonster(monster) {
     updateHud();
   }
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
-    const finalGuardian = dungeon.depth === STORY_DEPTH;
+    const finalGuardian = roadEndingAt(dungeon.depth) !== null;
     showLootToast(
-      { path: finalGuardian ? ARTIFACT_PATH : exitVisual().path, rarity: 3 },
+      { path: finalGuardian ? roadPrize().path : exitVisual().path, rarity: 3 },
       finalGuardian ? '◆' : romanDepth(dungeon.depth),
     );
     burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
@@ -13923,7 +13946,7 @@ function completeVictory() {
   burst(hero.x, hero.y - 10, '#d83e82', 42);
   playSound('victory');
   stopAmbient();
-  showLootToast({ path: ARTIFACT_PATH, rarity: 3 }, 'III');
+  showLootToast({ path: roadPrize().path, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');
   return true;
