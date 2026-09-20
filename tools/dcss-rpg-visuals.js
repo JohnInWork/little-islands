@@ -1155,7 +1155,9 @@ export const BIOME_THEMES = Object.freeze([
   Object.freeze({
     id: 'emerald-gallery',
     palette: 'verdigris',
-    floors: ['dngn/floor/mosaic14.png', 'dngn/floor/mosaic15.png'],
+    // The same green mosaic, ten cuts of it. The runs of inlay do not line
+    // up between tiles and never did — that is what a broken mosaic is.
+    floors: ['dngn/floor/mosaic0.png', 'dngn/floor/mosaic1.png', 'dngn/floor/mosaic2.png', 'dngn/floor/mosaic3.png', 'dngn/floor/mosaic10.png', 'dngn/floor/mosaic11.png', 'dngn/floor/mosaic12.png', 'dngn/floor/mosaic13.png', 'dngn/floor/mosaic14.png', 'dngn/floor/mosaic15.png'],
     walls: ['dngn/wall/emerald1.png', 'dngn/wall/emerald2.png', 'dngn/wall/emerald3.png', 'dngn/wall/emerald4.png', 'dngn/wall/emerald5.png', 'dngn/wall/emerald6.png', 'dngn/wall/emerald7.png', 'dngn/wall/emerald8.png'],
     accentWalls: [],
     accentModulo: 0,
@@ -1193,7 +1195,9 @@ export const BIOME_THEMES = Object.freeze([
   Object.freeze({
     id: 'sand-archive',
     palette: 'sepia',
-    floors: ['dngn/floor/limestone3.png', 'dngn/floor/limestone8.png'],
+    // Ten stones instead of two: the whole family is one ochre, so the
+    // archive stops repeating a two-tile pattern across a whole floor.
+    floors: ['dngn/floor/limestone0.png', 'dngn/floor/limestone1.png', 'dngn/floor/limestone2.png', 'dngn/floor/limestone3.png', 'dngn/floor/limestone4.png', 'dngn/floor/limestone5.png', 'dngn/floor/limestone6.png', 'dngn/floor/limestone7.png', 'dngn/floor/limestone8.png', 'dngn/floor/limestone9.png'],
     walls: ['dngn/wall/sandstone_wall8.png', 'dngn/wall/sandstone_wall9.png'],
     accentWalls: [],
     accentModulo: 0,
