@@ -16430,6 +16430,12 @@ function moveScreenFocus(direction) {
   targets[next].focus();
 }
 
+/** Полный экран по кнопке: на телевизоре рамка браузера — потерянная треть. */
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+}
+
 /**
  * Круг — «назад»: закрывает тот экран, который сейчас открыт.
  *
@@ -16554,6 +16560,9 @@ function pollGamepads(delta) {
   }
   paintPadTarget(chosen);
   if (edge.has('cross')) chosen?.click();
+  // Треугольник — полный экран. Ссылкой его не включить: браузер требует
+  // действия игрока, а на телевизоре мышью до кнопки не дотянешься.
+  if (edge.has('triangle')) toggleFullscreen();
   if (edge.has('options')) openMainMenu();
 }
 
