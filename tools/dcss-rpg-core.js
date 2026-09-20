@@ -73,7 +73,7 @@ import { materializeDungeonRoomContent } from './dcss-rpg-room-content.js';
 import { lootBiomeWeight, monsterBiomeWeight } from './dcss-rpg-biome-content.js';
 import { conditionEffects, conditionedFloor, runConditions } from './dcss-rpg-conditions.js';
 import {
-  MERCHANT_ACTOR_PATH,
+  merchantActorPath,
   MERCHANT_ICON_PATH,
   createMerchantStates,
   createMerchantStock,
@@ -588,7 +588,7 @@ function generateCityDungeon({ floorSeed, conditionIds, branch, depth, width, he
     id: 'merchant',
     roomIndex,
     variantId,
-    actorPath: MERCHANT_ACTOR_PATH,
+    actorPath: merchantActorPath(variantId),
     iconPath: MERCHANT_ICON_PATH,
     x,
     y,

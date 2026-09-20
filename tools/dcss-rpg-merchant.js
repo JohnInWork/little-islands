@@ -16,7 +16,19 @@ import {
   gameEvent,
 } from './dcss-rpg-game-commands.js';
 
-export const MERCHANT_ACTOR_PATH = 'mon/human.png';
+/**
+ * Лицо торговца по умолчанию — и запасное для варианта, который своего не
+ * назвал. До 20.09.2026 оно было единственным: торговец стоит на 86%
+ * этажей, и на всех это был один и тот же человек в коричневом. Поле
+ * `actorPath` у торговца было с самого начала — ему просто всегда
+ * присваивали одно значение.
+ *
+ * И это значение было `mon/human.png` — то же лицо, что у разбойника со
+ * спуска. Лицо торговца не должно принадлежать никому из врагов: два
+ * одинаковых силуэта, из которых один бьёт, а второй торгует, читаются как
+ * поломка, а не как колорит.
+ */
+export const MERCHANT_ACTOR_PATH = 'mon/unique/terence.png';
 export const MERCHANT_ICON_PATH = 'dngn/shops/shop_gadgets.png';
 export const MERCHANT_STOCK_MIN = 4;
 export const MERCHANT_STOCK_MAX = 6;
@@ -42,11 +54,17 @@ export const MERCHANT_VARIANTS = Object.freeze({
   armourer: Object.freeze({
     id: 'armourer',
     labels: Object.freeze({ ru: 'Бронник', en: 'Armourer' }),
+    // Гном с молотом. Нарочно НЕ `mon/dwarf.png`: такой дворф уже ходит по
+    // спуску как враг, и два одинаковых лица, из которых одно бьёт, а второе
+    // торгует, — это не колорит, а ловушка.
+    actorPath: 'mon/unique/jorgrun.png',
     accepts: (item) => ['body', 'head', 'boots', 'cloak', 'gloves', 'belt', 'hand2'].includes(item.slot),
   }),
   'relic-dealer': Object.freeze({
     id: 'relic-dealer',
     labels: Object.freeze({ ru: 'Реликварий', en: 'Relic dealer' }),
+    // Тот, кто разбирается в кольцах, обычно и сам немного колдун.
+    actorPath: 'mon/unique/jessica.png',
     accepts: (item) => Boolean(item.slot) && (
       ['ring1', 'ring2', 'amulet'].includes(item.slot)
       || Boolean(item.weaponFamily)
@@ -56,9 +74,22 @@ export const MERCHANT_VARIANTS = Object.freeze({
   provisioner: Object.freeze({
     id: 'provisioner',
     labels: Object.freeze({ ru: 'Снабженец', en: 'Provisioner' }),
+    // Коробейник с мешком: единственный, кто продаёт еду в подземелье.
+    actorPath: 'mon/unique/joseph.png',
     accepts: (item) => !item.gold && (!item.slot || ['boots', 'cloak'].includes(item.slot)),
   }),
 });
+
+/** Лицо этого варианта; лицо по умолчанию — для варианта, который молчит. */
+export function merchantActorPath(variantId) {
+  return MERCHANT_VARIANTS[variantId]?.actorPath ?? MERCHANT_ACTOR_PATH;
+}
+
+/** Все лица торговцев — для списка того, что игра обязана загрузить. */
+export const MERCHANT_ACTOR_PATHS = Object.freeze([...new Set([
+  MERCHANT_ACTOR_PATH,
+  ...Object.values(MERCHANT_VARIANTS).map(({ actorPath }) => actorPath).filter(Boolean),
+])]);
 
 function stableHash(...parts) {
   let value = 0x811c9dc5;

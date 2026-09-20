@@ -1,6 +1,6 @@
 import { chestFramesForSkin } from './dcss-rpg-chests.js';
 import {
-  MERCHANT_ACTOR_PATH,
+  merchantActorPath,
   MERCHANT_ICON_PATH,
   createMerchantStock,
 } from './dcss-rpg-merchant.js';
@@ -395,7 +395,7 @@ function materializeMerchant(level, plan, occupied) {
     id: 'merchant',
     roomIndex: plan.roomIndex,
     variantId: plan.variantId,
-    actorPath: MERCHANT_ACTOR_PATH,
+    actorPath: merchantActorPath(plan.variantId),
     iconPath: MERCHANT_ICON_PATH,
     ...position,
     stock: createMerchantStock({

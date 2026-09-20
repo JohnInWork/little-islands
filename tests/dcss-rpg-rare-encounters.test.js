@@ -178,3 +178,33 @@ test('у опасной встречи есть примета, и адапте�
     'примета показывается раньше, чем этаж собран',
   );
 });
+
+/**
+ * Торговец стоит на 86% этажей, и до 20.09.2026 на всех этажах это был один
+ * и тот же человек — тот же спрайт, что у разбойника со спуска. Лицо должно
+ * принадлежать варианту и никому из врагов.
+ */
+test('у каждого торговца своё лицо, и ни одно не принадлежит врагу', async () => {
+  const { MERCHANT_ACTOR_PATH, MERCHANT_ACTOR_PATHS, MERCHANT_VARIANTS, merchantActorPath } =
+    await import('../tools/dcss-rpg-merchant.js');
+  const enemies = new Set(MONSTER_CATALOG.map(({ path }) => path));
+  const faces = Object.values(MERCHANT_VARIANTS).map(({ id }) => merchantActorPath(id));
+  assert.equal(new Set(faces).size, faces.length, 'два варианта торговца на одно лицо');
+  for (const face of [...faces, MERCHANT_ACTOR_PATH]) {
+    assert.equal(enemies.has(face), false, `${face} — это лицо врага`);
+    assert.ok(existsSync(new URL(face, preview)), `${face} не поставляется`);
+    assert.ok(requiredAssetPaths().includes(face), `${face} не грузится`);
+    assert.ok(MERCHANT_ACTOR_PATHS.includes(face), `${face} нет в списке лиц`);
+  }
+  // И на самих этажах стоят именно они.
+  const seen = new Set();
+  for (let seed = 1; seed <= 120; seed += 1) {
+    for (const depth of [3, 7, 11]) {
+      for (const merchant of generateDungeon({ seed, depth, branch: 'deep' }).merchants) {
+        assert.equal(merchant.actorPath, merchantActorPath(merchant.variantId));
+        seen.add(merchant.actorPath);
+      }
+    }
+  }
+  assert.equal(seen.size, faces.length, `на этажах встретилось ${seen.size} лиц из ${faces.length}`);
+});

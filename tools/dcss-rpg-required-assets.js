@@ -15,7 +15,7 @@ import { allEnvironmentAssetPaths } from './dcss-rpg-environment.js';
 import { FIND_ASSET_PATHS } from './dcss-rpg-finds.js';
 import { IDENTIFICATION_APPEARANCE_PATHS } from './dcss-rpg-identification.js';
 import { PASSIVE_CREATURE_PATHS } from './dcss-rpg-passive.js';
-import { MERCHANT_ACTOR_PATH, MERCHANT_ICON_PATH } from './dcss-rpg-merchant.js';
+import { MERCHANT_ACTOR_PATHS, MERCHANT_ICON_PATH } from './dcss-rpg-merchant.js';
 import { CAMP_ASSET_PATHS } from './dcss-rpg-camp.js';
 import { CITY_ASSET_PATHS } from './dcss-rpg-city.js';
 import { stashAssetPaths } from './dcss-rpg-stash.js';
@@ -74,7 +74,7 @@ export function requiredAssetPaths(extra = []) {
     ...BRANCH_GATE_PATHS,
     ...BRANCH_STAIR_PATHS,
     ...RUNTIME_FALLBACK_PATHS,
-    MERCHANT_ACTOR_PATH,
+    ...MERCHANT_ACTOR_PATHS,
     MERCHANT_ICON_PATH,
     ...extra,
   ])]);
