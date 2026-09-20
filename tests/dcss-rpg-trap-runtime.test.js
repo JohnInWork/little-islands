@@ -114,6 +114,7 @@ function terminalRuntime({ victory = false } = {}) {
     performance: { now: () => 0 },
     rarityGlow: ['#ffffff'],
     updateHunger: () => {},
+    updateHeroFooting: () => {},
     updateHeroEffects: () => {},
     resolvePendingHeroAttack: () => {},
     updateHeldMove: () => {},

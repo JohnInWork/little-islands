@@ -123,6 +123,7 @@ import {
   CHASM_CELL,
   carveChasm,
   carveRiftFloor,
+  chasmIslands,
   chasmRoomCandidates,
   isRiftDepth,
 } from './dcss-rpg-chasm.js';
@@ -1200,6 +1201,44 @@ export function generateDungeon({
           break;
         }
       }
+    }
+  }
+
+  /**
+   * What is on the far side.
+   *
+   * A hole that only makes the walk longer teaches nothing, and an island
+   * with nothing on it teaches less. So the floor's own loot is rearranged:
+   * one or two pieces move out there instead of lying where feet can reach.
+   *
+   * Moved, never added — the floor is exactly as rich as its budget says, and
+   * the chasm changes where the richness is rather than how much there is. A
+   * hero who never learned to fly loses those pieces on a rift floor, and
+   * that is the trade the spell offers.
+   *
+   * The starter piece at index zero never moves: it is the promised weapon a
+   * bare hero walks in for, and a promise behind a chasm is not a promise.
+   */
+  if (chasmCells.length > 0) {
+    const prizeRng = createRng(mixSeed(floorSeed, 0x5052495a));
+    const taken = new Set([
+      ...events.map(({ x, y }) => `${x},${y}`),
+      ...finds.map(({ x, y }) => `${x},${y}`),
+      ...monsters.map(({ x, y }) => `${x},${y}`),
+    ]);
+    let moved = 0;
+    for (const island of chasmIslands(grid, spawn).slice(0, 2)) {
+      const free = island.filter(({ x, y }) => !taken.has(`${x},${y}`));
+      if (free.length === 0) continue;
+      const candidate = loot.findIndex((entry, at) => (
+        at > 0 && !island.some(({ x, y }) => x === entry.x && y === entry.y)
+      ));
+      if (candidate < 0) break;
+      const spot = free[prizeRng.int(0, free.length - 1)];
+      taken.add(`${spot.x},${spot.y}`);
+      loot[candidate] = { ...loot[candidate], x: spot.x, y: spot.y };
+      moved += 1;
+      if (moved >= 2) break;
     }
   }
 

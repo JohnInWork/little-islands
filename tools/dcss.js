@@ -438,7 +438,7 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
-import { CHASM_CELL } from './dcss-rpg-chasm.js';
+import { CHASM_CELL, CHASM_FALL_PERCENT, chasmCopy } from './dcss-rpg-chasm.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -3883,6 +3883,51 @@ function isHeroWalkable(x, y) {
   // A chasm is floor to somebody who is flying and a wall to everybody else.
   if (world[y][x] === CHASM_CELL) return currentHeroMagic().flight === true;
   return world[y][x] === '.' || world[y][x] === '~';
+}
+
+/**
+ * What happens when the floor is not there any more.
+ *
+ * Flight can end for reasons the hero did not choose — a ring unequipped, a
+ * dispel, a save reloaded next to a rule change — and the honest answer to
+ * standing in mid-air is to fall. The fall is a real cost and never a death
+ * sentence: a share of the hero's health and a landing on the nearest ground,
+ * which is exactly what a hole in the floor should be worth.
+ *
+ * Switching flight off yourself is refused instead, so this can only ever fire
+ * for something that happened to the hero rather than something they did.
+ */
+function updateHeroFooting() {
+  if (hero.dead || runStatus !== 'playing') return;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  if (world[cell.y]?.[cell.x] !== CHASM_CELL || currentHeroMagic().flight) return;
+  const landing = nearestFooting(cell);
+  if (!landing) return;
+  hero.x = (landing.x + 0.5) * TILE;
+  hero.y = (landing.y + 0.5) * TILE;
+  hero.path = [];
+  hero.pendingAttack = null;
+  const damage = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT / 100));
+  damageHero(damage, { direct: true, source: 'chasm', impactColor: '#6f6a63' });
+  addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).fell, '#9aa4ad', -64);
+  burst(hero.x, hero.y, '#6f6a63', 16);
+  playSound('hurt');
+}
+
+/** The closest cell that is actually floor, searched outwards from the hole. */
+function nearestFooting(cell) {
+  for (let radius = 1; radius <= 8; radius += 1) {
+    const ring = [];
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        ring.push({ x: cell.x + dx, y: cell.y + dy });
+      }
+    }
+    const found = ring.find(({ x, y }) => world[y]?.[x] === '.' || world[y]?.[x] === '~');
+    if (found) return found;
+  }
+  return null;
 }
 
 function heroInWater() {
@@ -12871,6 +12916,16 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     return beginSpellTargeting(slotIndex, usedSpell, targets);
   }
   if (usedSpell.kind === 'sustained') {
+    // Nobody switches their own flight off over a hole. The refusal is the
+    // kind a game owes the player: the mistake is impossible, not punished.
+    if (
+      usedSpell.id === 'flight'
+      && currentHeroMagic().flight
+      && world[Math.floor(hero.y / TILE)]?.[Math.floor(hero.x / TILE)] === CHASM_CELL
+    ) {
+      addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).overChasm, '#9fc6c4', -62);
+      return false;
+    }
     const toggled = toggleSustainedSpell(hero.spells, usedSpell.id, stats.intelligence);
     if (!toggled.ok) {
       rejectSpellUse(slotIndex, toggled.reason);
@@ -14483,6 +14538,7 @@ function updateHero(delta) {
   }
   updateHunger(delta);
   updateHeroEffects(delta);
+  updateHeroFooting();
   if (hero.dead) return;
   resolvePendingHeroAttack(previousAttack, hero.attack);
   updateHeldMove(performance.now());

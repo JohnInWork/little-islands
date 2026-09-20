@@ -376,16 +376,60 @@ export function carveRiftFloor(grid, { rng, from, mustReach = [], keepCells = []
   return Object.freeze(opened.map(({ x, y }) => Object.freeze({ x, y })));
 }
 
+/**
+ * Floor the holes have cut off from everywhere: the pieces worth flying to.
+ *
+ * Returned as groups, one per island, so the caller can put something on each
+ * of them rather than piling everything onto whichever cell came first.
+ */
+export function chasmIslands(grid, from) {
+  const reachable = walkableFrom(grid, from);
+  const seen = new Set();
+  const islands = [];
+  for (let y = 0; y < grid.length; y += 1) {
+    for (let x = 0; x < (grid[y]?.length ?? 0); x += 1) {
+      const key = `${x},${y}`;
+      if (grid[y][x] !== '.' || reachable.has(key) || seen.has(key)) continue;
+      const island = [];
+      const queue = [{ x, y }];
+      seen.add(key);
+      while (queue.length > 0) {
+        const cell = queue.shift();
+        island.push(Object.freeze({ x: cell.x, y: cell.y }));
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cell.x + dx;
+          const ny = cell.y + dy;
+          const at = `${nx},${ny}`;
+          if (seen.has(at) || grid[ny]?.[nx] !== '.') continue;
+          seen.add(at);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+      islands.push(Object.freeze(island));
+    }
+  }
+  // Biggest first: a single stranded cell behind a doorway is not a place,
+  // and the caller should spend its one good prize on the real island.
+  return Object.freeze([...islands].sort((left, right) => right.length - left.length));
+}
+
+/** A tenth of the hero's health: a real cost, never a death sentence. */
+export const CHASM_FALL_PERCENT = 10;
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     name: 'Провал',
     description: 'Пола нет. Обойти или перелететь.',
     refusal: 'Туда без полёта не шагнуть',
+    overChasm: 'Не над пропастью',
+    fell: 'Падение',
   }),
   en: Object.freeze({
     name: 'Chasm',
     description: 'No floor here. Go round, or fly.',
     refusal: 'No stepping into that without flight',
+    overChasm: 'Not over a chasm',
+    fell: 'A fall',
   }),
 });
 

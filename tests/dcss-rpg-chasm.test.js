@@ -4,10 +4,12 @@ import test from 'node:test';
 
 import {
   CHASM_CELL,
+  CHASM_FALL_PERCENT,
   CHASM_FLOOR_INTERVAL,
   CHASM_MIN_DEPTH,
   carveRiftFloor,
   chasmAllowsCell,
+  chasmIslands,
   chasmCopy,
   isChasmCell,
   isRiftDepth,
@@ -129,4 +131,51 @@ test('the runtime lets flight over a chasm and nothing else', async () => {
   // And the world draws no tile there, so the gap is a gap.
   const world = await readFile(new URL('../tools/dcss-rpg-world3d.js', import.meta.url), 'utf8');
   assert.match(world, /if \(grid\[y\]\[x\] !== CHASM_CELL\) \{\s*\n\s*floorRecords\.push/);
+});
+
+/**
+ * An island with nothing on it teaches nothing. The floor's own loot is
+ * rearranged rather than added to: the chasm changes where the richness is,
+ * not how much of it there is.
+ */
+test('the far side is worth the crossing, and the floor is no richer for it', () => {
+  let islandsSeen = 0;
+  let islandsWithLoot = 0;
+  for (const depth of [7, 14, 21]) {
+    for (let seed = 1; seed <= 12; seed += 1) {
+      const dungeon = generateDungeon({ seed, depth });
+      const islands = chasmIslands(dungeon.grid, dungeon.spawn);
+      if (islands.length === 0) continue;
+      islandsSeen += 1;
+      const cells = new Set(islands.flat().map(({ x, y }) => `${x},${y}`));
+      const prize = dungeon.loot.filter(({ x, y }) => cells.has(`${x},${y}`));
+      if (prize.length > 0) islandsWithLoot += 1;
+      // The promised starting piece is never marooned.
+      assert.ok(
+        !cells.has(`${dungeon.loot[0].x},${dungeon.loot[0].y}`),
+        `seed ${seed} depth ${depth}: the starter gear is on an island`,
+      );
+    }
+  }
+  assert.ok(islandsSeen >= 8, `only ${islandsSeen} floors had an island at all`);
+  assert.equal(islandsWithLoot, islandsSeen, 'an island had nothing worth flying to');
+});
+
+test('flight cannot be switched off over a hole, and losing it is a fall', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Refused, not punished: the mistake the player could make is impossible.
+  assert.match(
+    runtime,
+    /usedSpell\.id === 'flight'[\s\S]{0,240}?CHASM_CELL[\s\S]{0,120}?return false;/,
+    'the hero can dispel their own flight in mid-air',
+  );
+  // But flight can end for reasons the hero did not choose, and then they fall.
+  const footing = runtime.slice(runtime.indexOf('function updateHeroFooting() {'));
+  const body = footing.slice(0, footing.indexOf('\n}'));
+  assert.match(body, /currentHeroMagic\(\)\.flight/);
+  assert.match(body, /nearestFooting\(cell\)/, 'a fall lands nowhere');
+  assert.match(body, /damageHero\(damage/);
+  // And the check runs every frame the hero moves, not on some event.
+  assert.match(runtime, /updateHeroEffects\(delta\);\s*\n\s*updateHeroFooting\(\);/);
+  assert.ok(CHASM_FALL_PERCENT > 0 && CHASM_FALL_PERCENT <= 25, 'a fall should cost, not kill');
 });
