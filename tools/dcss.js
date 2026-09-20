@@ -458,6 +458,7 @@ import {
   terrainSpeedMultiplier,
 } from './dcss-rpg-terrain.js';
 import {
+  ONBOARDING_ENABLED,
   ONBOARDING_KEY,
   advanceOnboarding,
   createOnboardingState,
@@ -7661,6 +7662,9 @@ function renderOnboardingHint() {
 
 /** Runs a few times a second on the game screen; the pure module decides what is due. */
 function updateOnboarding(time) {
+  // Обучение выключено (`ONBOARDING_ENABLED`). Выходим до всего остального:
+  // ни подсказки на экране, ни записи в localStorage.
+  if (!ONBOARDING_ENABLED) return;
   if (!ready || uiScreen !== 'game' || runStatus !== 'playing') return;
   if (onboardingComplete(onboardingState)) {
     if (onboardingHintId) {

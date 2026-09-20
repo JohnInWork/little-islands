@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  ONBOARDING_ENABLED,
   ONBOARDING_HINTS,
   ONBOARDING_HINT_IDS,
   ONBOARDING_KEY,
@@ -18,6 +19,31 @@ import {
 } from '../tools/dcss-rpg-onboarding.js';
 
 const quiet = { depth: 1, inGame: true };
+
+/**
+ * Иван 20.09.2026: «обучение какое-то в начале игры — я бы его убрал пока что,
+ * просто скрыл бы». Скрыто одним значением, а не вырезано: правила и тексты
+ * ниже по-прежнему проверяются, чтобы вернуть обучение можно было одной
+ * правкой, а не археологией.
+ */
+test('обучение выключено, и выключено в одном месте', async () => {
+  assert.equal(ONBOARDING_ENABLED, false, 'обучение снова показывается игроку');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Адаптер выходит до всего: ни подсказки, ни записи в localStorage.
+  const update = runtime.slice(runtime.indexOf('function updateOnboarding(time) {'));
+  const body = update.slice(0, update.indexOf('\n}'));
+  assert.match(body, /^[\s\S]{0,260}?if \(!ONBOARDING_ENABLED\) return;/, 'выключатель проверяется не первым');
+  assert.ok(
+    body.indexOf('if (!ONBOARDING_ENABLED) return;') < body.indexOf('advanceOnboarding'),
+    'правила успевают отработать до проверки выключателя',
+  );
+  // Панель в разметке остаётся и остаётся скрытой.
+  const html = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
+  assert.match(html, /id="onboarding-hint"[^>]*hidden/);
+  // А сами подсказки целы: включение — одно значение, ничего больше.
+  assert.equal(ONBOARDING_HINT_IDS.length, 6);
+  assert.deepEqual(onboardingProblems(), []);
+});
 
 test('the catalog is five ordered first-floor hints with valid signals and short bilingual copy', () => {
   assert.deepEqual(onboardingProblems(), []);
