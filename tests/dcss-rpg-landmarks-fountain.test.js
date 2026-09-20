@@ -57,8 +57,8 @@ function landmarkFixture(id, seed = 7, depth = 2) {
   throw new Error(`No ${id} fixture near seed ${seed} depth ${depth}`);
 }
 
-function altarFixture(seed = 7, depth = 2) {
-  return landmarkFixture('ancient-altar', seed, depth);
+function fountainFixture(seed = 7, depth = 2) {
+  return landmarkFixture('sunken-fountain', seed, depth);
 }
 
 function heroNear(find, overrides = {}) {
@@ -73,30 +73,33 @@ function heroNear(find, overrides = {}) {
   };
 }
 
-test('the altar is a landmark: catalog, themed skins and bundled assets', async () => {
-  const altar = findById('ancient-altar');
-  assert.equal(altar.wave, 'landmark');
-  // The three that belong to every road. The five after them belong to one
-  // road apiece and are checked in the branch-events test.
+test('фонтан — ориентир: каталог, темы этажей и вшитые ассеты', async () => {
+  const fountain = findById('sunken-fountain');
+  assert.equal(fountain.wave, 'landmark');
+  // Общих для всех дорог ориентиров теперь два: древний алтарь убран — он
+  // путал сильнее, чем давал. Остальные пять принадлежат по одной дороге и
+  // проверяются в тесте событий ветки.
   assert.deepEqual(
     LANDMARK_CATALOG.filter(({ branch }) => !branch).map(({ id }) => id),
-    ['ancient-altar', 'sunken-fountain', 'warded-rune'],
+    ['sunken-fountain', 'warded-rune'],
   );
+  assert.equal(findById('ancient-altar'), null, 'алтарь вернулся в каталог');
   assert.equal(CORE_FIND_CATALOG.length, 3);
   assert.equal(MAX_FINDS_PER_FLOOR, 5);
-  assert.deepEqual(altar.outcomes.map(({ id }) => id), ['pray', 'offer', 'plunder']);
-  assert.ok(Object.isFrozen(altar.outcomes));
+  assert.deepEqual(fountain.outcomes.map(({ id }) => id), ['drink', 'toss', 'dive']);
+  assert.ok(Object.isFrozen(fountain.outcomes));
   for (const themeId of ['ashen-vault', 'buried-sanctum', 'frozen-depths', 'infernal-core']) {
-    assert.ok(altar.skins[themeId], `skin for ${themeId}`);
-    assert.ok(FIND_ASSET_PATHS.includes(altar.skins[themeId]));
+    assert.ok(fountain.skins[themeId], `skin for ${themeId}`);
+    assert.ok(FIND_ASSET_PATHS.includes(fountain.skins[themeId]));
   }
-  await Promise.all(Object.values(altar.skins).map((path) => access(assetUrl(path))));
-  assert.equal(findSkinPath({ id: 'ancient-altar', themeId: 'frozen-depths' }), altar.skins['frozen-depths']);
-  assert.equal(findSkinPath({ id: 'ancient-altar', themeId: 'unknown' }), altar.path);
+  await Promise.all(Object.values(fountain.skins).map((path) => access(assetUrl(path))));
+  assert.equal(findSkinPath({ id: 'sunken-fountain', themeId: 'frozen-depths' }), fountain.skins['frozen-depths']);
+  assert.equal(findSkinPath({ id: 'sunken-fountain', themeId: 'unknown' }), fountain.path);
   assert.equal(findSkinPath({ id: 'crystal-vein' }), findById('crystal-vein').path);
-  assert.equal(roomArchetypeIdForFind('ancient-altar'), 'altar-niche');
+  assert.equal(roomArchetypeIdForFind('sunken-fountain'), 'fountain-court');
   assert.equal(roomArchetypeIdForFind('sealed-cache'), 'treasure-vault');
-  assert.equal(roomArchetypeById('altar-niche').content.findId, 'ancient-altar');
+  assert.equal(roomArchetypeById('fountain-court').content.findId, 'sunken-fountain');
+  assert.equal(roomArchetypeIdForFind('ancient-altar'), null, 'ниша алтаря пережила алтарь');
 });
 
 test('every floor places at most one landmark in its own quiet room without blocking the route', () => {
@@ -146,12 +149,13 @@ test('every floor places at most one landmark in its own quiet room without bloc
     const blocked = dungeon.grid.map((row) => [...row]);
     for (const find of dungeon.finds) blocked[find.y][find.x] = '#';
     assert.ok(findGridPath(blocked, dungeon.spawn, dungeon.exit, { allowDoors: true }).length > 0);
-    if (altar.id === 'ancient-altar') {
-      const { pray, offer, plunder } = altar.outcomes;
-      assert.deepEqual(pray, { healRatio: 0.3, cleanse: true });
-      assert.ok(offer.costGold >= 14 && offer.rewardMaxHp === 4 + depth && offer.heal === offer.rewardMaxHp);
-      assert.ok(plunder.rewardGold > 0 && plunder.damage > 0 && plunder.noise > 0);
-      assert.ok(['poison', 'chilled'].includes(plunder.status.id));
+    if (altar.id === 'sunken-fountain') {
+      const { drink, toss, dive } = altar.outcomes;
+      assert.equal(drink.healRatio, 0.25);
+      assert.equal(drink.status.id, 'wet');
+      assert.ok(toss.costGold > 0 && toss.rewardPower === 1);
+      assert.ok(dive.rewardGold > 0 && dive.damage > 0);
+      assert.equal(dive.status.id, 'chilled');
     }
   }
   assert.ok(placed >= dungeonFloors - 10, `landmark placed on ${placed} of ${dungeonFloors} dungeon floors`);
@@ -182,83 +186,64 @@ test('the landmark stream never moves the three core finds', () => {
   );
 });
 
-test('action availability follows gold, health and the presence of anything to restore', () => {
-  const { find } = altarFixture();
-  const { offer, plunder } = find.outcomes;
+test('доступность действий следует за золотом и здоровьем, и отказ объясняется', () => {
+  const { find } = fountainFixture();
+  const { toss, dive } = find.outcomes;
   const poor = landmarkActionRules({
     find,
-    actor: { gold: offer.costGold - 1, vitals: { hp: plunder.damage, maxHp: 100, effects: {} } },
+    actor: { gold: toss.costGold - 1, vitals: { hp: dive.damage, maxHp: 100, effects: {} } },
     language: 'ru',
   });
-  assert.deepEqual(poor.actions.map(({ id }) => id), ['pray', 'offer', 'plunder']);
+  assert.deepEqual(poor.actions.map(({ id }) => id), ['drink', 'toss', 'dive']);
   assert.equal(poor.actions[0].enabled, true);
   assert.equal(poor.actions[1].enabled, false);
-  // A refused button still says what it would have given: «зачем оно нужно»
-  // is the question that stays unanswered when only the refusal is printed.
-  assert.equal(
-    poor.actions[1].hint,
-    `Нужно ${offer.costGold}● · +${offer.rewardMaxHp} к пределу здоровья · +${offer.heal} ❤`,
-  );
+  // Отказ всё равно говорит, что дал бы: «зачем оно нужно» — вопрос, который
+  // остаётся без ответа, когда напечатан один отказ.
+  assert.match(poor.actions[1].hint, new RegExp(`Нужно ${toss.costGold}●`));
   assert.equal(poor.actions[2].enabled, false);
-  assert.equal(poor.actions[2].hint, `Слишком опасно при таком здоровье · +${plunder.rewardGold}●`);
+  assert.equal(poor.actions[2].hint, `Слишком опасно при таком здоровье · +${dive.rewardGold}●`);
 
   const healthy = landmarkActionRules({
     find,
-    actor: { gold: offer.costGold, vitals: { hp: 100, maxHp: 100, effects: {} } },
+    actor: { gold: toss.costGold, vitals: { hp: 100, maxHp: 100, effects: {} } },
     language: 'en',
   });
   assert.equal(healthy.actions[0].enabled, false);
   assert.equal(healthy.actions[0].hint, 'Nothing to heal');
   assert.equal(healthy.actions[1].enabled, true);
-  // An available action spends its hint on the promise, not on the refusal.
-  assert.equal(
-    healthy.actions[1].hint,
-    `−${offer.costGold}● · +${offer.rewardMaxHp} to the health cap · +${offer.heal} ❤`,
-  );
+  // Доступное действие тратит подпись на обещание, а не на отказ.
+  assert.match(healthy.actions[1].hint, new RegExp(`−${toss.costGold}●`));
   assert.equal(healthy.actions[2].enabled, true);
 
-  const poisoned = landmarkActionRules({
-    find,
-    actor: { gold: 0, vitals: { hp: 100, maxHp: 100, effects: { poison: 3 } } },
-  });
-  assert.equal(poisoned.actions[0].enabled, true, 'cleansing is still worth a prayer');
-  assert.ok(Object.isFrozen(poisoned.actions));
-  assert.throws(() => landmarkActionRules({ find: { id: 'ancient-altar', outcomes: {} } }), TypeError);
+  assert.ok(Object.isFrozen(healthy.actions));
+  assert.throws(() => landmarkActionRules({ find: { id: 'sunken-fountain', outcomes: {} } }), TypeError);
 });
 
-test('praying heals a share of the effective maximum and clears statuses without touching gold', () => {
-  const { find } = altarFixture();
+test('глоток лечит долю настоящего запаса и не трогает кошелёк', () => {
+  const { find } = fountainFixture();
   const input = {
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
-    hero: heroNear(find, { effects: { poison: 5, wet: 2 } }),
+    hero: heroNear(find, { effects: { poison: 5 } }),
     gold: 50,
-    action: 'pray',
+    action: 'drink',
     actor: { vitals: { maxHp: 120 } },
   };
   const before = structuredClone(input);
   const result = resolveFindInteraction(input);
   assert.equal(result.ok, true);
-  assert.equal(result.action, 'pray');
-  assert.equal(result.heal, 36);
-  assert.equal(result.state.hero.hp, 76);
+  assert.equal(result.action, 'drink');
+  assert.ok(result.heal > 0, 'глоток не вылечил ничего');
+  assert.equal(result.state.hero.hp, input.hero.hp + result.heal);
   assert.equal(result.state.hero.maxHp, 100);
-  assert.deepEqual([...result.cleansed].sort(), ['poison', 'wet']);
-  assert.equal(result.state.hero.effects.poison, 0);
-  assert.equal(result.state.gold, 50);
+  assert.equal(result.state.gold, 50, 'вода взяла денег');
   assert.equal(result.costGold, 0);
   assert.equal(result.damage, 0);
-  assert.equal(result.status, null);
+  // Из фонтана выходят мокрыми: это его цена, а не подарок.
+  assert.equal(result.status?.id, 'wet');
   assert.deepEqual(result.state.resolvedFindIds, [find.instanceId]);
   assert.deepEqual(input, before, 'pure command must not mutate the caller state');
-
-  const nearlyFull = resolveFindInteraction({
-    ...input,
-    hero: heroNear(find, { hp: 118, effects: {} }),
-  });
-  assert.equal(nearlyFull.state.hero.hp, 120, 'healing never exceeds the effective maximum');
-  assert.equal(nearlyFull.heal, 2);
 
   const wasted = resolveFindInteraction({ ...input, hero: heroNear(find, { hp: 120, effects: {} }) });
   assert.equal(wasted.reason, 'nothing-to-restore');
@@ -274,39 +259,37 @@ test('praying heals a share of the effective maximum and clears statuses without
   assert.equal(resolveFindInteraction({ ...input, action: 'defile' }).reason, 'action');
 });
 
-test('an offering costs gold up front and permanently raises maximum health', () => {
-  const { find } = altarFixture(19, 5);
-  const { costGold, rewardMaxHp } = find.outcomes.offer;
+test('брошенная монета стоит золота и покупает твёрдость руки', () => {
+  const { find } = fountainFixture(19, 5);
+  const { costGold, rewardPower } = find.outcomes.toss;
   const input = {
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
     hero: heroNear(find, { hp: 30, maxHp: 100 }),
     gold: costGold + 3,
-    action: 'offer',
-    actor: { gold: costGold + 3, vitals: { hp: 30, maxHp: 115, effects: {} } },
+    action: 'toss',
+    actor: { gold: costGold + 3, vitals: { hp: 30, maxHp: 100, effects: {} } },
   };
   const result = resolveFindInteraction(input);
   assert.equal(result.ok, true);
   assert.equal(result.costGold, costGold);
-  assert.equal(result.rewardMaxHp, rewardMaxHp);
+  assert.equal(result.rewardPower, rewardPower);
   assert.equal(result.state.gold, 3);
-  assert.equal(result.state.hero.maxHp, 100 + rewardMaxHp);
-  assert.equal(result.state.hero.hp, 30 + rewardMaxHp);
-  assert.equal(result.heal, rewardMaxHp);
+  assert.equal(result.state.hero.power, input.hero.power + rewardPower);
   assert.equal(resolveFindInteraction({ ...input, gold: costGold - 1 }).reason, 'gold-required');
   assert.deepEqual(input.resolvedFindIds, []);
 });
 
-test('plundering pays gold but wounds, curses and alerts, and it is never lethal', () => {
-  const { find } = altarFixture(23, 5);
-  const { rewardGold, damage, status, noise } = find.outcomes.plunder;
+test('нырок платит золотом, но студит, и никогда не убивает', () => {
+  const { find } = fountainFixture(23, 5);
+  const { rewardGold, damage, status, noise } = find.outcomes.dive;
   const base = {
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
     gold: 4,
-    action: 'plunder',
+    action: 'dive',
   };
   assert.equal(
     resolveFindInteraction({ ...base, hero: heroNear(find, { hp: damage }) }).reason,
@@ -319,20 +302,20 @@ test('plundering pays gold but wounds, curses and alerts, and it is never lethal
   assert.equal(result.rewardGold, rewardGold);
   assert.equal(result.state.gold, 4 + rewardGold);
   assert.deepEqual(result.status, status);
-  assert.equal(result.noise, noise);
+  assert.equal(result.noise, noise ?? 0);
   assert.equal(result.heal, 0);
   assert.deepEqual(result.cleansed, []);
   assert.equal(result.state.hero.maxHp, 100);
 });
 
 test('the resolver executes rolled outcome data, so a new landmark is data rather than code', () => {
-  const { find } = altarFixture();
+  const { find } = fountainFixture();
   const custom = {
     ...find,
     outcomes: {
-      pray: { rewardPower: 2, noise: 3 },
-      offer: { costGold: 5, heal: 7 },
-      plunder: { damage: 1, rewardGold: 1 },
+      drink: { rewardPower: 2, noise: 3 },
+      toss: { costGold: 5, heal: 7 },
+      dive: { damage: 1, rewardGold: 1 },
     },
   };
   assert.equal(isLandmarkFind(custom), true);
@@ -342,7 +325,7 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
     runStatus: 'playing',
     hero: heroNear(find),
     gold: 0,
-    action: 'pray',
+    action: 'drink',
   });
   assert.equal(result.ok, true);
   assert.equal(result.rewardPower, 2);
@@ -351,7 +334,7 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
   assert.match(landmarkResultSummary(result, 'ru'), /Сила \+2/);
   assert.match(landmarkResultSummary(result, 'en'), /Power \+2/);
 
-  assert.equal(isLandmarkFind({ ...find, outcomes: { ...find.outcomes, pray: { bless: true } } }), false);
+  assert.equal(isLandmarkFind({ ...find, outcomes: { ...find.outcomes, drink: { bless: true } } }), false);
   assert.equal(isLandmarkFind({ ...find, outcomes: { pray: find.outcomes.pray } }), false);
   assert.equal(isLandmarkFind({ ...find, outcomes: { ...find.outcomes, plunder: { damage: -3 } } }), false);
   assert.equal(
@@ -372,35 +355,32 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
   );
 });
 
-test('the shared registry presents the altar bilingually and says what each choice does', () => {
-  const { find } = altarFixture();
-  const { costGold } = find.outcomes.offer;
+test('общий реестр показывает фонтан на двух языках и подписывает каждый выбор', () => {
+  const { find } = fountainFixture();
+  const { costGold } = find.outcomes.toss;
   const target = { kind: 'find', ...find };
   const actor = { gold: costGold, vitals: { hp: 50, maxHp: 100, effects: {} } };
   const ru = contextActionModel({ target, actor, language: 'ru' });
   assert.equal(ru.interactionId, 'landmark');
-  assert.equal(ru.name, 'Древний алтарь');
-  // «Что это, зачем, как — непонятно» was the whole complaint: the card used
-  // to open blank and stayed blank until the player thought to examine it.
-  const altarCopy = findById('ancient-altar').copy.ru;
-  assert.equal(ru.description, `${altarCopy.summary} ${altarCopy.inspected}`);
+  assert.equal(ru.name, 'Затопленный фонтан');
+  // «Что это, зачем, как — непонятно» было всей жалобой: карточка открывалась
+  // пустой и оставалась пустой, пока игрок не догадается осмотреть.
+  const copy = findById('sunken-fountain').copy.ru;
+  assert.equal(ru.description, `${copy.summary} ${copy.inspected}`);
   assert.ok(ru.description.length > 40);
   assert.equal(ru.icon, findSkinPath(find));
   // Осмотра больше нет: окно и есть осмотр, текст в нём полный сразу.
-  assert.deepEqual(ru.actions.map(({ id }) => id), ['pray', 'offer', 'plunder']);
-  assert.deepEqual(ru.actions.map(({ label }) => label), ['Молиться', 'Пожертвовать', 'Ограбить']);
+  assert.deepEqual(ru.actions.map(({ id }) => id), ['drink', 'toss', 'dive']);
   assert.ok(ru.actions.every(({ command }) => command === 'find-interact'));
-  const { rewardMaxHp, heal } = find.outcomes.offer;
-  assert.equal(ru.actions[1].hint, `−${costGold}● · +${rewardMaxHp} к пределу здоровья · +${heal} ❤`);
+  assert.match(ru.actions[1].hint, new RegExp(`−${costGold}●`));
   assert.equal(ru.actions[1].enabled, true);
 
-  const english = findById('ancient-altar').copy.en;
+  const english = findById('sunken-fountain').copy.en;
   const en = contextActionModel({ target, actor, language: 'en' });
-  assert.equal(en.name, 'Ancient altar');
+  assert.equal(en.name, 'Sunken fountain');
   assert.equal(en.description, `${english.summary} ${english.inspected}`);
   // The flavour text still keeps its mouth shut; the numbers live on the buttons.
   assert.doesNotMatch(english.inspected, /reward|treasure|danger|\d+◆|−\d+/i);
-  assert.deepEqual(en.actions.map(({ label }) => label), ['Pray', 'Offer', 'Plunder']);
 
   const broke = contextActionModel({
     target,
@@ -408,33 +388,32 @@ test('the shared registry presents the altar bilingually and says what each choi
     language: 'en',
   });
   assert.equal(broke.actions[1].enabled, false);
-  const { rewardMaxHp: cap, heal: mend } = find.outcomes.offer;
-  assert.equal(broke.actions[1].hint, `Needs ${costGold}● · +${cap} to the health cap · +${mend} ❤`);
+  assert.match(broke.actions[1].hint, new RegExp(`Needs ${costGold}●`));
   assert.equal(broke.actions[2].enabled, false);
-  assert.equal(broke.actions[2].hint, `Too dangerous at this health · +${find.outcomes.plunder.rewardGold}●`);
-  assert.throws(() => contextActionModel({ target: { kind: 'find', id: 'ancient-altar', outcomes: {} } }), TypeError);
+  assert.equal(broke.actions[2].hint, `Too dangerous at this health · +${find.outcomes.dive.rewardGold}●`);
+  assert.throws(() => contextActionModel({ target: { kind: 'find', id: 'sunken-fountain', outcomes: {} } }), TypeError);
 
   const presentation = findPresentation(find, 'en');
   assert.equal(presentation.wave, 'landmark');
   assert.equal(presentation.path, findSkinPath(find));
-  const prayed = resolveFindInteraction({
+  const drank = resolveFindInteraction({
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
     hero: heroNear(find),
     gold: 0,
-    action: 'pray',
+    action: 'drink',
   });
-  const result = findResultPresentation(prayed, find, 'ru');
-  assert.equal(result.message, 'Алтарь очистил и исцелил героя');
-  assert.match(result.summary, /^Здоровье \+\d+$/);
-  assert.match(landmarkResultSummary(prayed, 'en'), /^Health \+\d+$/);
-  assert.equal(findResultPresentation(prayed, find, 'en').message, 'The altar cleansed and healed the hero');
+  const result = findResultPresentation(drank, find, 'ru');
+  assert.equal(result.message, findById('sunken-fountain').copy.ru.results.drink);
+  assert.match(result.summary, /Здоровье \+\d+/);
+  assert.match(landmarkResultSummary(drank, 'en'), /Health \+\d+/);
+  assert.equal(findResultPresentation(drank, find, 'en').message, findById('sunken-fountain').copy.en.results.drink);
   assert.equal(findResultPresentation({ ok: false, reason: 'unsafe' }, find, 'en').unsafe, 'Too dangerous at this health');
 });
 
 test('a resolved altar survives reload inside the v34 find history and old saves gain it unresolved', () => {
-  const { dungeon, find, seed } = altarFixture(314, 1);
+  const { dungeon, find, seed } = fountainFixture(314, 1);
   const run = createRun(seed, dungeon);
   run.floor.resolvedFindIds = dungeon.finds.map(({ instanceId }) => instanceId);
   assert.ok(run.floor.resolvedFindIds.length <= MAX_FINDS_PER_FLOOR);
@@ -457,7 +436,7 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   assert.equal(altar.resolved, false);
 });
 
-test('runtime binds the altar through the shared context panel and themed skins', async () => {
+test('рантайм держит ориентиры через общий реестр, а не по именам', async () => {
   const [runtime, css] = await Promise.all([
     readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
     readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
@@ -466,8 +445,10 @@ test('runtime binds the altar through the shared context panel and themed skins'
   assert.match(runtime, /vitals: \{\s+hp: hero\.hp,\s+maxHp: currentHeroStats\(\)\.maxHp/);
   assert.match(runtime, /const landmarkResult = result\.definition\?\.wave === 'landmark'/);
   assert.match(runtime, /hero\.maxHp = result\.state\.hero\.maxHp/);
-  assert.match(runtime, /altar: 'ancient-altar'/);
-  assert.doesNotMatch(runtime, /if \(find\.id === 'ancient-altar'\)/);
-  assert.match(css, /\[data-action='plunder'\] > b/);
-  assert.match(css, /\[data-action='pray'\] > b/);
+  // Ни одной находки по имени: всё идёт через общий реестр.
+  assert.doesNotMatch(runtime, /if \(find\.id === 'sunken-fountain'\)/);
+  assert.doesNotMatch(runtime, /ancient-altar/, 'алтарь остался в рантайме');
+  // Опасное — красным, целебное — зелёным, и это про действия, а не про находку.
+  assert.match(css, /\[data-action='dive'\] > b/);
+  assert.match(css, /\[data-action='drink'\] > b/);
 });

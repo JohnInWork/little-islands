@@ -138,14 +138,23 @@ test('traps, curses and mimics trade health for loot while skill creates a safe 
   assert.equal(opened.ok, true);
   assert.equal(opened.damage, 12);
   assert.equal(opened.state.hero.hp, 28);
-  const blocked = resolveChestInteraction(command(trapped, 'disarm'));
-  assert.equal(blocked.reason, 'disarm-skill-required');
-  const disarmed = resolveChestInteraction(command(trapped, 'disarm', {
+  // Отдельной кнопки «Обезвредить» больше нет: она сама выдавала, что ящик с
+  // ловушкой. Умение работает молча — кто разбирается в механизмах, снимает
+  // крышку тем же одним действием и не получает по рукам.
+  assert.equal(opened.defused, false);
+  const disarmed = resolveChestInteraction(command(trapped, 'open', {
     actor: { resources: {}, capabilities: { trapDisarmTier: 2 } },
   }));
   assert.equal(disarmed.ok, true);
+  assert.equal(disarmed.defused, true);
   assert.equal(disarmed.damage, 0);
   assert.equal(disarmed.rewardGold, trapped.rewardGold);
+  // А кому не хватает ранга — тому ловушка достаётся целиком.
+  const weak = resolveChestInteraction(command(trapped, 'open', {
+    actor: { resources: {}, capabilities: { trapDisarmTier: 1 } },
+  }));
+  assert.equal(weak.defused, false);
+  assert.equal(weak.damage, 12);
 
   const cursed = chest({ cacheVariant: 'cursed', hazardDamage: 15 });
   cursed.curseEffectId = 'poison';
@@ -156,43 +165,49 @@ test('traps, curses and mimics trade health for loot while skill creates a safe 
     hero: { x: 5, y: 5, hp: 15, power: 2 },
   })).reason, 'unsafe');
 
-  // Two words on every chest, so nothing about the buttons says which is which.
-  // Guess right and you strike first and take nothing; guess wrong and it is on
-  // you before you have let go of the lid.
+  // Мимик открывается тем же одним словом, что и всякий ящик, и кусает того,
+  // кто открыл: «либо нападает, либо нет» — это и есть вся его загадка.
   const mimic = chest({ cacheVariant: 'mimic', hazardDamage: 14, mimicMonsterId: 'monster-1-4' });
   const ambush = resolveChestInteraction(command(mimic, 'open'));
-  const prepared = resolveChestInteraction(command(mimic, 'smash'));
   assert.equal(ambush.damage, 14);
   assert.deepEqual(ambush.struckMonsterIds, []);
-  assert.equal(prepared.damage, 0, 'a right guess still cost the hero blood');
-  assert.deepEqual(prepared.struckMonsterIds, ['monster-1-4'], 'the first blow never landed');
-  assert.equal(prepared.rewardGold, 0);
-  assert.equal(prepared.deferredRewardGold, mimic.rewardGold);
-  assert.deepEqual(prepared.activatedMonsterIds, ['monster-1-4']);
-  // And an ordinary box offers the same two, so the pair is not a tell.
+  assert.deepEqual(ambush.activatedMonsterIds, ['monster-1-4']);
+  assert.equal(ambush.rewardGold, 0);
+  assert.equal(ambush.deferredRewardGold, mimic.rewardGold);
+  // Одно слово у всякого ящика: список действий не выдаёт, что перед тобой.
+  for (const find of [
+    chest({ cacheVariant: 'unlocked' }),
+    chest({ cacheVariant: 'trapped', trapTier: 1, hazardDamage: 7 }),
+    chest({ cacheVariant: 'cursed', hazardDamage: 7, curseEffectId: 'poison', curseDuration: 4 }),
+    chest({ cacheVariant: 'mimic', hazardDamage: 7, mimicMonsterId: 'monster-1-4' }),
+  ]) {
+    assert.deepEqual(
+      chestActionRules({ find }).actions.map(({ id }) => id),
+      ['open'],
+      `${find.cacheVariant} показывает не одно действие`,
+    );
+  }
+  // Запертый — единственное исключение: там выбор настоящий.
   assert.deepEqual(
-    chestActionRules({ find: chest({ cacheVariant: 'unlocked' }) }).actions.map(({ id }) => id),
-    ['open', 'smash'],
-  );
-  assert.deepEqual(
-    chestActionRules({ find: mimic }).actions.map(({ id }) => id),
-    ['open', 'smash'],
+    chestActionRules({ find: chest({ cacheVariant: 'locked', lockTier: 1 }) }).actions.map(({ id }) => id),
+    ['use-key', 'pick-lock', 'smash'],
   );
 });
 
-test('inspection hides unknown hazards until the player chooses to examine the chest', () => {
+test('нетронутый ящик ничем не выдаёт, что внутри', () => {
   const find = chest({ cacheVariant: 'mimic', hazardDamage: 13 });
   const hidden = chestContextPresentation({ find, language: 'ru' });
-  const known = chestContextPresentation({ find, language: 'en', inspected: true });
   assert.equal(hidden.name, 'Древний сундук');
   assert.doesNotMatch(hidden.description, /13/);
-  // Both words show before the chest is examined, and they are the same two an
-  // ordinary box shows: the buttons must not answer the question for the player.
-  assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
-  assert.equal(known.name, 'Living chest');
-  assert.equal(known.description, 'The chest breathes.');
-  assert.doesNotMatch(known.description, /13|reward|damage|loot/i);
-  assert.deepEqual(known.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
+  // Осмотра больше нет: ни имя, ни описание, ни единственная кнопка не
+  // отвечают за игрока на вопрос, что перед ним.
+  assert.deepEqual(hidden.actions.map(({ id }) => id), ['open']);
+  const trapped = chestContextPresentation({
+    find: chest({ cacheVariant: 'trapped', trapTier: 2, hazardDamage: 9 }),
+    language: 'ru',
+  });
+  assert.equal(trapped.name, hidden.name, 'ловушка выдаёт себя именем');
+  assert.deepEqual(trapped.actions.map(({ id }) => id), ['open']);
 
   const opened = chestContextPresentation({
     find: chest({ containerOpened: true }),

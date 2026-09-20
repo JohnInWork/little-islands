@@ -111,22 +111,6 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
   }),
   roomTheme({
-    // Room of the interactive altar: statues and candle braziers only, so the
-    // decorative altar of the ashen shrine never stands next to the real one.
-    id: 'altar-niche',
-    features: [
-      prop('dngn/statues/statue_angel.png', { size: 74 }),
-      prop('dngn/statues/statue_orb.png', { size: 72 }),
-      prop('dngn/statues/statue_triangle.png', { size: 72 }),
-    ],
-    details: [
-      emberBrazier,
-      prop('dngn/statues/crumbled_column_2.png', { size: 68 }),
-      prop('dngn/statues/crumbled_column_4.png', { size: 68 }),
-    ],
-    floorAccents: numberedPaths('dngn/floor/black_cobalt0', [1, 2, 3, 4]),
-  }),
-  roomTheme({
     // The landmark fountain is the only fountain here: the court decorates with
     // statues so the interactive basin stays the one lit object in the room.
     id: 'fountain-court',
@@ -270,8 +254,8 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   }),
   // ── The rooms a road keeps for its own landmark ──────────────────────────
   // Each of these holds exactly one branch event, so it is only ever seen on
-  // that road. The rule from `altar-niche` still applies throughout: nothing
-  // decorative may look like the interactive thing standing in the middle.
+  // that road. The rule holds throughout: nothing decorative may look like the
+  // interactive thing standing in the middle.
   roomTheme({
     // Открытая местность: поляна вокруг дикого святилища.
     id: 'shrine-glade',

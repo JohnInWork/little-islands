@@ -67,8 +67,10 @@ const resolve = (find, action, { hero = {}, gold = 100 } = {}) => resolveFindInt
   actor: { gold, vitals: { hp: heroNear(find, hero).hp, maxHp: heroNear(find, hero).maxHp, effects: heroNear(find, hero).effects } },
 });
 
-test('three landmarks share one contract: skins, lights, rolled outcomes and bilingual copy', async () => {
-  assert.deepEqual(GENERIC_LANDMARKS.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
+test('общие ориентиры держат один договор: темы, свет, исходы и два языка', async () => {
+  // Древний алтарь убран: он путал сильнее, чем давал, и поднимать максимум
+  // здоровья теперь умеет сила. Договор держат оставшиеся двое.
+  assert.deepEqual(GENERIC_LANDMARKS.map(({ id }) => id), ['sunken-fountain', 'warded-rune']);
   const actionIds = new Set();
   for (const landmark of GENERIC_LANDMARKS) {
     assert.equal(landmark.wave, 'landmark');
@@ -103,7 +105,7 @@ test('three landmarks share one contract: skins, lights, rolled outcomes and bil
     }
   }
   assert.deepEqual([...actionIds], [
-    'pray', 'offer', 'plunder', 'drink', 'toss', 'dive', 'decipher', 'attune', 'break',
+    'drink', 'toss', 'dive', 'decipher', 'attune', 'break',
   ]);
 });
 
@@ -129,10 +131,9 @@ test('every landmark rolls only known outcome keys and each one is a real choice
   const rune = findById('warded-rune');
   assert.equal(fountain.outcomes.find(({ id }) => id === 'toss').roll(3, { int: () => 0 }).rewardPower, 1);
   assert.equal(rune.outcomes.every(({ roll }) => (roll(5, { int: () => 0 }).costGold ?? 0) === 0), true, 'the rune never takes gold');
-  assert.equal(findById('ancient-altar').outcomes.find(({ id }) => id === 'offer').roll(3, { int: () => 0 }).rewardMaxHp, 7);
 });
 
-test('floors draw from all three landmarks and the fountain prefers the flooded room', () => {
+test('этажи берут оба общих ориентира, и фонтан тянется к затопленной комнате', () => {
   const seen = new Map();
   let flooded = 0;
   let fountainInPool = 0;
@@ -156,10 +157,10 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
     fountainWithPool += 1;
     if (landmark.roomIndex === level.floodedRoomIndex) fountainInPool += 1;
   }
-  // The descent now shares its landmark floors with its own idol, so each of
-  // the three generic ones takes about a sixth rather than a third. All three
-  // must still be common enough that a run meets each of them.
-  for (const id of ['ancient-altar', 'sunken-fountain', 'warded-rune']) {
+  // Спуск делит свои этажи с собственным идолом, поэтому каждому общему
+  // ориентиру достаётся около четверти. Оба обязаны встречаться достаточно
+  // часто, чтобы забег увидел каждого.
+  for (const id of ['sunken-fountain', 'warded-rune']) {
     assert.ok(seen.get(id) / floors > 0.1, `${id} appears on ${seen.get(id) ?? 0} of ${floors} landmark floors`);
   }
   // And the road's own landmark takes about half of them — often enough to be

@@ -6,7 +6,6 @@ const ACTION_COPY = Object.freeze({
   ru: Object.freeze({
     open: 'Открыть',
     browse: 'Заглянуть',
-    inspect: 'Осмотреть',
     close: 'Закрыть',
     smash: 'Ударить',
     disarm: 'Обезвредить',
@@ -69,7 +68,6 @@ const ACTION_COPY = Object.freeze({
   en: Object.freeze({
     open: 'Open',
     browse: 'Browse',
-    inspect: 'Inspect',
     close: 'Close',
     smash: 'Strike',
     disarm: 'Disarm',
@@ -131,7 +129,6 @@ const ACTION_COPY = Object.freeze({
 
 const GLYPHS = Object.freeze({
   heal: '❤',
-  inspect: '?',
   open: '+',
   browse: '▤',
   close: '−',
@@ -391,7 +388,7 @@ const validFind = (target, id) => target.kind === 'find'
 
 const commandAction = ({ id, enabled = true, hint = '', label = null, glyph = null }, command) => Object.freeze({
   id,
-  command: id === 'inspect' ? 'inspect' : command,
+  command,
   // Most actions are a fixed verb with a fixed sign. A few — the hires — are
   // rows of a list, and carry their own name, price and sign with them.
   glyph: glyph ?? GLYPHS[id],
@@ -400,6 +397,18 @@ const commandAction = ({ id, enabled = true, hint = '', label = null, glyph = nu
   ...(label ? { label } : {}),
 });
 
+/**
+ * Окно — только там, где есть выбор.
+ *
+ * Иван: «если я нажимаю на дверь и в ней только одна точка взаимодействия —
+ * открыть, — то мы не предлагаем окно, оно сразу её открывает. Давай сделаем
+ * игру максимально простой». Одно действие исполняется от касания, и окно
+ * не появляется вовсе.
+ *
+ * `confirm` — исключение из правила: касание не должно бить живое и не должно
+ * ронять героя в яму. Стражник назван Иваном прямо («это важная механика»),
+ * зверь и провал — та же природа: удар и прыжок вниз.
+ */
 const defineInteraction = (definition) => Object.freeze(definition);
 
 /**
@@ -551,6 +560,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     id: 'guard',
+    confirm: true,
     command: 'provoke-guard',
     matches: (target) => target?.kind === 'guard'
       && typeof target.id === 'string'
@@ -766,6 +776,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     id: 'wildlife',
+    confirm: true,
     command: 'hunt-wildlife',
     matches: (target) => target?.kind === 'wildlife'
       && typeof target.id === 'string'
@@ -845,6 +856,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * without choosing to, and choosing to is a real option.
      */
     id: 'chasm',
+    confirm: true,
     command: 'chasm-jump',
     matches: (target) => target?.kind === 'chasm' && Number.isInteger(target.floors),
     present: ({ target, copy }) => ({
@@ -899,8 +911,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
     id: 'chest',
     command: 'find-interact',
     matches: (target) => target?.kind === 'find' && target.id === 'sealed-cache',
-    present: ({ target, actor, inspected, language }) => {
-      const chest = chestContextPresentation({ find: target, actor, inspected, language });
+    present: ({ target, actor, language }) => {
+      const chest = chestContextPresentation({ find: target, actor, language });
       if (!chest) throw new TypeError('Invalid chest target');
       return chest;
     },
@@ -975,8 +987,7 @@ export function interactionDefinitionFor(target) {
  * между «вскрыть вслепую» и «сначала посмотреть», а не строка описания. Убрать
  * его — значит выдавать мимика даром.
  */
-export function contextActionModel({ target, actor = {}, language = 'ru', inspected = false } = {}) {
-  if (typeof inspected !== 'boolean') throw new TypeError('Context actions require inspect state');
+export function contextActionModel({ target, actor = {}, language = 'ru' } = {}) {
   const locale = language === 'en' ? 'en' : 'ru';
   const definition = interactionDefinitionFor(target);
   if (!definition) throw new TypeError('Context actions require a registered target');
@@ -984,7 +995,6 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     target,
     actor,
     language: locale,
-    inspected,
     copy: COPY[locale],
   });
   const actions = view.actions.map((candidate) => commandAction(candidate, definition.command));
@@ -994,6 +1004,8 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
   }));
   return Object.freeze({
     interactionId: definition.id,
+    // Спрашивать ли, даже когда действие всего одно.
+    confirm: definition.confirm === true,
     name: view.name,
     description: view.description,
     icon: view.icon,

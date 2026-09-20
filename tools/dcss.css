@@ -5398,11 +5398,13 @@ body {
 
 .context-action-button[data-action='smash'] > b,
 .context-action-button[data-action='defile'] > b,
-.context-action-button[data-action='plunder'] > b {
+.context-action-button[data-action='dive'] > b,
+.context-action-button[data-action='break'] > b {
   color: #cf7068;
 }
 
-.context-action-button[data-action='pray'] > b {
+.context-action-button[data-action='drink'] > b,
+.context-action-button[data-action='attune'] > b {
   color: #8fd08c;
 }
 

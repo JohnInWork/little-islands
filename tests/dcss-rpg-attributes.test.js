@@ -191,6 +191,10 @@ test('an attribute is felt the moment it is raised, not only when it unlocks som
     equipment, items, {},
   );
   assert.ok(mighty.attack > plain.attack, 'eight points of strength changed nothing');
+  // Сила держит и запас: древний алтарь, который торговал максимумом здоровья,
+  // убран, и расти этому запасу больше неоткуда, кроме уровня и силы.
+  assert.equal(mighty.maxHp, plain.maxHp + 16, 'сила перестала держать запас здоровья');
+  assert.equal(plain.maxHp, hero.maxHp, 'базовая сила выдаёт бонус из ничего');
 
   const quick = deriveHeroStats(
     { ...hero, attributes: createAttributeState({ agility: ATTRIBUTE_BASE + 8 }) },

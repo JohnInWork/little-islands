@@ -33,23 +33,37 @@ test('one bilingual context model exposes object-specific actions', () => {
   assert.deepEqual(grave.actions.map(({ id }) => id), ['defile']);
 });
 
-test('inspection reveals a hidden chest mechanism through the shared registry', () => {
+test('ящик открывают одним действием, и оно ничего не выдаёт', () => {
   const target = {
     kind: 'find', id: 'sealed-cache', rewardGold: 9, rewardPower: 0, riskDamage: 0,
     cacheVariant: 'trapped', lockTier: 0, trapTier: 2, hazardDamage: 11,
     curseEffectId: null, curseDuration: 0,
   };
-  const actor = { capabilities: { trapDisarmTier: 2 } };
-  const hidden = contextActionModel({ target, actor, language: 'ru' });
-  const inspected = contextActionModel({ target, actor, language: 'ru', inspected: true });
-  assert.equal(hidden.description, '');
-  assert.equal(inspected.description, 'Механизм II.');
-  assert.doesNotMatch(inspected.description, /9◆|11|награ|урон/i);
-  assert.deepEqual(hidden.actions.map(({ id }) => id), ['inspect', 'open', 'smash']);
-  assert.deepEqual(inspected.actions.map(({ id }) => id), ['inspect', 'open', 'disarm', 'smash']);
-  assert.ok(inspected.actions.every(({ command }) => command === 'inspect' || command === 'find-interact'));
-  assert.ok(Object.isFrozen(inspected));
-  assert.ok(inspected.actions.every(Object.isFrozen));
+  const умелый = contextActionModel({ target, actor: { capabilities: { trapDisarmTier: 2 } }, language: 'ru' });
+  const простак = contextActionModel({ target, actor: {}, language: 'ru' });
+  // Ни имя, ни список действий не отличают ящик с ловушкой от обычного — и у
+  // того, кто умеет её снять, тоже: умение работает молча, при открывании.
+  assert.deepEqual(умелый.actions.map(({ id }) => id), ['open']);
+  assert.deepEqual(простак.actions.map(({ id }) => id), ['open']);
+  assert.equal(умелый.name, простак.name);
+  assert.doesNotMatch(умелый.description, /9◆|11|награ|урон/i);
+  assert.ok(умелый.actions.every(({ command }) => command === 'find-interact'));
+  assert.ok(Object.isFrozen(умелый));
+  assert.ok(умелый.actions.every(Object.isFrozen));
+});
+
+test('окно нужно только там, где есть выбор', () => {
+  // Дверь, лавка, жила, тайник — одно действие: касание его и выполняет.
+  const дверь = contextActionModel({ target: { kind: 'door', open: false }, language: 'ru' });
+  assert.equal(дверь.actions.length, 1);
+  assert.equal(дверь.confirm, false);
+
+  // Стражник — исключение по слову Ивана: удар нельзя нанести одним касанием.
+  const стражник = contextActionModel({
+    target: { kind: 'guard', id: 'city-guard', icon: 'mon/guard.png', fine: 0, canPay: false, hint: '' },
+    language: 'ru',
+  });
+  assert.equal(стражник.confirm, true);
 });
 
 test('interaction registry owns target matching and stable command families', () => {

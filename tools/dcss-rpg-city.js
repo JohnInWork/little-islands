@@ -930,27 +930,16 @@ export const CITY_STALL_PATHS = Object.freeze([
 ]);
 
 export const CITY_GREEN_PATHS = Object.freeze([
-  // Weighted by repetition rather than evenly: the three grasses differ enough
-  // in brightness that an even mix tiles the square into a chequerboard. One
-  // base tile most of the time, the others as relief.
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass1.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0-dirt-mix1.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass0-dirt-mix3.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass_flowers_yellow1.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass2.png',
-  'dngn/floor/grass/grass0.png',
-  'dngn/floor/grass/grass_flowers_blue2.png',
+  /*
+   * Одна трава на весь сквер.
+   *
+   * Тут была смесь: основная трава, пара оттенков посветлее и цветы «для
+   * разнообразия», — и на глаз это складывалось не в лужайку, а в шахматную
+   * доску из квадратов разной яркости. Иван, увидев её на телефоне: «мне не
+   * нравится этот непонятный зелёный квадрат, давай везде одну текстуру, не
+   * надо этих изъёбов». Он прав: пёстрый пол в центре города спорит со всем,
+   * что на нём стоит, — с фонтаном, с деревьями, с памятником.
+   */
   'dngn/floor/grass/grass0.png',
 ]);
 

@@ -1064,7 +1064,6 @@ const requestedSeedValue = new URL(document.location.href).searchParams.get('see
 // QA-only: `?preview=chest|altar` moves that find next to the spawn cell.
 const previewFindIdNearSpawn = {
   chest: 'sealed-cache',
-  altar: 'ancient-altar',
   fountain: 'sunken-fountain',
   rune: 'warded-rune',
 }[new URL(document.location.href).searchParams.get('preview')] ?? null;
@@ -1348,7 +1347,6 @@ let onboardingInteracted = false;
 let onboardingCheckedAt = Number.NEGATIVE_INFINITY;
 let openingDoor = null;
 let contextTarget = null;
-let contextInspected = false;
 let activeMerchant = null;
 let merchantTab = 'buy';
 let activeChestFindId = null;
@@ -4754,10 +4752,40 @@ function stepHeroToward(cellX, cellY) {
     if (intent.warn) warnTrapStep(`${target.x},${target.y}`);
     return false;
   }
+  /*
+   * В мирного не бьют — с ним меняются местами.
+   *
+   * Путь героя жителей и зверьё уже не считает преградой: «сквозь них
+   * проходят». А направленный шаг в жителя считался ударом, герой вставал и
+   * стоял — и стражник, забредший в дверной проём лавки, запирал её насмерть.
+   * Иван поймал это в городе: «стражники просто стоят и не хотят уходить, я
+   * не могу пройти к торговцу — это softlock».
+   *
+   * Разойтись в дверях — обычное дело: житель занимает клетку, с которой
+   * герой уходит. Тот, кого спровоцировали, меняться местами уже не станет.
+   */
+  const occupant = monsters.find((monster) => !monster.dead
+    && monsterCellKey(monster, TILE) === `${target.x},${target.y}`);
+  const bystander = occupant && occupant.neutral && !occupant.provoked
+    ? occupant
+    : passiveCreatures.find((creature) => !creature.defeated && !creature.hunted
+      && monsterCellKey(creature, TILE) === `${target.x},${target.y}`);
+  if (bystander && isHeroWalkable(target.x, target.y)) {
+    const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+    bystander.x = (from.x + 0.5) * TILE;
+    bystander.y = (from.y + 0.5) * TILE;
+    // Житель шёл куда-то своей дорогой — пусть проложит её заново с нового места.
+    bystander.route = [];
+    bystander.repathCooldown = 0;
+    playerHasActed = true;
+    return commitHeroPath(
+      [{ x: (target.x + 0.5) * TILE, y: (target.y + 0.5) * TILE }],
+      intent.permittedCell,
+    );
+  }
   // Walking into a living thing is a swing, whether or not there is room to
   // step: the same rule a tap on an enemy follows.
-  const enemy = monsters.find((monster) => !monster.dead
-    && monsterCellKey(monster, TILE) === `${target.x},${target.y}`);
+  const enemy = occupant ?? null;
   if (enemy) {
     playerHasActed = true;
     const approach = meleeApproachPoint(hero, enemy, TILE);
@@ -8900,7 +8928,6 @@ function renderContextActions() {
     target: contextModelTarget(),
     actor: currentInteractionActor(),
     language: itemDetailLanguage,
-    inspected: contextInspected,
   });
   contextActions.style.setProperty('--context-accent', model.accent);
   contextActionList.style.setProperty('--action-count', String(model.actions.length));
@@ -8991,7 +9018,6 @@ function updateInteractionUi() {
         target: contextModelTarget(target),
         actor: currentInteractionActor(),
         language: itemDetailLanguage,
-        inspected: false,
       });
     } catch (error) {
       reportFrameFailure(`interact:${target.kind}`, error);
@@ -9017,15 +9043,62 @@ function updateInteractionUi() {
   return true;
 }
 
+/**
+ * Одно действие — окна нет.
+ *
+ * Иван: «если я нажимаю на дверь и в ней только одна точка взаимодействия —
+ * открыть, — то мы не предлагаем окно, оно сразу её открывает. Давай сделаем
+ * игру максимально простой». Окно осмысленно там, где есть из чего выбирать;
+ * над единственной кнопкой оно было лишним касанием и лишним экраном.
+ *
+ * Исключение помечено в самом реестре (`confirm`): касанием нельзя ударить
+ * живое и нельзя спрыгнуть в яму. Если же единственное действие не удалось —
+ * дверь заперта, монет не хватило, — окно всё-таки открывается: там написана
+ * причина, а молчать в ответ на нажатие игра не должна.
+ */
+function runLoneAction(nextTarget) {
+  let model = null;
+  try {
+    model = contextActionModel({
+      target: contextModelTarget(nextTarget),
+      actor: currentInteractionActor(),
+      language: itemDetailLanguage,
+    });
+  } catch (error) {
+    reportFrameFailure(`interact:${nextTarget.kind}`, error);
+    return false;
+  }
+  if (model.confirm) return false;
+  const [only, ...rest] = model.actions;
+  if (rest.length > 0 || !only?.enabled) return false;
+  const handler = CONTEXT_COMMAND_HANDLERS[only.command];
+  if (typeof handler !== 'function') return false;
+  const previous = contextTarget;
+  clearMoveControl();
+  hero.path = [];
+  hero.pendingAttack = null;
+  onboardingInteracted = true;
+  playSound('ui-tap');
+  // Обработчики читают цель из `contextTarget`, как при открытом окне.
+  contextTarget = nextTarget;
+  const done = handler({ target: nextTarget, action: only, model }) !== false;
+  if (!done) {
+    contextTarget = previous;
+    return false;
+  }
+  if (uiScreen !== 'context') contextTarget = null;
+  return true;
+}
+
 function openContextActions(nextTarget) {
   if (!ready || uiScreen !== 'game' || hero.dead || openingDoor || !contextTargetIsAdjacent(nextTarget)) {
     return false;
   }
+  if (runLoneAction(nextTarget)) return true;
   clearMoveControl();
   hero.path = [];
   hero.pendingAttack = null;
   contextTarget = nextTarget;
-  contextInspected = false;
   onboardingInteracted = true;
   playSound('ui-tap');
   uiScreen = 'context';
@@ -9051,7 +9124,6 @@ function closeContextActions({ restoreFocus = false } = {}) {
   contextActions.inert = true;
   contextActions.setAttribute('aria-hidden', 'true');
   contextTarget = null;
-  contextInspected = false;
   uiScreen = 'game';
   document.body.dataset.screen = uiScreen;
   moveControl.inert = false;
@@ -10259,12 +10331,6 @@ function openNearbyContextActions() {
 }
 
 const CONTEXT_COMMAND_HANDLERS = Object.freeze({
-  inspect() {
-    contextInspected = true;
-    renderContextActions();
-    contextActionDescription.setAttribute('aria-live', 'polite');
-    return true;
-  },
   'door-transition'({ target, action }) {
     closeContextActions();
     return beginDoorTransition(target.value, action.id === 'open');
@@ -10402,7 +10468,6 @@ function performContextAction(actionId) {
     target: contextModelTarget(),
     actor: currentInteractionActor(),
     language: itemDetailLanguage,
-    inspected: contextInspected,
   });
   const action = model.actions.find(({ id }) => id === actionId);
   const handler = action?.enabled ? CONTEXT_COMMAND_HANDLERS[action.command] : null;
@@ -10718,7 +10783,6 @@ const FLOOR_MAP_FIND_KINDS = Object.freeze({
   'sealed-cache': 'chest',
   'crystal-vein': 'crystal',
   'forgotten-grave': 'grave',
-  'ancient-altar': 'altar',
 });
 
 /**
@@ -14304,8 +14368,7 @@ function healAtSanctuary() {
           target: contextModelTarget(),
           actor: currentInteractionActor(),
           language: itemDetailLanguage,
-          inspected: contextInspected,
-        }).actions[0]?.hint
+              }).actions[0]?.hint
       : null;
     if (hint) showLootToast({ path: SANCTUARY_PATH, rarity: 0 }, hint);
     return;

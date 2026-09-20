@@ -533,32 +533,6 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
     rewardMultiplier: 1.1,
   }),
   defineRoomArchetype({
-    id: 'altar-niche',
-    defaultEnvironmentThemeId: 'altar-niche',
-    role: 'discovery',
-    weight: 0,
-    environmentThemeIds: {
-      'ashen-vault': 'altar-niche',
-      'buried-sanctum': 'altar-niche',
-      'frozen-depths': 'altar-niche',
-      'infernal-core': 'altar-niche',
-      'autumn-wood': 'open-wood',
-      'flower-meadow': 'open-wood',
-      'thornwood': 'open-wood',
-      'snowfield': 'open-wood',
-      'mire': 'mangrove-shallows',
-      'old-graveyard': 'boneyard',
-      'abandoned-hamlet': 'ruined-yard',
-      'sunburnt-steppe': 'open-wood',
-      'wild-heath': 'open-wood',
-      'green-hollow': 'open-wood',
-    },
-    content: { findId: 'ancient-altar' },
-    variants: ['candlelit', 'silent'],
-    dangerMultiplier: 0.9,
-    rewardMultiplier: 1.3,
-  }),
-  defineRoomArchetype({
     id: 'fountain-court',
     defaultEnvironmentThemeId: 'fountain-court',
     role: 'discovery',
@@ -849,7 +823,6 @@ const ARCHETYPE_ID_BY_FIND_ID = new Map(
 // Rooms the merchant may reclaim when a floor has no free alcove, in order of
 // preference. The altar yields before the older discoveries.
 const MERCHANT_FALLBACK_ARCHETYPE_IDS = Object.freeze([
-  'altar-niche',
   'fountain-court',
   'rune-vault',
   'forgotten-crypt',

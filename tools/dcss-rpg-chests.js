@@ -300,8 +300,21 @@ export function chestActionRules({ find, actor } = {}) {
   const access = normalizedActor(actor);
   const locale = actor?.language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
+  /*
+   * Ящик открывают, а не изучают.
+   *
+   * Иван: «давай даже с сундуками оставим, что ты только их открываешь и всё,
+   * и потом он либо на тебя нападает, либо нет». Поэтому у всякого сундука,
+   * который вообще открывается, одно действие — «Открыть»: касание его и
+   * открывает, окна не будет. Что внутри — ловушка, проклятие или зубы —
+   * выясняется тем же способом, каким это выясняют в жизни.
+   *
+   * Запертый — исключение, и не ради сложности: там выбор настоящий (ключ,
+   * отмычка, кувалда), и без него ключи с отмычками перестают что-либо
+   * значить. Замок видно и так, поэтому список действий ничего не выдаёт.
+   */
   const actions = [];
-  if (find.cacheVariant === 'unlocked') actions.push(action('open'), action('smash'));
+  if (find.cacheVariant === 'unlocked') actions.push(action('open'));
   if (find.cacheVariant === 'locked') {
     actions.push(action('use-key', access.keyCount > 0, access.keyCount > 0 ? '' : copy.noKey));
     const requiredTier = find.lockTier;
@@ -315,25 +328,19 @@ export function chestActionRules({ find, actor } = {}) {
     ));
     actions.push(action('smash'));
   }
-  if (find.cacheVariant === 'trapped') {
-    actions.push(action('open'));
-    actions.push(action(
-      'disarm',
-      access.trapDisarmTier >= find.trapTier,
-      access.trapDisarmTier >= find.trapTier ? '' : copy.noDisarmSkill(find.trapTier),
-    ));
-    actions.push(action('smash'));
-  }
-  if (find.cacheVariant === 'cursed') actions.push(action('open'), action('smash'));
-  // The same two words as every other chest. The mimic used to offer «open» and
-  // «attack» while an ordinary box offered «open» and «smash», which told the
-  // player which was which before they had guessed anything.
-  if (find.cacheVariant === 'mimic') actions.push(action('open'), action('smash'));
+  // Обезвреживать ловушку в ящике больше негде — и хорошо: кнопка
+  // «Обезвредить» на нетронутом сундуке сама же и выдавала, что он с
+  // ловушкой. Навык остаётся при деле на напольных ловушках.
+  if (find.cacheVariant === 'trapped') actions.push(action('open'));
+  if (find.cacheVariant === 'cursed') actions.push(action('open'));
+  // То же одно слово, что и у всякого ящика: мимик не должен отличаться от
+  // сундука ничем, пока его не тронули.
+  if (find.cacheVariant === 'mimic') actions.push(action('open'));
   return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
 }
 
-export function chestContextPresentation({ find, actor, inspected = false, language = 'ru' } = {}) {
-  if (!isChestFind(find) || typeof inspected !== 'boolean') return null;
+export function chestContextPresentation({ find, actor, language = 'ru' } = {}) {
+  if (!isChestFind(find)) return null;
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
   if (find.containerOpened === true) {
@@ -348,7 +355,9 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
     });
   }
   const rules = chestActionRules({ find, actor: { ...actor, language: locale } });
-  const visibleVariant = inspected || ['unlocked', 'locked'].includes(find.cacheVariant)
+  // Осмотра больше нет, и поэтому нетронутый ящик всегда зовётся ящиком:
+  // ловушку, проклятие и зубы выдаёт только само открывание.
+  const visibleVariant = ['unlocked', 'locked'].includes(find.cacheVariant)
     ? find.cacheVariant
     : 'generic';
   const names = {
@@ -359,42 +368,22 @@ export function chestContextPresentation({ find, actor, inspected = false, langu
     cursed: copy.cursedName,
     mimic: copy.mimicName,
   };
-  const descriptions = {
-    generic: copy.generic,
-    unlocked: copy.unlocked,
-    locked: copy.locked(['I', 'II', 'III'][find.lockTier - 1]),
-    trapped: copy.trapped(['I', 'II', 'III'][find.trapTier - 1]),
-    cursed: copy.cursed,
-    mimic: copy.mimic,
-  };
-  // An unexamined chest shows the two things anybody can do to a box: open it
-  // or hit it. The mimic used to show only «open» — which is a tell, and the
-  // wrong way round: the one chest you might want to hit first was the one the
-  // game would not let you.
-  let visibleActions = rules.actions;
-  if (!inspected && ['trapped', 'cursed', 'mimic'].includes(find.cacheVariant)) {
-    visibleActions = rules.actions.filter(({ id }) => ['open', 'smash'].includes(id));
-  }
+  const visibleActions = rules.actions;
   const accent = {
     unlocked: '#b5a77d', locked: '#d9bd67', trapped: '#c59663', cursed: '#a96d9d', mimic: '#b45c58',
   }[find.cacheVariant];
   return Object.freeze({
     name: names[visibleVariant],
-    description: inspected
-      ? descriptions[find.cacheVariant]
-      : find.cacheVariant === 'locked'
-        ? copy.lockedClosed
-        : find.cacheVariant === 'unlocked'
-          ? copy.unlockedClosed
-          : copy.generic,
+    description: find.cacheVariant === 'locked'
+      ? copy.lockedClosed
+      : find.cacheVariant === 'unlocked'
+        ? copy.unlockedClosed
+        : copy.generic,
     icon: typeof find.icon === 'string' && find.icon.length > 0
       ? find.icon
       : CHEST_DEFAULT_PATH,
     accent,
-    actions: Object.freeze([
-      action('inspect'),
-      ...visibleActions,
-    ]),
+    actions: Object.freeze([...visibleActions]),
   });
 }
 
@@ -440,8 +429,19 @@ export function resolveChestInteraction({
     return rejected('unavailable');
   }
 
+  /*
+   * Ловушку снимает умение, а не отдельная кнопка.
+   *
+   * Кнопка «Обезвредить» на нетронутом ящике сама же и выдавала, что он с
+   * ловушкой, — а игру просили сделать простой: ящик открывают, и дальше он
+   * либо кусает, либо нет. Умение при этом не обесценилось: кто разбирается в
+   * механизмах, снимает крышку, а не получает по рукам. Просто теперь это
+   * видно по итогу, а не по лишней кнопке.
+   */
+  const defused = find.cacheVariant === 'trapped'
+    && rules.access.trapDisarmTier >= find.trapTier;
   let damage = 0;
-  if (find.cacheVariant === 'trapped') {
+  if (find.cacheVariant === 'trapped' && !defused) {
     if (actionId === 'open') damage = find.hazardDamage;
     if (actionId === 'smash') damage = Math.ceil(find.hazardDamage / 2);
   }
@@ -476,6 +476,7 @@ export function resolveChestInteraction({
     ok: true,
     action: actionId,
     variant: find.cacheVariant,
+    defused,
     damage,
     rewardGold,
     destroyedGold: awakensMimic ? 0 : find.rewardGold - rewardGold,
@@ -503,7 +504,9 @@ export function chestResultPresentation(result, language = 'ru') {
   return Object.freeze({
     message: result.variant === 'mimic'
       ? copy.mimicAwake
-      : copy.result[result.action] ?? copy.result.open,
+      : result.defused
+        ? copy.result.disarm
+        : copy.result[result.action] ?? copy.result.open,
     unsafe: copy.unsafe,
   });
 }

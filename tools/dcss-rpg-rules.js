@@ -166,6 +166,16 @@ export function combatDamage(stats, combat) {
 const ATTRIBUTE_BASELINE = 3;
 /** Two and a half percent of a swing per point of agility above the base. */
 const AGILITY_ATTACK_SPEED = 0.025;
+/**
+ * Два здоровья за очко силы сверх базовой тройки.
+ *
+ * Максимум здоровья раньше рос только от уровня да от древнего алтаря, а
+ * алтарь убран: он путал больше, чем давал. Иван: «пусть сила поднимает макс
+ * здоровье — мы же теперь можем её качать», и сразу следом: «чуть-чуть».
+ * Двойка и есть это «чуть-чуть»: четыре вложенных очка — четыре процента
+ * запаса, заметно на ощупь и незаметно на балансе.
+ */
+const STRENGTH_MAX_HP = 2;
 
 export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const byUid = itemMap(items);
@@ -205,9 +215,9 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
    *
    * Most of an attribute's worth is the skills it unlocks, but a point that
    * changes nothing until some later purchase is a point the player cannot
-   * feel spending. So strength pushes the swing and agility the hands, both
-   * gently — one point in four, not one for one — and intelligence keeps doing
-   * what it always did for magic.
+   * feel spending. So strength pushes the swing and the hero's own wind, agility
+   * the hands, all gently — one point in four, not one for one — and
+   * intelligence keeps doing what it always did for magic.
    */
   const attributes = hero.attributes ?? {};
   const strength = Math.max(0, (attributes.strength ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE);
@@ -219,7 +229,7 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
   return {
     attack,
     defense,
-    maxHp: Math.max(1, hero.maxHp + bonus.maxHp),
+    maxHp: Math.max(1, hero.maxHp + bonus.maxHp + strength * STRENGTH_MAX_HP),
     moveSpeed: Math.max(0.45, Math.max(0.65, 1 + bonus.moveSpeed) * hunger.moveSpeed),
     attackSpeed: Math.max(
       0.42,
