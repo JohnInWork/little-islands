@@ -16491,22 +16491,37 @@ function closeTopScreen() {
 /**
  * Кнопки экрана, между которыми ходит выбор стика.
  *
- * Порядок здесь не важен — важно, что все они видимы и нажимаемы: выбор
- * пространственный, и он считает по тому, где кнопка на самом деле лежит.
+ * Берётся всё видимое, а не список имён и не декоративный класс. Список
+ * пришлось бы помнить: добавили завтра кнопку в HUD — пад её не увидит, и
+ * никто не заметит, потому что пальцем она нажимается. Класс тоже подвёл бы:
+ * у подсказки новичку своё оформление, и вешать на неё чужой класс ради
+ * доступности — платить видом за ввод.
+ *
+ * Поэтому правило простое и не требует дисциплины: кнопка на экране игры
+ * доступна стику. Экраны-накладки сюда не попадают — на них выбор уходит в
+ * фокус, и до этого места дело не доходит.
+ *
+ * Стрелки ходьбы исключены намеренно: ходьба на крестовине, и выбирать стиком
+ * кнопку «влево», чтобы нажать её крестиком, — это две кнопки вместо одной.
+ * Порядок не важен: выбор пространственный и считает по месту на экране.
  */
 function padTargets() {
-  const nodes = [
-    bagButton,
-    characterSheetButton,
-    depthBadge,
-    openPortalButton,
-    pauseGameButton,
-    ...spellBar.querySelectorAll('.spell-action'),
-    ...interactActions.querySelectorAll('.interact-action'),
-  ];
-  return nodes.filter((node) => node && !node.hidden && !node.disabled && node.offsetParent !== null
-    || (node && !node.hidden && !node.disabled && getComputedStyle(node).position === 'fixed'
-      && node.getBoundingClientRect().width > 0));
+  return [...document.querySelectorAll('button')]
+    .filter((node) => !node.closest('[data-move]') && !node.matches('[data-move]'))
+    .filter((node) => !node.hidden && !node.disabled && !node.inert)
+    .filter((node) => {
+      const box = node.getBoundingClientRect();
+      if (box.width < 4 || box.height < 4) return false;
+      // Спрятанный экран гасит себя прозрачностью на обёртке, а не на каждой
+      // кнопке: у самой кнопки и видимость, и прозрачность остаются своими, и
+      // наивная проверка тащила в выбор слоты рюкзака из-под закрытого экрана.
+      // `checkVisibility` смотрит на всех предков разом.
+      if (typeof node.checkVisibility === 'function') {
+        return node.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+      }
+      const style = getComputedStyle(node);
+      return style.visibility !== 'hidden' && Number(style.opacity) > 0.05;
+    });
 }
 
 /** Ключ кнопки: у постоянных — их id, у пересобираемых — их подпись. */
