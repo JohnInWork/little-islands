@@ -490,11 +490,6 @@ body {
 [data-screen='menu'] .move-control,
 [data-screen='menu'] .bag-button,
 [data-screen='menu'] .boss-hud,
-[data-screen='menu'] .sanctuary-action {
-  opacity: 0;
-  pointer-events: none;
-}
-
 .appearance-editor,
 .records-screen,
 .outfit-screen,
@@ -1658,9 +1653,7 @@ body {
   position: fixed;
   z-index: 7;
   left: var(--dock-edge);
-  /* Через две ступени, а не через одну: строка с подписью шире значка и на
-     прежней высоте накрывала джойстик правым краем. */
-  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
+  bottom: calc(var(--dock-floor) + var(--dock-step));
   display: none;
   flex-direction: column-reverse;
   gap: 6px;
@@ -1678,27 +1671,24 @@ body {
 }
 
 /*
- * Кнопка взаимодействия — строка, а не значок.
+ * Кнопка взаимодействия — значок, и только значок.
  *
- * Иван: «на иконке непонятно что я получаю и что теряю — надо просто на кнопку
- * взаимодействия писать, что это и что с ним можно сделать, а не помещать всю
- * инфу в маленькую кнопку». Значок называет предмет в лучшем случае; цену,
- * награду и отказ он не называет никогда. Ширина ограничена, чтобы строка не
- * дотянулась до джойстика: слева кнопки, посередине палец.
+ * Подпись на ней была ошибкой в обе стороны: широкая строка лезла к джойстику,
+ * а объяснять она успевала не больше окна, которое всё равно открывается по
+ * нажатию. Иван: «у каждого интерактивного предмета будет просто кнопка — типо
+ * к стражнику подходишь, и его кнопка, без подписи; а дальше, когда нажимаешь,
+ * будет окно». Значок отвечает на «тут что-то есть», окно — на всё остальное.
  */
 .interact-action {
   --context-accent: var(--gold);
   position: fixed;
   z-index: 7;
   left: var(--dock-edge);
-  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
-  width: auto;
-  max-width: min(300px, 62vw);
-  min-height: var(--dock-button);
+  bottom: calc(var(--dock-floor) + var(--dock-step));
+  width: var(--dock-button);
+  height: var(--dock-button);
   padding: 4px;
-  grid-template-columns: 50px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
+  place-items: center;
   color: #efe5c8;
   background: rgb(12 18 20 / 92%);
   border-color: var(--context-accent);
@@ -1741,26 +1731,20 @@ body {
   filter: drop-shadow(3px 3px 0 #020304);
 }
 
-/* Название и действие: что это и что с ним можно сделать. */
-.interact-copy {
-  min-width: 0;
+/* Уголок «здесь есть что нажать». */
+.interact-action > b {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 26px;
+  height: 26px;
   display: grid;
-  gap: 2px;
-  padding-right: 6px;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-
-.interact-copy b {
-  color: #efe5c8;
-  font-size: 15px;
-  line-height: 1.12;
-}
-
-.interact-copy small {
-  color: var(--context-accent);
-  font-size: 13px;
-  line-height: 1.16;
+  place-items: center;
+  color: #101619;
+  background: var(--context-accent);
+  border: 4px solid #030506;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .interact-action:active {
@@ -2205,7 +2189,7 @@ body {
 
 /*
  * Thumb dock: three fixed tracks that never overlap on 320–430px phones or in
- * landscape. Left column = sanctuary / interact / bag, centre = joystick,
+ * landscape. Left column = interact / bag, centre = joystick,
  * right column = three prepared spells. Feedback (toasts) lives at the top.
  */
 .spell-bar {
@@ -4682,10 +4666,6 @@ body {
 }
 
 .boss-hud[hidden],
-.sanctuary-action[hidden] {
-  display: none;
-}
-
 .boss-hud img {
   width: 42px;
   height: 42px;
@@ -4714,39 +4694,6 @@ body {
 [data-screen='inventory'] .boss-hud,
 [data-screen='character'] .boss-hud {
   opacity: 0;
-}
-
-[data-screen='inventory'] .sanctuary-action,
-[data-screen='character'] .sanctuary-action,
-[data-screen='context'] .sanctuary-action,
-[data-screen='trap-placement'] .sanctuary-action {
-  display: none;
-}
-
-.sanctuary-action {
-  position: fixed;
-  z-index: 7;
-  left: var(--dock-edge);
-  bottom: calc(var(--dock-floor) + var(--dock-step) * 3);
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: var(--dock-button);
-  width: auto;
-  max-width: min(300px, 62vw);
-  min-height: var(--dock-button);
-  padding: 4px 8px 4px 6px;
-  color: #d1c16e;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.sanctuary-action > .sanctuary-glyph {
-  color: #b64042;
-  font-size: 24px;
-  line-height: 1;
-  text-shadow: none;
 }
 
 .context-actions {
@@ -5480,14 +5427,6 @@ body {
     font-size: 24px;
   }
 }
-
-.sanctuary-action:disabled {
-  filter: grayscale(0.75);
-  opacity: 0.52;
-  cursor: default;
-}
-
-.sanctuary-action:focus-visible,
 .restart-run:focus-visible {
   outline: 4px solid #d5c77f;
   outline-offset: 5px;
@@ -7672,9 +7611,7 @@ body {
 /*
  * Thumb dock — final responsive authority for the game screen's bottom zone.
  * Tracks (portrait and landscape alike):
- *   left   : sanctuary heal / interact / bag, stacked from the bottom.
- *            Строки взаимодействия носят подпись и потому широки: они стоят
- *            через ступень от рюкзака, иначе правый край накрывает джойстик.
+ *   left   : interact / bag, stacked from the bottom
  *   centre : joystick, always centred
  *   right  : three prepared spells, one column
  *
@@ -7695,13 +7632,9 @@ body {
   .interact-action {
     left: var(--dock-edge);
     right: auto;
-    bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
+    bottom: calc(var(--dock-floor) + var(--dock-step));
   }
 
-  .sanctuary-action {
-    left: var(--dock-edge);
-    bottom: calc(var(--dock-floor) + var(--dock-step) * 3);
-  }
 
   .spell-bar {
     right: max(12px, env(safe-area-inset-right));
@@ -7722,9 +7655,6 @@ body {
     --dock-floor: max(10px, env(safe-area-inset-bottom));
   }
 
-  .sanctuary-action {
-    min-height: var(--dock-button);
-  }
 
   .loot-toast {
     /* Clear of the 68px HUD and the low guardian bar in landscape. */
@@ -7770,10 +7700,6 @@ body {
     height: 40px;
   }
 
-  .sanctuary-action {
-    min-width: var(--dock-button);
-    min-height: var(--dock-button);
-  }
 }
 
 /* Floor map: the depth tile opens a full-screen pixel map of the explored floor. */
@@ -7931,8 +7857,6 @@ body {
   opacity: 0;
   pointer-events: none;
 }
-
-[data-screen='map'] .sanctuary-action,
 [data-screen='map'] .interact-action {
   display: none;
 }
@@ -8541,10 +8465,6 @@ body {
  * used to stay on its own rung with a hole under it. A column with a gap in it
  * reads as something missing, so the rest of the column steps down.
  */
-[data-interact='off'] .sanctuary-action {
-  bottom: calc(var(--dock-floor) + var(--dock-step));
-}
-
 /* The last row of the sheet was sliding under its own footer. */
 .character-sheet-body {
   padding-bottom: 16px;

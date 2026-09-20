@@ -382,34 +382,36 @@ test('the shared registry presents the altar bilingually and says what each choi
   assert.equal(ru.name, 'Древний алтарь');
   // «Что это, зачем, как — непонятно» was the whole complaint: the card used
   // to open blank and stayed blank until the player thought to examine it.
-  assert.equal(ru.description, findById('ancient-altar').copy.ru.summary);
+  const altarCopy = findById('ancient-altar').copy.ru;
+  assert.equal(ru.description, `${altarCopy.summary} ${altarCopy.inspected}`);
   assert.ok(ru.description.length > 40);
   assert.equal(ru.icon, findSkinPath(find));
-  assert.deepEqual(ru.actions.map(({ id }) => id), ['inspect', 'pray', 'offer', 'plunder']);
-  assert.deepEqual(ru.actions.map(({ label }) => label), ['Осмотреть', 'Молиться', 'Пожертвовать', 'Ограбить']);
-  assert.ok(ru.actions.every(({ command }) => command === 'inspect' || command === 'find-interact'));
+  // Осмотра больше нет: окно и есть осмотр, текст в нём полный сразу.
+  assert.deepEqual(ru.actions.map(({ id }) => id), ['pray', 'offer', 'plunder']);
+  assert.deepEqual(ru.actions.map(({ label }) => label), ['Молиться', 'Пожертвовать', 'Ограбить']);
+  assert.ok(ru.actions.every(({ command }) => command === 'find-interact'));
   const { rewardMaxHp, heal } = find.outcomes.offer;
-  assert.equal(ru.actions[2].hint, `−${costGold}● · +${rewardMaxHp} к пределу здоровья · +${heal} ❤`);
-  assert.equal(ru.actions[2].enabled, true);
+  assert.equal(ru.actions[1].hint, `−${costGold}● · +${rewardMaxHp} к пределу здоровья · +${heal} ❤`);
+  assert.equal(ru.actions[1].enabled, true);
 
-  const inspected = contextActionModel({ target, actor, language: 'en', inspected: true });
-  assert.equal(inspected.name, 'Ancient altar');
   const english = findById('ancient-altar').copy.en;
-  assert.equal(inspected.description, `${english.summary} ${english.inspected}`);
+  const en = contextActionModel({ target, actor, language: 'en' });
+  assert.equal(en.name, 'Ancient altar');
+  assert.equal(en.description, `${english.summary} ${english.inspected}`);
   // The flavour text still keeps its mouth shut; the numbers live on the buttons.
   assert.doesNotMatch(english.inspected, /reward|treasure|danger|\d+◆|−\d+/i);
-  assert.deepEqual(inspected.actions.map(({ label }) => label), ['Inspect', 'Pray', 'Offer', 'Plunder']);
+  assert.deepEqual(en.actions.map(({ label }) => label), ['Pray', 'Offer', 'Plunder']);
 
   const broke = contextActionModel({
     target,
     actor: { gold: 0, vitals: { hp: 2, maxHp: 100, effects: {} } },
     language: 'en',
   });
-  assert.equal(broke.actions[2].enabled, false);
+  assert.equal(broke.actions[1].enabled, false);
   const { rewardMaxHp: cap, heal: mend } = find.outcomes.offer;
-  assert.equal(broke.actions[2].hint, `Needs ${costGold}● · +${cap} to the health cap · +${mend} ❤`);
-  assert.equal(broke.actions[3].enabled, false);
-  assert.equal(broke.actions[3].hint, `Too dangerous at this health · +${find.outcomes.plunder.rewardGold}●`);
+  assert.equal(broke.actions[1].hint, `Needs ${costGold}● · +${cap} to the health cap · +${mend} ❤`);
+  assert.equal(broke.actions[2].enabled, false);
+  assert.equal(broke.actions[2].hint, `Too dangerous at this health · +${find.outcomes.plunder.rewardGold}●`);
   assert.throws(() => contextActionModel({ target: { kind: 'find', id: 'ancient-altar', outcomes: {} } }), TypeError);
 
   const presentation = findPresentation(find, 'en');

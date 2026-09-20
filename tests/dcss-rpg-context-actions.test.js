@@ -12,25 +12,25 @@ test('one bilingual context model exposes object-specific actions', () => {
   assert.equal(closedDoor.name, 'Каменная дверь');
   assert.equal(closedDoor.description, 'Закрыта.');
   assert.equal(closedDoor.triggerLabel, 'Взаимодействовать: Каменная дверь');
-  assert.deepEqual(closedDoor.actions.map(({ id }) => id), ['inspect', 'open']);
+  assert.deepEqual(closedDoor.actions.map(({ id }) => id), ['open']);
 
   const openDoor = contextActionModel({ target: { kind: 'door', open: true }, language: 'en' });
   assert.equal(openDoor.name, 'Stone door');
   assert.equal(openDoor.description, 'Open.');
   assert.equal(openDoor.triggerLabel, 'Interact: Stone door');
-  assert.deepEqual(openDoor.actions.map(({ id }) => id), ['inspect', 'close']);
+  assert.deepEqual(openDoor.actions.map(({ id }) => id), ['close']);
 
   const crystal = contextActionModel({
     target: { kind: 'find', id: 'crystal-vein', rewardGold: 7, rewardPower: 1, riskDamage: 0 },
     language: 'ru',
   });
-  assert.deepEqual(crystal.actions.map(({ id }) => id), ['inspect', 'extract']);
+  assert.deepEqual(crystal.actions.map(({ id }) => id), ['extract']);
 
   const grave = contextActionModel({
     target: { kind: 'find', id: 'forgotten-grave', rewardGold: 12, rewardPower: 0, riskDamage: 9 },
     language: 'en',
   });
-  assert.deepEqual(grave.actions.map(({ id }) => id), ['inspect', 'defile']);
+  assert.deepEqual(grave.actions.map(({ id }) => id), ['defile']);
 });
 
 test('inspection reveals a hidden chest mechanism through the shared registry', () => {
@@ -54,7 +54,8 @@ test('inspection reveals a hidden chest mechanism through the shared registry', 
 
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
-    'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'guard',
+    'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'sanctuary',
+    'guard',
     'city-gate', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);

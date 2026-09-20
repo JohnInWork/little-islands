@@ -226,12 +226,12 @@ test('the rune pays in blood and noise, never in gold', () => {
 test('the shared registry speaks for every landmark in both languages', () => {
   const expected = {
     'sunken-fountain': {
-      ru: { name: 'Затопленный фонтан', actions: ['Осмотреть', 'Испить', 'Бросить', 'Нырнуть'] },
-      en: { name: 'Sunken fountain', actions: ['Inspect', 'Drink', 'Toss', 'Dive'] },
+      ru: { name: 'Затопленный фонтан', actions: ['Испить', 'Бросить', 'Нырнуть'] },
+      en: { name: 'Sunken fountain', actions: ['Drink', 'Toss', 'Dive'] },
     },
     'warded-rune': {
-      ru: { name: 'Запечатанная руна', actions: ['Осмотреть', 'Разобрать', 'Настроиться', 'Расколоть'] },
-      en: { name: 'Warded rune', actions: ['Inspect', 'Decipher', 'Attune', 'Break'] },
+      ru: { name: 'Запечатанная руна', actions: ['Разобрать', 'Настроиться', 'Расколоть'] },
+      en: { name: 'Warded rune', actions: ['Decipher', 'Attune', 'Break'] },
     },
   };
   for (const [id, copy] of Object.entries(expected)) {
@@ -246,17 +246,13 @@ test('the shared registry speaks for every landmark in both languages', () => {
       assert.ok(model.actions.every(({ glyph }) => typeof glyph === 'string' && glyph.length > 0));
       // Four buttons share one row on a 390px phone: keep every label short.
       assert.ok(model.actions.every(({ label }) => label.length <= 12), `labels fit: ${model.actions.map(({ label }) => label).join(', ')}`);
-      // Every landmark says what it is the moment it opens, and examining it
-      // adds the flavour line rather than replacing the explanation.
+      // Окно и есть осмотр: ориентир объясняет себя целиком в момент открытия,
+      // и объяснение, и приметная строка — сразу, без лишнего нажатия.
       const copyFor = findById(id).copy[language];
-      assert.equal(model.description, copyFor.summary);
+      assert.equal(model.description, `${copyFor.summary} ${copyFor.inspected}`);
       assert.ok(copyFor.summary.length > 40, `${id}/${language}: the summary explains nothing`);
-      assert.equal(
-        contextActionModel({ target, actor, language, inspected: true }).description,
-        `${copyFor.summary} ${copyFor.inspected}`,
-      );
       // And each available choice carries its own numbers on the button.
-      for (const action of model.actions.filter(({ id: actionId }) => actionId !== 'inspect')) {
+      for (const action of model.actions) {
         assert.ok(action.hint.length > 0, `${id}/${language}/${action.id} promises nothing`);
       }
     }
@@ -281,7 +277,7 @@ test('every answer on every landmark has a word on its button', () => {
       assert.equal(model.name, landmark.copy[language].name);
       assert.deepEqual(
         model.actions.map(({ id }) => id),
-        ['inspect', ...landmark.outcomes.map(({ id }) => id)],
+        [...landmark.outcomes.map(({ id }) => id)],
       );
       for (const action of model.actions) {
         assert.ok(action.label?.length > 0, `${landmark.id}/${language}/${action.id} has no label`);

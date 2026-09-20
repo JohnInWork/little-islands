@@ -153,8 +153,8 @@ test('digging a stash pays gold without a scratch, and only the dig action works
   const model = contextActionModel({ target: { kind: 'find', ...stash }, actor: { gold: 5, vitals: {} }, language: 'ru' });
   assert.equal(model.interactionId, 'buried-stash');
   assert.equal(model.name, 'Тайник под плитой');
-  assert.deepEqual(model.actions.map(({ label }) => label), ['Осмотреть', 'Раскопать']);
-  assert.equal(contextActionModel({ target: { kind: 'find', ...stash }, actor: { gold: 5, vitals: {} }, language: 'en' }).actions[1].label, 'Dig out');
+  assert.deepEqual(model.actions.map(({ label }) => label), ['Раскопать']);
+  assert.equal(contextActionModel({ target: { kind: 'find', ...stash }, actor: { gold: 5, vitals: {} }, language: 'en' }).actions[0].label, 'Dig out');
 });
 
 test('the runtime hides a stash until it is noticed and feeds the new radii everywhere', async () => {

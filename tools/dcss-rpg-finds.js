@@ -833,19 +833,20 @@ export function landmarkActionRules({ find, actor, language = 'ru' } = {}) {
   return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
 }
 
-export function landmarkContextPresentation({ find, actor, inspected = false, language = 'ru' } = {}) {
+export function landmarkContextPresentation({ find, actor, language = 'ru' } = {}) {
   const definition = findById(find?.id);
-  if (!definition || !isLandmarkFind(find) || typeof inspected !== 'boolean') return null;
+  if (!definition || !isLandmarkFind(find)) return null;
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = definition.copy[locale];
   const rules = landmarkActionRules({ find, actor, language: locale });
   return Object.freeze({
     name: copy.name,
     // What the thing is comes first and always; examining it adds the detail.
-    description: inspected ? `${copy.summary} ${copy.inspected}` : copy.summary,
+    // Окно и есть осмотр: полный текст сразу, без лишнего нажатия.
+    description: `${copy.summary} ${copy.inspected}`,
     icon: typeof find.icon === 'string' && find.icon.length > 0 ? find.icon : findSkinPath(find),
     accent: definition.color,
-    actions: Object.freeze([landmarkAction('inspect'), ...rules.actions]),
+    actions: Object.freeze([...rules.actions]),
   });
 }
 

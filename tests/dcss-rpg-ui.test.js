@@ -152,17 +152,14 @@ test('the thumb dock keeps spells, movement and object actions in three separate
   const css = await readFile(cssUrl, 'utf8');
   const dock = css.slice(css.indexOf('Thumb dock — final responsive authority'));
   assert.ok(dock.length > 0, 'the dock block must close the stylesheet');
-  // Left track: bag at the bottom, then interact and sanctuary heal one step
-  // apart above it. Ступень между рюкзаком и взаимодействием пропущена
-  // намеренно: кнопки взаимодействия носят подпись («что это и что с ним можно
-  // сделать»), от этого они широкие, и на первой ступени правый край накрывал
-  // джойстик. Обещание теста — один размер, один край и один шаг между
-  // широкими строками, а не три литеральных отступа.
+  // Левая полка: рюкзак внизу, кнопки взаимодействия на ступень выше. Своей
+  // кнопки у святилища больше нет — оно стало обычным взаимодействием с окном,
+  // потому что вся его суть (сколько лечит и почём) в значок не помещалась.
   assert.match(css, /--dock-button:\s*66px/);
   assert.match(css, /--dock-step:\s*calc\(var\(--dock-button\) \+ var\(--dock-gap\)\)/);
   assert.match(dock, /\.bag-button\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*var\(--dock-floor\)/s);
-  assert.match(dock, /\.interact-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*calc\(var\(--dock-floor\) \+ var\(--dock-step\) \* 2\)/s);
-  assert.match(dock, /\.sanctuary-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*calc\(var\(--dock-floor\) \+ var\(--dock-step\) \* 3\)/s);
+  assert.match(dock, /\.interact-action\s*{[^}]*left:\s*var\(--dock-edge\)[^}]*bottom:\s*calc\(var\(--dock-floor\) \+ var\(--dock-step\)\)/s);
+  assert.doesNotMatch(css, /sanctuary-action/);
   // Right track: one spell column; centre track stays the centred joystick.
   assert.match(dock, /\.spell-bar\s*{[^}]*right:\s*max\(12px[^}]*bottom:\s*var\(--dock-floor\)[^}]*transform:\s*none/s);
   assert.doesNotMatch(css, /\.spell-bar\s*{[^}]*right:\s*50%/s);

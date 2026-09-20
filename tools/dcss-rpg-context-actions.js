@@ -4,9 +4,9 @@ import { isLandmarkFind, landmarkContextPresentation } from './dcss-rpg-finds.js
 
 const ACTION_COPY = Object.freeze({
   ru: Object.freeze({
-    inspect: 'Осмотреть',
     open: 'Открыть',
     browse: 'Заглянуть',
+    inspect: 'Осмотреть',
     close: 'Закрыть',
     smash: 'Ударить',
     disarm: 'Обезвредить',
@@ -14,6 +14,7 @@ const ACTION_COPY = Object.freeze({
     defile: 'Осквернить',
     'use-key': 'Ключ',
     'pick-lock': 'Взломать',
+    heal: 'Исцелиться',
     attack: 'Атаковать',
     trade: 'Торговать',
     buy: 'Купить',
@@ -66,9 +67,9 @@ const ACTION_COPY = Object.freeze({
     hire: 'Нанять',
   }),
   en: Object.freeze({
-    inspect: 'Inspect',
     open: 'Open',
     browse: 'Browse',
+    inspect: 'Inspect',
     close: 'Close',
     smash: 'Strike',
     disarm: 'Disarm',
@@ -76,6 +77,7 @@ const ACTION_COPY = Object.freeze({
     defile: 'Defile',
     'use-key': 'Use key',
     'pick-lock': 'Pick lock',
+    heal: 'Heal',
     attack: 'Attack',
     trade: 'Trade',
     buy: 'Buy',
@@ -128,6 +130,7 @@ const ACTION_COPY = Object.freeze({
 });
 
 const GLYPHS = Object.freeze({
+  heal: '❤',
   inspect: '?',
   open: '+',
   browse: '▤',
@@ -263,6 +266,11 @@ const COPY = Object.freeze({
     beyondEndDescription: 'Дальше лестница идёт вниз без конца и без счёта. Эта руна — последнее, что здесь ещё кому-то принадлежит.',
     beyondEndTake: 'Забрать руну',
     beyondEndClaim: 'Забег закончен победой',
+    sanctuaryName: 'Святилище',
+    sanctuaryDescription: 'Камень, у которого останавливаются перед спуском. Берёт монеты, отдаёт силы.',
+    sanctuaryOffer: (heal, price) => `+${heal} ❤ · −${price}●`,
+    sanctuaryFull: 'Нечего лечить',
+    sanctuaryPoor: (price) => `Нужно ${price}●`,
     priestName: 'Жрец',
     chasmName: 'Провал',
     chasmDescription: (floors, cost) => floors === 1
@@ -349,6 +357,11 @@ const COPY = Object.freeze({
     roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
     roadEndClaim: 'The run ends in victory',
     roadEndDeeper: 'This stair does not carry anyone back up',
+    sanctuaryName: 'Sanctuary',
+    sanctuaryDescription: 'A stone people stop at before going down. It takes coins and gives strength back.',
+    sanctuaryOffer: (heal, price) => `+${heal} ❤ · −${price}●`,
+    sanctuaryFull: 'Nothing to heal',
+    sanctuaryPoor: (price) => `Needs ${price}●`,
     priestName: 'Priest',
     chasmName: 'Chasm',
     chasmDescription: (floors, cost) => floors === 1
@@ -501,6 +514,38 @@ export const INTERACTION_REGISTRY = Object.freeze([
         id: 'rest',
         enabled: target.reason === 'rested',
         hint: target.reason === 'rested' ? '' : target.hint ?? '',
+      }],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * Святилище — обычное взаимодействие, а не своя кнопка.
+     *
+     * Оно лечило сразу по нажатию, поэтому вся его суть жила в значке: сердце,
+     * цифра и монета. Иван: «непонятно, что можно исцелиться за три золотых —
+     * на иконке непонятно, что я получаю и что теряю». Значок про это молчал и
+     * молчать будет всегда, а окно — говорит: сколько здоровья и почём.
+     */
+    id: 'sanctuary',
+    command: 'sanctuary',
+    matches: (target) => target?.kind === 'sanctuary'
+      && Number.isInteger(target.price)
+      && Number.isInteger(target.heal),
+    present: ({ target, copy }) => ({
+      name: copy.sanctuaryName,
+      description: copy.sanctuaryDescription,
+      icon: target.icon,
+      accent: '#d1c16e',
+      actions: [{
+        id: 'heal',
+        enabled: target.heal > 0 && target.canPay === true,
+        // Доступное действие обещает, отказанное объясняет — и то, и другое
+        // цифрами: «+28 ❤ · −3●» или «Нужно 3●».
+        hint: target.heal <= 0
+          ? copy.sanctuaryFull
+          : target.canPay === true
+            ? copy.sanctuaryOffer(target.heal, target.price)
+            : copy.sanctuaryPoor(target.price),
       }],
     }),
   }),
@@ -825,7 +870,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       description: target.open ? copy.doorOpen : copy.doorClosed,
       icon: target.open ? 'dngn/doors/open_door.png' : 'dngn/doors/closed_door.png',
       accent: '#a99a72',
-      actions: [{ id: 'inspect' }, { id: target.open ? 'close' : 'open' }],
+      actions: [{ id: target.open ? 'close' : 'open' }],
     }),
   }),
   defineInteraction({
@@ -837,15 +882,15 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && target.tier <= 3
       && typeof target.canDisarm === 'boolean'
       && typeof target.unavailable === 'string',
-    present: ({ target, copy, inspected }) => ({
+    present: ({ target, copy }) => ({
       name: copy.trapName,
-      description: inspected
-        ? copy.trapInspected(['I', 'II', 'III'][target.tier - 1], target.canDisarm ? copy.trapReady : target.unavailable)
-        : copy.trapClosed,
+      description: copy.trapInspected(
+        ['I', 'II', 'III'][target.tier - 1],
+        target.canDisarm ? copy.trapReady : target.unavailable,
+      ),
       icon: 'dngn/traps/blade.png',
       accent: target.canDisarm ? '#8eaa9a' : '#c59663',
       actions: [
-        { id: 'inspect' },
         { id: 'disarm', enabled: target.canDisarm, hint: target.canDisarm ? '' : target.unavailable },
       ],
     }),
@@ -864,36 +909,36 @@ export const INTERACTION_REGISTRY = Object.freeze([
     id: 'crystal-vein',
     command: 'find-interact',
     matches: (target) => validFind(target, 'crystal-vein'),
-    present: ({ target, copy, inspected }) => ({
+    present: ({ copy }) => ({
       name: copy.crystalName,
-      description: inspected ? copy.crystalInspected : copy.crystalClosed,
+      description: copy.crystalInspected,
       icon: 'item/misc/misc_crystal.png',
       accent: '#7fc8d2',
-      actions: [{ id: 'inspect' }, { id: 'extract' }],
+      actions: [{ id: 'extract' }],
     }),
   }),
   defineInteraction({
     id: 'buried-stash',
     command: 'find-interact',
     matches: (target) => validFind(target, 'buried-stash'),
-    present: ({ target, copy, inspected }) => ({
+    present: ({ copy }) => ({
       name: copy.stashName,
-      description: inspected ? copy.stashInspected : copy.stashClosed,
+      description: copy.stashInspected,
       icon: 'item/gold/07.png',
       accent: '#d8bf68',
-      actions: [{ id: 'inspect' }, { id: 'dig' }],
+      actions: [{ id: 'dig' }],
     }),
   }),
   defineInteraction({
     id: 'forgotten-grave',
     command: 'find-interact',
     matches: (target) => validFind(target, 'forgotten-grave'),
-    present: ({ target, copy, inspected }) => ({
+    present: ({ copy }) => ({
       name: copy.graveName,
-      description: inspected ? copy.graveInspected : copy.graveClosed,
+      description: copy.graveInspected,
       icon: 'dngn/vaults/sarcophagus_sealed.png',
       accent: '#b45c58',
-      actions: [{ id: 'inspect' }, { id: 'defile' }],
+      actions: [{ id: 'defile' }],
     }),
   }),
   // One generic entry serves every landmark (altar now, fountain/rune later):
@@ -903,8 +948,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
     id: 'landmark',
     command: 'find-interact',
     matches: (target) => target?.kind === 'find' && isLandmarkFind(target),
-    present: ({ target, actor, inspected, language }) => {
-      const landmark = landmarkContextPresentation({ find: target, actor, inspected, language });
+    present: ({ target, actor, language }) => {
+      const landmark = landmarkContextPresentation({ find: target, actor, language });
       if (!landmark) throw new TypeError('Invalid landmark target');
       return landmark;
     },
@@ -915,19 +960,21 @@ export function interactionDefinitionFor(target) {
   return INTERACTION_REGISTRY.find(({ matches }) => matches(target)) ?? null;
 }
 
-/** Строка под названием: действие и его цена, либо действие и причина отказа. */
-function triggerSummary(actions) {
-  // «Осмотреть» есть почти у всего и не отвечает ни на «что я получу», ни на
-  // «чего это стоит»: кнопка нужна не за этим.
-  const useful = actions.filter(({ id }) => id !== 'inspect');
-  const chosen = useful.find((action) => action.enabled) ?? useful[0] ?? actions[0];
-  if (!chosen) return '';
-  const label = typeof chosen.label === 'string' ? chosen.label.trim() : '';
-  const hint = typeof chosen.hint === 'string' ? chosen.hint.trim() : '';
-  if (!label) return hint;
-  return hint ? `${label} · ${hint}` : label;
-}
-
+/**
+ * Окно взаимодействия: оно само и есть осмотр.
+ *
+ * Иван: «у каждого интерактивного предмета будет просто кнопка — подходишь к
+ * стражнику, и его кнопка, без подписи; а дальше, когда нажимаешь, будет окно.
+ * Надо убрать осмотр у дверей и тд». Половина текста пряталась за действием
+ * «Осмотреть»: лишнее нажатие ради строки, которая и так должна была стоять в
+ * окне. Теперь описание полное сразу, а кнопки остались только те, что
+ * действительно что-то делают.
+ *
+ * Одно исключение — сундук, и оно не про текст. Там осмотр прячет, ловушечный
+ * ли сундук, проклятый или мимик, и открывает отдельные действия: это выбор
+ * между «вскрыть вслепую» и «сначала посмотреть», а не строка описания. Убрать
+ * его — значит выдавать мимика даром.
+ */
 export function contextActionModel({ target, actor = {}, language = 'ru', inspected = false } = {}) {
   if (typeof inspected !== 'boolean') throw new TypeError('Context actions require inspect state');
   const locale = language === 'en' ? 'en' : 'ru';
@@ -952,19 +999,6 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     icon: view.icon,
     accent: view.accent,
     triggerLabel: locale === 'ru' ? `Взаимодействовать: ${view.name}` : `Interact: ${view.name}`,
-    /**
-     * Что написать на самой кнопке, под названием.
-     *
-     * Иван: «на иконке непонятно что я получаю и что теряю — надо просто на
-     * кнопку взаимодействия писать, что это и что с ним можно сделать, а не
-     * помещать всю инфу в маленькую кнопку». Значок называет предмет в лучшем
-     * случае; цену и запрет он не называет никогда.
-     *
-     * Берётся первое доступное действие, а если доступного нет — первое вообще:
-     * тогда подсказка и есть ответ на «почему нельзя», и это ровно та половина,
-     * которой на кнопке не хватало.
-     */
-    triggerSummary: triggerSummary(labelled),
     closeLabel: locale === 'ru' ? 'Закрыть действия' : 'Close actions',
     // Most actions are a fixed verb from the table. A few — the hires — are
     // a row of a list and carry their own name and price with them.

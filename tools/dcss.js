@@ -860,9 +860,6 @@ const recordsTotals = document.querySelector('#records-totals');
 const recordsMilestones = document.querySelector('#records-milestones');
 const bossHud = document.querySelector('#boss-hud');
 const bossHealth = bossHud.querySelector('.boss-health');
-const sanctuaryAction = document.querySelector('#sanctuary-action');
-const sanctuaryName = document.querySelector('#sanctuary-name');
-const sanctuaryOffer = document.querySelector('#sanctuary-offer');
 const ambientNote = document.querySelector('#ambient-note');
 const ambientNoteText = document.querySelector('#ambient-note-text');
 const ambientSeenList = document.querySelector('#records-scenes-list');
@@ -1545,7 +1542,6 @@ function renderMainMenu() {
   salvageConfirm.setAttribute('aria-label', labels.salvageConfirm);
   salvageLabel.textContent = labels.salvageShort;
   salvageConfirmLabel.textContent = labels.salvageConfirmShort;
-  sanctuaryAction.setAttribute('aria-label', labels.sanctuary);
   bossHud.setAttribute('aria-label', labels.guardian);
   bossHealth.setAttribute('aria-label', labels.guardianHealth);
   restartRunButton.setAttribute('aria-label', labels.restart);
@@ -8213,7 +8209,6 @@ function updateHud() {
   renderHungerHud();
   renderHeroEffectsHud();
   renderSpellBar();
-  updateSanctuaryUi();
   updateInteractionUi();
   updateBossHud();
 }
@@ -8501,6 +8496,17 @@ function contextModelTarget(entry = contextTarget) {
   }
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
+  }
+  if (entry.kind === 'sanctuary') {
+    // Цифры настоящие: сколько здоровья герой реально доберёт этим камнем, а не
+    // сколько святилище лечит в принципе.
+    return {
+      kind: 'sanctuary',
+      icon: SANCTUARY_PATH,
+      price: SANCTUARY_COST,
+      heal: Math.min(SANCTUARY_HEAL, currentHeroStats().maxHp - hero.hp),
+      canPay: gold >= SANCTUARY_COST,
+    };
   }
   if (entry.kind === 'branch-gate') {
     const gate = BRANCH_GATES.find(({ id }) => id === entry.value.id) ?? null;
@@ -8815,6 +8821,7 @@ function contextTargetIsAdjacent(entry) {
   if (propTarget) return distance <= 1;
   if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
   if (entry.kind === 'city-gate') return distance <= 1;
+  if (entry.kind === 'sanctuary') return distance <= 1 && heroNearSanctuary();
   if (entry.kind === 'portal') return distance <= 1 && Boolean(run.portal);
   // The stair is a tile the hero stands on, not one they stand beside.
   if (entry.kind === 'road-end') return distance === 0;
@@ -8941,18 +8948,10 @@ function updateInteractionUi() {
     const icon = document.createElement('img');
     icon.alt = '';
     icon.src = assetUrl(model.icon);
-    // Иван: «на иконке непонятно что я получаю и что теряю». Значок называет
-    // предмет в лучшем случае, а цену и запрет — никогда, поэтому на кнопке
-    // стоит и название, и первое доступное действие со своей ценой.
-    const copy = document.createElement('span');
-    copy.className = 'interact-copy';
-    copy.setAttribute('aria-hidden', 'true');
-    const title = document.createElement('b');
-    title.textContent = model.name;
-    const summary = document.createElement('small');
-    summary.textContent = model.triggerSummary;
-    copy.append(title, summary);
-    button.append(icon, copy);
+    const mark = document.createElement('b');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.textContent = '+';
+    button.append(icon, mark);
     button.addEventListener('click', () => openContextActions(target));
     return [button];
   }));
@@ -10022,6 +10021,7 @@ function nearbyContextTargets() {
   add('priest', monsters.find((monster) => monster.id === CITY_PRIEST_ID && withinReach(monster)));
   add('tavern-hire', monsters.find((monster) => mercenaryIdForHireMonster(monster.id) && withinReach(monster)));
   add('recruiter', monsters.find((monster) => monster.id === CITY_RECRUITER_ID && withinReach(monster)));
+  add('sanctuary', nearbySanctuary());
   add('guard', nearbyGuard());
   add('wildlife', nearbyWildlife());
   // A cold campfire is still something to sit at, it is just not cooking.
@@ -10230,6 +10230,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'pay') return payWatchFine();
     provokeCityWatch(target.value);
     playSound('ui-tap');
+    return true;
+  },
+  sanctuary() {
+    healAtSanctuary();
     return true;
   },
   'road-end'({ action }) {
@@ -10458,23 +10462,9 @@ function updateDoorOpening(delta) {
   persistRun();
 }
 
-function updateSanctuaryUi() {
-  if (!dungeon.sanctuary || runStatus !== 'playing') {
-    sanctuaryAction.hidden = true;
-    return;
-  }
-  const maxHp = currentHeroStats().maxHp;
-  const injured = hero.hp < maxHp;
-  sanctuaryAction.hidden = !heroNearSanctuary() || !injured;
-  sanctuaryAction.disabled = gold < SANCTUARY_COST;
-  // Сердце с цифрой рядом читалось как «три жизни», а не «три монеты»: по
-  // значку не видно, что получаешь и что отдаёшь. Теперь написано и то, и то.
-  const labels = currentMainMenuModel().labels;
-  sanctuaryName.textContent = labels.sanctuaryName;
-  sanctuaryOffer.textContent = labels.sanctuaryHeal(
-    Math.min(SANCTUARY_HEAL, maxHp - hero.hp),
-    SANCTUARY_COST,
-  );
+/** Святилище в шаге от героя — теперь такая же цель, как дверь или торговец. */
+function nearbySanctuary() {
+  return heroNearSanctuary() ? dungeon.sanctuary : null;
 }
 
 function updateBossHud() {
@@ -12143,7 +12133,6 @@ function showRunEndScreen(result) {
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
-  sanctuaryAction.hidden = true;
   bossHud.hidden = true;
   restartRunButton.focus();
 }
@@ -13921,7 +13910,6 @@ function resolveWorldInteractions() {
     lastHeroCell = heroCellKey;
     if (revealAround(revealed, world, heroCell, currentRevealRadius())) persistRun();
     discoverNearbyTraps();
-    updateSanctuaryUi();
     updateInteractionUi();
     updateBossHud();
   }
@@ -14228,7 +14216,7 @@ function healAtSanctuary() {
     gold,
   });
   if (!result.ok) {
-    updateSanctuaryUi();
+    renderContextActions();
     return;
   }
   hero.hp = result.state.hp;
@@ -14238,6 +14226,10 @@ function healAtSanctuary() {
   showLootToast({ path: SANCTUARY_PATH, rarity: 2 }, result.healed);
   updateHud();
   persistRun();
+  // Окно остаётся открытым: лечение повторяемое, и закрывать его после каждой
+  // монеты — значит заставлять подходить к камню заново на каждые двадцать восемь
+  // единиц здоровья.
+  if (contextTarget?.kind === 'sanctuary') renderContextActions();
 }
 
 /**
@@ -17068,7 +17060,6 @@ outfitStartButton.addEventListener('click', () => {
 });
 openRecordsButton.addEventListener('click', openRecords);
 closeRecordsButton.addEventListener('click', closeRecords);
-sanctuaryAction.addEventListener('click', healAtSanctuary);
 closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
 contextActionBackdrop.addEventListener('click', () => closeContextActions());
 cancelTrapPlacementButton.addEventListener('click', () => closeTrapPlacement({ returnToInventory: true }));
