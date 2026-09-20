@@ -41,28 +41,28 @@ import { createGameCommand } from '../tools/dcss-rpg-game-commands.js';
 import { itemDetails } from '../tools/dcss-rpg-item-details.js';
 import { createSkillState, deriveSkillCapabilities, isSkillReady, learnSkill } from '../tools/dcss-rpg-skills.js';
 
-function capabilitiesAt(rank) {
-  let state = createSkillState(12);
-  for (let step = 0; step < rank; step += 1) {
-    const result = learnSkill({ state, heroLevel: 12, runStatus: 'playing', skillId: 'camping', expectedRank: step, attributes: { strength: 40, agility: 40, intelligence: 40 } });
-    assert.equal(result.ok, true, `camping rank ${step + 1}: ${result.reason}`);
-    state = result.state;
-  }
-  return deriveSkillCapabilities(state);
+/**
+ * Лагерь больше не навык, а умение всякого героя.
+ *
+ * Иван: «убираем навык лагеря, пусть разводит прям максимальный лагерь, не
+ * надо душить». Ранги остались внутри правил — ими описан сам лагерь, — но
+ * герою они даются сразу и целиком, безо всякого вложения.
+ */
+function fullCamp() {
+  return deriveSkillCapabilities(createSkillState(12));
 }
 
 const openGrid = () => Array.from({ length: 11 }, () => Array(11).fill('.'));
 
-test('the camp grows with the rank: fire, then bedroll, then chest', () => {
-  assert.equal(isSkillReady('camping'), true);
+test('лагерь достаётся всем и сразу целиком: костёр, лежанка, сундук', () => {
+  // Ступени остались описанием самого лагеря...
   assert.deepEqual(campFeaturesForRank(0), []);
   assert.deepEqual(campFeaturesForRank(1), ['fire']);
   assert.deepEqual(campFeaturesForRank(2), ['fire', 'bedroll']);
   assert.deepEqual(campFeaturesForRank(3), ['fire', 'bedroll', 'chest']);
   assert.deepEqual(campProfile({}), { rank: 0, features: [], restPercent: 0, stashSlots: 0 });
-  assert.deepEqual(campProfile(capabilitiesAt(1)), { rank: 1, features: ['fire'], restPercent: 0, stashSlots: 0 });
-  assert.deepEqual(campProfile(capabilitiesAt(2)), { rank: 2, features: ['fire', 'bedroll'], restPercent: 25, stashSlots: 0 });
-  assert.deepEqual(campProfile(capabilitiesAt(3)), {
+  // ...но герой получает верхнюю ступень с первого шага, без вложений.
+  assert.deepEqual(campProfile(fullCamp()), {
     rank: 3,
     features: ['fire', 'bedroll', 'chest'],
     restPercent: 40,
@@ -72,7 +72,7 @@ test('the camp grows with the rank: fire, then bedroll, then chest', () => {
 
 test('pitching names exactly what is missing, and the layout is stable', () => {
   const grid = openGrid();
-  const profile = campProfile(capabilitiesAt(3));
+  const profile = campProfile(fullCamp());
   const cell = { x: 5, y: 5 };
   assert.equal(canPitchCamp({ profile: campProfile({}), kits: 1, grid, cell }).reason, 'no-skill');
   assert.equal(canPitchCamp({ profile, kits: 0, grid, cell }).reason, 'no-kit');
@@ -106,7 +106,7 @@ test('pitching names exactly what is missing, and the layout is stable', () => {
 test('sleeping trades hunger for health, once per camp', () => {
   const grid = openGrid();
   const cell = { x: 5, y: 5 };
-  const second = campProfile(capabilitiesAt(2));
+  const second = campProfile({ campRank: 2, campRestPercent: 25, campStashSlots: 0 });
   const camp = createCampState({
     cell,
     places: canPitchCamp({ profile: second, kits: 1, grid, cell }).places,
@@ -134,7 +134,7 @@ test('sleeping trades hunger for health, once per camp', () => {
     'a camp with only a fire has nowhere to sleep',
   );
   assert.equal(resolveCampRest({ camp: null, hp: 20, maxHp: 60, hunger: 3000 }).reason, 'no-camp');
-  const third = campProfile(capabilitiesAt(3));
+  const third = campProfile(fullCamp());
   const deeper = createCampState({ cell, places: camp.places, rank: 2, restPercent: third.restPercent });
   assert.equal(resolveCampRest({ camp: deeper, hp: 20, maxHp: 60, hunger: 3000 }).healed, 24, 'a better camp sleeps deeper');
 });
@@ -318,7 +318,7 @@ test('the summoning spell brings its own camp, kit or no kit', () => {
   assert.equal(noSkill.restPercent, CAMP_SPELL_REST_PERCENT);
   assert.equal(noSkill.stashSlots, 0, 'the chest stays the skill’s reward');
 
-  const master = summonedCampProfile(capabilitiesAt(3));
+  const master = summonedCampProfile(fullCamp());
   assert.equal(master.rank, 3, 'a camper summons the camp they know how to build');
   assert.equal(master.restPercent, 40);
   assert.equal(master.stashSlots, 8);

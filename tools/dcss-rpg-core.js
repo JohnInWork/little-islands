@@ -15,7 +15,12 @@ import {
   deriveHeroStats,
   isTwoHandedItem,
 } from './dcss-rpg-rules.js';
-import { cloneSkillState, createSkillState, validateSkillState } from './dcss-rpg-skills.js';
+import {
+  cloneSkillState,
+  createSkillState,
+  refundRetiredSkills,
+  validateSkillState,
+} from './dcss-rpg-skills.js';
 import {
   trapsFromDungeon,
   validateDetectedTrapIds,
@@ -1620,8 +1625,12 @@ function uniqueLegacyUid(uid, used, fallback) {
 function legacySkillState(hero) {
   // Only absence is migrated. Explicit corrupt skill data must remain an error.
   if (!Object.hasOwn(hero ?? {}, 'skills')) return createSkillState(hero?.level);
-  if (!validateSkillState(hero.skills, hero.level)) throw new Error('Invalid legacy skill state');
-  return cloneSkillState(hero.skills);
+  // Снятый навык — не порча сейва: ранги возвращаются очками, и забег живёт
+  // дальше. Без этого забег, в котором вложились в лагерь, отвергался целиком
+  // в тот день, когда лагерь перестал быть навыком.
+  const skills = refundRetiredSkills(hero.skills);
+  if (!validateSkillState(skills, hero.level)) throw new Error('Invalid legacy skill state');
+  return cloneSkillState(skills);
 }
 
 function stripLegacyItemSanctity(items) {
@@ -2749,7 +2758,7 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
       ...snapshot.hero,
       x: landing.x,
       y: landing.y,
-      skills: cloneSkillState(snapshot.hero.skills),
+      skills: cloneSkillState(refundRetiredSkills(snapshot.hero.skills)),
       skillStudy: createBookStudy(snapshot.hero.skillStudy),
       spells: createSpellState(snapshot.hero.spells),
     },

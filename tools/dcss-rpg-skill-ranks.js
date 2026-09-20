@@ -88,11 +88,7 @@ const SILENT_KEYS = Object.freeze(new Set(['rank', 'trapDetectionTier', 'whipInt
  * ускоряет отдых и не даёт схрона — он позволяет разбить лагерь вообще, и без
  * этой строки первая ступень выглядела бы бесплатной пустышкой.
  */
-const UNLOCKS = Object.freeze({
-  camping: Object.freeze({
-    1: Object.freeze({ ru: 'можно разбить лагерь', en: 'you can make camp' }),
-  }),
-});
+const UNLOCKS = Object.freeze({});
 
 const unit = (ru, en, kind = 'count') => Object.freeze({ ru, en, kind });
 

@@ -73,15 +73,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['lockpicking'],
   },
   {
-    id: 'trap-setting', category: 'exploration', mode: 'contextual',
-    name: { ru: 'Ловушечник', en: 'Trap setting' },
-    description: {
-      ru: 'Позволяет самому выбрать клетку для капкана; старшие ранги сильнее ранят и дольше удерживают врага.',
-      en: 'Lets you choose a trap tile yourself; higher ranks deal more damage and hold enemies longer.',
-    },
-    requiresSystems: ['trap-placement'],
-  },
-  {
     id: 'appraisal', category: 'exploration', mode: 'passive',
     name: { ru: 'Оценка', en: 'Appraisal' },
     description: {
@@ -290,15 +281,6 @@ export const SKILL_CATALOG = deepFreeze([
       en: 'Consumes medical dressings to heal wounds and stop bleeding.',
     },
     requiresSystems: ['medical-treatment'],
-  },
-  {
-    id: 'camping', category: 'survival', mode: 'contextual',
-    name: { ru: 'Лагерь', en: 'Camping' },
-    description: {
-      ru: 'Обустраивает место отдыха и готовки в безопасной комнате с затратой припасов.',
-      en: 'Spends supplies to set up a place to rest and cook in a safe room.',
-    },
-    requiresSystems: ['camp-rest'],
   },
   {
     id: 'portering', category: 'survival', mode: 'passive',

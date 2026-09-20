@@ -6,13 +6,13 @@ import {
   skillById,
 } from '../tools/dcss-rpg-skill-content.js';
 
-test('skill catalog has 43 unique stable IDs and resolves its six categories', () => {
+test('skill catalog has 41 unique stable IDs and resolves its six categories', () => {
   assert.equal(SKILL_CATEGORIES.length, 6);
-  assert.equal(SKILL_CATALOG.length, 43);
+  assert.equal(SKILL_CATALOG.length, 41);
   const categories = new Set(SKILL_CATEGORIES.map(({ id }) => id));
   const ids = new Set(SKILL_CATALOG.map(({ id }) => id));
   assert.equal(categories.size, 6);
-  assert.equal(ids.size, 43);
+  assert.equal(ids.size, 41);
   for (const skill of SKILL_CATALOG) {
     assert.match(skill.id, /^[a-z]+(?:-[a-z]+)*$/);
     assert.ok(categories.has(skill.category), `Unknown category of ${skill.id}`);
@@ -52,7 +52,9 @@ test('future skill availability requires explicit runtime system support', () =>
   assert.deepEqual(skillById('trap-sense').requiresSystems, ['trap-detection']);
   assert.deepEqual(skillById('trap-disarming').requiresSystems, ['trap-disarming']);
   assert.deepEqual(skillById('lockpicking').requiresSystems, ['lockpicking']);
-  assert.deepEqual(skillById('trap-setting').requiresSystems, ['trap-placement']);
+  // Ловушечник снят: капканы ставит всякий, и системе больше не за что
+  // держать навык.
+  assert.equal(skillById('trap-setting'), null);
   assert.deepEqual(skillById('appraisal').requiresSystems, ['item-identification']);
   assert.deepEqual(skillById('swords').requiresSystems, ['sword-rhythm']);
   assert.deepEqual(skillById('axes').requiresSystems, ['weapon-cleave']);

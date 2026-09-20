@@ -54,8 +54,8 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS));
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
-    'trap-sense', 'trap-disarming', 'lockpicking', 'trap-setting', 'appraisal', 'swords', 'axes',
-    'camping', 'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
+    'trap-sense', 'trap-disarming', 'lockpicking', 'appraisal', 'swords', 'axes',
+    'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'training', 'animal-care', 'beast-bond', 'pack-leader',
     'alchemy', 'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
@@ -164,7 +164,10 @@ test('catalogue text alone cannot enable skills: real implementation and every s
   const state = createSkillState(4);
   assert.equal(isSkillReady('trap-sense'), true);
   assert.equal(isSkillReady('trap-disarming'), true);
-  assert.equal(isSkillReady('trap-setting'), true);
+  // Ловушечник и лагерь сняты: ставить капканы и разбивать лагерь герой
+  // умеет сам, в полную силу и без вложений.
+  assert.equal(isSkillReady('trap-setting'), false);
+  assert.equal(isSkillReady('camping'), false);
   assert.equal(isSkillReady('swords'), true);
   assert.equal(isSkillReady('axes'), true);
   assert.equal(isSkillReady('missing', { implementations, systems }), false);
@@ -200,9 +203,10 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
   assert.notEqual(copy.ranks, state.ranks);
   assert.deepEqual(deriveSkillModifiers(state), neutral);
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
-    trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0, trapPlacementTier: 0,
+    trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0,
+    // Даром и всем: навыков за этими числами больше нет.
+    trapPlacementTier: 3, campRank: 3, campRestPercent: 40, campStashSlots: 8,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
-    campRank: 0, campRestPercent: 0, campStashSlots: 0,
     necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
     darkvisionRank: 0, darkvisionRadiusBonus: 0,
     secretSearchRank: 0, secretSearchRadius: 0,

@@ -33,15 +33,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ lockpickTier: 3 }),
     ]),
   }),
-  'trap-setting': Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ trapPlacementTier: 1 }),
-      Object.freeze({ trapPlacementTier: 2 }),
-      Object.freeze({ trapPlacementTier: 3 }),
-    ]),
-  }),
   appraisal: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -85,15 +76,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
         axeCleaveOneHandDamagePercent: 55,
         axeCleaveOneHandTargets: 1,
       }),
-    ]),
-  }),
-  camping: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ campRank: 1, campRestPercent: 0, campStashSlots: 0 }),
-      Object.freeze({ campRank: 2, campRestPercent: 25, campStashSlots: 0 }),
-      Object.freeze({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
     ]),
   }),
   // Six more slots a rank. Nothing else changes: carrying is carrying.
@@ -752,7 +734,7 @@ export function learnSkill(options = {}) {
   };
 }
 
-function deriveValues(state, options, field, limits, combine) {
+function deriveValues(state, options, field, limits, combine, baseline = {}) {
   assertSkillState(state);
   const {
     implementations = SKILL_IMPLEMENTATIONS,
@@ -762,7 +744,7 @@ function deriveValues(state, options, field, limits, combine) {
   if (!validateSkillRankAdjustments(rankAdjustments)) {
     throw new TypeError('Invalid skill rank adjustments');
   }
-  const values = Object.fromEntries(Object.keys(limits).map((key) => [key, 0]));
+  const values = Object.fromEntries(Object.keys(limits).map((key) => [key, baseline[key] ?? 0]));
   // Canonical order makes floating point accumulation independent of save/UI order.
   const skillIds = [...new Set([...Object.keys(state.ranks), ...Object.keys(rankAdjustments)])].sort();
   for (const id of skillIds) {
@@ -786,6 +768,46 @@ export function deriveSkillModifiers(state, options = {}) {
   return deriveValues(state, options, 'modifiersByRank', SKILL_MODIFIER_LIMITS, (a, b) => a + b);
 }
 
+/**
+ * Что герой умеет с самого начала, без всякого навыка.
+ *
+ * Иван: «убираем навык ловушек и навык лагеря. Пусть разбивает прям
+ * максимальный лагерь, не надо душить, и ловушки он может сразу ставить
+ * нормально». Оба умения были навыками-привратниками: они ничего не делали
+ * лучше, они просто разрешали делать. Такой навык — не выбор, а оброк.
+ *
+ * Значения здесь — те же, что раньше давал третий ранг: снаряжение работает
+ * в полную силу у всех.
+ */
+export const SKILL_CAPABILITY_BASELINE = Object.freeze({
+  trapPlacementTier: 3,
+  campRank: 3,
+  campRestPercent: 40,
+  campStashSlots: 8,
+});
+
 export function deriveSkillCapabilities(state, options = {}) {
-  return deriveValues(state, options, 'capabilitiesByRank', SKILL_CAPABILITY_LIMITS, Math.max);
+  return deriveValues(
+    state, options, 'capabilitiesByRank', SKILL_CAPABILITY_LIMITS, Math.max, SKILL_CAPABILITY_BASELINE,
+  );
+}
+
+/**
+ * Забег со снятым навыком не должен превращаться в сломанный сейв.
+ *
+ * Проверка состояния требует, чтобы каждый вложенный ранг принадлежал
+ * существующему навыку, — иначе сохранение отвергается целиком. Снятые навыки
+ * поэтому не выбрасываются молча: ранги возвращаются очками, и игрок волен
+ * вложить их заново.
+ */
+export function refundRetiredSkills(state) {
+  if (!isRecord(state) || !isRecord(state.ranks)) return state;
+  const kept = {};
+  let refunded = 0;
+  for (const [id, rank] of Object.entries(state.ranks)) {
+    if (skillById(id)) kept[id] = rank;
+    else refunded += Number.isInteger(rank) && rank > 0 ? rank : 0;
+  }
+  if (refunded === 0) return state;
+  return { ...state, points: (state.points ?? 0) + refunded, ranks: kept };
 }
