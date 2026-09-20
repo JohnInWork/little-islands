@@ -1757,102 +1757,6 @@ body {
   outline-offset: 4px;
 }
 
-/*
- * Половина второго игрока.
- *
- * Иван: «когда один игрок — интерфейс на весь экран; если вдвоём — игровой
- * мир один, а интерфейс поделён на два окна: слева моя половина, справа его, и
- * у кого что открывается, у того с той стороны».
- *
- * Зеркалится только личное: здоровье, кошелёк, вещи, сумка. Пауза, карта этажа
- * и портал остаются в одном экземпляре и уезжают наверх по центру — портал на
- * забег один, и две кнопки портала были бы обещанием, которого игра не сдержит.
- */
-.hud-p2 {
-  right: max(12px, env(safe-area-inset-right));
-  left: auto;
-  flex-direction: row-reverse;
-  text-align: right;
-}
-
-.hud-p2[hidden] {
-  display: none;
-}
-
-.hud-p2 .portrait {
-  display: block;
-  width: 34px;
-  height: 34px;
-}
-
-.hud-p2 .portrait img {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.hud-tag {
-  display: none;
-  margin-right: 6px;
-}
-
-body[data-coop='on'] .hud-tag {
-  display: inline-block;
-}
-
-/* В коопе половины не должны сходиться посередине. */
-body[data-coop='on'] .hud-p1,
-body[data-coop='on'] .hud-p2 {
-  max-width: calc(50vw - 104px);
-  width: min(430px, calc(50vw - 104px));
-}
-
-.hud-line {
-  color: #a9bdb0;
-  font-size: 12px;
-}
-
-/* Колонке нужно право сжиматься, иначе строка уезжает за край шапки. */
-.hud-p2 .vitals {
-  min-width: 0;
-}
-
-/* Мировые кнопки: одна пауза, одна карта, один портал — между половинами. */
-body[data-coop='on'] .depth,
-body[data-coop='on'] .pause-game,
-body[data-coop='on'] .open-portal {
-  right: auto;
-  top: max(12px, env(safe-area-inset-top));
-}
-
-body[data-coop='on'] .depth {
-  left: calc(50% - 89px);
-}
-
-body[data-coop='on'] .pause-game {
-  left: calc(50% - 27px);
-}
-
-body[data-coop='on'] .open-portal {
-  left: calc(50% + 35px);
-}
-
-/* Метка игрока: две половины должны быть подписаны, а не угадываться. */
-.coop-tag {
-  padding: 0 4px;
-  color: #101619;
-  background: #9ad3b8;
-}
-
-.coop-tag-one {
-  background: #d6bd62;
-}
-
-[data-screen]:not([data-screen='game']) .hud-p2 {
-  display: none;
-}
-
 .loot-toast {
   --rarity: var(--rare);
   position: fixed;
@@ -4790,20 +4694,6 @@ body[data-coop='on'] .open-portal {
 [data-screen='inventory'] .boss-hud,
 [data-screen='character'] .boss-hud {
   opacity: 0;
-}
-
-/*
- * Окно взаимодействия встаёт на стороне того, кто его открыл.
- *
- * Вдвоём экран поделён по интерфейсу, и окно посередине принадлежало бы обоим
- * сразу — то есть никому: второй игрок не понимал бы, его ли это вопрос.
- */
-body[data-coop='on'] .context-actions[data-owner='p1'] {
-  justify-items: start;
-}
-
-body[data-coop='on'] .context-actions[data-owner='p2'] {
-  justify-items: end;
 }
 
 .context-actions {

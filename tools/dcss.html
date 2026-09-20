@@ -159,8 +159,7 @@
         <button id="frame-failure-close" type="button">Понятно</button>
       </div>
 
-      <header class="hud hud-p1 pixel-frame" aria-label="Состояние героя">
-        <span class="coop-tag coop-tag-one hud-tag" aria-hidden="true">P1</span>
+      <header class="hud pixel-frame" aria-label="Состояние героя">
         <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
         <div class="vitals">
           <div class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -342,45 +341,6 @@
           <i></i>
         </div>
       </div>
-
-      <section id="coop-bag-hero" class="coop-bag coop-bag-left" hidden aria-label="Рюкзак героя">
-        <div class="coop-bag-card pixel-frame">
-          <header>
-            <b><span class="coop-tag coop-tag-one">P1</span> Герой</b>
-            <span id="coop-hero-purse">0●</span>
-          </header>
-          <ul id="coop-hero-list" class="coop-bag-list"></ul>
-          <p class="coop-bag-hint">✕ — надеть/выпить · △ — отдать · □ — закрыть</p>
-        </div>
-      </section>
-
-      <section id="coop-bag" class="coop-bag" hidden aria-label="Рюкзак напарника">
-        <div class="coop-bag-card pixel-frame">
-          <header>
-            <b><span class="coop-tag">P2</span> <span id="coop-bag-name">Напарник</span></b>
-            <span id="coop-bag-purse">0●</span>
-          </header>
-          <ul id="coop-bag-list" class="coop-bag-list"></ul>
-          <p id="coop-bag-hint" class="coop-bag-hint">✕ — выпить/съесть · △ — отдать · □ — закрыть</p>
-        </div>
-      </section>
-
-      <!--
-        Половина второго игрока: та же шапка, что у героя, только справа и с
-        его собственными числами. Голода и сна у напарника нет, поэтому на их
-        месте — счёт вещей: строка обязана отвечать на «как я и что у меня».
-      -->
-      <header id="coop-hud" class="hud hud-p2 pixel-frame" aria-label="Состояние напарника" hidden>
-        <div class="portrait" aria-hidden="true"><img id="coop-face" alt="" src="../assets/dcss-preview/mon/unique/edmund.png" /></div>
-        <div class="vitals">
-          <div id="coop-health" class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <small class="hud-line"><span class="coop-tag">P2</span> <span id="coop-name">Напарник</span> · <span id="coop-health-text">0/0</span> ❤ · <span id="coop-pack">0</span> вещей</small>
-        </div>
-        <div class="purse" aria-label="Золото напарника">
-          <img class="purse-coin" src="../assets/dcss-preview/item/gold/16.png" alt="" />
-          <b id="coop-purse">0</b>
-        </div>
-      </header>
 
       <p id="door-announcement" class="screen-reader-message" role="status" aria-live="polite"></p>
 

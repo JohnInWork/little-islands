@@ -12,11 +12,13 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // Кооперативный клиент (`tools/coop.*`) лежит в дереве, но не собирается:
+      // мультиплеер отложен, а витрина должна быть одиночной игрой. Вернуть —
+      // одна строка входа.
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
         game: resolve(import.meta.dirname, 'tools/dcss.html'),
         sprites: resolve(import.meta.dirname, 'tools/sprites.html'),
-        coop: resolve(import.meta.dirname, 'tools/coop.html'),
       },
     },
   },
