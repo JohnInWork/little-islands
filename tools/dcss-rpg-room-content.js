@@ -5,7 +5,7 @@ import {
   createMerchantStock,
 } from './dcss-rpg-merchant.js';
 import { monsterById } from './dcss-rpg-content.js';
-import { MERCENARIES } from './dcss-rpg-mercenaries.js';
+import { mercenariesWhere } from './dcss-rpg-mercenaries.js';
 import {
   TAVERN_KEEPER_ID,
   tavernEntranceCell,
@@ -93,6 +93,10 @@ function occupiedCells(level) {
     ...(level.loot ?? []),
     ...(level.events ?? []),
     ...(level.finds ?? []),
+    // Клетка редкой встречи: существо сядет на неё уже после обстановки
+    // комнат, поэтому здесь его ещё нет — а место занято. Без этого трактирщик
+    // вставал на ту же клетку, что и дракон.
+    level.reserved,
   ].filter(Boolean).map(cellKey));
 }
 
@@ -337,8 +341,12 @@ function clearAmbientContent(room, collections, occupied) {
  * out are not the people who take seventy coins to do it.
  */
 function innHireFor(depth) {
+  // Именно те, кого нанимают за столом. Охотник и вольный клинок нанимаются
+  // там, где их встретили, и в трактир не садятся — иначе за столом оказался
+  // бы `tavern-hunter`, которого нет в каталоге вовсе.
+  const seated = mercenariesWhere('tavern');
   const step = Math.floor((depth - 1) / 5);
-  return MERCENARIES[Math.min(MERCENARIES.length - 1, Math.max(0, step))];
+  return seated[Math.min(seated.length - 1, Math.max(0, step))];
 }
 
 /**

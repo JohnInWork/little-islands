@@ -46,14 +46,22 @@ export const RARE_ENCOUNTER_CHANCE = Object.freeze({
   // Дракон: примерно один на восемьдесят этажей вверху и один на сорок внизу.
   beast: 0.012,
   beastPerDepth: 0.0006,
+  // Странник: чуть реже, чем именной враг. Один-два на забег.
+  wanderer: 0.08,
   // Именной враг: обычное содержимое редкой встречи.
-  named: 0.17,
+  named: 0.14,
 });
 
 /** Ближе этого к точке входа редкая встреча не садится. */
 export const RARE_ENCOUNTER_MIN_DISTANCE = 7;
 
 const drake = (entry) => ({ kin: 'dragon', unique: true, large: true, ...entry });
+/**
+ * Странник: мирный человек, стоящий на этаже. Для этажа он обычный
+ * нейтральный житель, для механики найма — тот, чей id начинается с `wild-`,
+ * и этого достаточно: карточка, цена и отряд уже умеют с таким работать.
+ */
+const wanderer = (entry) => ({ kin: 'humanoid', unique: true, neutral: true, style: 'stalker', ...entry });
 const named = (entry) => ({ kin: 'humanoid', unique: true, ...entry });
 
 /**
@@ -61,6 +69,13 @@ const named = (entry) => ({ kin: 'humanoid', unique: true, ...entry });
  * бестиария — иначе профили начали бы совпадать, а каталог этого не терпит.
  */
 const ROSTER = [
+  // ── Странники: мирные, и с ними можно иметь дело ────────────────────────
+  // «Просто гуляя по верху можно встретить охотника и нанять его» — вот он.
+  wanderer({ id: 'wild-hunter', habitat: 'surface', sprite: 'unique/nessos.png', tier: 4, ru: 'Охотник', en: 'Hunter' }),
+  // Нарочно не `any`: живой человек, спокойно стоящий посреди ада, — это не
+  // колорит, а поломка мира. Дружелюбных в аду и в катакомбах не бывает.
+  wanderer({ id: 'wild-free-blade', habitat: 'deep', sprite: 'unique/norris.png', tier: 6, ru: 'Вольный клинок', en: 'Free blade' }),
+
   // ── Драконы и гидры: то, что может встретиться слишком рано ─────────────
   drake({ id: 'storm-dragon', habitat: 'any', sprite: 'dragons/storm_dragon.png', tier: 8, style: 'stalker', ru: 'Штормовой дракон', en: 'Storm dragon' }),
   drake({ id: 'shadow-dragon', habitat: 'any', sprite: 'dragons/shadow_dragon.png', tier: 8, style: 'stalker', ru: 'Теневой дракон', en: 'Shadow dragon' }),
@@ -161,19 +176,20 @@ const OMENS = Object.freeze({
 
 const encounter = (monster, index) => {
   const dragon = monster.kin === 'dragon';
+  const friendly = monster.neutral === true;
   return Object.freeze({
     id: `rare:${monster.id}`,
-    kind: dragon ? 'beast' : 'named',
+    kind: friendly ? 'wanderer' : dragon ? 'beast' : 'named',
     monsterId: monster.id,
     habitat: monster.habitat,
     // Именной ждёт своей глубины, дракон может прийти когда угодно.
-    minDepth: dragon ? 1 : namedMinDepth(monster.tier),
+    minDepth: dragon || friendly ? 1 : namedMinDepth(monster.tier),
     // Слабый именной перестаёт встречаться, когда перестаёт быть событием.
-    maxDepth: !dragon && monster.tier <= 4 ? 9 : null,
+    maxDepth: !dragon && !friendly && monster.tier <= 4 ? 9 : null,
     // Дракон — один к сотне с лишним этажей; именной — обычное содержимое
     // редкого броска.
     weight: dragon ? 1 : 6,
-    omen: dragon ? OMENS.dragon : monster.tier >= 8 ? OMENS.great : null,
+    omen: friendly ? null : dragon ? OMENS.dragon : monster.tier >= 8 ? OMENS.great : null,
     order: index,
   });
 };
@@ -181,7 +197,7 @@ const encounter = (monster, index) => {
 /** Полная таблица редких встреч. */
 export const RARE_ENCOUNTERS = Object.freeze(RARE_MONSTERS.map(encounter));
 
-export const RARE_ENCOUNTER_KINDS = Object.freeze(['beast', 'named']);
+export const RARE_ENCOUNTER_KINDS = Object.freeze(['wanderer', 'beast', 'named']);
 
 /** Что вообще может встретиться на этой дороге и этой глубине. */
 export function rareEncountersFor(branch, depth) {
@@ -225,6 +241,7 @@ function weightedPick(rng, pool) {
 export function rollRareEncounter({ rng, branch, depth } = {}) {
   if (!isSeededRng(rng)) throw new TypeError('Rare encounters require a seeded RNG');
   const beastTicket = rng.next();
+  const wandererTicket = rng.next();
   const namedTicket = rng.next();
   const pickTicket = rng.next();
   const pool = rareEncountersFor(branch, depth);
@@ -237,6 +254,10 @@ export function rollRareEncounter({ rng, branch, depth } = {}) {
   if (beastTicket < beastChanceAt(depth)) {
     const beast = draw('beast', pickTicket);
     if (beast) return beast;
+  }
+  if (wandererTicket < RARE_ENCOUNTER_CHANCE.wanderer) {
+    const friendly = draw('wanderer', pickTicket);
+    if (friendly) return friendly;
   }
   if (namedTicket < RARE_ENCOUNTER_CHANCE.named) {
     const named = draw('named', pickTicket);

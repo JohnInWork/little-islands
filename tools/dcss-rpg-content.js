@@ -767,6 +767,17 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.95, vision: 6.6, windup: 0.24, pursuit: 5 },
   },
   {
+    // Нанятые в поле: тела для тех двоих, кого встречают не в таверне.
+    id: 'hired-hunter', habitat: 'any', kin: 'humanoid', path: 'mon/unique/nessos.png',
+    tier: 4, hp: 54, damage: 10, speed: 1.12, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 0.93, vision: 7.8, windup: 0.22, pursuit: 5.5 },
+  },
+  {
+    id: 'hired-free-blade', habitat: 'any', kin: 'humanoid', path: 'mon/unique/norris.png',
+    tier: 6, hp: 88, damage: 14, speed: 1.04, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
+    threat: { attackRate: 0.86, vision: 7.4, windup: 0.27, pursuit: 5.8 },
+  },
+  {
     id: 'hired-veteran', habitat: 'any', kin: 'humanoid', path: 'mon/unique/maud.png',
     tier: 5, hp: 72, damage: 12, speed: 1.0, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
     threat: { attackRate: 0.88, vision: 7.2, windup: 0.26, pursuit: 6 },

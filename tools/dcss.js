@@ -10465,6 +10465,10 @@ function startGameFromMenu() {
   // the floor before the first frame, not only after the next descent.
   applyCampProps();
   placeFloorGhost();
+  // И примета — тоже. Она показывается при входе на этаж, а забег, начатый
+  // или продолженный из меню, входит на свой этаж именно здесь: без этого
+  // первый этаж забега был единственным, о котором игру не предупреждали.
+  showOmenNote(dungeon.rareEncounter?.omen);
   updateInteractionUi();
   setAmbientLevel(1);
   startGameButton.blur();

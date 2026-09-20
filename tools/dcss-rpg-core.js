@@ -915,6 +915,44 @@ export function generateDungeon({
   // The guaranteed first drop must not duplicate what the hero already wears.
   const starterIds = new Set(['rusty-sword', 'worn-tunic']);
   const starterLootPool = lootPool.filter((item) => item.slot && !starterIds.has(item.id));
+  /**
+   * Редкая встреча: бросок и место.
+   *
+   * Место выбирается ЗДЕСЬ — до того как будут выбраны клетки под добычу, —
+   * и сразу занимается. Раньше это было нельзя: щедрость забега меняет
+   * `lootCount`, а значит и число занятых клеток, и выбранное после этого
+   * место разъезжалось при разной щедрости. Этаж обязан совпадать сам с
+   * собой, что бы ни было выкручено в настройках.
+   *
+   * Само существо сажается позже, после обстановки комнат: она вычищает
+   * монстров из комнаты, которую отдаёт под трактир или хранилище, и
+   * посаженный раньше дракон исчезал бы молча. Клетку от воды и от пропасти
+   * берегут их собственные списки — как берегут добычу и монстров.
+   */
+  const rareRoll = rollRareEncounter({
+    rng: createRng(mixSeed(floorSeed, 0x52415245)),
+    branch,
+    depth,
+  });
+  const rareSpot = (() => {
+    if (!rareRoll) return null;
+    const spotRng = createRng(mixSeed(floorSeed, 0x53504f54));
+    const open = [];
+    for (let y = 0; y < grid.length; y += 1) {
+      for (let x = 0; x < grid[y].length; x += 1) {
+        if (grid[y][x] !== '.' || occupied.has(`${x},${y}`)) continue;
+        // Не под ногами на входе: у встречи должно быть время стать решением.
+        if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) < RARE_ENCOUNTER_MIN_DISTANCE) continue;
+        if (x === exit.x && y === exit.y) continue;
+        open.push({ x, y });
+      }
+    }
+    if (open.length === 0) return null;
+    const spot = open[spotRng.int(0, open.length - 1)];
+    occupied.add(`${spot.x},${spot.y}`);
+    return spot;
+  })();
+
   // The treasure room takes from the floor's loot budget, never on top of it,
   // and it leaves two ordinary drops behind: the promised piece of gear, and
   // one slot for whatever else the run owes this floor. Eating the budget whole
@@ -1078,7 +1116,8 @@ export function generateDungeon({
       ?? (branch === 'surface' ? 0 : WATER_ROOM_CHANCE),
   });
   if (floodedRoomIndex !== null) {
-    const keepCells = [...events, ...passiveCreatures].filter((entry) => roomHolds(rooms[floodedRoomIndex], entry));
+    const keepCells = [...events, ...passiveCreatures, ...(rareSpot ? [rareSpot] : [])]
+      .filter((entry) => roomHolds(rooms[floodedRoomIndex], entry));
     const water = shuffle(waterRng, floodRoom(grid, rooms[floodedRoomIndex], { rng: waterRng, keepCells }));
     if (water.length < 4) {
       // A room that is all doorway aprons is not worth a pool: dry it again.
@@ -1186,7 +1225,7 @@ export function generateDungeon({
   {
     const chasmRng = createRng(mixSeed(floorSeed, 0x43484153));
     const standing = [
-      spawn, exit, sanctuary, objective?.boss,
+      spawn, exit, sanctuary, objective?.boss, rareSpot,
       ...events, ...monsters, ...passiveCreatures, ...finds, ...loot,
       ...doorPlan.doors,
       ...(doorPlan.surprise ? [doorPlan.surprise] : []),
@@ -1279,6 +1318,7 @@ export function generateDungeon({
       ...loot.map(({ x, y }) => `${x},${y}`),
       ...monsters.map(({ x, y }) => `${x},${y}`),
       ...doorPlan.doors.map(({ x, y }) => `${x},${y}`),
+      ...(rareSpot ? [`${rareSpot.x},${rareSpot.y}`] : []),
     ]);
     const gateRng = createRng(mixSeed(floorSeed, 0x47415445));
     // The far end of the floor from the way in: a door to somewhere else is
@@ -1316,72 +1356,35 @@ export function generateDungeon({
     finds,
     loot,
     roomPlans,
+    reserved: rareSpot,
   });
   const floorMonsters = [...roomContent.monsters];
   /**
-   * Редкая встреча. Свой поток случайности и свой бросок: она не входит в
-   * бюджет монстров и не смотрит на потолок тира, поэтому дракон может стоять
-   * на третьем этаже, а обычное население этажа от этого не меняется.
-   *
-   * Сажается ПОСЛЕ обстановки комнат, и это не вкусовщина:
-   * `materializeDungeonRoomContent` перебирает свой список монстров и вычищает тех, кто стоит в
-   * комнате, которую она отдаёт под трактир или под хранилище с сундуком. При
-   * посадке раньше шестнадцать редких встреч из трёхсот сорока пяти исчезали
-   * молча — этаж обещал дракона и не показывал никого.
+   * Само существо. Комната торговца тихая нарочно — обстановка комнат сама
+   * выносит оттуда всё живое, — и редкая встреча, выбравшая место до того как
+   * эта комната появилась, туда не садится вовсе. Один этаж из нескольких
+   * десятков остаётся без встречи, и это дешевле, чем дракон у прилавка.
    */
   const rareEncounter = (() => {
-    const entry = rollRareEncounter({
-      rng: createRng(mixSeed(floorSeed, 0x52415245)),
-      branch,
-      depth,
-    });
-    if (!entry) return null;
-    const taken = new Set([
-      `${spawn.x},${spawn.y}`,
-      `${exit.x},${exit.y}`,
-      ...(branchGate ? [`${branchGate.x},${branchGate.y}`] : []),
-      ...roomContent.events.map(({ x, y }) => `${x},${y}`),
-      ...roomContent.finds.map(({ x, y }) => `${x},${y}`),
-      ...loot.map(({ x, y }) => `${x},${y}`),
-      ...roomContent.monsters.map(({ x, y }) => `${x},${y}`),
-      ...passiveCreatures.map(({ x, y }) => `${x},${y}`),
-      ...doorPlan.doors.map(({ x, y }) => `${x},${y}`),
-    ]);
-    const spotRng = createRng(mixSeed(floorSeed, 0x53504f54));
-    /**
-     * Комната торговца тихая нарочно: обстановка комнат сама выносит оттуда
-     * всё живое. Редкая встреча садится последней и об этом не знает, поэтому
-     * дракон вставал рядом с лавочником — комната переставала быть тихой,
-     * а тест про неё падал. Такие комнаты исключаются целиком, не по клеткам.
-     */
+    if (!rareRoll || !rareSpot) return null;
     const calm = roomContent.merchants
       .map(({ roomIndex }) => rooms[roomIndex])
       .filter(Boolean);
-    const inCalmRoom = (x, y) => calm.some((room) => (
-      x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height
+    const quiet = calm.some((room) => (
+      rareSpot.x >= room.x && rareSpot.x < room.x + room.width
+      && rareSpot.y >= room.y && rareSpot.y < room.y + room.height
     ));
-    // Не под ногами на входе: у встречи должно быть время стать решением.
-    const open = [];
-    for (let y = 0; y < grid.length; y += 1) {
-      for (let x = 0; x < grid[y].length; x += 1) {
-        if (grid[y][x] !== '.' || taken.has(`${x},${y}`)) continue;
-        if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) < RARE_ENCOUNTER_MIN_DISTANCE) continue;
-        if (inCalmRoom(x, y)) continue;
-        open.push({ x, y });
-      }
-    }
-    if (open.length === 0) return null;
-    const spot = open[spotRng.int(0, open.length - 1)];
+    if (quiet) return null;
     const instanceId = `monster-${depth}-rare`;
-    floorMonsters.push({ instanceId, id: entry.monsterId, x: spot.x, y: spot.y });
+    floorMonsters.push({ instanceId, id: rareRoll.monsterId, x: rareSpot.x, y: rareSpot.y });
     return Object.freeze({
-      id: entry.id,
-      kind: entry.kind,
-      monsterId: entry.monsterId,
+      id: rareRoll.id,
+      kind: rareRoll.kind,
+      monsterId: rareRoll.monsterId,
       instanceId,
-      omen: entry.omen,
-      x: spot.x,
-      y: spot.y,
+      omen: rareRoll.omen,
+      x: rareSpot.x,
+      y: rareSpot.y,
     });
   })();
 

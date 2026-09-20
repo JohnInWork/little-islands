@@ -17,7 +17,14 @@ import {
   tavernSeatedMercenaries,
   tavernSeats,
 } from '../tools/dcss-rpg-tavern.js';
-import { MERCENARIES } from '../tools/dcss-rpg-mercenaries.js';
+import { MERCENARIES, mercenariesWhere } from '../tools/dcss-rpg-mercenaries.js';
+
+/**
+ * За столами сидят не все наёмники, а те, кого нанимают в таверне. Охотника и
+ * вольного клинка встречают там, где встретили, — в таверне их нет, и стульев
+ * под них не ставят.
+ */
+const SEATED = mercenariesWhere('tavern');
 import { monsterById } from '../tools/dcss-rpg-content.js';
 import {
   CITY_DEPTH,
@@ -108,8 +115,8 @@ test('the hires sit in price order, cheapest by the door', () => {
   const interior = room(6, 5);
   const door = southDoor(interior);
   const seated = tavernSeatedMercenaries({ interior, door });
-  assert.equal(seated.length, MERCENARIES.length);
-  assert.deepEqual(seated.map(({ mercenaryId }) => mercenaryId), MERCENARIES.map(({ id }) => id));
+  assert.equal(seated.length, SEATED.length);
+  assert.deepEqual(seated.map(({ mercenaryId }) => mercenaryId), SEATED.map(({ id }) => id));
   const doorDistance = ({ x, y }) => Math.abs(x - door.x) + Math.abs(y - door.y);
   assert.ok(
     doorDistance(seated[0]) <= doorDistance(seated.at(-1)),
@@ -122,8 +129,8 @@ test('the hires sit in price order, cheapest by the door', () => {
  * that stops being a claim: one entry per mercenary, with his own numbers.
  */
 test('a man sitting at a table is the mercenary he will be if hired', () => {
-  assert.deepEqual(TAVERN_HIRE_MONSTER_IDS, MERCENARIES.map(({ id }) => tavernHireMonsterId(id)));
-  for (const hire of MERCENARIES) {
+  assert.deepEqual(TAVERN_HIRE_MONSTER_IDS, SEATED.map(({ id }) => tavernHireMonsterId(id)));
+  for (const hire of SEATED) {
     const monsterId = tavernHireMonsterId(hire.id);
     assert.equal(mercenaryIdForHireMonster(monsterId), hire.id, 'the id round-trips');
     const seated = monsterById(monsterId);
@@ -199,7 +206,7 @@ test('the city keeps a tavern, and the older quarters keep their own roles', () 
 
   const level = generateDungeon({ seed: 7, depth: CITY_DEPTH });
   const hires = level.monsters.filter(({ id }) => mercenaryIdForHireMonster(id));
-  assert.equal(hires.length, MERCENARIES.length, 'four hires are drinking');
+  assert.equal(hires.length, SEATED.length, 'four hires are drinking');
   const keeper = level.monsters.find(({ id }) => id === TAVERN_KEEPER_ID);
   assert.equal(TAVERN_KEEPER_ID, CITY_RECRUITER_ID, 'the recruiter is the keeper, not a second man');
   assert.ok(keeper, 'somebody is behind the counter');
@@ -278,8 +285,12 @@ test('the company at the fire gets harder the further out the inn is', () => {
   const tierAt = (depth) => {
     for (let seed = 1; seed <= 60; seed += 1) {
       const level = generateDungeon({ seed, depth, branch: 'surface' });
-      const hire = level.monsters.find(({ id }) => mercenaryIdForHireMonster(id));
-      if (hire) return MERCENARIES.findIndex(({ id }) => id === mercenaryIdForHireMonster(hire.id));
+      // Именно тот, кто сидит в трактире: с появлением наёмников поля на этаже
+      // может стоять и вольный клинок, нанятый там, где встретился.
+      const hire = level.monsters.find(({ id, instanceId }) => (
+        instanceId.includes('-inn-') && mercenaryIdForHireMonster(id)
+      ));
+      if (hire) return SEATED.findIndex(({ id }) => id === mercenaryIdForHireMonster(hire.id));
     }
     return null;
   };

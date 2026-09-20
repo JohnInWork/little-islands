@@ -238,6 +238,8 @@ const COPY = Object.freeze({
       sellsword: 'Наёмный меч',
       veteran: 'Ветеран',
       'knight-errant': 'Странствующий рыцарь',
+      hunter: 'Охотник',
+      'free-blade': 'Вольный клинок',
     }),
     // A guard is a person doing a job, not a rule printed on a card. He says
     // what a man in that job says to a stranger with a sword — and the captain,
@@ -323,6 +325,8 @@ const COPY = Object.freeze({
       sellsword: 'Sellsword',
       veteran: 'Veteran',
       'knight-errant': 'Knight errant',
+      hunter: 'Hunter',
+      'free-blade': 'Free blade',
     }),
     guardDescription: (id) => (id === 'city-captain'
       ? '“Sheathe it, and I never saw your face.”'

@@ -21,7 +21,7 @@
  *   drawn under a man who is already sitting on one.
  */
 
-import { MERCENARIES } from './dcss-rpg-mercenaries.js';
+import { MERCENARIES, mercenariesWhere } from './dcss-rpg-mercenaries.js';
 
 const ROOT = 'licensed/lpc-tavern/';
 
@@ -279,20 +279,32 @@ export function tavernHireMonsterId(mercenaryId) {
   return `tavern-${mercenaryId}`;
 }
 
+/**
+ * Два префикса, потому что нанять человека можно в двух местах: за столом в
+ * таверне и там, где на него наткнулся. Всё остальное — карточка, цена,
+ * отряд — одинаково, и адаптер уже ищет на этаже любого, чей id сюда
+ * отображается. Именно поэтому наём в поле не потребовал ни строчки в нём.
+ */
+const HIRE_PREFIXES = Object.freeze(['tavern-', 'wild-']);
+
+export function wildHireMonsterId(mercenaryId) {
+  return `wild-${mercenaryId}`;
+}
+
 export function mercenaryIdForHireMonster(monsterId) {
-  return typeof monsterId === 'string' && monsterId.startsWith('tavern-')
-    ? monsterId.slice('tavern-'.length)
-    : null;
+  if (typeof monsterId !== 'string') return null;
+  const prefix = HIRE_PREFIXES.find((candidate) => monsterId.startsWith(candidate));
+  return prefix ? monsterId.slice(prefix.length) : null;
 }
 
 export const TAVERN_HIRE_MONSTER_IDS = Object.freeze(
-  MERCENARIES.map(({ id }) => tavernHireMonsterId(id)),
+  mercenariesWhere('tavern').map(({ id }) => tavernHireMonsterId(id)),
 );
 
 /** Who sits in which chair: the roster in price order, nearest the door first. */
 export function tavernSeatedMercenaries({ interior, door }) {
   const seats = tavernSeats({ interior, door });
-  return MERCENARIES
+  return mercenariesWhere('tavern')
     .map((tier, index) => (seats[index] ? Object.freeze({ mercenaryId: tier.id, ...seats[index] }) : null))
     .filter(Boolean);
 }

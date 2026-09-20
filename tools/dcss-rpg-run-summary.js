@@ -39,6 +39,8 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'tavern-veteran': pair('Ветеранка', 'Veteran'),
   'tavern-knight-errant': pair('Странствующий рыцарь', 'Knight errant'),
   'hired-drifter': pair('Бродяга', 'Drifter'),
+  'hired-hunter': pair('Охотник', 'Hunter'),
+  'hired-free-blade': pair('Вольный клинок', 'Free blade'),
   'hired-sellsword': pair('Наёмный меч', 'Sellsword'),
   'hired-veteran': pair('Ветеранка', 'Veteran'),
   'hired-knight-errant': pair('Странствующий рыцарь', 'Knight errant'),

@@ -95,12 +95,17 @@ test('дракон редок одинаково на всякой дороге,
     for (const depth of [2, 9, 18]) {
       let beasts = 0;
       let named = 0;
+      let wanderers = 0;
       for (let index = 0; index < N; index += 1) {
         const entry = rollRareEncounter({ rng: rngFor(index, 0x5245 + depth), branch, depth });
         if (!entry) continue;
         if (entry.kind === 'beast') beasts += 1;
+        else if (entry.kind === 'wanderer') wanderers += 1;
         else named += 1;
       }
+      // Странник — третий вид, и считать его именным нельзя: сложенные вместе,
+      // они дают двадцать процентов там, где ожидается четырнадцать.
+      assert.ok(wanderers / N < 0.12, `${branch}/${depth}: странников ${(wanderers / N * 100).toFixed(1)}%`);
       const beastRate = beasts / N;
       const namedRate = named / N;
       const expected = beastChanceAt(depth);
@@ -170,7 +175,16 @@ test('у опасной встречи есть примета, и адапте�
   }
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /function showOmenNote\(copy\) \{/);
-  assert.match(runtime, /showOmenNote\(dungeon\.rareEncounter\?\.omen\);/);
+  // Два места, и оба обязательны: этаж, на который спустились, и этаж, на
+  // котором забег начался или продолжился из меню. Без второго первый этаж
+  // забега оказывался единственным, о котором игру не предупреждали.
+  assert.equal(
+    (runtime.match(/showOmenNote\(dungeon\.rareEncounter\?\.omen\);/g) ?? []).length,
+    2,
+    'примета показывается не везде, где на этаж входят',
+  );
+  const menu = runtime.slice(runtime.indexOf('function startGameFromMenu() {'));
+  assert.match(menu.slice(0, menu.indexOf('\n}')), /showOmenNote\(/);
   // Показывается при входе на этаж, после того как этаж собран.
   const replace = runtime.slice(runtime.indexOf('function replaceFloor(nextDepth'));
   assert.ok(

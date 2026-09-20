@@ -16,6 +16,7 @@
 /** What a hire is worth, and what it costs. Strength and price rise together. */
 export const MERCENARIES = Object.freeze([
   Object.freeze({
+    where: 'tavern',
     id: 'drifter',
     price: 70,
     path: 'mon/unique/grum.png',
@@ -32,6 +33,7 @@ export const MERCENARIES = Object.freeze([
     }),
   }),
   Object.freeze({
+    where: 'tavern',
     id: 'sellsword',
     price: 200,
     path: 'mon/unique/edmund.png',
@@ -47,7 +49,30 @@ export const MERCENARIES = Object.freeze([
       en: 'Coin up front, no questions, and I take the first step down.',
     }),
   }),
+  /**
+   * Те, кого нанимают не в таверне, а там, где встретили. Дороже за то же
+   * самое: за наём на этаже платят не только деньгами, а тем, что второго
+   * такого предложения может не быть.
+   */
   Object.freeze({
+    where: 'wild',
+    id: 'hunter',
+    price: 320,
+    path: 'mon/unique/nessos.png',
+    maxHp: 54,
+    damage: 10,
+    defense: 1,
+    speed: 1.12,
+    size: 78,
+    labels: Object.freeze({ ru: 'Охотник', en: 'Hunter' }),
+    short: Object.freeze({ ru: 'Охотник', en: 'Hunter' }),
+    lines: Object.freeze({
+      ru: 'Я тут по своим делам. Но если платишь — пойду и по твоим.',
+      en: 'I am out here on my own business. Pay me and I will be on yours.',
+    }),
+  }),
+  Object.freeze({
+    where: 'tavern',
     id: 'veteran',
     price: 460,
     path: 'mon/unique/maud.png',
@@ -64,6 +89,24 @@ export const MERCENARIES = Object.freeze([
     }),
   }),
   Object.freeze({
+    where: 'wild',
+    id: 'free-blade',
+    price: 620,
+    path: 'mon/unique/norris.png',
+    maxHp: 88,
+    damage: 14,
+    defense: 3,
+    speed: 1.04,
+    size: 76,
+    labels: Object.freeze({ ru: 'Вольный клинок', en: 'Free blade' }),
+    short: Object.freeze({ ru: 'Клинок', en: 'Blade' }),
+    lines: Object.freeze({
+      ru: 'В город я не вернусь. А вниз — хоть сейчас, если в кошеле звенит.',
+      en: 'I am not going back to town. Down, though — gladly, if your purse rattles.',
+    }),
+  }),
+  Object.freeze({
+    where: 'tavern',
     id: 'knight-errant',
     price: 980,
     path: 'mon/unique/wiglaf.png',
@@ -82,6 +125,11 @@ export const MERCENARIES = Object.freeze([
     }),
   }),
 ]);
+
+/** Кого сажают за столы в таверне, а кого встречают в поле. */
+export function mercenariesWhere(where) {
+  return Object.freeze(MERCENARIES.filter((hire) => (hire.where ?? 'tavern') === where));
+}
 
 const BY_ID = new Map(MERCENARIES.map((hire) => [hire.id, hire]));
 
