@@ -193,7 +193,8 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.82, vision: 6.6, windup: 0.34, pursuit: 5.6 },
   },
   {
-    id: 'raised-warden', habitat: 'deep', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
+    id: 'raised-warden', habitat: 'deep', kin: 'undead',
+    path: 'mon/undead/zombies/zombie_ogre.png',
     tier: 4, hp: 42, damage: 11, speed: 0.86, xp: 0, bloodColor: '#cfc6ad', spawn: 'summon',
     threat: { attackRate: 0.78, vision: 7, windup: 0.3, pursuit: 6 },
   },
@@ -226,7 +227,9 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.0, vision: 6, windup: 0.22, pursuit: 4 },
   },
   {
-    id: 'wild-boar', kin: 'beast', habitat: 'surface', path: 'mon/animals/hog.png',
+    // Кабан и домашняя свинья делили и картинку, и имя. Кабаньих спрайтов в
+    // библиотеке ровно два, и второй адский, поэтому щетина перекрашена.
+    id: 'wild-boar', kin: 'beast', habitat: 'surface', path: 'derived/mon/boar.png',
     tier: 2, hp: 9, damage: 7, speed: 1.05, xp: 11, bloodColor: '#74342f',
     threat: { attackRate: 0.9, vision: 6.2, windup: 0.3, pursuit: 5.6 },
   },
@@ -324,7 +327,8 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.86, vision: 6.4, windup: 0.3, pursuit: 6.4 },
   },
   {
-    id: 'crypt-revenant', habitat: 'crypt', kin: 'undead', path: 'mon/undead/revenant.png',
+    id: 'crypt-revenant', habitat: 'crypt', kin: 'undead',
+    path: 'mon/vault/deep_troll_monk_ghost.png',
     tier: 5, hp: 34, damage: 13, speed: 0.96, xp: 44, bloodColor: '#4a4f5c',
     threat: { attackRate: 0.84, vision: 7, windup: 0.32, pursuit: 7 },
   },
@@ -414,7 +418,8 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.78, vision: 9, windup: 0.4, pursuit: 8.2 },
   },
   {
-    id: 'hell-lord', habitat: 'hell', kin: 'demon', path: 'mon/demons/balrug.png',
+    id: 'hell-lord', habitat: 'hell', kin: 'demon',
+    path: 'mon/unique/serpent_of_hell-tar.png',
     tier: 9, hp: 120, damage: 32, speed: 1.06, xp: 260, bloodColor: '#a8352a',
     unique: true, boss: true, large: true,
     threat: { attackRate: 0.84, vision: 9.4, windup: 0.34, pursuit: 9 },
@@ -549,7 +554,7 @@ export const MONSTER_CATALOG = Object.freeze([
   },
   {
     id: 'ghost', habitat: 'deep', kin: 'undead',
-    path: 'mon/undead/ghost.png',
+    path: 'mon/undead/missing_ghost.png',
     tier: 3,
     hp: 7,
     damage: 9,
@@ -582,8 +587,8 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.62, vision: 5.2, windup: 0.38, pursuit: 4 },
   },
   {
-    id: 'ashen-guardian', habitat: 'deep', kin: 'humanoid',
-    path: 'mon/orc_warrior.png',
+    id: 'ashen-guardian', habitat: 'deep', kin: 'oddity',
+    path: 'mon/statues/guardian-eyeopen-flame1.png',
     tier: 3,
     hp: 10,
     damage: 6,
@@ -596,7 +601,7 @@ export const MONSTER_CATALOG = Object.freeze([
   },
   {
     id: 'sanctum-guardian', habitat: 'deep', kin: 'undead',
-    path: 'mon/undead/lich.png',
+    path: 'mon/vault/zonguldrok_lich.png',
     tier: 6,
     hp: 13,
     damage: 7,

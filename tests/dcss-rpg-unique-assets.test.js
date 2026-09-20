@@ -40,18 +40,11 @@ const baseId = (id) => id
 /**
  * Что пока делит картинку на двоих. Каждая строка — долг, а не разрешение.
  *
- * `boar`/`hog` останутся здесь дольше прочих: кабаньих спрайтов в библиотеке
- * ровно два, и второй адский. Этой паре нужен рисунок, а не выбор.
+ * У существ долг закрыт весь: семь пар разведены, последняя — кабан против
+ * домашней свиньи — перекраской, потому что кабаньих спрайтов в библиотеке
+ * ровно два и второй адский.
  */
-const KNOWN_CREATURE_PAIRS = Object.freeze({
-  'mon/animals/hog.png': ['boar', 'hog'],
-  'mon/demons/balrug.png': ['balrug', 'hell-lord'],
-  'mon/orc_warrior.png': ['ashen-guardian', 'orc-warrior'],
-  'mon/undead/ghost.png': ['ghost', 'player-ghost'],
-  'mon/undead/lich.png': ['lich', 'sanctum-guardian'],
-  'mon/undead/revenant.png': ['crypt-revenant', 'tomb-revenant'],
-  'mon/undead/skeletal_warrior.png': ['bone-knight', 'warden'],
-});
+const KNOWN_CREATURE_PAIRS = Object.freeze({});
 
 /** То же для предметов: неопознанные книги-близнецы — старая беда пака. */
 const KNOWN_ITEM_PAIRS = Object.freeze({
@@ -114,5 +107,5 @@ test('долг по дублям только сокращается', () => {
   // Цифра меняется вниз вместе с починкой и служит счётчиком работы. Поднять её
   // можно только руками, и это будет видно в diff.
   const total = Object.keys(KNOWN_CREATURE_PAIRS).length + Object.keys(KNOWN_ITEM_PAIRS).length;
-  assert.ok(total <= 16, `дублей стало больше: ${total}`);
+  assert.ok(total <= 9, `дублей стало больше: ${total}`);
 });
