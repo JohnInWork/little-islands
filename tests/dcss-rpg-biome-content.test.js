@@ -110,12 +110,18 @@ test('the place decides who lives there', () => {
     kinShare('buried-sanctum', 'undead') > kinShare('ashen-vault', 'undead') * 2.5,
     'a sanctum is full of what was buried in it',
   );
+  // Hell and the descent are different roads now, so the fire is compared with
+  // the fire: gehenna is the hottest place hell has, and the acid pits the
+  // least demonic of the three.
   assert.ok(
-    kinShare('infernal-core', 'demon') > kinShare('frozen-depths', 'demon') * 4,
-    'demons belong to the fire, not to the ice',
+    kinShare('gehenna-floor', 'demon') > kinShare('acid-pits', 'demon'),
+    'demons belong to the fire',
   );
   assert.ok(kinShare('ashen-vault', 'humanoid') > kinShare('buried-sanctum', 'humanoid') * 1.5);
-  assert.ok(kinShare('frozen-depths', 'beast') > kinShare('infernal-core', 'beast') * 1.8);
+  assert.ok(
+    kinShare('beast-lair', 'beast') > kinShare('frozen-depths', 'beast'),
+    'a lair is what lives in it',
+  );
   // And no place is empty of anything its branch can host. A demon never walks
   // a meadow — that is `habitat`, not the biome — but everything the branch
   // does have turns up in every one of its places.

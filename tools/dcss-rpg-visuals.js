@@ -1213,6 +1213,73 @@ export const BIOME_THEMES = Object.freeze([
       keyLight: '#dfc192',
     }),
   }),
+  /**
+   * Three places hell keeps to itself.
+   *
+   * Every tile family in the library already belonged to somebody, so these
+   * are built from what was genuinely left over — fifteen infernal floors that
+   * nothing had ever laid, the acid pools, the brown shingle — and from walls
+   * plain enough that the theme's own tint decides what stone this is. That is
+   * the honest way to make a place out of a library that is nearly spent: pick
+   * the floor nobody has, and let the light do the rest.
+   */
+  Object.freeze({
+    id: 'gehenna-floor',
+    palette: 'ember',
+    floors: ['dngn/floor/infernal01.png', 'dngn/floor/infernal02.png', 'dngn/floor/infernal03.png', 'dngn/floor/infernal04.png', 'dngn/floor/infernal05.png', 'dngn/floor/infernal06.png', 'dngn/floor/infernal07.png', 'dngn/floor/infernal08.png', 'dngn/floor/infernal09.png', 'dngn/floor/infernal10.png', 'dngn/floor/infernal11.png', 'dngn/floor/infernal12.png', 'dngn/floor/infernal13.png', 'dngn/floor/infernal14.png', 'dngn/floor/infernal15.png'],
+    walls: ['dngn/wall/stone2_dark0.png', 'dngn/wall/stone2_dark1.png', 'dngn/wall/stone2_dark2.png', 'dngn/wall/stone2_dark3.png'],
+    accentWalls: [],
+    accentModulo: 0,
+    bloodModulo: 0,
+    world3d: Object.freeze({
+      floorTint: '#ffd9c0',
+      wallTint: '#c89a86',
+      actorTint: '#f0c8b4',
+      background: '#150603',
+      fog: '#1c0805',
+      fogDensity: 0.026,
+      ambient: '#96442c',
+      keyLight: '#e8763f',
+    }),
+  }),
+  Object.freeze({
+    id: 'acid-pits',
+    palette: 'verdant',
+    floors: ['dngn/floor/acidic_floor0.png', 'dngn/floor/acidic_floor1.png', 'dngn/floor/acidic_floor2.png', 'dngn/floor/acidic_floor3.png'],
+    walls: ['dngn/wall/vault0.png', 'dngn/wall/vault1.png', 'dngn/wall/vault2.png', 'dngn/wall/vault3.png'],
+    accentWalls: [],
+    accentModulo: 0,
+    bloodModulo: 0,
+    world3d: Object.freeze({
+      floorTint: '#e6ffcf',
+      wallTint: '#bcd2a8',
+      actorTint: '#d8e8c4',
+      background: '#0a1005',
+      fog: '#0e1608',
+      fogDensity: 0.024,
+      ambient: '#6f8a3c',
+      keyLight: '#aad24f',
+    }),
+  }),
+  Object.freeze({
+    id: 'cinder-waste',
+    palette: 'scorch',
+    floors: ['dngn/floor/pebble_brown0.png', 'dngn/floor/pebble_brown1.png', 'dngn/floor/pebble_brown2.png', 'dngn/floor/pebble_brown3.png', 'dngn/floor/pebble_brown4.png', 'dngn/floor/pebble_brown5.png', 'dngn/floor/pebble_brown6.png', 'dngn/floor/pebble_brown7.png', 'dngn/floor/pebble_brown8.png'],
+    walls: ['dngn/wall/stone_gray0.png', 'dngn/wall/stone_gray1.png', 'dngn/wall/stone_gray2.png', 'dngn/wall/stone_gray3.png'],
+    accentWalls: [],
+    accentModulo: 0,
+    bloodModulo: 0,
+    world3d: Object.freeze({
+      floorTint: '#f0dcc6',
+      wallTint: '#bfae9c',
+      actorTint: '#e4d0bc',
+      background: '#100a06',
+      fog: '#160e08',
+      fogDensity: 0.023,
+      ambient: '#8a6a44',
+      keyLight: '#d8a460',
+    }),
+  }),
   Object.freeze({
     id: 'zot-cells',
     palette: 'cobalt',

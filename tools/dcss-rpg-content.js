@@ -15,9 +15,9 @@ import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
  * marble sanctum — so the generator draws a different silhouette: bars, cages
  * and corridors that were designed rather than worn.
  */
-export const RUN_BRANCHES = Object.freeze(['deep', 'surface', 'vaults']);
+export const RUN_BRANCHES = Object.freeze(['deep', 'surface', 'vaults', 'crypt', 'hell']);
 export const DEFAULT_RUN_BRANCH = 'deep';
-export const MONSTER_HABITATS = Object.freeze(['deep', 'surface', 'vaults', 'any']);
+export const MONSTER_HABITATS = Object.freeze(['any', ...RUN_BRANCHES]);
 
 export function validateRunBranch(branch) {
   return RUN_BRANCHES.includes(branch);
@@ -307,6 +307,113 @@ export const MONSTER_CATALOG = Object.freeze([
     unique: true, boss: true,
     threat: { attackRate: 1.05, vision: 8.6, windup: 0.24, pursuit: 8.4 },
   },
+  // ── Катакомбы ───────────────────────────────────────────────────────────
+  // What a crypt holds. Nothing here breathes, so nothing here bleeds the way
+  // the caves do, and every one of them is slower and harder than its depth
+  // suggests: the road through the dead is not the road through the caves.
+  {
+    id: 'grave-shade', habitat: 'crypt', kin: 'undead', path: 'mon/undead/shadow.png',
+    tier: 3, hp: 12, damage: 8, speed: 1.06, xp: 18, bloodColor: '#3b3f4a',
+    threat: { attackRate: 0.95, vision: 6.6, windup: 0.22, pursuit: 6 },
+  },
+  {
+    id: 'bone-knight', habitat: 'crypt', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
+    tier: 4, hp: 26, damage: 11, speed: 0.92, xp: 30, bloodColor: '#cfc6ad',
+    threat: { attackRate: 0.86, vision: 6.4, windup: 0.3, pursuit: 6.4 },
+  },
+  {
+    id: 'crypt-revenant', habitat: 'crypt', kin: 'undead', path: 'mon/undead/revenant.png',
+    tier: 5, hp: 34, damage: 13, speed: 0.96, xp: 44, bloodColor: '#4a4f5c',
+    threat: { attackRate: 0.84, vision: 7, windup: 0.32, pursuit: 7 },
+  },
+  {
+    id: 'profane-servitor', habitat: 'crypt', kin: 'undead', path: 'mon/undead/profane_servitor.png',
+    tier: 6, hp: 40, damage: 15, speed: 0.9, xp: 58, bloodColor: '#4a3f52',
+    threat: { attackRate: 0.8, vision: 7.2, windup: 0.34, pursuit: 7 },
+  },
+  {
+    id: 'eidolon', habitat: 'crypt', kin: 'undead', path: 'mon/undead/eidolon.png',
+    tier: 7, hp: 30, damage: 17, speed: 1.12, xp: 70, bloodColor: '#6f7f96',
+    threat: { attackRate: 0.92, vision: 8, windup: 0.26, pursuit: 8 },
+  },
+  {
+    id: 'shadow-wraith', habitat: 'crypt', kin: 'undead', path: 'mon/undead/shadow_wraith.png',
+    tier: 7, hp: 28, damage: 16, speed: 1.16, xp: 68, bloodColor: '#39404d',
+    threat: { attackRate: 0.96, vision: 8.2, windup: 0.24, pursuit: 8.2 },
+  },
+  // The four that hold the crypt's chapters.
+  {
+    id: 'tomb-warden', habitat: 'crypt', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
+    tier: 3, hp: 34, damage: 12, speed: 0.9, xp: 42, bloodColor: '#cfc6ad',
+    unique: true, boss: true,
+    threat: { attackRate: 0.82, vision: 7, windup: 0.34, pursuit: 6.6 },
+  },
+  {
+    id: 'bone-dragon', habitat: 'crypt', kin: 'undead', path: 'mon/undead/bone_dragon.png',
+    tier: 8, hp: 96, damage: 22, speed: 0.84, xp: 140, bloodColor: '#cfc6ad',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.72, vision: 8.4, windup: 0.42, pursuit: 7.2 },
+  },
+  {
+    id: 'ancient-lich', habitat: 'crypt', kin: 'undead', path: 'mon/undead/ancient_lich.png',
+    tier: 9, hp: 84, damage: 26, speed: 0.98, xp: 170, bloodColor: '#55607a',
+    unique: true, boss: true,
+    threat: { attackRate: 0.78, vision: 9, windup: 0.34, pursuit: 8.6 },
+  },
+
+  // ── Ад ──────────────────────────────────────────────────────────────────
+  // The hardest road there is, and it should read that way from the first
+  // floor: everything here hits above its tier and none of it is slow.
+  {
+    id: 'blue-devil', habitat: 'hell', kin: 'demon', path: 'mon/demons/blue_devil.png',
+    tier: 5, hp: 30, damage: 15, speed: 1.1, xp: 52, bloodColor: '#2f4a8b',
+    threat: { attackRate: 0.98, vision: 7.8, windup: 0.24, pursuit: 8 },
+  },
+  {
+    id: 'demonic-crawler', habitat: 'hell', kin: 'demon', path: 'mon/demons/demonic_crawler.png',
+    tier: 6, hp: 46, damage: 17, speed: 0.96, xp: 72, bloodColor: '#6b2f52',
+    threat: { attackRate: 0.88, vision: 7.6, windup: 0.3, pursuit: 7.6 },
+  },
+  {
+    id: 'hellion', habitat: 'hell', kin: 'demon', path: 'mon/demons/hellion.png',
+    tier: 7, hp: 44, damage: 20, speed: 1.08, xp: 96, bloodColor: '#a8352a',
+    threat: { attackRate: 0.94, vision: 8.2, windup: 0.26, pursuit: 8.4 },
+  },
+  {
+    id: 'blizzard-demon', habitat: 'hell', kin: 'demon', path: 'mon/demons/blizzard_demon.png',
+    tier: 7, hp: 42, damage: 19, speed: 1.04, xp: 94, bloodColor: '#4a6f96',
+    threat: { attackRate: 0.92, vision: 8.4, windup: 0.28, pursuit: 8 },
+  },
+  {
+    id: 'executioner', habitat: 'hell', kin: 'demon', path: 'mon/demons/executioner.png',
+    tier: 8, hp: 58, damage: 24, speed: 1.16, xp: 128, bloodColor: '#8b2f2a',
+    threat: { attackRate: 1.02, vision: 8.6, windup: 0.22, pursuit: 8.8 },
+  },
+  // The four that hold hell's chapters. The last is the one nobody is ready for.
+  {
+    id: 'brimstone-fiend', habitat: 'hell', kin: 'demon', path: 'mon/demons/brimstone_fiend.png',
+    tier: 6, hp: 76, damage: 22, speed: 0.92, xp: 150, bloodColor: '#a8352a',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.76, vision: 8.4, windup: 0.4, pursuit: 7.8 },
+  },
+  {
+    id: 'shadow-fiend', habitat: 'hell', kin: 'demon', path: 'mon/demons/shadow_fiend.png',
+    tier: 8, hp: 82, damage: 26, speed: 1.02, xp: 180, bloodColor: '#39404d',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.82, vision: 8.8, windup: 0.36, pursuit: 8.4 },
+  },
+  {
+    id: 'ice-devil', habitat: 'hell', kin: 'demon', path: 'mon/demons/ice_devil.png',
+    tier: 9, hp: 92, damage: 28, speed: 0.96, xp: 210, bloodColor: '#4a6f96',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.78, vision: 9, windup: 0.4, pursuit: 8.2 },
+  },
+  {
+    id: 'hell-lord', habitat: 'hell', kin: 'demon', path: 'mon/demons/balrug.png',
+    tier: 9, hp: 120, damage: 32, speed: 1.06, xp: 260, bloodColor: '#a8352a',
+    unique: true, boss: true, large: true,
+    threat: { attackRate: 0.84, vision: 9.4, windup: 0.34, pursuit: 9 },
+  },
   {
     // The city watch. `spawn: 'city'` keeps them out of every dungeon pool, and
     // `neutral` means they mind their own business until the hero starts something.
@@ -524,7 +631,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.2, vision: 7.4, windup: 0.16, pursuit: 6.5 },
   },
   {
-    id: 'crimson-imp', habitat: 'deep', kin: 'demon', element: 'fire',
+    id: 'crimson-imp', habitat: 'hell', kin: 'demon', element: 'fire',
     path: 'mon/demons/crimson_imp.png',
     tier: 4,
     hp: 10,
@@ -591,7 +698,7 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 0.88, vision: 8.2, windup: 0.26, pursuit: 8 },
   },
   {
-    id: 'lich', habitat: 'deep', kin: 'undead',
+    id: 'lich', habitat: 'crypt', kin: 'undead',
     path: 'mon/undead/lich.png',
     tier: 6,
     hp: 26,
@@ -600,6 +707,7 @@ export const MONSTER_CATALOG = Object.freeze([
     xp: 45,
     boss: true,
     threat: { attackRate: 0.9, vision: 8.6, windup: 0.3, pursuit: 8.5 },
+    unique: true, boss: true,
   },
   {
     id: 'ice-dragon', habitat: 'any', kin: 'dragon', element: 'ice',

@@ -75,6 +75,23 @@ export const BIOME_CONTENT = Object.freeze({
     element: Object.freeze({ fire: 2.2, ice: 0.45 }),
     loot: Object.freeze({ weapon: 1.6, jewellery: 1.2, armour: 0.7, tool: 0.75, potion: 0.8 }),
   }),
+  // Hell's own three. Gehenna is fire and nothing else; the acid pits favour
+  // the things that ooze; the cinder waste is what is left after both.
+  'gehenna-floor': Object.freeze({
+    kin: Object.freeze({ demon: 2.2, dragon: 1.4, undead: 0.8, humanoid: 0.6, oddity: 0.6, beast: 0.5 }),
+    element: Object.freeze({ fire: 2.2, ice: 0.45 }),
+    loot: Object.freeze({ weapon: 1.5, jewellery: 1.2, armour: 0.8, potion: 0.8 }),
+  }),
+  'acid-pits': Object.freeze({
+    kin: Object.freeze({ demon: 1.9, oddity: 1.7, beast: 0.9, undead: 0.8, humanoid: 0.6, dragon: 0.6 }),
+    element: Object.freeze({ fire: 1.2, ice: 0.6 }),
+    loot: Object.freeze({ potion: 1.6, tool: 1.2, weapon: 0.8, armour: 0.7 }),
+  }),
+  'cinder-waste': Object.freeze({
+    kin: Object.freeze({ demon: 2.0, undead: 1.2, beast: 0.9, humanoid: 0.8, dragon: 0.8, oddity: 0.6 }),
+    element: Object.freeze({ fire: 1.8, ice: 0.5 }),
+    loot: Object.freeze({ weapon: 1.3, armour: 1.2, jewellery: 0.9, book: 0.7 }),
+  }),
   'catacomb-tiers': Object.freeze({
     kin: Object.freeze({ undead: 2, oddity: 1.3, demon: 0.8, humanoid: 0.8, dragon: 0.7, beast: 0.5 }),
     element: Object.freeze({  }),

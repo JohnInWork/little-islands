@@ -49,6 +49,12 @@ export const GUARDIAN_LADDERS = Object.freeze({
   // Everything on the made road was itself made: a warden, a golem, a keyholder,
   // and whatever the last experiment turned into.
   vaults: Object.freeze(['crystal-warden', 'iron-golem', 'keyholder', 'dissolution']),
+  // Nothing in the crypt is alive, and each rung is older than the last: the
+  // gaoler of the tomb, then what learned not to die, then what it raised,
+  // then the one that taught it.
+  crypt: Object.freeze(['tomb-warden', 'lich', 'bone-dragon', 'ancient-lich']),
+  // Hell owes nobody an easy first rung. Every one of these is a fiend.
+  hell: Object.freeze(['brimstone-fiend', 'shadow-fiend', 'ice-devil', 'hell-lord']),
 });
 
 /** How many rungs the written road actually shows. */

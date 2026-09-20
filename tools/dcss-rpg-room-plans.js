@@ -57,7 +57,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'infernal-core',
     surfaceSetId: 'infernal-core',
-    branch: 'deep',
+    branch: 'hell',
     atmosphereId: 'ember',
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -65,7 +65,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'catacomb-tiers',
     surfaceSetId: 'catacomb-tiers',
-    branch: 'deep',
+    branch: 'crypt',
     atmosphereId: 'bone',
     chestSkinIds: ['wooden'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -89,7 +89,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'bone-fields',
     surfaceSetId: 'bone-fields',
-    branch: 'deep',
+    branch: 'crypt',
     atmosphereId: 'mold',
     chestSkinIds: ['wooden', 'pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'fungal-hollow', 'merchant-alcove'],
@@ -97,7 +97,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'flesh-deep',
     surfaceSetId: 'flesh-deep',
-    branch: 'deep',
+    branch: 'hell',
     atmosphereId: 'viscera',
     chestSkinIds: ['pirate'],
     roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'fungal-hollow', 'merchant-alcove'],
@@ -121,7 +121,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'magma-shelf',
     surfaceSetId: 'magma-shelf',
-    branch: 'deep',
+    branch: 'hell',
     atmosphereId: 'magma',
     chestSkinIds: ['jade-ruby', 'pirate'],
     roomArchetypeIds: ['fallen-hall', 'ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
@@ -145,7 +145,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'funeral-hall',
     surfaceSetId: 'funeral-hall',
-    branch: 'deep',
+    branch: 'crypt',
     atmosphereId: 'sepia',
     chestSkinIds: ['pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -187,7 +187,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'old-graveyard',
     surfaceSetId: 'old-graveyard',
-    branch: 'surface',
+    branch: 'crypt',
     atmosphereId: 'dusk',
     chestSkinIds: ['pharaoh'],
     roomArchetypeIds: ['fallen-hall', 'forgotten-crypt', 'ashen-shrine', 'merchant-alcove'],
@@ -284,7 +284,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'marble-sanctum',
     surfaceSetId: 'marble-sanctum',
-    branch: 'vaults',
+    branch: 'crypt',
     atmosphereId: 'bone',
     chestSkinIds: ['jade-ruby', 'pharaoh'],
     roomArchetypeIds: [
@@ -323,7 +323,7 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
   defineDungeonTheme({
     id: 'sand-archive',
     surfaceSetId: 'sand-archive',
-    branch: 'vaults',
+    branch: 'crypt',
     atmosphereId: 'sepia',
     chestSkinIds: ['pharaoh', 'wooden'],
     roomArchetypeIds: [
@@ -332,6 +332,30 @@ export const DUNGEON_THEME_CATALOG = Object.freeze([
       'ashen-shrine',
       'merchant-alcove',
     ],
+  }),
+  defineDungeonTheme({
+    id: 'gehenna-floor',
+    surfaceSetId: 'gehenna-floor',
+    branch: 'hell',
+    atmosphereId: 'ember',
+    chestSkinIds: ['pharaoh', 'pirate'],
+    roomArchetypeIds: ['ashen-shrine', 'fallen-hall', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'acid-pits',
+    surfaceSetId: 'acid-pits',
+    branch: 'hell',
+    atmosphereId: 'verdant',
+    chestSkinIds: ['jade-ruby', 'pirate'],
+    roomArchetypeIds: ['fungal-hollow', 'drowned-chapel', 'merchant-alcove'],
+  }),
+  defineDungeonTheme({
+    id: 'cinder-waste',
+    surfaceSetId: 'cinder-waste',
+    branch: 'hell',
+    atmosphereId: 'scorch',
+    chestSkinIds: ['pharaoh', 'wooden'],
+    roomArchetypeIds: ['ashen-shrine', 'forgotten-crypt', 'merchant-alcove'],
   }),
   defineDungeonTheme({
     id: 'zot-cells',
