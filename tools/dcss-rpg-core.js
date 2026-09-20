@@ -120,6 +120,7 @@ import {
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
 import { branchDifficulty, branchGateFor } from './dcss-rpg-branch-gates.js';
+import { RARE_ENCOUNTER_MIN_DISTANCE, rollRareEncounter } from './dcss-rpg-rare-encounters.js';
 import {
   CHASM_CELL,
   carveChasm,
@@ -1316,8 +1317,77 @@ export function generateDungeon({
     loot,
     roomPlans,
   });
+  const floorMonsters = [...roomContent.monsters];
+  /**
+   * Редкая встреча. Свой поток случайности и свой бросок: она не входит в
+   * бюджет монстров и не смотрит на потолок тира, поэтому дракон может стоять
+   * на третьем этаже, а обычное население этажа от этого не меняется.
+   *
+   * Сажается ПОСЛЕ обстановки комнат, и это не вкусовщина:
+   * `materializeDungeonRoomContent` перебирает свой список монстров и вычищает тех, кто стоит в
+   * комнате, которую она отдаёт под трактир или под хранилище с сундуком. При
+   * посадке раньше шестнадцать редких встреч из трёхсот сорока пяти исчезали
+   * молча — этаж обещал дракона и не показывал никого.
+   */
+  const rareEncounter = (() => {
+    const entry = rollRareEncounter({
+      rng: createRng(mixSeed(floorSeed, 0x52415245)),
+      branch,
+      depth,
+    });
+    if (!entry) return null;
+    const taken = new Set([
+      `${spawn.x},${spawn.y}`,
+      `${exit.x},${exit.y}`,
+      ...(branchGate ? [`${branchGate.x},${branchGate.y}`] : []),
+      ...roomContent.events.map(({ x, y }) => `${x},${y}`),
+      ...roomContent.finds.map(({ x, y }) => `${x},${y}`),
+      ...loot.map(({ x, y }) => `${x},${y}`),
+      ...roomContent.monsters.map(({ x, y }) => `${x},${y}`),
+      ...passiveCreatures.map(({ x, y }) => `${x},${y}`),
+      ...doorPlan.doors.map(({ x, y }) => `${x},${y}`),
+    ]);
+    const spotRng = createRng(mixSeed(floorSeed, 0x53504f54));
+    /**
+     * Комната торговца тихая нарочно: обстановка комнат сама выносит оттуда
+     * всё живое. Редкая встреча садится последней и об этом не знает, поэтому
+     * дракон вставал рядом с лавочником — комната переставала быть тихой,
+     * а тест про неё падал. Такие комнаты исключаются целиком, не по клеткам.
+     */
+    const calm = roomContent.merchants
+      .map(({ roomIndex }) => rooms[roomIndex])
+      .filter(Boolean);
+    const inCalmRoom = (x, y) => calm.some((room) => (
+      x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height
+    ));
+    // Не под ногами на входе: у встречи должно быть время стать решением.
+    const open = [];
+    for (let y = 0; y < grid.length; y += 1) {
+      for (let x = 0; x < grid[y].length; x += 1) {
+        if (grid[y][x] !== '.' || taken.has(`${x},${y}`)) continue;
+        if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) < RARE_ENCOUNTER_MIN_DISTANCE) continue;
+        if (inCalmRoom(x, y)) continue;
+        open.push({ x, y });
+      }
+    }
+    if (open.length === 0) return null;
+    const spot = open[spotRng.int(0, open.length - 1)];
+    const instanceId = `monster-${depth}-rare`;
+    floorMonsters.push({ instanceId, id: entry.monsterId, x: spot.x, y: spot.y });
+    return Object.freeze({
+      id: entry.id,
+      kind: entry.kind,
+      monsterId: entry.monsterId,
+      instanceId,
+      omen: entry.omen,
+      x: spot.x,
+      y: spot.y,
+    });
+  })();
+
   return {
     branchGate,
+    rareEncounter,
     seed: floorSeed,
     // `seed` above is the FLOOR seed (`mixSeed(seed, depth)`), so nothing
     // downstream can recover the run seed from it. Everything that needs the
@@ -1345,7 +1415,7 @@ export function generateDungeon({
     doors: doorPlan.doors,
     surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
     events: roomContent.events,
-    monsters: roomContent.monsters,
+    monsters: floorMonsters,
     passiveCreatures,
     finds: roomContent.finds,
     loot,
@@ -2221,7 +2291,7 @@ function isFiniteInteger(value, min, max) {
  * save standing on a floor that had one alive.
  */
 const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
-  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+)$`)
+  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+|rare)$`)
 );
 
 /**

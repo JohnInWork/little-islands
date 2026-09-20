@@ -1,4 +1,5 @@
 import { BESTIARY_WAVE_TWO } from './dcss-rpg-bestiary.js';
+import { RARE_MONSTERS } from './dcss-rpg-rare-encounters.js';
 import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
 
 /**
@@ -779,6 +780,10 @@ export const MONSTER_CATALOG = Object.freeze([
   // больше, чем 7-9, потому что узким местом был не размер каталога, а
   // потолок тира на первых этажах. Подробности — в модуле.
   ...BESTIARY_WAVE_TWO,
+  // Редкие встречи. Все они `unique`, то есть обычный пул их не берёт никогда:
+  // на этаж их сажает только отдельный бросок редкой встречи, и потолок тира
+  // им не указ — в этом весь смысл дракона на третьем этаже.
+  ...RARE_MONSTERS,
 ]);
 export const LOOT_CATALOG = Object.freeze([
   {

@@ -73,11 +73,15 @@ export const BESTIARY_STYLES = Object.freeze(Object.keys(STYLES));
 const round = (value, places) => Number(value.toFixed(places));
 
 /**
- * Собирает запись каталога. `index` — порядковый номер в списке ниже; он
- * входит в каждое число профиля угрозы мелкой добавкой, поэтому двух
- * одинаковых профилей не бывает по построению, а не по везению.
+ * Собирает запись каталога. `index` — порядковый номер существа; он входит в
+ * каждое число профиля угрозы мелкой добавкой, поэтому двух одинаковых
+ * профилей не бывает по построению, а не по везению.
+ *
+ * Экспортируется, потому что редкие встречи собирают своих существ тем же
+ * способом и продолжают ту же нумерацию — иначе их профили начали бы
+ * совпадать с профилями второй волны.
  */
-function defineCreature(entry, index) {
+export function buildCreature(entry, index) {
   const { style, tier } = entry;
   const preset = STYLES[style];
   if (!preset) throw new TypeError(`Unknown bestiary style: ${style}`);
@@ -99,6 +103,11 @@ function defineCreature(entry, index) {
     ...(entry.large ? { large: true } : {}),
     ...(entry.element ? { element: entry.element } : {}),
     ...(entry.inflicts ? { inflicts: Object.freeze({ ...entry.inflicts }) } : {}),
+    // Редкие встречи: `unique` держит существо вне обычного пула — его сажает
+    // на этаж только бросок редкой встречи, и потолок тира ему не указ.
+    ...(entry.unique ? { unique: true } : {}),
+    ...(entry.neutral ? { neutral: true } : {}),
+    ...(Number.isInteger(entry.minDepth) ? { minDepth: entry.minDepth } : {}),
     threat: Object.freeze({
       attackRate: round(threat.attackRate + tier * 0.012 + index * 0.0007, 4),
       vision: round(threat.vision + tier * 0.16 + (index % 9) * 0.02, 3),
@@ -281,7 +290,7 @@ const ROSTER = [
 ];
 
 /** Вторая волна каталога: сто с лишним существ, готовых к `MONSTER_CATALOG`. */
-export const BESTIARY_WAVE_TWO = Object.freeze(ROSTER.map(defineCreature));
+export const BESTIARY_WAVE_TWO = Object.freeze(ROSTER.map(buildCreature));
 
 /** Их имена для экрана смерти, в том же формате, что и у первой волны. */
 export const BESTIARY_WAVE_TWO_NAMES = Object.freeze(Object.fromEntries(

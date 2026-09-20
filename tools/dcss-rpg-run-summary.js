@@ -1,4 +1,5 @@
 import { BESTIARY_WAVE_TWO_NAMES } from './dcss-rpg-bestiary.js';
+import { RARE_MONSTER_NAMES } from './dcss-rpg-rare-encounters.js';
 import { markedMonsterName } from './dcss-rpg-monster-marks.js';
 /**
  * Run summary: what the death/victory screen shows. Pure and bilingual; the
@@ -14,6 +15,7 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   // Вторая волна бестиария приносит свои имена с собой; всё, что ниже,
   // перекрывает их, если вдруг понадобится переименовать существо здесь.
   ...BESTIARY_WAVE_TWO_NAMES,
+  ...RARE_MONSTER_NAMES,
   goblin: pair('Гоблин', 'Goblin'),
   'electric-eel': pair('Электрический угорь', 'Electric eel'),
   'tomb-revenant': pair('Гробничный ревенант', 'Tomb revenant'),

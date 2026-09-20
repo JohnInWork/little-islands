@@ -114,8 +114,10 @@ test('the monster pool opens one rung at a time and tops out at the end of the r
       if (isCityDepth(depth)) continue;
       for (const spawn of generateDungeon({ seed, depth }).monsters) {
         const definition = monsterById(spawn.id);
-        // Water and chapter creatures are seated by their own streams, not the pool.
-        if (definition.spawn || definition.chapter) continue;
+        // Water, chapter and rare creatures are seated by their own streams,
+        // not the pool. A dragon standing on floor one is the whole point of
+        // the rare encounter, and the pool ladder has nothing to say about it.
+        if (definition.spawn || definition.chapter || definition.unique) continue;
         seen.add(definition.tier);
       }
     }

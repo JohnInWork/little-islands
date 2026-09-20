@@ -23,8 +23,13 @@ test('treasure room content is deterministic and consumes the existing floor bud
     assert.deepEqual(again.roomEncounters, dungeon.roomEncounters);
     assert.deepEqual(again.monsters, dungeon.monsters);
     assert.deepEqual(again.events, dungeon.events);
-    // Water and chapter creatures are seated by their own streams, outside the budget.
-    const pooled = dungeon.monsters.filter(({ id }) => !monsterById(id).spawn && !monsterById(id).chapter);
+    // Water, chapter and rare creatures are seated by their own streams,
+    // outside the budget. The rare encounter is the whole point of the third:
+    // a dragon on floor three must not cost the floor one of its gnolls.
+    const pooled = dungeon.monsters.filter(({ id }) => {
+      const definition = monsterById(id);
+      return !definition.spawn && !definition.chapter && !definition.unique;
+    });
     assert.ok(pooled.length <= conditionedFloor(
       dungeon.scaling,
       conditionEffects(dungeon.conditionIds),

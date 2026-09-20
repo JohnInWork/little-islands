@@ -14210,6 +14210,8 @@ function replaceFloor(nextDepth, arrival = null) {
   // are added on top of the environment the floor just built.
   applyCampProps();
   placeFloorGhost();
+  // Этаж успел собраться — можно сказать, что на нём не так.
+  showOmenNote(dungeon.rareEncounter?.omen);
   revealed.clear();
   for (const cell of run.floor.revealed) revealed.add(cell);
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
@@ -15027,6 +15029,24 @@ function showAmbientNote(id) {
   ambientNote.style.setProperty('--ambient-colour', ambientSceneById(id)?.colour ?? '#9fb6d8');
   ambientNote.classList.add('visible');
   ambientNoteTimer = Math.max(AMBIENT_NOTE_SECONDS, (ambientScene?.duration ?? 0) + 1);
+}
+
+/**
+ * Примета редкой встречи.
+ *
+ * Дракон, выпавший на третьем этаже, убивает героя с одного удара. Это честно
+ * ровно в том случае, если игрок увидел знак раньше, чем зубы: обойти этаж —
+ * тоже решение, но его надо дать принять. Канал тот же, что у прочих заметок
+ * об обстановке, только текст приходит с самого этажа, а не из каталога сцен.
+ */
+function showOmenNote(copy) {
+  if (!ambientNote || !copy) return;
+  const text = copy[itemDetailLanguage === 'en' ? 'en' : 'ru'];
+  if (!text) return;
+  ambientNoteText.textContent = text;
+  ambientNote.style.setProperty('--ambient-colour', '#c4705a');
+  ambientNote.classList.add('visible');
+  ambientNoteTimer = Math.max(AMBIENT_NOTE_SECONDS, 6);
 }
 
 function rememberAmbientSceneSeen(id) {
