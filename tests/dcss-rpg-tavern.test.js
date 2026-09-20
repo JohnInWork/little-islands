@@ -507,3 +507,24 @@ test('the keeper sells supper, and every man in the room can be walked up to', a
     }
   }
 });
+
+test('в большом зале сидят по всей ширине, а не кучей у входа', () => {
+  // Иван: «таверна огромная, круто, но все NPC столкнулись в одну кучу — они
+  // должны быть разбросаны, чтобы подойти к одному, ко второму».
+  const interior = { x: 0, y: 0, w: 25, h: 5 };
+  const door = { x: 12, y: 5 };
+  const seats = tavernSeats({ interior, door });
+  assert.equal(seats.length, 4, 'в зале на двадцать пять клеток сели не все');
+  const columns = seats.map(({ x }) => x).sort((a, b) => a - b);
+  // Первый — у левой стены, последний — у правой: зал занят целиком.
+  assert.ok(columns[0] <= 2, `первое место слишком далеко от стены: ${columns[0]}`);
+  assert.ok(columns.at(-1) >= interior.w - 3, `последнее место не дошло до стены: ${columns.at(-1)}`);
+  // И между соседями всегда есть проход.
+  for (let index = 1; index < columns.length; index += 1) {
+    assert.ok(columns[index] - columns[index - 1] >= 3,
+      `места ${columns[index - 1]} и ${columns[index]} стоят вплотную`);
+  }
+  // Узкий зал раскладку не менял и не должен: там всё и так рядом.
+  const small = tavernSeats({ interior: { x: 0, y: 0, w: 13, h: 5 }, door: { x: 6, y: 5 } });
+  assert.deepEqual(small.map(({ x }) => x), [2, 5, 8, 11]);
+});

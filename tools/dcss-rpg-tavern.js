@@ -242,12 +242,32 @@ export const TAVERN_WIDE_ROOM = 9;
  * mercenary can be walked up to from the front. That is the whole of «чтобы
  * можно было подойти ко всем и поспрашивать»: not more space, a free row.
  */
+/**
+ * Столы с местами — по всей ширине зала, а не шеренгой у входа.
+ *
+ * Шаг был жёсткий: четыре пары на местах 1, 4, 7 и 10 от левой стены. В
+ * комнате на тринадцать клеток это ровно весь зал, а в большой таверне —
+ * угол: все четверо сидели в первой трети, остальное стояло пустым. Иван
+ * увидел это в городе: «таверна огромная, круто, но все NPC столкнулись в
+ * одну кучу — они должны быть разбросаны, чтобы подойти к одному, ко второму».
+ *
+ * Пар по-прежнему четыре — по числу тех, кто в таверне сидит, — но они
+ * разъезжаются по ширине: первый стол у левой стены, последнее место у
+ * правой, остальные поровну между ними. На тринадцати клетках раскладка
+ * выходит прежней, на двадцати пяти зал наконец занят целиком.
+ */
 function wideTablePairs(w) {
+  const usable = w - 2;
+  const count = Math.max(0, Math.min(4, Math.floor((usable + 1) / 3)));
+  if (count === 0) return [];
+  // Пара занимает две клетки, поэтому последний стол встаёт на одну левее края.
+  const span = usable - 1;
+  const step = count > 1 ? (span - 1) / (count - 1) : 0;
   const pairs = [];
-  for (let index = 0; index < 4; index += 1) {
-    const u = 1 + index * 3;
-    if (u + 1 > w - 2) break;
-    pairs.push({ table: u, seat: u + 1 });
+  for (let index = 0; index < count; index += 1) {
+    const table = 1 + Math.round(index * step);
+    if (table + 1 > w - 2) break;
+    pairs.push({ table, seat: table + 1 });
   }
   return pairs;
 }
