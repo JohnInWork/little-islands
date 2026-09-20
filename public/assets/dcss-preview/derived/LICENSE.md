@@ -33,3 +33,9 @@ the game now has thirty spellbooks, so six were painted.
 The library ships no bandage of any kind, and a bandage drawn as a scroll reads
 as a spell. The ration is the right shape — a wrapped bundle — so it was
 repainted white and lost its bread.
+
+## `hud/`
+
+| file | what |
+| --- | --- |
+| `moon.png` | Месяц для шкалы сна. Нарисован с нуля в палитре игры (`--bone`), без сглаживания: ничего похожего на «сон» в библиотеке нет, а вектор со стороны рядом с тридцатидвойками читался бы чужим. |

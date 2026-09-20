@@ -46,6 +46,16 @@ export const RUNTIME_FALLBACK_PATHS = Object.freeze([
   'item/ring/i-regeneration.png',
 ]);
 
+/**
+ * Значки двух шкал в HUD. Хлеб — из библиотеки, месяц нарисован нами: ничего
+ * похожего на «сон» в паке нет вовсе, а вектор с game-icons.net рядом с
+ * тридцатидвойками смотрелся бы чужим.
+ */
+export const HUD_METER_PATHS = Object.freeze([
+  'item/food/bread_ration.png',
+  'derived/hud/moon.png',
+]);
+
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */
 export function requiredAssetPaths(extra = []) {
   return Object.freeze([...new Set([
@@ -75,6 +85,7 @@ export function requiredAssetPaths(extra = []) {
     ...BRANCH_STAIR_PATHS,
     ...BRANCH_RUNE_PATHS,
     ...RUNTIME_FALLBACK_PATHS,
+    ...HUD_METER_PATHS,
     ...MERCHANT_ACTOR_PATHS,
     MERCHANT_ICON_PATH,
     ...extra,
