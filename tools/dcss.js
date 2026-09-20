@@ -3450,7 +3450,12 @@ function renderItemDetail(item) {
 
   const action = itemDetailOffer ?? selectedActionModel(selection);
   itemDetailAction.textContent = handChoice ? menuLabels.mainHand : action.label;
-  itemDetailAction.setAttribute('aria-label', action.ariaLabel);
+  // У выбора руки своя подпись для чтения вслух: общая говорит «Надеть», а
+  // кнопок здесь две, и надо знать, в какую именно.
+  itemDetailAction.setAttribute(
+    'aria-label',
+    handChoice ? `${menuLabels.whichHand} ${menuLabels.mainHand}` : action.ariaLabel,
+  );
   itemDetailAction.disabled = itemDetailOffer
     ? false
     : action.disabled || !selection || selection.item.uid !== item.uid;
@@ -3999,6 +4004,14 @@ function artifactAvailable() {
 function onExitStair() {
   return Math.floor(hero.x / TILE) === dungeon.exit.x
     && Math.floor(hero.y / TILE) === dungeon.exit.y;
+}
+
+/** Клетка прибытия — она же лестница наверх; в городе её нет. */
+function onAscentStair() {
+  return dungeon.depth > CITY_DEPTH
+    && runStatus === 'playing'
+    && Math.floor(hero.x / TILE) === dungeon.spawn.x
+    && Math.floor(hero.y / TILE) === dungeon.spawn.y;
 }
 
 function activeBoss() {
@@ -8686,6 +8699,9 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-stash') {
     return { kind: 'camp-stash' };
   }
+  if (entry.kind === 'stair-up') {
+    return { kind: 'stair-up', icon: ascentVisual().path };
+  }
   if (entry.kind === 'road-end') {
     const prize = roadPrize();
     return {
@@ -8912,6 +8928,8 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'portal') return distance <= 1 && Boolean(run.portal);
   // The stair is a tile the hero stands on, not one they stand beside.
   if (entry.kind === 'road-end') return distance === 0;
+  // Лестница наверх — клетка под ногами, а не соседняя.
+  if (entry.kind === 'stair-up') return distance === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'recruiter') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'tavern-hire') return distance <= 1 && entry.value.dead === 0;
@@ -10148,6 +10166,7 @@ function nearbyContextTargets() {
   add('companion', nearbyCompanion());
   add('city-gate', nearbyCityGate());
   if (artifactAvailable() && onExitStair()) add('road-end', dungeon.exit);
+  if (onAscentStair()) add('stair-up', dungeon.spawn);
   add('jail-door', nearbyJailDoor());
   add('priest', monsters.find((monster) => monster.id === CITY_PRIEST_ID && withinReach(monster)));
   add('tavern-hire', monsters.find((monster) => mercenaryIdForHireMonster(monster.id) && withinReach(monster)));
@@ -10359,6 +10378,11 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   },
   sanctuary() {
     healAtSanctuary();
+    return true;
+  },
+  'stair-up'() {
+    closeContextActions();
+    climbFloor();
     return true;
   },
   'road-end'({ action }) {
@@ -14153,10 +14177,15 @@ function resolveWorldInteractions() {
     descendFloor();
     return;
   }
-  if (onStair(dungeon.spawn) && dungeon.depth > CITY_DEPTH && runStatus === 'playing') {
-    climbFloor();
-    return;
-  }
+  /*
+   * Наверх уводит кнопка, а не шаг.
+   *
+   * Клетка прибытия и есть лестница наверх, и раньше шаг на неё молча
+   * отправлял в город: игрок, обходя вход, терял этаж без единого вопроса —
+   * я поймала это трижды за один проход, ни разу того не желая. Теперь на
+   * ней открывается обычное взаимодействие «Лестница наверх», и оно помечено
+   * «спрашивать»: одним касанием с этажа не уходят.
+   */
   if (!onStair(dungeon.exit)) return;
   if (!canLeaveDungeonFloor({
     depth: dungeon.depth,
@@ -17229,6 +17258,16 @@ window.addEventListener('keydown', (event) => {
   };
   const direction = directions[event.code];
   if (!direction) return;
+  /*
+   * За открытым окном герой не ходит.
+   *
+   * Стрелки двигали его при любом экране: при титульном меню, при открытом
+   * рюкзаке, при карточке действия. Игрок видел меню, нажимал стрелку «чтобы
+   * выбрать пункт» — а герой в это время шёл по этажу за картинкой, мог
+   * дойти до развилки и спуститься. Ходить можно только там, где видно, куда
+   * идёшь.
+   */
+  if (uiScreen !== 'game') return;
   event.preventDefault();
   if (!event.repeat) inputGesture += 1;
   queueDirectionalMove(direction);

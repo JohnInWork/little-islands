@@ -64,13 +64,21 @@ test('окно нужно только там, где есть выбор', () =
     language: 'ru',
   });
   assert.equal(стражник.confirm, true);
+
+  // Лестница наверх — тоже: одно действие, но уводит с этажа.
+  const лестница = contextActionModel({
+    target: { kind: 'stair-up', icon: 'dngn/gateways/stone_stairs_up.png' },
+    language: 'ru',
+  });
+  assert.equal(лестница.actions.length, 1);
+  assert.equal(лестница.confirm, true);
 });
 
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'sanctuary',
     'guard',
-    'city-gate', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
+    'city-gate', 'stair-up', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);

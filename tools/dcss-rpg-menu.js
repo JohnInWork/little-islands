@@ -80,8 +80,10 @@ const COPY = Object.freeze({
       emptySlot: 'Пустой слот',
       bothHands: 'Занята двуручным',
       whichHand: 'В какую руку?',
-      mainHand: 'Правая',
-      offHand: 'Левая',
+      // Кнопка стоит одна, без вопроса над ней, и «Правая» читается
+      // обрывком: правая — что? Предлог договаривает фразу.
+      mainHand: 'В правую',
+      offHand: 'В левую',
       salvage: 'Выбрать предметы для массового разбора',
       salvageConfirm: 'Разобрать выбранные предметы',
       salvageShort: 'Разбор',
@@ -195,8 +197,8 @@ const COPY = Object.freeze({
       emptySlot: 'Empty slot',
       bothHands: 'Held in both hands',
       whichHand: 'Which hand?',
-      mainHand: 'Main hand',
-      offHand: 'Off hand',
+      mainHand: 'Right hand',
+      offHand: 'Left hand',
       salvage: 'Select items for bulk salvage',
       salvageConfirm: 'Salvage selected items',
       salvageShort: 'Salvage',

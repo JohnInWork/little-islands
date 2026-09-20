@@ -253,11 +253,16 @@ const COPY = Object.freeze({
     // not bend into a sentence; the guard's own words come after it.
     guardWanted: (label, fine) => `${label}. «Плати ${fine} — или ночуешь в камере.»`,
     gateName: 'Развилка',
-    gateDescription: 'Отсюда четыре дороги. Вниз в пещеры, за ворота под небо, вниз в старые подвалы — или домой, с тем, что уже унёс.',
-    retireStake: (gold) => `Унесёшь ${gold}●`,
+    // Дорог три, и кнопок три. Четвёртую — «домой, с тем, что уже унёс» —
+    // Иван убрал сам («забег заканчивается только новым забегом»), а текст
+    // остался обещать её ещё долго после того, как кнопка исчезла.
+    gateDescription: 'Отсюда три дороги. Вниз в пещеры, за ворота под небо или вниз, в старые подвалы.',
     roadEndName: 'Конец написанной дороги',
     roadEndDescription: 'Страж пал, артефакт твой. Но лестница идёт дальше, и никто не знает, куда.',
     roadEndClaim: 'Забег закончен победой',
+    stairUpName: 'Лестница наверх',
+    stairUpDescription: 'Ведёт обратно в город. Этаж останется как есть и дождётся.',
+    stairUpClimb: 'В город',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     beyondEndName: 'Конец неписаной дороги',
     beyondEndDescription: 'Дальше лестница идёт вниз без конца и без счёта. Эта руна — последнее, что здесь ещё кому-то принадлежит.',
@@ -344,8 +349,7 @@ const COPY = Object.freeze({
     companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. “Pay ${fine} or you sleep in a cell.”`,
     gateName: 'The fork',
-    gateDescription: 'Four roads from here. Caves below, open sky beyond the gate, the old vaults under the town — or home, with what you already carry.',
-    retireStake: (gold) => `You bank ${gold}●`,
+    gateDescription: 'Three roads from here. Caves below, open sky beyond the gate, or the old vaults under the town.',
     beyondEndName: 'The end of the unwritten road',
     beyondEndDescription: 'Below this the stair runs down without end and without count. This rune is the last thing here that still belongs to anyone.',
     beyondEndTake: 'Take the rune',
@@ -353,6 +357,9 @@ const COPY = Object.freeze({
     roadEndName: 'The end of the written road',
     roadEndDescription: 'The warden is down and the artefact is yours. But the stair keeps going, and nobody knows where.',
     roadEndClaim: 'The run ends in victory',
+    stairUpName: 'Stairs up',
+    stairUpDescription: 'Back to the city. The floor stays as it is and waits.',
+    stairUpClimb: 'To the city',
     roadEndDeeper: 'This stair does not carry anyone back up',
     sanctuaryName: 'Sanctuary',
     sanctuaryDescription: 'A stone people stop at before going down. It takes coins and gives strength back.',
@@ -602,6 +609,27 @@ export const INTERACTION_REGISTRY = Object.freeze([
         // it out — «забег заканчивается только новым забегом» — and with a run
         // paid for being played there is nothing left to cash in anyway.
       ],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * Лестница наверх — шаг обратно в город, и его нельзя сделать нечаянно.
+     *
+     * Клетка, на которой герой появился, и есть эта лестница, и раньше шаг на
+     * неё молча уводил наверх: игрок, обходя вход, терял этаж без единого
+     * вопроса. Действие обычное, но помечено `confirm`: одним касанием с
+     * этажа не уходят.
+     */
+    id: 'stair-up',
+    confirm: true,
+    command: 'stair-up',
+    matches: (target) => target?.kind === 'stair-up' && typeof target.icon === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.stairUpName,
+      description: copy.stairUpDescription,
+      icon: target.icon,
+      accent: '#9fb0a8',
+      actions: [{ id: 'climb', label: copy.stairUpClimb, glyph: '\u25B2' }],
     }),
   }),
   defineInteraction({
