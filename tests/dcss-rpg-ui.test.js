@@ -566,3 +566,55 @@ test('a state is read in a window, not in a note that erases itself', async () =
   assert.match(runtime, /closeLoreButton\.addEventListener\('click', closeLore\)/);
   assert.match(runtime, /event\.code === 'Escape' && loreIsOpen\(\)/);
 });
+
+/**
+ * «Интерфейс перегружен» — разбор показал, что часть перегруза была не
+ * замыслом, а отсутствием одной строки в стилях.
+ *
+ * Браузерное `[hidden] { display: none }` живёт на нулевой специфичности, и
+ * любой `.класс { display: grid }` его перебивает. Шесть узлов игра честно
+ * прятала кодом, а экран их всё равно показывал: карточку навыка до выбора,
+ * панель заклинаний без единого заклинания, условия забега, кнопку «Начать
+ * заново», кнопку портала в городе и вкладки рюкзака.
+ */
+test('атрибут hidden сильнее любого класса', async () => {
+  const css = await readFile(cssUrl, 'utf8');
+  assert.match(css, /\[hidden\] \{\s*display: none !important;\s*\}/);
+  // И правило стоит рано: позже него идут сотни классов с display, и порядок
+  // важен только для одинаковой специфичности — но !important снимает и это,
+  // поэтому проверяем сам факт, а не место.
+  const html = await readFile(htmlUrl, 'utf8');
+  for (const id of ['character-spells', 'inventory-filters', 'open-portal']) {
+    assert.ok(html.includes(`id="${id}"`), `${id} исчез из разметки`);
+  }
+});
+
+/**
+ * «Над двумя предметами висели семь управляющих кнопок.» Фильтр по двум
+ * вещам не экономит ни одного движения — он только занимает верх экрана.
+ */
+test('фильтры рюкзака появляются, когда в рюкзаке есть что искать', async () => {
+  const { INVENTORY_CONTROLS_THRESHOLD, inventoryControlsUseful } =
+    await import('../tools/dcss-rpg-inventory-ui.js');
+  assert.equal(inventoryControlsUseful(0), false);
+  assert.equal(inventoryControlsUseful(INVENTORY_CONTROLS_THRESHOLD - 1), false);
+  assert.equal(inventoryControlsUseful(INVENTORY_CONTROLS_THRESHOLD), true);
+  assert.equal(inventoryControlsUseful(null), false);
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(runtime, /inventoryFilters\.hidden = !controls;/);
+  assert.match(runtime, /inventoryViewSwitcher\.hidden = !controls;/);
+  // Спрятанная вкладка не имеет права оставить рюкзак отфильтрованным: вещи
+  // пропали бы, а кнопки, которая это объяснит, на экране больше нет.
+  assert.match(runtime, /if \(!controls && inventoryFilter !== 'all'\) \{/);
+});
+
+/** Объяснение по запросу: двести тридцать пять знаков не висят всегда. */
+test('описание характеристики раскрывается тапом', async () => {
+  const [runtime, css] = await Promise.all([readFile(runtimeUrl, 'utf8'), readFile(cssUrl, 'utf8')]);
+  assert.match(runtime, /name\.className = 'character-attribute-name';/);
+  assert.match(runtime, /name\.setAttribute\('aria-expanded', String\(openAttributeId === id\)\);/);
+  assert.match(runtime, /description\.hidden = openAttributeId !== id;/);
+  // Повторный тап закрывает — иначе раскрытое уже не убрать.
+  assert.match(runtime, /openAttributeId = openAttributeId === id \? null : id;/);
+  assert.match(css, /\.character-attribute-name\[aria-expanded='true'\]/);
+});

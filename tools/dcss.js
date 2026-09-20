@@ -112,7 +112,7 @@ import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
-import { INVENTORY_FILTERS, inventorySections } from './dcss-rpg-inventory-ui.js';
+import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
 import { characterSheetModel } from './dcss-rpg-character-sheet.js';
 import { cloneSkillState, deriveSkillCapabilities, learnSkill } from './dcss-rpg-skills.js';
 import { skillById } from './dcss-rpg-skill-content.js';
@@ -3449,6 +3449,9 @@ function learnHeroSkill(skillId, expectedRank) {
  * the same reason it gates a skill: what you learned on the road waits until
  * you have slept on it.
  */
+/** Какая характеристика сейчас раскрыта; ничего — обычное состояние. */
+let openAttributeId = null;
+
 function renderCharacterAttributes() {
   const copy = attributeCopy(itemDetailLanguage);
   const rested = canSpendSkillPoints(hero.rest);
@@ -3459,10 +3462,26 @@ function renderCharacterAttributes() {
     const row = document.createElement('div');
     row.className = 'character-attribute-row';
     row.setAttribute('role', 'listitem');
-    const name = document.createElement('b');
+    /**
+     * Объяснение — по запросу, а не всегда.
+     *
+     * Три описания характеристик — двести тридцать пять знаков, и это две
+     * трети всего текста экрана. Прочесть их нужно один раз, а висели они
+     * каждый раз. Тап по названию раскрывает и прячет — тем же движением,
+     * каким уже объясняются шкалы голода и сна.
+     */
+    const name = document.createElement('button');
+    name.type = 'button';
+    name.className = 'character-attribute-name';
     name.textContent = copy[id].name;
+    name.setAttribute('aria-expanded', String(openAttributeId === id));
+    name.addEventListener('click', () => {
+      openAttributeId = openAttributeId === id ? null : id;
+      renderCharacterAttributes();
+    });
     const description = document.createElement('span');
     description.textContent = copy[id].description;
+    description.hidden = openAttributeId !== id;
     const value = document.createElement('output');
     value.textContent = String(hero.attributes[id]);
     const raise = document.createElement('button');
@@ -7301,6 +7320,20 @@ function updateSalvageUi() {
 function renderPack() {
   packGrid.replaceChildren();
   const labels = currentMainMenuModel().labels;
+  /**
+   * Фильтры и переключатель вида появляются только когда в рюкзаке есть что
+   * искать. Над двумя вещами они не экономили ни одного движения — только
+   * занимали верх экрана и просили в себе разобраться.
+   */
+  const controls = inventoryControlsUseful(backpackItems.filter(Boolean).length);
+  inventoryFilters.hidden = !controls;
+  inventoryViewSwitcher.hidden = !controls;
+  // Спрятанная вкладка не должна оставлять рюкзак отфильтрованным: иначе вещи
+  // пропадают, а кнопки, которая это объяснит, на экране больше нет.
+  if (!controls && inventoryFilter !== 'all') {
+    inventoryFilter = 'all';
+    updateInventoryFilterUi();
+  }
   const sections = inventorySections({
     inventory: backpackItems.filter(Boolean).map((item) => item.uid),
     equipment: selected,
