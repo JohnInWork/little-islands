@@ -16,8 +16,11 @@ const implementations = {
   },
 };
 const systems = ['trap-detection'];
+// Every skill's second and third rank now asks for an attribute; a fixture
+// about levels and points hands over a hero who has grown into all three.
+const GROWN = Object.freeze({ strength: 40, agility: 40, intelligence: 40 });
 const options = (state = createSkillState(2), heroLevel = 2) => ({
-  state, heroLevel, runStatus: 'playing', implementations, systems,
+  state, heroLevel, runStatus: 'playing', implementations, systems, attributes: GROWN,
 });
 const firstSkill = (model) => model.groups[0].skills[0];
 
@@ -111,7 +114,7 @@ test('pyromancy spends the same level point but also requires intelligence', () 
   });
   const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'pyromancy');
   assert.equal(blocked.canLearn, false);
-  assert.equal(blocked.reasonLabel, 'Нужен интеллект 4');
+  assert.equal(blocked.reasonLabel, 'Нужно: Интеллект 4');
 
   const availableModel = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 4 },
@@ -126,7 +129,7 @@ test('cryomancy is an implemented intelligence-gated three-stage mechanic', () =
   });
   const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'cryomancy');
   assert.equal(blocked.canLearn, false);
-  assert.equal(blocked.reasonLabel, 'Нужен интеллект 4');
+  assert.equal(blocked.reasonLabel, 'Нужно: Интеллект 4');
 
   const availableModel = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', attributes: { intelligence: 4 },
@@ -144,7 +147,7 @@ test('storm magic exposes its wet-chain rules and intelligence gate in both lang
   });
   const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
   assert.equal(blocked.canLearn, false);
-  assert.equal(blocked.reasonLabel, 'Нужен интеллект 5');
+  assert.equal(blocked.reasonLabel, 'Нужно: Интеллект 5');
   assert.match(blocked.description, /1\/2\/3 мокрые цели/);
 
   const availableModel = skillMenuModel({
@@ -219,7 +222,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
 
 test('rank advancement, level requirements and points use current gameplay rules', () => {
   const initialOptions = options();
-  const learned = learnSkill({ ...initialOptions, skillId: 'trap-sense', expectedRank: 0 });
+  const learned = learnSkill({ ...initialOptions, skillId: 'trap-sense', expectedRank: 0, attributes: { strength: 40, agility: 40, intelligence: 40 } });
   assert.equal(learned.ok, true);
   const rankOne = firstSkill(skillMenuModel(options(learned.state)));
   assert.equal(rankOne.rank, 1);

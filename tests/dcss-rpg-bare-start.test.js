@@ -50,12 +50,12 @@ test('a new run starts with worn clothes, a rusty sword, one potion, one meal an
   for (const slot of ['cloak', 'head', 'hand2', 'gloves', 'belt', 'boots', 'ring1', 'ring2', 'amulet']) {
     assert.equal(run.equipment[slot], null, `${slot} starts empty`);
   }
-  assert.equal(run.hero.intelligence, 3);
+  assert.equal(run.hero.attributes.intelligence, 3);
   assert.deepEqual(run.hero.spells.knownSpellIds, []);
   assert.deepEqual(run.hero.spells.preparedSpellIds, [null, null, null]);
   assert.equal(validateRun(run), true);
   assert.doesNotThrow(() => hydrateDungeon(run));
-  const bar = spellBarModel({ state: run.hero.spells, intelligence: run.hero.intelligence, language: 'ru' });
+  const bar = spellBarModel({ state: run.hero.spells, intelligence: run.hero.attributes.intelligence, language: 'ru' });
   assert.ok(bar.slots.every((slot) => slot.empty), 'the HUD column has nothing to show');
 });
 

@@ -36,6 +36,7 @@ const capabilitiesAt = (rank) => {
   for (let step = 0; step < rank; step += 1) {
     state = learnSkill({
       state, heroLevel: 10, runStatus: 'playing', skillId: 'necromancy', expectedRank: step,
+      attributes: { strength: 40, agility: 40, intelligence: 40 },
     }).state;
   }
   return deriveSkillCapabilities(state);

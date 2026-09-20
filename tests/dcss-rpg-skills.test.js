@@ -29,6 +29,13 @@ const TRAP_IMPLEMENTATION = {
 const implementations = { 'trap-sense': TRAP_IMPLEMENTATION };
 const systems = ['trap-detection'];
 const neutral = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0, intelligence: 0 };
+/**
+ * A hero who has grown into their skills. The second and third rank of every
+ * skill now ask for an attribute, so a fixture about levels and points has to
+ * hand one over — otherwise it is testing the attribute gate by accident.
+ */
+const GROWN = Object.freeze({ strength: 12, agility: 12, intelligence: 12 });
+
 const command = (state, heroLevel, expectedRank = 0, overrides = {}) => ({
   state,
   heroLevel,
@@ -37,6 +44,7 @@ const command = (state, heroLevel, expectedRank = 0, overrides = {}) => ({
   expectedRank,
   implementations,
   systems,
+  attributes: GROWN,
   ...overrides,
 });
 

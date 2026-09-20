@@ -1,3 +1,4 @@
+import { attributeCopy } from './dcss-rpg-attributes.js';
 import { SKILL_CATEGORIES, SKILL_CATALOG } from './dcss-rpg-skill-content.js';
 import {
   SKILL_IMPLEMENTATIONS,
@@ -11,6 +12,7 @@ import {
 
 const COPY = Object.freeze({
   ru: Object.freeze({
+    language: 'ru',
     title: 'Навыки',
     points: 'Очки навыков',
     learn: 'Изучить',
@@ -19,7 +21,7 @@ const COPY = Object.freeze({
     level: (level) => `Нужен уровень ${level}`,
     noPoints: 'Нет очков навыков',
     maxRank: 'Максимальный ранг',
-    intelligence: (value) => `Нужен интеллект ${value}`,
+    attribute: (name, value) => `Нужно: ${name} ${value}`,
     bookModified: 'Изменено книгой',
     notPlaying: 'Доступно во время забега',
     needsSleep: 'Сначала выспись: в лагере, дома или на постоялом дворе',
@@ -30,6 +32,7 @@ const COPY = Object.freeze({
     rankNeeds: (rank, level) => `${rank}-я ступень открывается на ${level} уровне`,
   }),
   en: Object.freeze({
+    language: 'en',
     title: 'Skills',
     points: 'Skill points',
     learn: 'Learn',
@@ -38,7 +41,7 @@ const COPY = Object.freeze({
     level: (level) => `Requires level ${level}`,
     noPoints: 'No skill points',
     maxRank: 'Maximum rank',
-    intelligence: (value) => `Requires intelligence ${value}`,
+    attribute: (name, value) => `Requires ${name} ${value}`,
     bookModified: 'Modified by a book',
     notPlaying: 'Available during a run',
     needsSleep: 'Sleep on it first: a camp, a bed at home, or an inn',
@@ -55,7 +58,14 @@ function reasonLabel(reason, definition, rank, copy, availability = {}) {
     case 'available': return '';
     case 'level-required': return copy.level(definition.rankLevels[rank]);
     case 'no-points': return copy.noPoints;
-    case 'intelligence-required': return copy.intelligence(availability.requiredValue);
+    // One line for all three: the skill says which number it wants and how big.
+    case 'strength-required':
+    case 'agility-required':
+    case 'intelligence-required':
+      return copy.attribute(
+        attributeCopy(copy.language)[availability.requiredAttribute].name,
+        availability.requiredValue,
+      );
     case 'max-rank': return copy.maxRank;
     case 'not-playing': return copy.notPlaying;
     // Nothing is lost — the points wait until the hero has slept on them.
@@ -108,7 +118,7 @@ export function skillMenuModel({
   // is a mystery.
   rested = true,
 } = {}) {
-  if (!validateSkillState(state, heroLevel)) {
+  if (!validateSkillState(state, heroLevel, attributes?.spent ?? 0)) {
     throw new TypeError('Skill menu requires valid skill state matching the hero level');
   }
   if (!validateSkillRankAdjustments(rankAdjustments)) {

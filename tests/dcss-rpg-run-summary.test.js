@@ -76,8 +76,8 @@ test('the summary lists floor, time, kills, gold, level and seed, plus the cause
 });
 
 test('run statistics are a strict persisted field of save v35', () => {
-  assert.equal(SAVE_VERSION, 50);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v50');
+  assert.equal(SAVE_VERSION, 51);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v51');
   assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v48');
   assert.deepEqual(createRunStats(), { kills: 0, activeSeconds: 0, killerId: null });
   assert.deepEqual(createRunStats({ kills: 3, activeSeconds: 12.5, killerId: 'goblin', extra: 1 }), { kills: 3, activeSeconds: 12.5, killerId: 'goblin' });
@@ -110,7 +110,7 @@ test('v34 saves gain empty statistics while keeping their merchant purses and co
   legacy.floor.merchants[0].gold = 7;
   legacy.floor.merchants[0].purchasedEntryIds = [dungeon.merchants[0].stock[0].entryId];
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.deepEqual(migrated.stats, { kills: 0, activeSeconds: 0, killerId: null });
   assert.equal(migrated.floor.merchants[0].gold, 7, 'the persisted purse is not rebuilt');
   assert.deepEqual(migrated.floor.merchants[0].purchasedEntryIds, [dungeon.merchants[0].stock[0].entryId]);
@@ -124,7 +124,7 @@ test('v34 saves gain empty statistics while keeping their merchant purses and co
   older.floor.merchantPurchases = [];
   delete older.floor.merchants;
   const fromOlder = migrateLegacyRun(older);
-  assert.equal(fromOlder.version, 50);
+  assert.equal(fromOlder.version, 51);
   assert.deepEqual(fromOlder.stats, { kills: 0, activeSeconds: 0, killerId: null });
   assert.equal(validateRun(fromOlder), true);
 });

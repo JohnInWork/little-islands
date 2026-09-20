@@ -214,8 +214,8 @@ test('v13 saves migrate without inventing starter tools across the expanded-run 
   legacy.started = true;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(SAVE_VERSION, 50);
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v50');
+  assert.equal(SAVE_VERSION, 51);
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v51');
   assert.equal(migrated.items.some(({ id }) => Object.values(CHEST_RESOURCE_IDS).includes(id)), false);
   assert.deepEqual(migrated.floor.revealed, []);
   assert.equal(migrated.started, false);

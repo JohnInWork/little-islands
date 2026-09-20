@@ -56,7 +56,7 @@ test('production Trap Sense ranks detect at actual 2/3/4-cell Manhattan distance
   const base = deriveSkillCapabilities(state);
   assert.deepEqual(discoverTraps({ traps, origin: { x: 1, y: 1 }, capabilities: base, hasLineOfSight: allVisible }), []);
   for (let rank = 1; rank <= 3; rank += 1) {
-    const learned = learnSkill({ state, heroLevel: 6, runStatus: 'playing', skillId: 'trap-sense', expectedRank: rank - 1 });
+    const learned = learnSkill({ state, heroLevel: 6, runStatus: 'playing', skillId: 'trap-sense', expectedRank: rank - 1, attributes: { strength: 40, agility: 40, intelligence: 40 } });
     assert.equal(learned.ok, true);
     state = learned.state;
     const capabilities = deriveSkillCapabilities(state);

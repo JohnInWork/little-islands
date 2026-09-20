@@ -428,6 +428,14 @@ import {
   resolveCampRest,
   summonedCampProfile,
 } from './dcss-rpg-camp.js';
+import {
+  ATTRIBUTE_IDS,
+  attributeCopy,
+  attributeRefusalText,
+  cloneAttributeState,
+  createAttributeState,
+  raiseAttribute,
+} from './dcss-rpg-attributes.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -700,6 +708,10 @@ const characterCombatTitle = document.querySelector('#character-combat-title');
 const characterCombatGrid = document.querySelector('#character-combat-grid');
 const characterSkills = document.querySelector('#character-skills');
 const characterSkillsTitle = document.querySelector('#character-skills-title');
+const characterAttributes = document.querySelector('#character-attributes');
+const characterAttributeTitle = document.querySelector('#character-attributes-title');
+const characterAttributePoints = document.querySelector('#character-attribute-points');
+const characterAttributeRows = document.querySelector('#character-attribute-rows');
 const characterSkillPoints = document.querySelector('#character-skill-points');
 const characterSkillGroups = document.querySelector('#character-skill-groups');
 const characterSkillDetail = document.querySelector('#character-skill-detail');
@@ -1069,7 +1081,7 @@ const hero = {
   effects: createActorEffects(run.hero.effects),
   skills: cloneSkillState(run.hero.skills),
   skillStudy: createBookStudy(run.hero.skillStudy),
-  intelligence: run.hero.intelligence,
+  attributes: createAttributeState(run.hero.attributes),
   spells: createSpellState(run.hero.spells),
   hurt: 0,
   guardFlash: 0,
@@ -1964,7 +1976,7 @@ function captureRun() {
     effects: createActorEffects(hero.effects),
     skills: cloneSkillState(hero.skills),
     skillStudy: createBookStudy(hero.skillStudy),
-    intelligence: hero.intelligence,
+    attributes: cloneAttributeState(hero.attributes),
     spells: createSpellState(hero.spells),
   };
   run.gold = gold;
@@ -3356,7 +3368,7 @@ function learnHeroSkill(skillId, expectedRank) {
     runStatus,
     skillId,
     expectedRank,
-    attributes: { intelligence: currentHeroStats().intelligence },
+    attributes: hero.attributes,
   });
   if (!result.ok) return result;
   hero.skills = result.state;
@@ -3367,6 +3379,62 @@ function learnHeroSkill(skillId, expectedRank) {
   updateHud();
   persistRun();
   return result;
+}
+
+/**
+ * The three numbers, and the one button each of them has.
+ *
+ * A point spent here never comes back, so the button is the only way in and it
+ * says what it costs by going dark when the pocket is empty. Sleep gates it for
+ * the same reason it gates a skill: what you learned on the road waits until
+ * you have slept on it.
+ */
+function renderCharacterAttributes() {
+  const copy = attributeCopy(itemDetailLanguage);
+  const rested = canSpendSkillPoints(hero.rest);
+  const points = hero.skills.points;
+  characterAttributeTitle.textContent = itemDetailLanguage === 'ru' ? 'Характеристики' : 'Attributes';
+  characterAttributePoints.textContent = `${copy.pointsLeft}: ${points}`;
+  characterAttributeRows.replaceChildren(...ATTRIBUTE_IDS.map((id) => {
+    const row = document.createElement('div');
+    row.className = 'character-attribute-row';
+    row.setAttribute('role', 'listitem');
+    const name = document.createElement('b');
+    name.textContent = copy[id].name;
+    const description = document.createElement('span');
+    description.textContent = copy[id].description;
+    const value = document.createElement('output');
+    value.textContent = String(hero.attributes[id]);
+    const raise = document.createElement('button');
+    raise.type = 'button';
+    raise.className = 'character-attribute-raise';
+    raise.textContent = '+';
+    raise.dataset.attribute = id;
+    raise.disabled = points < 1 || !rested || runStatus !== 'playing';
+    raise.setAttribute('aria-label', `${copy.raise}: ${copy[id].name}`);
+    row.append(name, description, value, raise);
+    return row;
+  }));
+}
+
+/** Spending one. The pool is the skill pool: one pocket, two things to buy. */
+function raiseHeroAttribute(attribute) {
+  if (!canSpendSkillPoints(hero.rest)) return 'needs-sleep';
+  const result = raiseAttribute({
+    attributes: hero.attributes,
+    points: hero.skills.points,
+    attribute,
+    runStatus,
+  });
+  if (!result.ok) return result.reason;
+  hero.attributes = result.attributes;
+  hero.skills = { ...hero.skills, points: result.points, ranks: { ...hero.skills.ranks } };
+  hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
+  renderCharacterAttributes();
+  renderCharacterSkills();
+  updateHud();
+  persistRun();
+  return '';
 }
 
 /** Which skill the player is reading about. A point is spent on purpose, not by a stray tap. */
@@ -3393,7 +3461,7 @@ function renderCharacterSkills() {
     runStatus,
     language: itemDetailLanguage,
     rankAdjustments: hero.skillStudy.rankAdjustments,
-    attributes: { intelligence: currentHeroStats().intelligence },
+    attributes: hero.attributes,
     rested: canSpendSkillPoints(hero.rest),
   });
   characterSkills.hidden = !model.visible;
@@ -3469,6 +3537,21 @@ characterSkillCancel.addEventListener('click', () => {
     row.setAttribute('aria-pressed', 'false');
   }
   closeCharacterSheetButton.focus();
+});
+
+characterAttributeRows.addEventListener('click', (event) => {
+  if (uiScreen !== 'character' || hero.dead || runStatus !== 'playing') return;
+  const button = event.target.closest('.character-attribute-raise');
+  if (!button || button.disabled) return;
+  const refusal = raiseHeroAttribute(button.dataset.attribute);
+  if (refusal) {
+    // The same voice a refused camp uses: say the reason where the eye is.
+    const said = attributeRefusalText(refusal, itemDetailLanguage);
+    addCombatGlyph(hero.x, hero.y, said || '\u2191', '#9abfc0', -62);
+    return;
+  }
+  playSound('chest');
+  renderCharacterSheet();
 });
 
 characterSkillLearn.addEventListener('click', () => {
@@ -3643,6 +3726,7 @@ function renderCharacterSheet() {
   );
   characterCombatTitle.textContent = model.combatTitle;
   renderCharacterSpells();
+  renderCharacterAttributes();
   renderCharacterSkills();
   characterCombatGrid.replaceChildren(
     ...model.combatRows.map((stat) => {
@@ -11793,7 +11877,7 @@ function applyBook(item) {
     study: hero.skillStudy,
     skills: hero.skills,
     heroLevel: hero.level,
-    attributes: { intelligence: currentHeroStats().intelligence },
+    attributes: hero.attributes,
   });
   if (!result.ok) return null;
   hero.skillStudy = createBookStudy(result.state.study);
@@ -14160,7 +14244,7 @@ function restartRun(seed = null) {
   hero.power = run.hero.power;
   hero.hunger = run.hero.hunger;
   hero.meal = createMealState(run.hero.meal);
-  hero.intelligence = run.hero.intelligence;
+  hero.attributes = createAttributeState(run.hero.attributes);
   hero.spells = createSpellState(run.hero.spells);
   hungerAccumulator = 0;
   hungerAutosaveElapsed = 0;

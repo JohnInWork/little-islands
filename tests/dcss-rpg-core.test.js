@@ -315,7 +315,7 @@ test('version 1 saves migrate deterministically to owned UID equipment', () => {
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v30')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v31')));
   assert.ok(LEGACY_SAVE_KEYS.some((key) => key.endsWith(':v33')));
-  assert.equal(SAVE_KEY, 'dng-codex:rpg:v50');
+  assert.equal(SAVE_KEY, 'dng-codex:rpg:v51');
   const dungeon = generateDungeon({ seed: 88, depth: 1 });
   const legacy = {
     version: 1,
@@ -349,13 +349,14 @@ test('version 26 saves gain magic while the expanded-run boundary rebuilds only 
   legacy.contentVersion = 13;
   legacy.floor.revealed.push(`${legacy.hero.x},${legacy.hero.y}`);
   delete legacy.hero.intelligence;
+  delete legacy.hero.attributes;
   delete legacy.hero.spells;
   const migrated = migrateLegacyRun(legacy);
   // Pre-magic saves keep the historical wanderer kit rather than the new bare start.
   const startingMagic = createStartingMagic('wanderer');
   const dungeon = generateDungeon({ seed: migrated.seed, depth: migrated.depth });
   assert.equal(migrated.version, SAVE_VERSION);
-  assert.equal(migrated.hero.intelligence, startingMagic.intelligence);
+  assert.equal(migrated.hero.attributes.intelligence, startingMagic.intelligence);
   assert.deepEqual(migrated.hero.spells, startingMagic.spells);
   assertFreshFloor(migrated.floor);
   assert.deepEqual({ x: migrated.hero.x, y: migrated.hero.y }, dungeon.spawn);
@@ -779,7 +780,7 @@ test('v31 gains Storm Magic content without rebuilding the active floor', () => 
   const beforeFloor = structuredClone(legacy.floor);
 
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.equal(migrated.contentVersion, 19);
   const { chests, merchants, ...persistentFloor } = migrated.floor;
   const { merchantPurchases: _legacyPurchases, ...legacyPersistentFloor } = beforeFloor;
@@ -804,7 +805,7 @@ test('v32 creates persistent chest contents without duplicating a resolved rewar
 
   const migrated = migrateLegacyRun(legacy);
   const container = migrated.floor.chests.find(({ findId }) => findId === chest.instanceId);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.equal(container.opened, true);
   assert.equal(container.gold, 0);
   assert.deepEqual(container.items, []);
@@ -822,7 +823,7 @@ test('v33 merchant purchases become a funded persistent v34 merchant state', () 
   delete legacy.floor.merchants;
 
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.equal(Object.hasOwn(migrated.floor, 'merchantPurchases'), false);
   assert.deepEqual(migrated.floor.merchants[0].purchasedEntryIds, [entry.entryId]);
   assert.ok(migrated.floor.merchants[0].gold > entry.price);

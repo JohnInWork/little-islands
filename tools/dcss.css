@@ -2871,6 +2871,95 @@ body {
   white-space: nowrap;
 }
 
+/* Три характеристики стоят над навыками, потому что навыки их и просят:
+   сначала «кто ты», потом «что умеешь». Полоса такая же, как у навыков, —
+   один и тот же экран не должен выглядеть как два. */
+.character-attributes {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #0b1012;
+  border-left: 4px solid #8d7938;
+}
+
+.character-attributes > header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.character-attributes h3 {
+  margin: 0;
+  color: var(--bone);
+  font-size: 13px;
+}
+
+#character-attribute-points {
+  color: #c6b56d;
+  font-size: 12px;
+}
+
+.character-attribute-rows {
+  display: grid;
+  gap: 8px;
+}
+
+/* Имя, число и кнопка в одну строку, описание — под ними: на телефоне
+   строка из четырёх колонок ломается, а имя с числом должны быть рядом. */
+.character-attribute-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'name value raise'
+    'text text raise';
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  padding: 8px 10px;
+  background: #182125;
+}
+
+.character-attribute-row > b {
+  grid-area: name;
+  color: var(--bone);
+  font-size: 13px;
+}
+
+.character-attribute-row > span {
+  grid-area: text;
+  color: #9aa7ab;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.character-attribute-row output {
+  grid-area: value;
+  min-width: 26px;
+  color: #e6d9a8;
+  font-size: 15px;
+  text-align: right;
+}
+
+.character-attribute-raise {
+  grid-area: raise;
+  align-self: center;
+  min-width: 34px;
+  padding: 6px 8px;
+  background: #24313a;
+  color: var(--bone);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  border: 2px solid #3c4d58;
+  cursor: pointer;
+}
+
+.character-attribute-raise:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .character-skills:not([hidden]) {
   display: grid;
   gap: 12px;

@@ -44,7 +44,7 @@ import { createSkillState, deriveSkillCapabilities, isSkillReady, learnSkill } f
 function capabilitiesAt(rank) {
   let state = createSkillState(12);
   for (let step = 0; step < rank; step += 1) {
-    const result = learnSkill({ state, heroLevel: 12, runStatus: 'playing', skillId: 'camping', expectedRank: step });
+    const result = learnSkill({ state, heroLevel: 12, runStatus: 'playing', skillId: 'camping', expectedRank: step, attributes: { strength: 40, agility: 40, intelligence: 40 } });
     assert.equal(result.ok, true, `camping rank ${step + 1}: ${result.reason}`);
     state = result.state;
   }
@@ -214,7 +214,7 @@ test('save v47 carries the stash down the stairs and leaves the camp behind', ()
   delete legacy.camp;
   delete legacy.floor.camp;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.equal(migrated.floor.camp, null);
   assert.deepEqual(migrated.camp.stash.items, []);
   assert.equal(validateRun(migrated), true);
@@ -234,7 +234,7 @@ test('save v47 carries the stash down the stairs and leaves the camp behind', ()
     ],
   };
   const movedIn = migrateLegacyRun(camped);
-  assert.equal(movedIn.version, 50);
+  assert.equal(movedIn.version, 51);
   assert.equal(movedIn.floor.camp.restPercent, 40);
   assert.equal(validateRun(movedIn), true);
 });

@@ -108,6 +108,10 @@ import {
   guaranteedSpellBookPlacement,
   validateBookStudy,
 } from './dcss-rpg-books.js';
+import {
+  createAttributeState,
+  validateAttributeState,
+} from './dcss-rpg-attributes.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
 import {
@@ -120,8 +124,8 @@ import { CAMP_FIRE_SECONDS, createCampStash, validateCampRunState } from './dcss
 import { validateCampState } from './dcss-rpg-camp.js';
 import { FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SAVE_VERSION = 50;
-export const SAVE_KEY = 'dng-codex:rpg:v50';
+export const SAVE_VERSION = 51;
+export const SAVE_KEY = 'dng-codex:rpg:v51';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
   'dng-codex:rpg:v48',
@@ -1312,7 +1316,9 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
       effects: createActorEffects(),
       skills: createSkillState(),
       skillStudy: createBookStudy(),
-      intelligence: startingMagic.intelligence,
+      // Three numbers replace the single Intelligence the magic build used to
+      // carry alone; the preset still decides how clever the hero starts.
+      attributes: createAttributeState({ intelligence: startingMagic.intelligence }),
       spells: startingMagic.spells,
     },
     gold: 0,
@@ -1722,9 +1728,15 @@ export function migrateLegacyRun(snapshot) {
     // Saves that predate manual magic keep the historical wanderer kit; only
     // brand-new runs start without spells.
     const startingMagic = createStartingMagic(LEGACY_BUILD_PRESET_ID);
-    migrated.hero.intelligence = snapshot.version >= 27
-      ? snapshot.hero.intelligence
-      : startingMagic.intelligence;
+    // v51 turns the lone Intelligence into three attributes. A hero who had a
+    // clever head keeps it; strength and agility start where everyone's do,
+    // and nothing is counted as spent — the points already went into skills.
+    migrated.hero.attributes = createAttributeState({
+      ...(snapshot.hero.attributes ?? {}),
+      intelligence: snapshot.hero.attributes?.intelligence
+        ?? (snapshot.version >= 27 ? snapshot.hero.intelligence : startingMagic.intelligence),
+    });
+    delete migrated.hero.intelligence;
     migrated.hero.spells = snapshot.version >= 27
       ? createSpellState(snapshot.hero.spells)
       : startingMagic.spells;
@@ -1833,7 +1845,9 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
-            intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            attributes: createAttributeState({
+              intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            }),
             spells: createStartingMagic(LEGACY_BUILD_PRESET_ID).spells,
           }
         : {
@@ -1843,7 +1857,9 @@ export function migrateLegacyRun(snapshot) {
             effects: createActorEffects(snapshot.hero?.effects),
             skills: legacySkillState(snapshot.hero),
             skillStudy: createBookStudy(),
-            intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            attributes: createAttributeState({
+              intelligence: createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+            }),
             spells: createStartingMagic(LEGACY_BUILD_PRESET_ID).spells,
           },
       status: crossesGeneratorBoundary
@@ -1986,7 +2002,7 @@ export function migrateLegacyRun(snapshot) {
       effects: createActorEffects(snapshot.hero?.effects),
       skills: legacySkillState(snapshot.hero),
       skillStudy: createBookStudy(),
-      intelligence: createStartingMagic().intelligence,
+      attributes: createAttributeState({ intelligence: createStartingMagic().intelligence }),
       spells: createStartingMagic().spells,
     },
     status: snapshot.hero?.hp === 0 ? 'dead' : 'playing',
@@ -2205,14 +2221,14 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(hero.level, 1, 999) || !Number.isFinite(hero.xp) || hero.xp < 0)
     return false;
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
-  if (!isFiniteInteger(hero.intelligence, 0, 999)) return false;
+  if (!validateAttributeState(hero.attributes)) return false;
   if (!validateHunger(hero.hunger)) return false;
   // A save written before rest existed simply has none, and starts sharp.
   if (hero.rest !== undefined && !validateRest(hero.rest)) return false;
   if (!validateActorEffects(hero.effects)) return false;
   if (!validateMealState(hero.meal)) return false;
   if (!validateCoatingState(hero.coating ?? null)) return false;
-  if (!validateSkillState(hero.skills, hero.level)) return false;
+  if (!validateSkillState(hero.skills, hero.level, hero.attributes.spent)) return false;
   if (!validateBookStudy(hero.skillStudy)) return false;
   if (!validateSpellState(hero.spells)) return false;
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;

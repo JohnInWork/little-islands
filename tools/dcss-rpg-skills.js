@@ -1,3 +1,4 @@
+import { meetsRequirement, skillRankRequirement } from './dcss-rpg-attributes.js';
 import { skillById } from './dcss-rpg-skill-content.js';
 
 export const SKILL_STATE_VERSION = 1;
@@ -555,11 +556,17 @@ export function createSkillState(level = 1) {
 
 /** Readiness is intentionally NOT a save validation rule: disabling an unfinished
  * consumer must not delete an owned rank or silently refund progress. */
-export function validateSkillState(state, level) {
+/**
+ * `investedElsewhere` is how many of the level's points went into attributes.
+ * Every point a hero has ever earned is in exactly one of three places — the
+ * pocket, a skill, or an attribute — and this is where that is checked.
+ */
+export function validateSkillState(state, level, investedElsewhere = 0) {
   if (!validLevel(level) || !hasExactKeys(state, ['version', 'points', 'ranks'])) return false;
   if (state.version !== SKILL_STATE_VERSION || !validPoints(state.points) || !isRecord(state.ranks)) {
     return false;
   }
+  if (!Number.isInteger(investedElsewhere) || investedElsewhere < 0) return false;
   let spent = 0;
   for (const [skillId, rank] of Object.entries(state.ranks)) {
     const definition = skillById(skillId);
@@ -567,19 +574,29 @@ export function validateSkillState(state, level) {
     if (level < definition.rankLevels[rank - 1]) return false;
     spent += rank;
   }
-  return state.points + spent === level - 1;
+  return state.points + spent + investedElsewhere === level - 1;
 }
 
-function assertAndInferLevel(state) {
+/**
+ * The shape of a skill state, with no opinion about the hero's level.
+ *
+ * This used to infer the level by adding the unspent points to the ranks, and
+ * then validate against that — which worked only while a skill point could go
+ * nowhere else. Now one can go into an attribute, so the sum is short by
+ * however many did, and the inferred level would fail its own check. The
+ * level-wide bookkeeping lives in `validateSkillState`, which is given the
+ * real level and the real number of points spent elsewhere.
+ */
+function assertSkillState(state) {
   if (!hasExactKeys(state, ['version', 'points', 'ranks']) || !validPoints(state.points)
     || !isRecord(state.ranks)) throw new TypeError('Invalid skill state');
-  const ranks = Object.values(state.ranks);
-  if (!ranks.every((rank) => Number.isInteger(rank) && rank >= 1 && rank <= 3)) {
-    throw new TypeError('Invalid skill ranks');
+  if (state.version !== SKILL_STATE_VERSION) throw new TypeError('Invalid skill state');
+  for (const [skillId, rank] of Object.entries(state.ranks)) {
+    const definition = skillById(skillId);
+    if (!definition || !Number.isInteger(rank) || rank < 1 || rank > definition.maxRank) {
+      throw new TypeError('Invalid skill ranks');
+    }
   }
-  const level = 1 + state.points + ranks.reduce((sum, rank) => sum + rank, 0);
-  if (!validateSkillState(state, level)) throw new TypeError('Invalid skill state');
-  return level;
 }
 
 export function validateSkillRankAdjustments(adjustments) {
@@ -597,7 +614,7 @@ export function validateSkillRankAdjustments(adjustments) {
 }
 
 export function effectiveSkillRank(state, skillId, rankAdjustments = {}) {
-  assertAndInferLevel(state);
+  assertSkillState(state);
   if (!validateSkillRankAdjustments(rankAdjustments)) {
     throw new TypeError('Invalid skill rank adjustments');
   }
@@ -608,7 +625,7 @@ export function effectiveSkillRank(state, skillId, rankAdjustments = {}) {
 }
 
 export function cloneSkillState(state) {
-  assertAndInferLevel(state);
+  assertSkillState(state);
   return {
     version: SKILL_STATE_VERSION,
     points: state.points,
@@ -687,7 +704,9 @@ export function skillAvailability({
   attributes = {},
 } = {}) {
   const unavailable = (reason, rank = 0) => ({ ok: false, reason, rank, nextRank: rank + 1 });
-  if (!validateSkillState(state, heroLevel)) return unavailable('invalid-state');
+  // The attribute state carries how many of the level's points it swallowed;
+  // without it the bookkeeping looks short and every skill reads as invalid.
+  if (!validateSkillState(state, heroLevel, attributes?.spent ?? 0)) return unavailable('invalid-state');
   if (runStatus !== 'playing') return unavailable('not-playing');
   const definition = typeof skillId === 'string' ? skillById(skillId) : null;
   if (!definition) return unavailable('unknown-skill');
@@ -700,12 +719,13 @@ export function skillAvailability({
   if (!implementationFor(definition, implementations)) return unavailable('not-implemented', rank);
   if (!hasRequiredSystems(definition, systems)) return unavailable('missing-systems', rank);
   if (heroLevel < definition.rankLevels[rank]) return unavailable('level-required', rank);
-  const intelligenceRequired = definition.attributeRequirements?.intelligence?.[rank];
-  if (Number.isFinite(intelligenceRequired) && (attributes.intelligence ?? 0) < intelligenceRequired) {
+  // Every skill leans on one of the three, and the later ranks ask for it.
+  const requirement = skillRankRequirement(definition, rank);
+  if (!meetsRequirement(requirement, attributes)) {
     return {
-      ...unavailable('intelligence-required', rank),
-      requiredAttribute: 'intelligence',
-      requiredValue: intelligenceRequired,
+      ...unavailable(`${requirement.attribute}-required`, rank),
+      requiredAttribute: requirement.attribute,
+      requiredValue: requirement.value,
     };
   }
   if (state.points < 1) return unavailable('no-points', rank);
@@ -733,7 +753,7 @@ export function learnSkill(options = {}) {
 }
 
 function deriveValues(state, options, field, limits, combine) {
-  assertAndInferLevel(state);
+  assertSkillState(state);
   const {
     implementations = SKILL_IMPLEMENTATIONS,
     systems = SKILL_SYSTEMS,

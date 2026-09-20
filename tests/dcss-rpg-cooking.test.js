@@ -40,6 +40,7 @@ const capabilitiesAt = (rank) => {
   for (let step = 0; step < rank; step += 1) {
     state = learnSkill({
       state, heroLevel: 8, runStatus: 'playing', skillId: 'cooking', expectedRank: step,
+      attributes: { strength: 40, agility: 40, intelligence: 40 },
     }).state;
   }
   return deriveSkillCapabilities(state);
@@ -127,7 +128,7 @@ test('dishes are real items only a fire produces', () => {
 
 test('save v47 keeps the dish on the hero', () => {
   const run = createRun(4001);
-  assert.equal(SAVE_VERSION, 50);
+  assert.equal(SAVE_VERSION, 51);
   assert.equal(run.hero.meal, null);
   assert.equal(validateRun(run), true);
   run.hero.meal = startMeal('stew');
@@ -139,7 +140,7 @@ test('save v47 keeps the dish on the hero', () => {
   legacy.version = 39;
   delete legacy.hero.meal;
   const migrated = migrateLegacyRun(legacy);
-  assert.equal(migrated.version, 50);
+  assert.equal(migrated.version, 51);
   assert.equal(migrated.hero.meal, null);
   assert.equal(validateRun(migrated), true);
 });

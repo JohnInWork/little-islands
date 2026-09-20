@@ -1,3 +1,4 @@
+import { meetsRequirement, skillRankRequirement } from './dcss-rpg-attributes.js';
 import { SKILL_CATALOG, skillById } from './dcss-rpg-skill-content.js';
 import {
   effectiveSkillRank,
@@ -105,9 +106,7 @@ function eligibleSkills({ skills, heroLevel, rankAdjustments, direction, attribu
       const rank = effectiveSkillRank(skills, definition.id, rankAdjustments);
       if (direction < 0) return rank > 0;
       if (rank >= definition.maxRank) return false;
-      const intelligenceRequired = definition.attributeRequirements?.intelligence?.[rank];
-      return !Number.isFinite(intelligenceRequired)
-        || (attributes.intelligence ?? 0) >= intelligenceRequired;
+      return meetsRequirement(skillRankRequirement(definition, rank), attributes);
     })
     .map(({ id }) => id)
     .sort();

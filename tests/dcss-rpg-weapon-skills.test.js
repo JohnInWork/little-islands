@@ -36,7 +36,7 @@ function capabilitiesFor(...trained) {
   let state = createSkillState(12);
   for (const [skillId, rank] of trained) {
     for (let step = 0; step < rank; step += 1) {
-      const result = learnSkill({ state, heroLevel: 12, runStatus: 'playing', skillId, expectedRank: step });
+      const result = learnSkill({ state, heroLevel: 12, runStatus: 'playing', skillId, expectedRank: step, attributes: { strength: 40, agility: 40, intelligence: 40 } });
       assert.equal(result.ok, true, `${skillId} rank ${step + 1}: ${result.reason}`);
       state = result.state;
     }

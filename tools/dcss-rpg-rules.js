@@ -162,6 +162,11 @@ export function combatDamage(stats, combat) {
   return Math.max(1, Math.round(attack * scale));
 }
 
+/** Where every attribute starts, so a hero at the base gets no bonus at all. */
+const ATTRIBUTE_BASELINE = 3;
+/** Two and a half percent of a swing per point of agility above the base. */
+const AGILITY_ATTACK_SPEED = 0.025;
+
 export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const byUid = itemMap(items);
   const bonus = {
@@ -195,15 +200,32 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const meal = mealStatModifiers(hero.meal);
   bonus.attack += meal.attack;
   bonus.moveSpeed += meal.moveSpeed;
-  const attack = Math.max(1, Math.round((1 + hero.power + bonus.attack) * hunger.attack));
+  /**
+   * The three attributes, and the small thing each of them does on its own.
+   *
+   * Most of an attribute's worth is the skills it unlocks, but a point that
+   * changes nothing until some later purchase is a point the player cannot
+   * feel spending. So strength pushes the swing and agility the hands, both
+   * gently — one point in four, not one for one — and intelligence keeps doing
+   * what it always did for magic.
+   */
+  const attributes = hero.attributes ?? {};
+  const strength = Math.max(0, (attributes.strength ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE);
+  const agility = Math.max(0, (attributes.agility ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE);
+  const attack = Math.max(1, Math.round(
+    (1 + hero.power + bonus.attack + Math.floor(strength / 4)) * hunger.attack,
+  ));
   const defense = Math.max(0, Math.round(bonus.defense * hunger.defense));
   return {
     attack,
     defense,
     maxHp: Math.max(1, hero.maxHp + bonus.maxHp),
     moveSpeed: Math.max(0.45, Math.max(0.65, 1 + bonus.moveSpeed) * hunger.moveSpeed),
-    attackSpeed: Math.max(0.42, Math.max(0.65, 1 + bonus.attackSpeed) * hunger.attackSpeed),
-    intelligence: Math.max(0, Math.round((hero.intelligence ?? 0) + bonus.intelligence)),
+    attackSpeed: Math.max(
+      0.42,
+      Math.max(0.65, 1 + bonus.attackSpeed + agility * AGILITY_ATTACK_SPEED) * hunger.attackSpeed,
+    ),
+    intelligence: Math.max(0, Math.round((attributes.intelligence ?? 0) + bonus.intelligence)),
   };
 }
 

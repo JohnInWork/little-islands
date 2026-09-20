@@ -97,6 +97,7 @@ test('Cleansing and Arcana are learnable skills with live systems behind them', 
       runStatus: 'playing',
       skillId: 'cleansing',
       expectedRank: rank,
+      attributes: { strength: 40, agility: 40, intelligence: 40 },
     });
     assert.equal(learned.ok, true, `rank ${rank + 1} is reachable`);
     state = learned.state;
