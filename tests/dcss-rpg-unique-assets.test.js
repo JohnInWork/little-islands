@@ -46,18 +46,8 @@ const baseId = (id) => id
  */
 const KNOWN_CREATURE_PAIRS = Object.freeze({});
 
-/** То же для предметов: неопознанные книги-близнецы — старая беда пака. */
-const KNOWN_ITEM_PAIRS = Object.freeze({
-  'derived/icon/potion-poison.png': ['poison-vial', 'venom-potion'],
-  'item/book/parchment.png': ['blank-codex', 'book-of-purity'],
-  'item/book/light_green.png': ['book-of-mending', 'book-of-tending'],
-  'item/book/metal_blue.png': ['book-of-storms', 'book-of-wardens'],
-  'item/book/metal_cyan.png': ['book-of-keys', 'book-of-splinters'],
-  'item/book/dark_blue.png': ['book-of-invisibility', 'book-of-translocation'],
-  'item/book/book_of_the_dead.png': ['book-of-bones', 'dead-book'],
-  'item/food/bread_ration.png': ['bread', 'hearty-stew'],
-  'item/food/meat_ration.png': ['cooked-meat', 'roast-meat'],
-});
+/** Долг закрыт целиком: у каждой сущности и каждого предмета своё лицо. */
+const KNOWN_ITEM_PAIRS = Object.freeze({});
 
 function shared(entries) {
   const owners = new Map();
@@ -103,9 +93,9 @@ test('двух разных предметов с одной иконкой не
   assertOnlyKnown(shared(entries), KNOWN_ITEM_PAIRS, 'предметы');
 });
 
-test('долг по дублям только сокращается', () => {
-  // Цифра меняется вниз вместе с починкой и служит счётчиком работы. Поднять её
-  // можно только руками, и это будет видно в diff.
+test('долга по дублям не осталось', () => {
+  // Ноль — не украшение, а замок: любая новая пара сначала свалит тест выше, а
+  // потом потребует руками вписать её сюда, и это будет видно в diff.
   const total = Object.keys(KNOWN_CREATURE_PAIRS).length + Object.keys(KNOWN_ITEM_PAIRS).length;
-  assert.ok(total <= 9, `дублей стало больше: ${total}`);
+  assert.equal(total, 0, `дубли вернулись: ${total}`);
 });

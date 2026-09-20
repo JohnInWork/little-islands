@@ -347,7 +347,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'copper-charm': Object.freeze({ icon: 'item/amulet/celtic_red.png', layer: null }),
   'hush-amulet': Object.freeze({ icon: 'item/amulet/eye_cyan.png', layer: null }),
   'dead-book': Object.freeze({
-    icon: 'item/book/book_of_the_dead.png', layer: 'player/hand2/misc/book_red.png',
+    icon: 'derived/books/moss.png', layer: 'player/hand2/misc/book_red.png',
   }),
   // ── Вторая половина дороги ──────────────────────────────────────────────
   // Сапоги, плащи и перчатки несут слой куклы и в качестве иконки инвентаря:

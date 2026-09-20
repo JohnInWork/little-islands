@@ -2359,7 +2359,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'book-of-tending',
-    icon: 'item/book/light_green.png',
+    icon: 'derived/books/amber.png',
     slot: null,
     kind: 'book',
     rarity: 2,
@@ -2395,7 +2395,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'book-of-invisibility',
-    icon: 'item/book/dark_blue.png',
+    icon: 'derived/books/brick.png',
     slot: null,
     kind: 'book',
     rarity: 3,
@@ -2431,7 +2431,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'book-of-wardens',
-    icon: 'item/book/metal_blue.png',
+    icon: 'derived/books/violet.png',
     slot: null,
     kind: 'book',
     rarity: 3,
@@ -2470,7 +2470,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'book-of-purity',
-    icon: 'item/book/parchment.png',
+    icon: 'derived/books/slate.png',
     slot: null,
     kind: 'book',
     rarity: 3,
@@ -2482,7 +2482,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'book-of-splinters',
-    icon: 'item/book/metal_cyan.png',
+    icon: 'derived/books/jade.png',
     slot: null,
     kind: 'book',
     rarity: 3,
@@ -2573,7 +2573,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'dead-book',
-    icon: 'item/book/book_of_the_dead.png',
+    icon: 'derived/books/moss.png',
     slot: 'hand2',
     offhandKind: 'focus',
     variant: 3,
@@ -2656,7 +2656,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'roast-meat',
-    icon: 'item/food/meat_ration.png',
+    icon: 'derived/food/roast.png',
     slot: null,
     kind: 'food',
     useEffect: { type: 'food', nutrition: 22 * 60, healing: 8, mealId: 'roast' },
@@ -2670,7 +2670,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'hearty-stew',
-    icon: 'item/food/bread_ration.png',
+    icon: 'derived/food/stew.png',
     slot: null,
     kind: 'food',
     useEffect: { type: 'food', nutrition: 26 * 60, healing: 12, mealId: 'stew' },
@@ -2733,7 +2733,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'poison-vial',
-    icon: 'derived/icon/potion-poison.png',
+    icon: 'item/potion/purple_red.png',
     slot: null,
     kind: 'tool',
     useEffect: { type: 'coat' },
