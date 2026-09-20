@@ -803,8 +803,20 @@ const hungerMeter = document.querySelector('#hunger-meter');
 const restMeter = document.querySelector('#rest-meter');
 const restFill = document.querySelector('#rest-fill');
 const hungerFill = document.querySelector('#hunger-fill');
-const hungerLabel = document.querySelector('#hunger-label');
-const restLabel = document.querySelector('#rest-label');
+/**
+ * Голод и сон названы картинкой, а не словом.
+ *
+ * Слово тут уже было — и появилось оно не просто так: до него стоял значок
+ * «◆», и Иван справедливо сказал, что он не читается. Но не читался именно
+ * текстовый ромбик, а не рисунок: кусок мяса и палатка называют шкалу с
+ * одного взгляда и на любом языке, а СКОЛЬКО осталось по-прежнему говорит
+ * полоска рядом — она для того и выросла тогда во всю ширину.
+ *
+ * Имя состояния никуда не делось: оно в `aria-label` кнопки и в подсказке,
+ * а нажатие печатает фразу целиком — ровно как раньше.
+ */
+const hungerIcon = document.querySelector('#hunger-icon');
+const restIcon = document.querySelector('#rest-icon');
 const heroEffectsHud = document.querySelector('#hero-effects');
 const loreDialog = document.querySelector('#lore');
 const loreCard = document.querySelector('.lore-card');
@@ -8088,14 +8100,11 @@ function renderHungerHud() {
   const presentation = hungerPresentation(hero.hunger, itemDetailLanguage);
   hungerMeter.dataset.stage = presentation.id;
   hungerFill.style.transform = `scaleX(${presentation.percent / 100})`;
-  // Слово вместо значка: «не читаются» относилось именно к ним.
-  hungerLabel.textContent = presentation.label;
   hungerMeter.title = meterNote(presentation);
   hungerMeter.setAttribute('aria-label', presentation.ariaLabel);
   const rest = restPresentation(hero.rest, itemDetailLanguage);
   restMeter.dataset.stage = rest.id;
   restFill.style.transform = `scaleX(${rest.percent / 100})`;
-  restLabel.textContent = rest.label;
   restMeter.title = meterNote(rest);
   restMeter.setAttribute('aria-label', rest.ariaLabel);
   hud.setAttribute(

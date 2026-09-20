@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 const cssUrl = new URL('../tools/dcss.css', import.meta.url);
@@ -74,10 +75,32 @@ test('hunger and rest are read as words and answer a tap, like every other state
     assert.match(tag, /type="button"/);
     assert.match(tag, /class="[^"]*tappable/, `${id} does not look pressable either`);
   }
-  for (const id of ['hunger-label', 'rest-label']) {
-    assert.ok(html.includes(`id="${id}"`), `${id} has no room for a word`);
-    assert.match(runtime, new RegExp(`${id.replace('-l', 'L').replace('-', '')}\\.textContent = `), `${id} is never written`);
+  /**
+   * Слово сменилось картинкой. Иван: «не нравится, что голод и сон написаны
+   * словами — надо иконки в нашем стиле». Прежний ромбик «◆» не читался
+   * потому, что был текстовым значком, а не рисунком; кусок мяса и палатка
+   * называют шкалу без единой буквы, а СКОЛЬКО осталось по-прежнему говорит
+   * полоска — она для того и выросла во всю ширину.
+   */
+  const { requiredAssetPaths } = await import('../tools/dcss-rpg-required-assets.js');
+  const loaded = requiredAssetPaths();
+  for (const id of ['hunger-icon', 'rest-icon']) {
+    const tag = html.match(new RegExp(`<img id="${id}"[^>]*>`))?.[0] ?? '';
+    assert.ok(tag, `${id} is not an image`);
+    assert.match(tag, /class="[^"]*meter-icon/, `${id} has no size of its own`);
+    // Пустой alt: имя состояния живёт в `aria-label` кнопки, и повторять его
+    // на картинке значило бы читать его дважды подряд.
+    assert.match(tag, /alt=""/, `${id} repeats what the button already says`);
+    const source = tag.match(/src="\.\.\/assets\/dcss-preview\/([^"]+)"/)?.[1] ?? '';
+    assert.ok(source, `${id} has no picture`);
+    assert.ok(existsSync(new URL(`../public/assets/dcss-preview/${source}`, import.meta.url)), `${source} does not ship`);
+    assert.ok(loaded.includes(source), `${source} is never loaded`);
   }
+  // Слов в шкалах больше нет вовсе.
+  assert.doesNotMatch(runtime, /hungerLabel|restLabel/, 'the word is still being written');
+  // Но состояние по-прежнему называется — голосом кнопки.
+  assert.match(runtime, /hungerMeter\.setAttribute\('aria-label', presentation\.ariaLabel\)/);
+  assert.match(runtime, /restMeter\.setAttribute\('aria-label', rest\.ariaLabel\)/);
   const meters = html.match(/<button id="hunger-meter"[\s\S]*?<\/button>[\s\S]*?<\/button>/)?.[0] ?? '';
   assert.doesNotMatch(meters, /[◆☾]/, 'the glyphs nobody could read are gone');
   // A bar you can count beats a bar you squint at, and health already proved it.
