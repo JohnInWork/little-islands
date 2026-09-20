@@ -535,28 +535,32 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     /**
-     * Hired help. The whole design is the price ladder: a strong one costs a
-     * lot and a weak one is cheap, so hiring asks a question about this run —
-     * a sword arm now, or your own gear and walk in alone.
+     * The man behind the counter. He feeds you and he rents you a bed, and
+     * that is the whole of him: «трактирщик продаёт еду, а не нанимает. К
+     * наёмнику подходишь сам и договариваешься — у него своё действие».
+     *
+     * He used to be a hiring desk with four names on it, which made the four
+     * people sitting at the tables decoration. Now the list of hires is the
+     * room itself: you look at them, you walk over, you ask.
      */
     id: 'recruiter',
     command: 'recruiter',
-    matches: (target) => target?.kind === 'recruiter' && Array.isArray(target.rows),
+    matches: (target) => target?.kind === 'recruiter' && Array.isArray(target.menu),
     present: ({ target, copy }) => ({
       name: copy.recruiterName,
-      description: target.idle ?? '',
+      description: target.hireElsewhere ?? '',
       icon: 'mon/unique/donald.png',
       accent: '#c9a45f',
       actions: [
-        ...target.rows.map((row) => ({
-          id: `hire:${row.id}`,
-          label: `${row.shortName ?? row.name} · ${row.price}●`,
-          glyph: '⚔',
-          enabled: row.ok === true,
-          hint: row.ok ? `${row.maxHp} ♥ · ${row.damage} ⚔` : row.reason,
+        ...target.menu.map((row) => ({
+          id: `buy:${row.itemId}`,
+          label: `${row.name} · ${row.price}●`,
+          glyph: '🍲',
+          enabled: row.affordable === true,
+          hint: row.affordable ? row.hint ?? '' : row.reasonText,
         })),
-        // The keeper also rents the room upstairs. It is the only bed in the
-        // city that is neither the hero's own nor a bedroll on a stone floor.
+        // The room upstairs: the only bed in the city that is neither the
+        // hero's own nor a bedroll on a stone floor.
         ...(target.bed ? [{
           id: 'bed',
           label: `${copy.tavernBed} · ${target.bed.price}●`,

@@ -66,7 +66,7 @@ test('interaction registry owns target matching and stable command families', ()
   assert.equal(interactionDefinitionFor({ kind: 'city-gate', branch: 'deep' }).command, 'city-gate');
   assert.equal(interactionDefinitionFor({ kind: 'road-end' }).command, 'road-end');
   assert.equal(interactionDefinitionFor({ kind: 'priest' }).command, 'priest');
-  assert.equal(interactionDefinitionFor({ kind: 'recruiter', rows: [] }).command, 'recruiter');
+  assert.equal(interactionDefinitionFor({ kind: 'recruiter', menu: [] }).command, 'recruiter');
   assert.equal(interactionDefinitionFor({ kind: 'companion', id: 'hog', icon: 'x.png' }).command, 'companion-care');
   // One object with two mouths: the same card either side, and one verb.
   for (const end of ['city', 'dungeon']) {

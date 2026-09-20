@@ -290,6 +290,8 @@ import {
 import {
   TAVERN_FLOOR_PATHS,
   bedOffer,
+  buyTavernFood,
+  tavernMenuModel,
   mercenaryIdForHireMonster,
   tavernFloorCells,
   tavernHireMonsterId,
@@ -8304,21 +8306,36 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'tavern-hire', mercenaryId, row, icon: entry.value.spritePath };
   }
   if (entry.kind === 'recruiter') {
-    const model = mercenaryModel({
+    // The keeper sells supper and a bed. Hiring moved to the men who would be
+    // hired — they are sitting at his tables.
+    const menu = tavernMenuModel({
       gold,
-      party: run.companions,
-      partyLimit: currentPartyLimit(),
+      backpackCount: backpackItems.filter(Boolean).length,
+      capacity: currentBackpackCapacity(),
       language: itemDetailLanguage,
     });
-    // The keeper also rents the room upstairs, which is the only bed in the
-    // city that is not the hero's own and does not cost three hundred gold.
     const bed = bedOffer({
       gold,
       rest: hero.rest,
       restMax: REST_MAX,
       language: itemDetailLanguage,
     });
-    return { kind: 'recruiter', rows: model.rows, idle: model.copy.idle, bed };
+    return {
+      kind: 'recruiter',
+      hireElsewhere: menu.hireElsewhere,
+      menu: menu.rows.map((row) => {
+        const definition = lootById(row.itemId);
+        const presented = definition
+          ? itemPresentation(presentedItem(materializeInventoryItem({ id: row.itemId, uid: `menu-${row.itemId}` })), itemDetailLanguage)
+          : null;
+        return {
+          ...row,
+          name: presented?.name ?? row.itemId,
+          hint: presented?.summary ?? '',
+        };
+      }),
+      bed,
+    };
   }
   if (entry.kind === 'priest') {
     // One decision, made once: the price, whether there is anything to lift and
@@ -9623,6 +9640,17 @@ function nearbyCityGate() {
 }
 
 /** The nearest guard still keeping the peace; a provoked one is just an enemy. */
+/**
+ * The watch, and only the watch.
+ *
+ * Every townsman is neutral, so «neutral and standing next to you» also
+ * catches the priest, the keeper and the four sellswords at his tables — and
+ * each of them then appeared twice in the interaction column: once as
+ * themselves and once as a nameless guard. The people who have their own
+ * card are named here and skipped.
+ */
+const CITY_OWN_CARD_IDS = new Set([CITY_PRIEST_ID, CITY_RECRUITER_ID]);
+
 function nearbyGuard() {
   if (runStatus !== 'playing' || hero.dead) return null;
   // The same neighbourhood the panel checks, so the button never lies.
@@ -9632,6 +9660,8 @@ function nearbyGuard() {
     && !monster.ghost
     && !monster.provoked
     && monster.dead === 0
+    && !CITY_OWN_CARD_IDS.has(monster.id)
+    && !mercenaryIdForHireMonster(monster.id)
     && cellStepDistance(cell, { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }) <= 1
   )) ?? null;
 }
@@ -9873,8 +9903,8 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   recruiter({ action }) {
     closeContextActions();
     if (action.id === 'bed') return rentTavernBed();
-    if (!action.id.startsWith('hire:')) return false;
-    return hireIntoParty(action.id.slice('hire:'.length));
+    if (!action.id.startsWith('buy:')) return false;
+    return buyKeeperFood(action.id.slice('buy:'.length));
   },
   'tavern-hire'({ action }) {
     closeContextActions();
@@ -13762,6 +13792,25 @@ function emptySeatOf(mercenaryId) {
 }
 
 /** The room upstairs: gold for a whole night, and the clock fills. */
+/** Supper. The keeper takes the coin and the dish goes into the bag. */
+function buyKeeperFood(itemId) {
+  const result = buyTavernFood({
+    itemId,
+    gold,
+    backpackCount: backpackItems.filter(Boolean).length,
+    capacity: currentBackpackCapacity(),
+  });
+  if (!result.ok) return false;
+  if (!grantItem(result.itemId, `tavern-${result.itemId}-${run.seed}-${run.commandSequence}`)) return false;
+  gold = result.gold;
+  run.commandSequence += 1;
+  playerHasActed = true;
+  playSound('coins');
+  updateHud();
+  persistRun();
+  return true;
+}
+
 function rentTavernBed() {
   const offer = bedOffer({
     gold,

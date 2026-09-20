@@ -232,12 +232,36 @@ function roomIsTooSmall({ w, h }) {
  * fixed so the cheapest hire is always the one nearest the door: a player who
  * walks in with seventy coins meets the man he can afford first.
  */
+export const TAVERN_WIDE_ROOM = 9;
+
+/**
+ * Where a table stands in a wide room, and which cell the man beside it takes.
+ *
+ * Four pairs across the room with a gap between them, all in the row behind
+ * the door row — so the whole row nearest the door is a corridor and every
+ * mercenary can be walked up to from the front. That is the whole of «чтобы
+ * можно было подойти ко всем и поспрашивать»: not more space, a free row.
+ */
+function wideTablePairs(w) {
+  const pairs = [];
+  for (let index = 0; index < 4; index += 1) {
+    const u = 1 + index * 3;
+    if (u + 1 > w - 2) break;
+    pairs.push({ table: u, seat: u + 1 });
+  }
+  return pairs;
+}
+
 export function tavernSeats({ interior, door }) {
   if (!interior) return [];
   const { w, h, at } = mapper({ interior, door });
   if (roomIsTooSmall({ w, h })) return [];
   const front = h - 1;
   const back = h - 2;
+  if (w >= TAVERN_WIDE_ROOM) {
+    // The row nearest the door stays empty; the men sit one row behind it.
+    return wideTablePairs(w).map(({ seat }) => at(seat, back));
+  }
   return [
     at(1, front),
     at(w - 2, front),
@@ -278,6 +302,18 @@ export function tavernKeeperSpot({ interior, door }) {
   if (!interior) return null;
   const { w, h, at } = mapper({ interior, door });
   if (roomIsTooSmall({ w, h })) return null;
+  if (w >= TAVERN_WIDE_ROOM) {
+    // In front of his counter, in one of the gaps between the tables, so the
+    // cell behind him is floor and a guest can reach him.
+    const pairs = wideTablePairs(w);
+    const taken = new Set(pairs.flatMap(({ table, seat }) => [table, seat]));
+    const middle = Math.floor(w / 2);
+    for (let offset = 0; offset < w; offset += 1) {
+      for (const u of [middle + offset, middle - offset]) {
+        if (u >= 1 && u <= w - 2 && !taken.has(u)) return at(u, 1);
+      }
+    }
+  }
   return at(Math.floor(w / 2), 1);
 }
 
@@ -286,10 +322,66 @@ export function tavernKeeperSpot({ interior, door }) {
  * the mercenaries, the doorway — are its problem, not this function's: it
  * describes a full room and the placer drops whatever is taken.
  */
+/**
+ * A common room, which is a different thing from a furnished cupboard.
+ *
+ * Two rules hold it together. The row nearest the door is left completely
+ * empty — that is the corridor every guest walks along, and it is what lets
+ * the hero reach all four mercenaries and the keeper without shoving past
+ * furniture. And nothing is ever put on a cell the keeper or a mercenary
+ * stands on, because the placer downstream would drop one of the two and the
+ * room would quietly lose a man.
+ */
+function wideTavernLayout({ w, h, at }) {
+  const back = h - 2;
+  const pairs = wideTablePairs(w);
+  const reserved = new Set(pairs.flatMap(({ table, seat }) => [`${seat},${back}`]));
+  const pieces = [];
+  // The back wall, seen from the doorway: fire, counter, ale. The pot hangs
+  // beside the fire when the room is too shallow to have a working row — and
+  // it is claimed first, so the filler below cannot take its cell.
+  pieces.push(['fireplace', 0, 0], ['kegTapped', w - 1, 0]);
+  if (back <= 1) pieces.push(['cauldron', 1, 0]);
+  const barFrom = Math.max(back <= 1 ? 2 : 1, Math.floor(w / 2) - 2);
+  for (let u = barFrom; u <= barFrom + 3 && u <= w - 2; u += 1) pieces.push(['bar', u, 0]);
+  for (let u = back <= 1 ? 2 : 1; u < barFrom; u += 1) {
+    pieces.push([u % 2 === 0 ? 'barrels' : 'casks', u, 0]);
+  }
+  for (let u = barFrom + 4; u <= w - 2; u += 1) {
+    pieces.push([u % 2 === 0 ? 'keg' : 'woodpile', u, 0]);
+  }
+  // The tables the mercenaries sit at, each with its own chair beside it.
+  for (const [index, { table }] of pairs.entries()) {
+    pieces.push([index % 2 === 0 ? 'table' : 'tableJug', table, back]);
+  }
+  // The pot. A tavern with nowhere to cook is a room with chairs in it, so it
+  // goes in whatever row the room has: beside the fire when there is a working
+  // row, and next to the hearth itself when the room is only three deep.
+  if (back > 1) {
+    pieces.push(['cauldron', 0, 1], ['candelabra', w - 1, 1]);
+    for (const { table } of pairs) pieces.push(['stool', table, 1]);
+  }
+  // Deeper rooms get a corner to sit in that is not a hiring table.
+  if (h >= 5) pieces.push(['chessboard', 0, 2], ['bench', w - 1, 2]);
+  const taken = new Set();
+  return pieces
+    .filter(([kind]) => TAVERN_PROPS[kind])
+    .map(([kind, u, v]) => Object.freeze({ kind, ...at(u, v) }))
+    .filter(({ x, y }, index) => {
+      const local = pieces[index];
+      if (reserved.has(`${local[1]},${local[2]}`)) return false;
+      const key = `${x},${y}`;
+      if (taken.has(key)) return false;
+      taken.add(key);
+      return true;
+    });
+}
+
 export function tavernLayout({ interior, door }) {
   if (!interior) return [];
   const { w, h, at } = mapper({ interior, door });
   if (roomIsTooSmall({ w, h })) return [];
+  if (w >= TAVERN_WIDE_ROOM) return wideTavernLayout({ w, h, at });
   const middle = Math.floor(w / 2);
   const front = h - 1;
   const back = h - 2;
@@ -351,10 +443,15 @@ const COPY = Object.freeze({
     idle: 'Свободных рук сейчас нет',
     bed: (price) => `Комната на ночь — ${price}●`,
     slept: 'Ты выспался',
+    kitchen: 'С кухни',
+    hireElsewhere: 'Наёмники сидят за столами — подойди сам',
+    buy: (name, price) => `${name} — ${price}●`,
     refusals: Object.freeze({
       'too-dear': 'Не хватает золота',
       'not-tired': 'Спать ещё не хочется',
       'no-room': 'Свободных комнат нет',
+      'bag-full': 'Рюкзак полон',
+      'off-menu': 'Такого здесь не подают',
     }),
   }),
   en: Object.freeze({
@@ -363,10 +460,15 @@ const COPY = Object.freeze({
     idle: 'Nobody is free just now',
     bed: (price) => `A room for the night — ${price}●`,
     slept: 'You slept it off',
+    kitchen: 'From the kitchen',
+    hireElsewhere: 'The sellswords sit at the tables — go and ask them',
+    buy: (name, price) => `${name} — ${price}●`,
     refusals: Object.freeze({
       'too-dear': 'Not enough gold',
       'not-tired': 'Not tired yet',
       'no-room': 'No rooms free',
+      'bag-full': 'The bag is full',
+      'off-menu': 'Not on the menu',
     }),
   }),
 });
@@ -390,4 +492,58 @@ export function bedOffer({ gold = 0, rest = 0, restMax = 1, language = 'ru' } = 
     return Object.freeze({ ok: false, reason: 'too-dear', price, text: copy.refusals['too-dear'] });
   }
   return Object.freeze({ ok: true, reason: 'ready', price, text: copy.bed(price) });
+}
+
+/**
+ * What the keeper actually sells.
+ *
+ * He used to hire: the recruiter was moved indoors and the tavern became a
+ * hiring desk with chairs. Ivan cut that — «трактирщик продаёт еду, а не
+ * нанимает. К наёмнику подходишь сам и договариваешься» — and he is right
+ * that it is the more honest arrangement: the man behind the counter feeds
+ * you, and the people who will walk down a hole for money are sitting at the
+ * tables, where you can look at them first.
+ *
+ * Four things, cheap to dear, and every one of them is an ordinary food item
+ * the rest of the game already knows. Prices are written here rather than
+ * derived because a tavern is not a market: the keeper charges what he
+ * charges, and the player should be able to learn the numbers.
+ */
+export const TAVERN_MENU = Object.freeze([
+  Object.freeze({ itemId: 'bread', price: 14 }),
+  Object.freeze({ itemId: 'beef-jerky', price: 18 }),
+  Object.freeze({ itemId: 'hearty-stew', price: 34 }),
+  Object.freeze({ itemId: 'feast-platter', price: 60 }),
+]);
+
+/** One line per dish, with the reason it cannot be bought when it cannot. */
+export function tavernMenuModel({ gold = 0, backpackCount = 0, capacity = 0, language = 'ru' } = {}) {
+  const copy = tavernCopy(language);
+  const full = backpackCount >= capacity;
+  return Object.freeze({
+    title: copy.kitchen,
+    hireElsewhere: copy.hireElsewhere,
+    rows: Object.freeze(TAVERN_MENU.map(({ itemId, price }) => Object.freeze({
+      itemId,
+      price,
+      affordable: Number.isFinite(gold) && gold >= price && !full,
+      reason: full ? 'bag-full' : (Number.isFinite(gold) && gold >= price ? '' : 'too-dear'),
+      reasonText: full
+        ? copy.refusals['bag-full']
+        : (Number.isFinite(gold) && gold >= price ? '' : copy.refusals['too-dear']),
+    }))),
+  });
+}
+
+/** Buying one. The dish itself is the runtime's to hand over. */
+export function buyTavernFood({ itemId, gold = 0, backpackCount = 0, capacity = 0 } = {}) {
+  const dish = TAVERN_MENU.find((row) => row.itemId === itemId) ?? null;
+  if (!dish) return Object.freeze({ ok: false, reason: 'off-menu', gold });
+  if (!Number.isFinite(backpackCount) || !Number.isFinite(capacity) || backpackCount >= capacity) {
+    return Object.freeze({ ok: false, reason: 'bag-full', gold });
+  }
+  if (!Number.isFinite(gold) || gold < dish.price) {
+    return Object.freeze({ ok: false, reason: 'too-dear', gold });
+  }
+  return Object.freeze({ ok: true, reason: 'bought', itemId, price: dish.price, gold: gold - dish.price });
 }

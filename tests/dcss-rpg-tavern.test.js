@@ -424,3 +424,75 @@ test('the town has boards indoors, earth on the streets and grass on the square'
     assert.ok(!green.has(`${town.gates.deep.x},${town.gates.deep.y}`), 'the gate is on the lawn');
   }
 });
+
+/**
+ * «Трактирщик продаёт еду, а не нанимает. К наёмнику подходишь сам и
+ * договариваешься — у него своё действие. Трактир сделать больше, с
+ * проходами, чтобы можно было подойти ко всем и поспрашивать.»
+ *
+ * All three parts of that are one test, because they are one complaint: the
+ * tavern was a hiring desk in a cupboard. The keeper feeds you now, the four
+ * men at the tables are the hiring, and the room has a corridor along the
+ * door so you can actually reach them.
+ */
+test('the keeper sells supper, and every man in the room can be walked up to', async () => {
+  const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
+  const { TAVERN_MENU, tavernMenuModel, buyTavernFood, tavernSeats, tavernKeeperSpot, tavernLayout } =
+    await import('../tools/dcss-rpg-tavern.js');
+  const { lootById } = await import('../tools/dcss-rpg-content.js');
+
+  // The menu is real food the rest of the game already knows.
+  assert.ok(TAVERN_MENU.length >= 3);
+  for (const { itemId, price } of TAVERN_MENU) {
+    const definition = lootById(itemId);
+    assert.ok(definition, `${itemId} is not an item`);
+    assert.equal(definition.kind, 'food', `${itemId} is not food`);
+    assert.ok(Number.isInteger(price) && price > 0, `${itemId} has no price`);
+  }
+  const poor = tavernMenuModel({ gold: 0, backpackCount: 0, capacity: 30 });
+  assert.ok(poor.rows.every((row) => !row.affordable));
+  assert.ok(poor.rows.every((row) => row.reasonText.length > 0));
+  const full = tavernMenuModel({ gold: 999, backpackCount: 30, capacity: 30 });
+  assert.equal(full.rows[0].reason, 'bag-full');
+  const rich = tavernMenuModel({ gold: 999, backpackCount: 0, capacity: 30 });
+  assert.ok(rich.rows.every((row) => row.affordable));
+  assert.ok(rich.hireElsewhere.length > 0, 'nothing tells the player where the hires are');
+
+  const bought = buyTavernFood({ itemId: TAVERN_MENU[0].itemId, gold: 100, backpackCount: 0, capacity: 30 });
+  assert.equal(bought.ok, true);
+  assert.equal(bought.gold, 100 - TAVERN_MENU[0].price);
+  assert.equal(buyTavernFood({ itemId: 'rusty-sword', gold: 100, capacity: 30 }).reason, 'off-menu');
+  assert.equal(buyTavernFood({ itemId: TAVERN_MENU[0].itemId, gold: 1, backpackCount: 0, capacity: 30 }).reason, 'too-dear');
+
+  // And the room: from the doorway, walking only on floor that has nothing on
+  // it, every seat and the keeper's own cell must be reachable.
+  for (const seed of [1, 7, 42, 99, 123, 500, 777]) {
+    const town = generateDungeon({ seed, depth: 0 });
+    const tavern = town.city.blocks.find(({ kind }) => kind === 'tavern');
+    assert.ok(tavern, `seed ${seed}: the city has no tavern`);
+    assert.ok(tavern.interior.w * tavern.interior.h >= 40, `seed ${seed}: the tavern is a cupboard`);
+    const furniture = new Set(tavernLayout(tavern).map(({ x, y }) => `${x},${y}`));
+    const seen = new Set([`${tavern.door.x},${tavern.door.y}`]);
+    const queue = [tavern.door];
+    while (queue.length > 0) {
+      const cell = queue.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = cell.x + dx;
+        const y = cell.y + dy;
+        const key = `${x},${y}`;
+        if (seen.has(key) || furniture.has(key) || town.grid[y]?.[x] !== '.') continue;
+        seen.add(key);
+        queue.push({ x, y });
+      }
+    }
+    const people = [...tavernSeats(tavern), tavernKeeperSpot(tavern)].filter(Boolean);
+    assert.equal(people.length, 5, `seed ${seed}: four hires and a keeper`);
+    for (const person of people) {
+      assert.ok(seen.has(`${person.x},${person.y}`), `seed ${seed}: ${person.x},${person.y} is walled in`);
+    }
+    // Nothing stands on a person, either.
+    for (const person of people) {
+      assert.ok(!furniture.has(`${person.x},${person.y}`), `seed ${seed}: furniture on a person`);
+    }
+  }
+});

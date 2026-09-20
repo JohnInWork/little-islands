@@ -107,7 +107,10 @@ test('the runtime pays only once the hire is standing there', async () => {
   // it is the worst bug a paid thing can have.
   assert.ok(body.indexOf('raiseCompanion(index)') < body.indexOf('gold -= result.price'));
   assert.match(body, /run\.companions = createCompanionParty\(run\.companions\.slice\(0, index\)\)/);
-  // It is called from the panel, and the panel is fed by the one model.
-  assert.match(runtime, /recruiter\(\{ action \}\)[\s\S]{0,200}?hireIntoParty\(/);
+  // Hiring is asked of the man being hired, not of the keeper: «трактирщик
+  // продаёт еду, а не нанимает. К наёмнику подходишь сам и договариваешься».
+  assert.match(runtime, /'tavern-hire'\(\{ action \}\)[\s\S]{0,200}?hireIntoParty\(/);
+  const keeper = runtime.slice(runtime.indexOf('  recruiter({ action }) {'));
+  assert.doesNotMatch(keeper.slice(0, keeper.indexOf('\n  },')), /hireIntoParty/, 'the keeper still hires');
   assert.match(runtime, /mercenaryModel\(\{/);
 });

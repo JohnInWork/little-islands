@@ -232,8 +232,61 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
   const roles = ['market', 'shop', 'shop', 'shop', 'shop', 'temple', 'barracks', 'jail', 'plot', 'tavern'];
   const records = [{ kind: 'plaza', rect: { ...centre }, door: null, interior: { ...centre } }];
 
+  /**
+   * The tavern is two blocks wide.
+   *
+   * Every other building in the city is one man behind one counter and fits
+   * on a single block. The tavern is a common room: a keeper, four seated
+   * mercenaries and the furniture around them, in twenty cells — which came
+   * out as a cupboard nobody could walk across. «Трактир сделать больше, с
+   * проходами, чтобы можно было подойти ко всем и поспрашивать.»
+   *
+   * So it swallows the block beside it, street between them included. The
+   * block it takes is the one that would have been a solid `house` — nothing
+   * stands on it and nobody walks through it, so nothing is lost and nobody
+   * is stranded. When the lattice offers no neighbouring pair, the tavern
+   * stays one block wide and the room is furnished as it always was.
+   */
+  const tavernIndex = roles.indexOf('tavern');
+  const spareIndex = roles.length; // the first block with no role: a `house`
+  let tavernRect = null;
+  if (tavernIndex >= 0 && spareIndex < others.length) {
+    const pair = (() => {
+      for (let a = 0; a < others.length; a += 1) {
+        for (let b = 0; b < others.length; b += 1) {
+          if (a === b) continue;
+          if (others[a].row !== others[b].row) continue;
+          if (others[b].column - others[a].column !== 1) continue;
+          return [a, b];
+        }
+      }
+      return null;
+    })();
+    if (pair) {
+      const [left, right] = pair;
+      const hold = [others[left], others[right]];
+      // Put the pair where the tavern and the spare block are dealt, keeping
+      // whatever was there by swapping rather than splicing.
+      const displaced = [others[tavernIndex], others[spareIndex]];
+      others[tavernIndex] = hold[0];
+      others[spareIndex] = hold[1];
+      others[left] = displaced[0] === hold[0] ? others[left] : displaced[0];
+      others[right] = displaced[1] === hold[1] ? others[right] : displaced[1];
+      tavernRect = {
+        column: hold[0].column,
+        row: hold[0].row,
+        x: hold[0].x,
+        y: hold[0].y,
+        w: hold[1].x + hold[1].w - hold[0].x,
+        h: Math.max(hold[0].h, hold[1].h),
+      };
+    }
+  }
+
   for (const [index, block] of others.entries()) {
     const kind = roles[index] ?? 'house';
+    // The spare block is inside the tavern now: it is neither wall nor house.
+    if (tavernRect && index === roles.length) continue;
     if (kind === 'market') {
       // An open market: no walls, just ground the stalls stand on.
       records.push({ kind, rect: { ...block }, door: null, interior: { ...block } });
@@ -244,7 +297,7 @@ export function generateCityPlan({ rng, width, height, columns = 4, rows = 3 } =
       records.push({ kind, rect: { ...block }, door: null, interior: null });
       continue;
     }
-    records.push(buildBuilding({ grid, block, kind, rng }));
+    records.push(buildBuilding({ grid, block: kind === 'tavern' && tavernRect ? tavernRect : block, kind, rng }));
   }
 
   /**
