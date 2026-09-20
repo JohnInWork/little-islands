@@ -1658,7 +1658,9 @@ body {
   position: fixed;
   z-index: 7;
   left: var(--dock-edge);
-  bottom: calc(var(--dock-floor) + var(--dock-step));
+  /* Через две ступени, а не через одну: строка с подписью шире значка и на
+     прежней высоте накрывала джойстик правым краем. */
+  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
   display: none;
   flex-direction: column-reverse;
   gap: 6px;
@@ -1675,16 +1677,28 @@ body {
   pointer-events: auto;
 }
 
+/*
+ * Кнопка взаимодействия — строка, а не значок.
+ *
+ * Иван: «на иконке непонятно что я получаю и что теряю — надо просто на кнопку
+ * взаимодействия писать, что это и что с ним можно сделать, а не помещать всю
+ * инфу в маленькую кнопку». Значок называет предмет в лучшем случае; цену,
+ * награду и отказ он не называет никогда. Ширина ограничена, чтобы строка не
+ * дотянулась до джойстика: слева кнопки, посередине палец.
+ */
 .interact-action {
   --context-accent: var(--gold);
   position: fixed;
   z-index: 7;
   left: var(--dock-edge);
-  bottom: calc(var(--dock-floor) + var(--dock-step));
-  width: var(--dock-button);
-  height: var(--dock-button);
+  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
+  width: auto;
+  max-width: min(300px, 62vw);
+  min-height: var(--dock-button);
   padding: 4px;
-  place-items: center;
+  grid-template-columns: 50px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
   color: #efe5c8;
   background: rgb(12 18 20 / 92%);
   border-color: var(--context-accent);
@@ -1727,19 +1741,26 @@ body {
   filter: drop-shadow(3px 3px 0 #020304);
 }
 
-.interact-action > b {
-  position: absolute;
-  right: -4px;
-  bottom: -4px;
-  width: 26px;
-  height: 26px;
+/* Название и действие: что это и что с ним можно сделать. */
+.interact-copy {
+  min-width: 0;
   display: grid;
-  place-items: center;
-  color: #101619;
-  background: var(--context-accent);
-  border: 4px solid #030506;
-  font-size: 18px;
-  line-height: 1;
+  gap: 2px;
+  padding-right: 6px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.interact-copy b {
+  color: #efe5c8;
+  font-size: 15px;
+  line-height: 1.12;
+}
+
+.interact-copy small {
+  color: var(--context-accent);
+  font-size: 13px;
+  line-height: 1.16;
 }
 
 .interact-action:active {
@@ -1759,7 +1780,11 @@ body {
   left: 50%;
   /* Below the HUD and the guardian bar, never inside the thumb dock. */
   top: max(158px, calc(env(safe-area-inset-top) + 150px));
-  width: min(340px, calc(100vw - 24px));
+  /* Иван: «алерты при получении золота некрасивые — они на всю ширину, а там
+     просто +1». Ширина по содержимому, потолок прежний: короткая находка
+     становится значком, длинное имя по-прежнему переносится внутри 340px. */
+  width: max-content;
+  max-width: min(340px, calc(100vw - 24px));
   min-height: 56px;
   padding: 6px 10px;
   display: grid;
@@ -4702,22 +4727,24 @@ body {
   position: fixed;
   z-index: 7;
   left: var(--dock-edge);
-  bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
+  bottom: calc(var(--dock-floor) + var(--dock-step) * 3);
   display: grid;
-  grid-template-columns: 24px auto;
-  place-items: center;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
   min-width: var(--dock-button);
-  width: var(--dock-button);
-  height: var(--dock-button);
-  padding: 4px 4px;
+  width: auto;
+  max-width: min(300px, 62vw);
+  min-height: var(--dock-button);
+  padding: 4px 8px 4px 6px;
   color: #d1c16e;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.sanctuary-action > span {
+.sanctuary-action > .sanctuary-glyph {
   color: #b64042;
-  font-size: 31px;
+  font-size: 24px;
   line-height: 1;
   text-shadow: none;
 }
@@ -5452,16 +5479,6 @@ body {
   .context-action-button > b {
     font-size: 24px;
   }
-}
-
-.sanctuary-action b {
-  color: #80a7af;
-  font-size: 18px;
-}
-
-.sanctuary-action b i {
-  color: #d4c27e;
-  font-style: normal;
 }
 
 .sanctuary-action:disabled {
@@ -7655,7 +7672,9 @@ body {
 /*
  * Thumb dock — final responsive authority for the game screen's bottom zone.
  * Tracks (portrait and landscape alike):
- *   left   : sanctuary heal / interact / bag, stacked from the bottom
+ *   left   : sanctuary heal / interact / bag, stacked from the bottom.
+ *            Строки взаимодействия носят подпись и потому широки: они стоят
+ *            через ступень от рюкзака, иначе правый край накрывает джойстик.
  *   centre : joystick, always centred
  *   right  : three prepared spells, one column
  *
@@ -7676,12 +7695,12 @@ body {
   .interact-action {
     left: var(--dock-edge);
     right: auto;
-    bottom: calc(var(--dock-floor) + var(--dock-step));
+    bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
   }
 
   .sanctuary-action {
     left: var(--dock-edge);
-    bottom: calc(var(--dock-floor) + var(--dock-step) * 2);
+    bottom: calc(var(--dock-floor) + var(--dock-step) * 3);
   }
 
   .spell-bar {
@@ -7753,8 +7772,7 @@ body {
 
   .sanctuary-action {
     min-width: var(--dock-button);
-    width: var(--dock-button);
-    height: var(--dock-button);
+    min-height: var(--dock-button);
   }
 }
 

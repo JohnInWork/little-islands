@@ -51,6 +51,7 @@ import {
   DEEPEST_DEPTH,
   roadEndingAt,
   SANCTUARY_COST,
+  SANCTUARY_HEAL,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
   canRetireRun,
@@ -860,6 +861,8 @@ const recordsMilestones = document.querySelector('#records-milestones');
 const bossHud = document.querySelector('#boss-hud');
 const bossHealth = bossHud.querySelector('.boss-health');
 const sanctuaryAction = document.querySelector('#sanctuary-action');
+const sanctuaryName = document.querySelector('#sanctuary-name');
+const sanctuaryOffer = document.querySelector('#sanctuary-offer');
 const ambientNote = document.querySelector('#ambient-note');
 const ambientNoteText = document.querySelector('#ambient-note-text');
 const ambientSeenList = document.querySelector('#records-scenes-list');
@@ -1061,6 +1064,21 @@ let itemInstances = new Map(run.items.map((record) => [record.uid, materializeIn
 let backpackItems = run.inventory.map((uid) => itemInstances.get(uid)).filter(Boolean);
 const revealed = new Set(run.floor.revealed);
 revealAround(revealed, world, { x: run.hero.x, y: run.hero.y }, 4);
+/**
+ * Комната этажа, ставшая кладбищем, и смерть, которую она хоронит.
+ *
+ * Решение принимается здесь, а не в генераторе: кладбище зависит от того,
+ * умирал ли игрок раньше, а это знание живёт в метасостоянии, которого этаж
+ * не видит и видеть не должен — иначе один и тот же сейв собирал бы разные
+ * этажи. Обстановка и туман — единственное, на что влияет ответ, поэтому
+ * сохранение остаётся нетронутым.
+ *
+ * Стоит выше первой постройки обстановки намеренно: `let` в мёртвой зоне
+ * бросает при чтении, и объявление ниже по файлу валило первый кадр.
+ */
+let activeGraveyardRoom = null;
+let activeGraveyardBones = null;
+
 let dungeonEnvironment = createDungeonEnvironment(dungeon, { graveyardRoom: activeGraveyardRoom });
 if (previewHuntNearSpawn) {
   const cookingSite = dungeonEnvironment.props.find(({ interactionId }) => interactionId === 'campfire');
@@ -1207,18 +1225,6 @@ const createAtmosphereMotes = (seed) =>
     deterministicAtmosphereMote(seed, index, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE),
   );
 let motes = createAtmosphereMotes(run.seed);
-/**
- * Комната этажа, ставшая кладбищем, и смерть, которую она хоронит.
- *
- * Решение принимается здесь, а не в генераторе: кладбище зависит от того,
- * умирал ли игрок раньше, а это знание живёт в метасостоянии, которого этаж
- * не видит и видеть не должен — иначе один и тот же сейв собирал бы разные
- * этажи. Обстановка и туман — единственное, на что влияет ответ, поэтому
- * сохранение остаётся нетронутым.
- */
-let activeGraveyardRoom = null;
-let activeGraveyardBones = null;
-
 const createMistAnchors = (level) =>
   fogAnchorsForDungeon({
     seed: level.seed,
@@ -8935,10 +8941,18 @@ function updateInteractionUi() {
     const icon = document.createElement('img');
     icon.alt = '';
     icon.src = assetUrl(model.icon);
-    const mark = document.createElement('b');
-    mark.setAttribute('aria-hidden', 'true');
-    mark.textContent = '+';
-    button.append(icon, mark);
+    // Иван: «на иконке непонятно что я получаю и что теряю». Значок называет
+    // предмет в лучшем случае, а цену и запрет — никогда, поэтому на кнопке
+    // стоит и название, и первое доступное действие со своей ценой.
+    const copy = document.createElement('span');
+    copy.className = 'interact-copy';
+    copy.setAttribute('aria-hidden', 'true');
+    const title = document.createElement('b');
+    title.textContent = model.name;
+    const summary = document.createElement('small');
+    summary.textContent = model.triggerSummary;
+    copy.append(title, summary);
+    button.append(icon, copy);
     button.addEventListener('click', () => openContextActions(target));
     return [button];
   }));
@@ -10449,9 +10463,18 @@ function updateSanctuaryUi() {
     sanctuaryAction.hidden = true;
     return;
   }
-  const injured = hero.hp < currentHeroStats().maxHp;
+  const maxHp = currentHeroStats().maxHp;
+  const injured = hero.hp < maxHp;
   sanctuaryAction.hidden = !heroNearSanctuary() || !injured;
   sanctuaryAction.disabled = gold < SANCTUARY_COST;
+  // Сердце с цифрой рядом читалось как «три жизни», а не «три монеты»: по
+  // значку не видно, что получаешь и что отдаёшь. Теперь написано и то, и то.
+  const labels = currentMainMenuModel().labels;
+  sanctuaryName.textContent = labels.sanctuaryName;
+  sanctuaryOffer.textContent = labels.sanctuaryHeal(
+    Math.min(SANCTUARY_HEAL, maxHp - hero.hp),
+    SANCTUARY_COST,
+  );
 }
 
 function updateBossHud() {

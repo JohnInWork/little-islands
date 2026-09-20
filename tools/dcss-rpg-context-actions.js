@@ -915,6 +915,19 @@ export function interactionDefinitionFor(target) {
   return INTERACTION_REGISTRY.find(({ matches }) => matches(target)) ?? null;
 }
 
+/** Строка под названием: действие и его цена, либо действие и причина отказа. */
+function triggerSummary(actions) {
+  // «Осмотреть» есть почти у всего и не отвечает ни на «что я получу», ни на
+  // «чего это стоит»: кнопка нужна не за этим.
+  const useful = actions.filter(({ id }) => id !== 'inspect');
+  const chosen = useful.find((action) => action.enabled) ?? useful[0] ?? actions[0];
+  if (!chosen) return '';
+  const label = typeof chosen.label === 'string' ? chosen.label.trim() : '';
+  const hint = typeof chosen.hint === 'string' ? chosen.hint.trim() : '';
+  if (!label) return hint;
+  return hint ? `${label} · ${hint}` : label;
+}
+
 export function contextActionModel({ target, actor = {}, language = 'ru', inspected = false } = {}) {
   if (typeof inspected !== 'boolean') throw new TypeError('Context actions require inspect state');
   const locale = language === 'en' ? 'en' : 'ru';
@@ -928,6 +941,10 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     copy: COPY[locale],
   });
   const actions = view.actions.map((candidate) => commandAction(candidate, definition.command));
+  const labelled = actions.map((action) => ({
+    ...action,
+    label: action.label ?? ACTION_COPY[locale][action.id],
+  }));
   return Object.freeze({
     interactionId: definition.id,
     name: view.name,
@@ -935,12 +952,22 @@ export function contextActionModel({ target, actor = {}, language = 'ru', inspec
     icon: view.icon,
     accent: view.accent,
     triggerLabel: locale === 'ru' ? `Взаимодействовать: ${view.name}` : `Interact: ${view.name}`,
+    /**
+     * Что написать на самой кнопке, под названием.
+     *
+     * Иван: «на иконке непонятно что я получаю и что теряю — надо просто на
+     * кнопку взаимодействия писать, что это и что с ним можно сделать, а не
+     * помещать всю инфу в маленькую кнопку». Значок называет предмет в лучшем
+     * случае; цену и запрет он не называет никогда.
+     *
+     * Берётся первое доступное действие, а если доступного нет — первое вообще:
+     * тогда подсказка и есть ответ на «почему нельзя», и это ровно та половина,
+     * которой на кнопке не хватало.
+     */
+    triggerSummary: triggerSummary(labelled),
     closeLabel: locale === 'ru' ? 'Закрыть действия' : 'Close actions',
-    actions: Object.freeze(actions.map((action) => Object.freeze({
-      ...action,
-      // Most actions are a fixed verb from the table. A few — the hires — are
-      // a row of a list and carry their own name and price with them.
-      label: action.label ?? ACTION_COPY[locale][action.id],
-    }))),
+    // Most actions are a fixed verb from the table. A few — the hires — are
+    // a row of a list and carry their own name and price with them.
+    actions: Object.freeze(labelled.map((action) => Object.freeze({ ...action }))),
   });
 }

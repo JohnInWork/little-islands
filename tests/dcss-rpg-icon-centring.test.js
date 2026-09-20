@@ -126,19 +126,36 @@ test('значок кнопки не шире своей клетки', async ()
     const block = css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.>*]/g, '\\$&')}\\s*\\{([^}]*)\\}`));
     assert.ok(block, `не нашлось правило ${selector}`);
     const found = block[1].match(new RegExp(`\\n\\s*${property}:\\s*([^;]+);`));
-    if (!found) return null;
-    const value = found[1].trim();
-    const asVariable = value.match(/^var\((--[a-z-]+)\)$/);
-    return asVariable ? variable(asVariable[1]) : Number(value.replace('px', ''));
+    return found ? found[1].trim() : null;
+  };
+  /** Первое число в объявлении, в пикселях; `var(--x)` разворачивается. */
+  const pixels = (value) => {
+    if (value == null) return null;
+    const asVariable = value.match(/var\((--[a-z-]+)\)/);
+    if (asVariable) return variable(asVariable[1]);
+    const asNumber = value.match(/(\d+(?:\.\d+)?)px/);
+    return asNumber ? Number(asNumber[1]) : null;
   };
 
   const border = variable('--pixel-unit');
   assert.equal(border, 4);
+  // Клетка значка — это либо вся кнопка без рамки и отступов, либо, если
+  // кнопка стала строкой, первая колонка её сетки: подпись рядом не даёт
+  // картинке места, она даёт его тексту.
+  const cellOf = (selector) => {
+    const columns = declaration(selector, 'grid-template-columns');
+    if (columns != null) return pixels(columns);
+    return pixels(declaration(selector, 'width'))
+      - 2 * border
+      - 2 * pixels(declaration(selector, 'padding'));
+  };
   for (const [button, icon] of [['.open-portal', '.open-portal img'], ['.interact-action', '.interact-action > img']]) {
-    const side = declaration(button, 'width');
-    const padding = declaration(button, 'padding');
-    const cell = side - 2 * border - 2 * padding;
-    const drawn = declaration(icon, 'width');
+    const cell = cellOf(button);
+    const drawn = pixels(declaration(icon, 'width'));
+    assert.ok(
+      Number.isFinite(cell) && Number.isFinite(drawn),
+      `${button}: не прочиталась геометрия (клетка ${cell}, картинка ${drawn})`,
+    );
     assert.ok(
       drawn <= cell,
       `${button}: клетка ${cell}px, картинка ${drawn}px — grid прижмёт её в угол на ${(drawn - cell) / 2}px`,
