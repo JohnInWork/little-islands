@@ -62,9 +62,19 @@ const clamp = (value) => (Number.isFinite(value) ? Math.max(-1, Math.min(1, valu
  * крестовина с её щелчком, а стик освобождается под то, чего в игре с тремя
  * кнопками всегда не хватает, — под сам интерфейс.
  */
+/**
+ * Кнопка нажата.
+ *
+ * Не всякий драйвер выставляет `pressed`: часть отдаёт только `value`, и у
+ * крестовины это встречается чаще, чем у лицевых кнопок, — её нередко собирают
+ * из «шляпки», теряя булев флаг по дороге. Кнопка, у которой значение единица,
+ * а флага нет, нажата — спорить тут не с чем.
+ */
+export const buttonHeld = (button) => button?.pressed === true || (button?.value ?? 0) > 0.5;
+
 export function padDpadDirection(pad) {
   const buttons = pad?.buttons ?? [];
-  const held = (index) => buttons[index]?.pressed === true;
+  const held = (index) => buttonHeld(buttons[index]);
   if (held(PAD_BUTTONS.up)) return 'up';
   if (held(PAD_BUTTONS.down)) return 'down';
   if (held(PAD_BUTTONS.left)) return 'left';
@@ -168,9 +178,32 @@ export function padPressed(pad) {
   const buttons = pad?.buttons ?? [];
   const pressed = new Set();
   for (const [name, index] of Object.entries(PAD_BUTTONS)) {
-    if (buttons[index]?.pressed === true) pressed.add(name);
+    if (buttonHeld(buttons[index])) pressed.add(name);
   }
   return pressed;
+}
+
+/**
+ * Что пад сообщает о себе прямо сейчас — для отладочной строки на экране.
+ *
+ * В киоске консоли нет, и «у меня не работает» без неё превращается в гадание:
+ * раскладок у одного и того же DualShock 4 три, и по названию не угадать.
+ */
+export function padReport(pad) {
+  if (!pad) return 'геймпад не виден';
+  const buttons = (pad.buttons ?? [])
+    .map((button, index) => (buttonHeld(button) ? index : null))
+    .filter((index) => index !== null);
+  const axes = (pad.axes ?? [])
+    .map((value, index) => (Math.abs(value) > 0.2 ? `${index}:${value.toFixed(2)}` : null))
+    .filter(Boolean);
+  return [
+    `раскладка: ${pad.mapping || 'нестандартная'}`,
+    `кнопок: ${(pad.buttons ?? []).length}, осей: ${(pad.axes ?? []).length}`,
+    `нажато: ${buttons.length > 0 ? buttons.join(' ') : '—'}`,
+    `оси: ${axes.length > 0 ? axes.join(' ') : '—'}`,
+    `крестовина: ${padDpadDirection(pad) ?? '—'}`,
+  ].join(' · ');
 }
 
 /**

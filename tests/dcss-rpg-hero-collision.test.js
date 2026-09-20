@@ -735,10 +735,24 @@ test('a held direction is one step or nothing, and never a detour', () => {
   assert.equal(step('right'), false, 'stepped into the pillar');
   assert.equal(world.context.hero.path.length, 0);
 
-  // And an open direction is one cell, not a plan.
+  // And an open direction is one cell, not a plan — written in the same units
+  // the walker reads. Путь героя измеряется в пикселях: ходок делит точку на
+  // размер клетки, чтобы узнать клетку. Клетка, положенная сюда как есть,
+  // делилась второй раз, попадала в угол карты и стиралась как стена — герой
+  // стоял на месте при любом направленном вводе, и заметилось это только с
+  // геймпадом.
   at(1, 1);
   assert.equal(step('right'), true);
-  assert.equal(JSON.stringify(world.context.hero.path), JSON.stringify([{ x: 2, y: 1 }]));
+  assert.equal(
+    JSON.stringify(world.context.hero.path),
+    JSON.stringify([{ x: 2.5 * TILE, y: 1.5 * TILE }]),
+  );
+  // И та же точка, прочитанная обратно, обязана дать соседнюю клетку.
+  const [ahead] = world.context.hero.path;
+  assert.deepEqual(
+    { x: Math.floor(ahead.x / TILE), y: Math.floor(ahead.y / TILE) },
+    { x: 2, y: 1 },
+  );
 
   // Walking off the map is the same as walking into a wall.
   at(1, 1);

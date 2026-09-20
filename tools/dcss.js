@@ -115,9 +115,9 @@ import {
   chooseTarget,
   createPadState,
   padDpadDirection,
+  padReport,
   padStickDirection,
   readPad,
-  stepFor,
 } from './dcss-rpg-gamepad.js';
 import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
@@ -775,8 +775,15 @@ const interactActions = document.querySelector('#interact-actions');
  * «стандартными», так что таблица одна на обе приставки.
  */
 const heroPad = createPadState();
-/** Отдельный счётчик повтора для ходьбы: стик выбирает окна и шагать не должен. */
-const heroWalk = createPadState();
+/** Пауза после выданного шага: спасает от спама, когда впереди стена и путь
+ *  остаётся пустым — тогда условие «дошёл» выполняется каждый кадр. */
+const PAD_WALK_COOLDOWN = 0.08;
+let padWalkCooldown = 0;
+const padReportLine = document.querySelector('#pad-report');
+/** `?pad=1` показывает, что именно шлёт геймпад: в киоске консоли нет, и
+ *  «у меня не работает» без этой строки — гадание. */
+const padDebug = new URL(document.location.href).searchParams.get('pad') === '1';
+let padLastStep = '—';
 /** Что сейчас выбрано стиком на экране игры. Хранится по селектору, не по узлу:
  *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
 let padTargetKey = null;
@@ -4755,7 +4762,20 @@ function stepHeroToward(cellX, cellY) {
     return false;
   }
   playerHasActed = true;
-  return commitHeroPath([target], intent.permittedCell);
+  /*
+   * Путь героя измеряется в пикселях, а не в клетках.
+   *
+   * `findPath` отдаёт точки как `(клетка + 0.5) * TILE`, и ходок делит их
+   * обратно, чтобы узнать клетку. Здесь в путь клали саму клетку — ходок делил
+   * её ещё раз, попадал в левый верхний угол карты, видел там стену и стирал
+   * путь. Шаг «удавался» и тут же отменялся, поэтому герой стоял на месте при
+   * любом направленном вводе: крестовине, экранных стрелках и клавиатуре.
+   * Нашлось это только с геймпадом — тапом по полу игра ходит другим путём.
+   */
+  return commitHeroPath(
+    [{ x: (target.x + 0.5) * TILE, y: (target.y + 0.5) * TILE }],
+    intent.permittedCell,
+  );
 }
 
 function queueDirectionalMove(direction) {
@@ -16511,9 +16531,16 @@ function paintPadTarget(chosen) {
 function pollGamepads(delta) {
   if (typeof navigator.getGamepads !== 'function') return;
   const [pad] = [...navigator.getGamepads()].filter((entry) => entry && entry.connected !== false);
+  if (padDebug) {
+    padReportLine.hidden = false;
+    // Клетка героя стоит в той же строке: «работает ли крестовина» — это
+    // вопрос о том, меняется ли она, и глазами по карте его не решить.
+    const cell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
+    padReportLine.textContent = `герой: ${cell} · шаг: ${padLastStep} · экран: ${uiScreen}/${runStatus} · ${padReport(pad)}`;
+  }
   if (!pad) {
     paintPadTarget(null);
-    stepFor(heroWalk, null, delta);
+    padWalkCooldown = 0;
     return;
   }
   const { edge } = readPad(heroPad, pad, delta);
@@ -16532,10 +16559,28 @@ function pollGamepads(delta) {
     return;
   }
 
-  // Шаг по расписанию, а не каждый кадр: игра ходит по клетке, и поток из
-  // шестидесяти шагов в секунду сбрасывает начатый шаг снова и снова.
-  const walkStep = stepFor(heroWalk, walk, delta);
-  if (walkStep) queueDirectionalMove(walkStep);
+  /*
+   * Новый шаг — только когда прошлый дошёл.
+   *
+   * Иван: «не работает при движении на моём DualShock 4 на крестовине, всё
+   * остальное работает». И правда не работало, причём вызов шага честно
+   * возвращал «да»: я выдавал новый шаг каждые сто шестьдесят миллисекунд, а
+   * клетка проходится за триста с лишним — герой бесконечно начинал один и тот
+   * же шаг заново и стоял на месте. Экранный джойстик не зря молчит, пока
+   * `hero.path` не пуст; здесь теперь то же условие.
+   *
+   * Счётчик жестов растёт на каждый шаг: `stepHeroToward` спрашивает разрешение
+   * у защиты от ловушек, а та отличает намерения по нему — «шагни ещё раз, если
+   * правда хочешь на ловушку». Касание, мышь и клавиатура его увеличивают,
+   * геймпад не увеличивал ни разу.
+   */
+  const walkReady = walk && hero.path.length === 0 && padWalkCooldown <= 0;
+  padWalkCooldown = Math.max(0, padWalkCooldown - delta);
+  if (walkReady) {
+    padWalkCooldown = PAD_WALK_COOLDOWN;
+    inputGesture += 1;
+    padLastStep = `${walk}=${queueDirectionalMove(walk)}`;
+  }
   const targets = padTargets();
   const rects = targets.map((node) => {
     const box = node.getBoundingClientRect();

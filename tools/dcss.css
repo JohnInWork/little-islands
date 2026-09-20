@@ -1770,6 +1770,27 @@ body {
   box-shadow: 0 0 0 8px rgb(214 189 98 / 22%);
 }
 
+/* Строка отладки геймпада. Видна только по `?pad=1` и ничего не перекрывает. */
+.pad-report {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  margin: 0;
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  color: #cfe3d4;
+  background: rgb(6 10 12 / 94%);
+  border: 2px solid #6f8f7c;
+  font-size: 12px;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.pad-report[hidden] {
+  display: none;
+}
+
 .loot-toast {
   --rarity: var(--rare);
   position: fixed;
