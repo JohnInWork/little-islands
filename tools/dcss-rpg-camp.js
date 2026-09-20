@@ -116,29 +116,25 @@ function isOpenCell(grid, x, y) {
 }
 
 /**
- * A tent is not a bedroll: it is about two cells wide and two tall, so it needs
- * a room rather than a crack. Ivan asked the right question — «если коридор
- * узкий в одну клетку?» — and the honest answer was that nothing checked: the
- * camp would pitch in a one-cell corridor and the tent would be drawn standing
- * through the wall above it.
+ * How big the tent is allowed to get, in cells.
  *
- * So the tent's cell has to have open ground to the left, to the right and
- * behind it. Everything else in a camp is one cell and fits anywhere; when no
- * cell has the room, the whole camp refuses with «мало места», which is a
- * refusal that already exists and already explains itself. A corridor is a bad
- * place to sleep, and the game is allowed to say so.
+ * Ivan asked the question that mattered — «если коридор узкий в одну клетку?
+ * у нас всё это продумано?» — and it was not: everything in a camp had always
+ * been one cell, so the layout asked a cell only whether it was floor. A tent
+ * two cells across would have been drawn standing through the corridor wall.
+ *
+ * The first answer was to demand open ground around the tent and refuse the
+ * camp otherwise. Then Ivan picked the smallest of the four sizes — a tent the
+ * height of the hero — and that answer stopped being needed: a tent this size
+ * is a thing that stands in its own cell, like the fire and the chest, and a
+ * corridor is a perfectly good place to sleep in one.
+ *
+ * The number is kept here because it is the reason the demand is gone. Make
+ * the tent bigger than this and it no longer fits its cell — the test that
+ * reads the runtime's own `size` will say so, and the clearance rule has to
+ * come back with it.
  */
-const TENT_CLEARANCE = Object.freeze([
-  Object.freeze({ x: -1, y: 0 }),
-  Object.freeze({ x: 1, y: 0 }),
-  Object.freeze({ x: 0, y: -1 }),
-]);
-
-const WIDE_FEATURES = new Set(['bedroll']);
-
-function hasRoomForTent(grid, x, y) {
-  return TENT_CLEARANCE.every((offset) => isOpenCell(grid, x + offset.x, y + offset.y));
-}
+export const CAMP_TENT_MAX_CELLS = 1.25;
 
 /**
  * Where the camp's things stand: around the hero, in a stable order, so the
@@ -154,10 +150,8 @@ export function campLayout({ cell, features = [], grid, occupied = [] } = {}) {
     const x = cell.x + offset.x;
     const y = cell.y + offset.y;
     if (!isOpenCell(grid, x, y) || taken.has(`${x},${y}`)) continue;
-    const feature = features[places.length];
-    if (WIDE_FEATURES.has(feature) && !hasRoomForTent(grid, x, y)) continue;
     taken.add(`${x},${y}`);
-    places.push({ feature, x, y });
+    places.push({ feature: features[places.length], x, y });
   }
   return places.length === features.length ? Object.freeze(places.map(Object.freeze)) : [];
 }

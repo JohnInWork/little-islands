@@ -2582,12 +2582,12 @@ const CAMP_PROP_VISUALS = Object.freeze({
   bedroll: Object.freeze({
     path: CAMP_BEDROLL_PATH,
     frames: Object.freeze([CAMP_BEDROLL_PATH]),
-    // A tent is a thing you walk into, not a thing you step over — but it is
-    // also the only piece of camp wider than its own cell, so it is kept as
-    // small as still reads as shelter: a bit under two cells, and `campLayout`
-    // will not put one where the walls are closer than that.
-    size: 112,
-    screenOffsetY: -28,
+    // Ivan picked the smallest of the four: a tent the height of the hero
+    // standing beside it. That is one cell and a little, which is what lets the
+    // camp layout treat it like everything else — the camp module holds the
+    // limit this number has to stay under, and a test reads both.
+    size: 72,
+    screenOffsetY: -14,
     light: null,
     interactionId: 'camp-rest',
   }),

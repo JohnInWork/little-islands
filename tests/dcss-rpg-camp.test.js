@@ -13,6 +13,7 @@ import {
   CAMP_SPELL_REST_PERCENT,
   CAMP_STASH_CONTAINER_ID,
   burnCampFire,
+  CAMP_TENT_MAX_CELLS,
   campFeaturesForRank,
   campFireBurning,
   campLayout,
@@ -462,63 +463,56 @@ test('the runtime swaps the flame for cold wood and takes the cooking with it', 
 });
 
 /**
- * «Если коридор узкий в одну клетку? у нас все это продумано?» — нет, не было.
- * Everything in a camp used to be one cell, so `campLayout` only ever asked
- * whether a cell was floor. A tent is about two cells across and two tall, and
- * in a one-cell corridor it would have been drawn standing through the wall.
+ * «Если коридор узкий в одну клетку? у нас все это продумано?» — не было.
+ * Everything in a camp had always been one cell, so the layout asked a cell
+ * only whether it was floor; a tent two cells across would have been drawn
+ * standing through the corridor wall.
+ *
+ * The fix that stuck was not a rule but a size. Ivan picked the smallest of
+ * the four tents — the height of the hero beside it — and a tent that fits its
+ * own cell needs no clearance and no refusal: a corridor is a fine place to
+ * sleep in one. This test is what keeps the two facts tied together, because
+ * the size lives in the runtime and the layout lives here.
  */
-test('a tent needs a room, and a one-cell corridor is refused', () => {
-  const corridor = [
-    '#########',
-    '.........',
-    '#########',
-  ].map((row) => [...row]);
-  const room = [
-    '#########',
-    '#.......#',
-    '#.......#',
-    '#.......#',
-    '#########',
-  ].map((row) => [...row]);
-
-  // A fire alone fits anywhere: one cell, one picture.
-  const fireInCorridor = campLayout({ cell: { x: 4, y: 1 }, features: ['fire'], grid: corridor });
-  assert.equal(fireInCorridor.length, 1);
-
-  // A tent does not: nothing beside the corridor cell is open.
-  assert.deepEqual(
-    campLayout({ cell: { x: 4, y: 1 }, features: ['fire', 'bedroll'], grid: corridor }),
-    [],
-    'the tent was pitched inside the corridor wall',
+test('the tent fits its own cell, so a one-cell corridor is a camp like any other', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const bedroll = runtime.slice(runtime.indexOf('  bedroll: Object.freeze({'));
+  const size = Number(bedroll.slice(0, bedroll.indexOf('}),')).match(/size: (\d+)/)?.[1]);
+  assert.ok(Number.isFinite(size), 'the tent has no size');
+  const TILE = 64;
+  assert.ok(
+    size <= TILE * CAMP_TENT_MAX_CELLS,
+    `a tent of ${size} no longer fits its cell: bring back the clearance rule before growing it`,
   );
-  // And the camp says why, in words that already existed.
-  const refused = canPitchCamp({
+
+  // A one-cell corridor: nothing is open except the way through.
+  const corridor = ['#########', '.........', '#########'].map((row) => [...row]);
+  const pitched = campLayout({ cell: { x: 4, y: 1 }, features: ['fire', 'bedroll'], grid: corridor });
+  assert.equal(pitched.length, 2, 'a camp that fits was refused');
+  for (const place of pitched) {
+    assert.equal(corridor[place.y][place.x], '.', 'a camp piece was put in the wall');
+    assert.equal(place.y, 1, 'a camp piece left the corridor');
+  }
+  const decision = canPitchCamp({
     profile: campProfile({ campRank: 2, campRestPercent: 25 }),
     kits: 1,
     grid: corridor,
     cell: { x: 4, y: 1 },
   });
-  assert.equal(refused.ok, false);
-  assert.equal(refused.reason, 'no-room');
+  assert.equal(decision.ok, true);
+
+  // Three pieces do not fit a corridor, and that refusal is the old one.
+  const full = canPitchCamp({
+    profile: campProfile({ campRank: 3, campRestPercent: 40, campStashSlots: 8 }),
+    kits: 1,
+    grid: corridor,
+    cell: { x: 4, y: 1 },
+  });
+  assert.equal(full.reason, 'no-room');
   assert.ok(campRefusalText('no-room', 'ru').length > 0);
 
-  // In a room it pitches, and the tent stands where it has space on both sides
-  // and behind — never against a wall it would be drawn through.
-  const pitched = campLayout({ cell: { x: 4, y: 2 }, features: ['fire', 'bedroll', 'chest'], grid: room });
-  assert.equal(pitched.length, 3);
-  const tent = pitched.find(({ feature }) => feature === 'bedroll');
-  assert.ok(tent, 'the room lost the tent');
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1]]) {
-    assert.equal(room[tent.y + dy][tent.x + dx], '.', `the tent has a wall at ${dx},${dy}`);
-  }
-
-  // A doorway is a corridor too: standing in one, the camp is refused.
-  const doorway = [
-    '#########',
-    '#...#...#',
-    '#####.###',
-    '#...#...#',
-    '#########',
-  ].map((row) => [...row]);
-  assert.deepEqual(campLayout({ cell: { x: 5, y: 2 }, features: ['fire', 'bedroll'], grid: doorway }), []);
+  // And a room still holds the whole camp.
+  const room = ['########', '#......#', '#......#', '#......#', '########'].map((row) => [...row]);
+  const inRoom = campLayout({ cell: { x: 4, y: 2 }, features: ['fire', 'bedroll', 'chest'], grid: room });
+  assert.equal(inRoom.length, 3);
 });
