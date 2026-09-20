@@ -4,7 +4,9 @@ import test from 'node:test';
 
 import {
   WORLD_BILLBOARD_DEPTH_BIAS,
+  WORLD_CAMERA_ELEVATION,
   WORLD_SCENERY_DEPTH_STEP,
+  WORLD_WALL_HEIGHT,
 } from '../tools/dcss-rpg-world3d.js';
 
 const runtimeUrl = new URL('../tools/dcss.js', import.meta.url);
@@ -27,6 +29,34 @@ test('nothing on the floor is drawn over what is standing on it', async () => {
     world,
     /depthBias: \(decoration\.depthBias \?\? 0\) - WORLD_SCENERY_DEPTH_STEP/,
     'the decoration pass is where the rule lives',
+  );
+
+  /**
+   * Cut off below, never above.
+   *
+   * A sprite standing against the top wall of a room was sliced off flat along
+   * it — «костёр обрезается об верхнюю стену» — because the near top edge of
+   * that wall is closer to the camera than the floor the sprite stands on. The
+   * lift has to clear that edge. It also has to stay behind the near foot of
+   * the same wall, or a sprite on the far side of it floats in front of the
+   * wall and the room stops having walls at all. Both ends are geometry, so
+   * both are computed here rather than remembered as a range.
+   */
+  const radians = (WORLD_CAMERA_ELEVATION * Math.PI) / 180;
+  const clearsTheWallBehind = WORLD_WALL_HEIGHT * Math.sin(radians) - 0.5 * Math.cos(radians);
+  const hidesBehindTheWallInFront = 1.5 * Math.cos(radians);
+  assert.ok(
+    WORLD_BILLBOARD_DEPTH_BIAS > clearsTheWallBehind,
+    'a wall to the north still slices the top off everything standing against it',
+  );
+  assert.ok(
+    WORLD_BILLBOARD_DEPTH_BIAS < hidesBehindTheWallInFront,
+    'a sprite on the far side of a wall floats in front of it',
+  );
+  // Scenery is pushed a step back and has to clear the same wall.
+  assert.ok(
+    WORLD_BILLBOARD_DEPTH_BIAS - WORLD_SCENERY_DEPTH_STEP > clearsTheWallBehind,
+    'the hearth and the lamp are still cut off by the wall they stand against',
   );
 
   const runtime = await readFile(runtimeUrl, 'utf8');

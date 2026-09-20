@@ -8,6 +8,10 @@ import {
 } from './dcss-rpg-volumetric-lighting.js';
 
 export const WORLD_CAMERA_ELEVATION = 65;
+const elevationRadians = THREE.MathUtils.degToRad(WORLD_CAMERA_ELEVATION);
+const groundVerticalScale = Math.sin(elevationRadians);
+const cameraDistance = 12;
+const cameraHeight = Math.tan(elevationRadians) * cameraDistance;
 /** Shadow budget: the map is square, the frustum is a radius in tiles. */
 export const WORLD_SHADOW_MAP_SIZE = 512;
 export const WORLD_SHADOW_EXTENT = 7;
@@ -35,7 +39,30 @@ export const MAX_SHADOWED_WORLD_LIGHTS = MAX_SPOT_SHADOW_LIGHTS;
  * is in front of what is decided by ground position alone, exactly as the 2D
  * layer decides it for actors.
  */
-export const WORLD_BILLBOARD_DEPTH_BIAS = 0.18;
+/**
+ * How far is not a matter of taste — two walls decide it, and the window they
+ * leave is narrow.
+ *
+ * A wall is a box six tenths of a tile tall, and the camera looks down its
+ * length at sixty-five degrees. The near top edge of the wall one cell NORTH
+ * of a sprite therefore sits closer to the camera than the sprite's own cell
+ * does, by `WORLD_WALL_HEIGHT * sin - ½ * cos` of a tile. At the old 0.18 the
+ * wall won, and every tall thing standing against the top wall of a room was
+ * sliced off flat along it: «костёр обрезается об верхнюю стену».
+ *
+ * Pushing past that has its own limit. Lift a sprite too far and one standing
+ * on the far side of that same wall floats in front of it and the wall stops
+ * being a wall — it may not come nearer than the wall's near foot, which is
+ * `1½ * cos` of a tile ahead of it. Halfway between the two is the only number
+ * worth writing: it clears the wall behind and hides behind the wall in front,
+ * which is what the picture has always promised — **cut off below, never
+ * above**.
+ */
+const WALL_HIDES_A_SPRITE_BEHIND_IT =
+  WORLD_WALL_HEIGHT * Math.sin(elevationRadians) - 0.5 * Math.cos(elevationRadians);
+const WALL_STOPS_HIDING_WHAT_IS_BEHIND_IT = 1.5 * Math.cos(elevationRadians);
+export const WORLD_BILLBOARD_DEPTH_BIAS =
+  (WALL_HIDES_A_SPRITE_BEHIND_IT + WALL_STOPS_HIDING_WHAT_IS_BEHIND_IT) / 2;
 /**
  * Scenery stands a hair further from the camera than anything alive. Both are
  * billboards on the same ground line, so on a shared cell their depth is an
@@ -48,11 +75,6 @@ export const WORLD_SCENERY_DEPTH_STEP = 0.08;
 export const WORLD_DOOR_HEIGHT = 0.52;
 export const WORLD_DOOR_THICKNESS = 0.12;
 export const DOOR_PANEL_CROP = Object.freeze({ x: 6, y: 5, width: 20, height: 25 });
-
-const elevationRadians = THREE.MathUtils.degToRad(WORLD_CAMERA_ELEVATION);
-const groundVerticalScale = Math.sin(elevationRadians);
-const cameraDistance = 12;
-const cameraHeight = Math.tan(elevationRadians) * cameraDistance;
 
 function disposeObject(object) {
   object.traverse((child) => {

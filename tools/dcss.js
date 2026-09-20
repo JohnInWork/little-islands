@@ -4029,11 +4029,22 @@ function passiveOccupiedCells() {
  * and the wildlife are people and animals: you push past them. The moment one
  * of them turns on you it becomes a wall like any other enemy.
  */
-function heroBlockingCells() {
-  return blockingActorCells([
+function heroBlockingActors() {
+  return [
     ...monsters.filter((monster) => !monster.neutral || monster.provoked),
     ...passiveCreatures.filter((creature) => !creature.defeated && creature.hunted),
-  ], TILE);
+  ];
+}
+
+/**
+ * The same list as cells, for routing. Routing was the only half that ever got
+ * the rule: a path could be drawn through a watchman, and then the hero walked
+ * into him and stopped, because the collision circle below knew nothing about
+ * hostility. One list now answers both, so a neighbour cannot be a wall in the
+ * one place nobody thought to look.
+ */
+function heroBlockingCells() {
+  return blockingActorCells(heroBlockingActors(), TILE);
 }
 
 function blockingFindCells() {
@@ -14330,7 +14341,7 @@ function updateHero(delta) {
         const next = constrainActorMovement({
           actor: hero,
           next: { x: hero.x + (dx / distance) * movement, y: hero.y + (dy / distance) * movement },
-          blockers: [...monsters, ...passiveCreatures.filter((creature) => !creature.defeated)],
+          blockers: heroBlockingActors(),
           tileSize: TILE,
         });
         hero.stride += Math.hypot(next.x - hero.x, next.y - hero.y) / TILE;
@@ -14937,7 +14948,10 @@ function updatePassiveCreatures(delta) {
             actor: creature,
             next: { x: creature.x + (dx / distance) * movement, y: creature.y + (dy / distance) * movement },
             blockers: [
-              hero,
+              // Passing through goes both ways: a hero the deer is ignoring is
+              // no more solid to it than it is to the hero. Otherwise a grazing
+              // deer the hero has walked into can be pinned where it stands.
+              ...(creature.hunted ? [hero] : []),
               ...monsters,
               ...passiveCreatures.filter((other) => other !== creature && !other.defeated),
               ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
@@ -15342,7 +15356,10 @@ function updateWorld(delta) {
         actor: monster,
         next: proposed,
         blockers: [
-          hero,
+          // The watch walks its round through the hero the same way the hero
+          // walks through it; the moment it draws, it is an enemy and the hero
+          // is a wall again.
+          ...(!monster.neutral || monster.provoked ? [hero] : []),
           ...monsters,
           ...passiveCreatures.filter((creature) => !creature.defeated),
           ...(typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)

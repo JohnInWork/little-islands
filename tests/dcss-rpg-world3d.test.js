@@ -24,7 +24,6 @@ test('the dungeon uses real WebGL boxes with a shallow near-top-down camera', as
   assert.ok(WORLD_CAMERA_ELEVATION > 60 && WORLD_CAMERA_ELEVATION < 75);
   assert.ok(WORLD_WALL_HEIGHT > 0.4 && WORLD_WALL_HEIGHT < 0.8);
   assert.equal(WORLD_RENDER_PIXEL_SIZE, 2);
-  assert.ok(WORLD_BILLBOARD_DEPTH_BIAS > 0.12 && WORLD_BILLBOARD_DEPTH_BIAS < 0.25);
   assert.equal(MAX_SHADOWED_WORLD_LIGHTS, 2);
   assert.ok(WORLD_KEY_LIGHT_INTENSITY > WORLD_AMBIENT_INTENSITY);
   assert.match(source, /new THREE\.BoxGeometry/);

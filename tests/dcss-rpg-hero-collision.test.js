@@ -196,7 +196,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     routeTowardCell: () => { throw new Error('a step must never ask for a route'); },
   });
   installRuntime(context, [
-    'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
+    'isHeroWalkable', 'isHeroConcealed', 'findPath', 'heroBlockingActors', 'heroBlockingCells', 'blockingFindCells', 'passiveOccupiedCells', 'requestHeroMove', 'commitHeroPath',
     'updateHero', 'canHeroAttack', 'isCurrentlyVisible', 'canActorsMelee',
     'resolvePendingHeroAttack', 'damageMonster', 'executionDamage', 'applyWeaponPowers',
     'surviveOnSecondWind', 'heroConditionalDamage', 'spendHunger',
@@ -588,18 +588,35 @@ test('real approach, contact, retreat and return preserve movement priority and 
  * being stopped by a shopkeeper is not a decision anybody made. The rule is
  * hostility now, and it flips the moment a neighbour turns on you.
  */
-test('the hero walks through neighbours and never through an enemy', async () => {
-  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  const body = runtime.match(/function heroBlockingCells\(\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body ?? '';
-  assert.ok(body.length > 0, 'heroBlockingCells пропала');
-  // Hostile monsters block; neutral ones only once provoked.
-  assert.match(body, /monsters\.filter\(\(monster\) => !monster\.neutral \|\| monster\.provoked\)/);
-  // Wildlife blocks only once it is in the fight.
-  assert.match(body, /passiveCreatures\.filter\(\(creature\) => !creature\.defeated && creature\.hunted\)/);
-  // And a trader is never a wall: the shop is three tiles wide.
-  assert.doesNotMatch(body, /merchant/i);
-  // The rule that matters is still there for everything that wants you dead.
-  assert.match(runtime, /heroBlockingCells\(\)/);
+test('the hero walks through neighbours and never through an enemy', () => {
+  // A watchman standing in the middle of the street, minding his own business.
+  const guard = monsterAt(3, 1, { neutral: true, alerted: 0, pursuit: 0 });
+  const town = runtime({ monsters: [guard] });
+  assert.equal(town.context.heroBlockingActors().length, 0, 'the watch is counted as an obstacle');
+  assert.equal(town.context.requestHeroMove(5, 1), true, 'no route past a neighbour');
+  for (let frame = 0; frame < 300; frame += 1) town.context.updateHero(0.016);
+  assert.equal(town.context.hero.x, 352, 'the hero stopped at the watchman instead of passing him');
+
+  // He draws, and the street is a corridor again.
+  guard.provoked = true;
+  assert.equal(town.context.heroBlockingActors().length, 1);
+  assert.equal(town.context.heroBlockingCells().has('3,1'), true);
+
+  // An enemy is a wall in the body, not only on the map: the route below leads
+  // to a free cell on the far side, and the hero must never arrive at it.
+  const fight = runtime({ monsters: [monsterAt(3, 1)] });
+  fight.context.hero.path = [{ x: 352, y: 96 }];
+  for (let frame = 0; frame < 300; frame += 1) fight.context.updateHero(0.016);
+  assert.ok(fight.context.hero.x < 224 - separation + 1, `the hero walked through an enemy to ${fight.context.hero.x}`);
+
+  // Grazing wildlife is a neighbour too, until it is hunted.
+  const field = runtime();
+  const deer = { instanceId: 'deer', x: 224, y: 96, defeated: false, hunted: false, path: 'mon/sheep.png' };
+  field.context.passiveCreatures.push(deer);
+  assert.equal(field.context.heroBlockingActors().length, 0);
+  assert.equal(field.context.requestHeroMove(5, 1), true);
+  for (let frame = 0; frame < 300; frame += 1) field.context.updateHero(0.016);
+  assert.equal(field.context.hero.x, 352, 'a grazing deer stopped the hero');
 });
 
 /**
