@@ -24,6 +24,8 @@ directories is covered by anything but the CC0 dedication above.
 | `licensed/cmski-chests` | Cmski | free demo; use permitted, redistribution as a pack is not |
 | `licensed/lpc-tavern` | bluecarrot16 and others | CC-BY-SA 3.0, credits in `CREDITS-tavern.txt` |
 | `licensed/lpc-floors` | bluecarrot16 and others | CC-BY-SA 4.0, credits in `CREDITS-floors.txt` |
+| `licensed/lpc-village` | bluecarrot16 and others | CC-BY-SA 3.0+, credits in `CREDITS-decorations-medieval.txt` |
+| `licensed/lpc-lamps` | Curt, Sharm, William.Thompsonj, mold | CC-BY 3.0+, credits in `README.txt` and `sources.md` |
 
 ## The `derived/` subtree
 
