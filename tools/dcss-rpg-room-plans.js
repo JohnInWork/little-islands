@@ -978,6 +978,21 @@ function semanticArchetypes(level) {
   const assigned = new Map([[0, 'wayfarer-refuge']]);
   const exitRoomIndex = roomIndexForPoint(level.rooms, level.exit);
   if (exitRoomIndex > 0) assigned.set(exitRoomIndex, 'descent-chamber');
+  /**
+   * Комната хранителя главы службе не отдаётся.
+   *
+   * Трактир и лавка первым делом выносят из себя всё живое — иначе бочка
+   * встанет трактирщику на голову. На открытой местности комнаты просторные,
+   * и хранитель главы, поставленный у самого спуска, иногда оказывался внутри
+   * такой комнаты — и уезжал вместе с мебелью. Этаж продолжал обещать бой и
+   * держал цель с его именем, а бойца не было; нашлось полным проходом.
+   *
+   * Правило то же, что у комнаты-сюрприза и затопленной комнаты: место, на
+   * котором этаж уже дал обещание, не переназначают.
+   */
+  const bossRoomIndex = level.objective?.boss
+    ? roomIndexForPoint(level.rooms, level.objective.boss)
+    : -1;
 
   for (const find of level.finds ?? []) {
     if (!Number.isInteger(find.roomIndex) || assigned.has(find.roomIndex)) continue;
@@ -1005,6 +1020,7 @@ function semanticArchetypes(level) {
       .map((_room, roomIndex) => roomIndex)
       .filter((roomIndex) => (
         roomIndex > 0
+        && roomIndex !== bossRoomIndex
         && !roomHasWater(level, roomIndex)
         && (
           !assigned.has(roomIndex)
@@ -1032,6 +1048,7 @@ function semanticArchetypes(level) {
       .map((_room, roomIndex) => roomIndex)
       .filter((roomIndex) => (
         roomIndex > 0
+        && roomIndex !== bossRoomIndex
         && !assigned.has(roomIndex)
         && !roomHasWater(level, roomIndex)
         // A common room needs a common room's worth of floor.

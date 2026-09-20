@@ -108,6 +108,25 @@ function protectedMonsterIds(level) {
   ].filter(Boolean));
 }
 
+/**
+ * Кого комната не имеет права вынести.
+ *
+ * Уже, чем `protectedMonsterIds`, и намеренно. Первое существо этажа — это
+ * настроение, а не обещание: если на его месте встал трактир, оно уходит
+ * вместе с прочей мебелью, и это правильнее, чем выставить его к порогу —
+ * этаж обязан начинаться тихо, в четырёх шагах от лестницы никого.
+ *
+ * Обещание — это хранитель главы и те, кого сторожит дверь-ловушка: их
+ * называет правило, цель этажа держит их по имени, и их исчезновение никто
+ * не замечает до полного прохода.
+ */
+function promisedMonsterIds(level) {
+  return new Set([
+    level.objective?.bossInstanceId,
+    ...(level.surprises ?? []).flatMap(({ monsterIds = [] }) => monsterIds),
+  ].filter(Boolean));
+}
+
 function availableMonsterIndexes(level, claimed, roomIndex, salt) {
   const protectedIds = protectedMonsterIds(level);
   return level.monsters
@@ -322,11 +341,62 @@ function materializeDoorVault(level, plan) {
  * somewhere on purpose by somebody; the floor budget's own monsters are the
  * ones this is for.
  */
-function clearAmbientContent(room, collections, occupied) {
+/**
+ * Комната выносит из себя всё лишнее — но обещанное не лишнее.
+ *
+ * Трактир и лавка чистят свой пол, чтобы бочка не встала на голову
+ * трактирщику. Чистили они всё живое подряд, и если хранитель главы оказывался
+ * внутри такой комнаты — а на открытой местности комнаты просторные, — он
+ * исчезал вместе с мебелью. Этаж при этом продолжал обещать его правилом и
+ * даже держал цель с его именем: боец был запланирован, поставлен и убран, и
+ * никто об этом не узнавал. Нашлось полным проходом: два сида из тридцати.
+ *
+ * Обещанное — хранитель главы и сторожевые дверей-ловушек (см.
+ * `promisedMonsterIds`) — не удаляется, а выводится за порог: лавка обязана
+ * быть тихой, а хранитель обязан существовать, и оба обещания сходятся только
+ * так.
+ */
+function cellOutsideRoom(level, room, from, occupied, salt) {
+  const width = level.grid?.[0]?.length ?? 0;
+  const reach = Math.max(width, level.grid?.length ?? 0);
+  for (let radius = 1; radius <= reach; radius += 1) {
+    const ring = [];
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const point = { x: from.x + dx, y: from.y + dy };
+        if (roomContains(room, point)) continue;
+        if (level.grid[point.y]?.[point.x] !== '.' || occupied.has(cellKey(point))) continue;
+        ring.push(point);
+      }
+    }
+    if (ring.length === 0) continue;
+    ring.sort((a, b) => (
+      stableHash(level.seed, level.depth, a.x + a.y * width, salt)
+      - stableHash(level.seed, level.depth, b.x + b.y * width, salt)
+    ));
+    return ring[0];
+  }
+  return null;
+}
+
+function clearAmbientContent(level, room, collections, occupied, protectedIds = new Set()) {
   for (const collection of collections) {
     for (let index = collection.length - 1; index >= 0; index -= 1) {
       const entry = collection[index];
       if (!roomContains(room, entry)) continue;
+      if (protectedIds.has(entry?.instanceId)) {
+        // Обещанного не выносят вместе с бочками — его выводят за дверь. Лавка
+        // обязана быть тихой, а хранитель обязан существовать; оба обещания
+        // сходятся только так. Если выводить некуда — пусть лучше стоит у
+        // прилавка, чем исчезнет: тишина в комнате дешевле пропавшего боя.
+        const spot = cellOutsideRoom(level, room, entry, occupied, 0x4b454550);
+        if (!spot) continue;
+        occupied.delete(cellKey(entry));
+        occupied.add(cellKey(spot));
+        collection[index] = { ...entry, ...spot };
+        continue;
+      }
       if (monsterById(entry?.id)?.spawn) continue;
       occupied.delete(cellKey(entry));
       collection.splice(index, 1);
@@ -357,7 +427,7 @@ function innHireFor(depth) {
 function materializeInn(level, plan, monsters, occupied) {
   const room = level.rooms[plan.roomIndex];
   if (!room) return;
-  clearAmbientContent(room, [monsters, level.events, level.finds], occupied);
+  clearAmbientContent(level, room, [monsters, level.events, level.finds], occupied, promisedMonsterIds(level));
   const interior = { x: room.x, y: room.y, w: room.width, h: room.height };
   const door = tavernEntranceCell({ grid: level.grid, interior });
   const hire = innHireFor(level.depth);
@@ -390,7 +460,7 @@ function materializeInn(level, plan, monsters, occupied) {
 
 function materializeMerchant(level, plan, occupied) {
   const room = level.rooms[plan.roomIndex];
-  clearAmbientContent(room, [level.monsters, level.events, level.finds], occupied);
+  clearAmbientContent(level, room, [level.monsters, level.events, level.finds], occupied, promisedMonsterIds(level));
   const anchor = {
     x: room.x + Math.floor(room.width / 2),
     y: room.y + Math.floor(room.height / 2),
