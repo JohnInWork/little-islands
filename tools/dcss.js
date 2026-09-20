@@ -778,6 +778,9 @@ const heroPad = createPadState();
  *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
 let padTargetKey = null;
 let padStick = null;
+/** Что стояло в колонке взаимодействия в прошлом кадре: по разнице видно, к
+ *  чему герой только что подошёл. */
+let padInteractKeys = '';
 const inventory = document.querySelector('#inventory');
 const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
@@ -16525,6 +16528,22 @@ function pollGamepads(delta) {
     const box = node.getBoundingClientRect();
     return { id: padKeyOf(node), x: box.left + box.width / 2, y: box.top + box.height / 2 };
   });
+
+  /*
+   * Подошёл — выбрано.
+   *
+   * Иван: «а как выбрать действие с юнитом или объектом?» Целиться стиком в
+   * кнопку, которая появилась ровно потому, что ты к ней подошёл, — лишнее
+   * движение: игра уже знает, что рядом. Поэтому как только в колонке
+   * взаимодействия появляется новое, выбор прыгает туда сам, и крестик
+   * открывает карточку без единого наклона. Хочешь не его, а рюкзак — увёл
+   * стик, и выбор твой: подсказка не спорит с намерением.
+   */
+  const interact = [...interactActions.querySelectorAll('.interact-action')];
+  const interactKeys = interact.map(padKeyOf).join('|');
+  if (interactKeys && interactKeys !== padInteractKeys) padTargetKey = padKeyOf(interact[0]);
+  padInteractKeys = interactKeys;
+
   if (aimed) padTargetKey = chooseTarget({ rects, from: padTargetKey, direction: aimed });
   let chosen = targets.find((node) => padKeyOf(node) === padTargetKey) ?? null;
   // Выбранное исчезло — например, ушла колонка взаимодействия. Не молчим:
