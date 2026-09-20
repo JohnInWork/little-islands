@@ -119,7 +119,12 @@ import {
   padStickDirection,
   readPad,
 } from './dcss-rpg-gamepad.js';
-import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
+import {
+  ghostSpeech,
+  graveyardCopy,
+  graveyardOnFloor,
+  graveyardRoomIndex,
+} from './dcss-rpg-graveyard.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
@@ -1180,6 +1185,8 @@ let greenFloorCells = new Set(cityGreenCells(dungeon.city));
 waterPaths = waterTiles(dungeon.themeId);
 // The body a past run left on this floor, placed once when the floor is built.
 let floorGhost = null;
+/** Добрый призрак с кладбища: он не дерётся, он рассказывает. */
+let graveyardGhost = null;
 
 const hero = {
   x: (run.hero.x + 0.5) * TILE,
@@ -8755,6 +8762,16 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'stair-up') {
     return { kind: 'stair-up', icon: ascentVisual().path };
   }
+  if (entry.kind === 'graveyard-ghost') {
+    const copy = graveyardCopy(itemDetailLanguage);
+    return {
+      kind: 'graveyard-ghost',
+      name: copy.name,
+      summary: copy.summary,
+      action: copy.action,
+      icon: 'mon/undead/ghost.png',
+    };
+  }
   if (entry.kind === 'road-end') {
     const prize = roadPrize();
     return {
@@ -8949,9 +8966,13 @@ function contextTargetIsAdjacent(entry) {
   const propTarget = PROP_INTERACTION_KINDS.has(entry.kind);
   // Actors carry pixel positions; props and tiles carry grid ones. A creature
   // read as a tile lands a hundred cells away and never looks adjacent.
+  // Живое хранит своё место в пикселях, неживое — в клетках. Забыть здесь
+  // новое существо значит получить кнопку, которая появляется и не нажимается:
+  // расстояние до него посчитается в пикселях и выйдет в сотни клеток.
   const pixelActor = entry.kind === 'find'
     || entry.kind === 'wildlife'
     || entry.kind === 'guard'
+    || entry.kind === 'graveyard-ghost'
     || entry.kind === 'priest'
     || entry.kind === 'recruiter'
     || entry.kind === 'tavern-hire'
@@ -8983,6 +9004,7 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'road-end') return distance === 0;
   // Лестница наверх — клетка под ногами, а не соседняя.
   if (entry.kind === 'stair-up') return distance === 0;
+  if (entry.kind === 'graveyard-ghost') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'recruiter') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'tavern-hire') return distance <= 1 && entry.value.dead === 0;
@@ -10169,6 +10191,14 @@ function nearbyCityGate() {
  */
 const CITY_OWN_CARD_IDS = new Set([CITY_PRIEST_ID, CITY_RECRUITER_ID]);
 
+/** Призрак кладбища, если герой стоит рядом с ним. */
+function nearbyGraveyardGhost() {
+  if (runStatus !== 'playing' || hero.dead || !graveyardGhost || graveyardGhost.dead > 0) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const at = { x: Math.floor(graveyardGhost.x / TILE), y: Math.floor(graveyardGhost.y / TILE) };
+  return cellStepDistance(cell, at) <= 1 ? graveyardGhost : null;
+}
+
 function nearbyGuard() {
   if (runStatus !== 'playing' || hero.dead) return null;
   // The same neighbourhood the panel checks, so the button never lies.
@@ -10225,6 +10255,7 @@ function nearbyContextTargets() {
   add('tavern-hire', monsters.find((monster) => mercenaryIdForHireMonster(monster.id) && withinReach(monster)));
   add('recruiter', monsters.find((monster) => monster.id === CITY_RECRUITER_ID && withinReach(monster)));
   add('sanctuary', nearbySanctuary());
+  add('graveyard-ghost', nearbyGraveyardGhost());
   add('guard', nearbyGuard());
   add('wildlife', nearbyWildlife());
   // A cold campfire is still something to sit at, it is just not cooking.
@@ -10432,6 +10463,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   sanctuary() {
     healAtSanctuary();
     return true;
+  },
+  'ghost-speak'({ target }) {
+    closeContextActions();
+    return speakWithGraveyardGhost(target?.value ?? graveyardGhost);
   },
   'stair-up'() {
     closeContextActions();
@@ -10830,6 +10865,7 @@ function startGameFromMenu() {
   // the floor before the first frame, not only after the next descent.
   applyCampProps();
   placeFloorGhost();
+  placeGraveyardGhost();
   // И примета — тоже. Она показывается при входе на этаж, а забег, начатый
   // или продолженный из меню, входит на свой этаж именно здесь: без этого
   // первый этаж забега был единственным, о котором игру не предупреждали.
@@ -13094,7 +13130,10 @@ function damageMonster(
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (!monster || monster.dead > 0) return;
   if (monster.neutral && !monster.provoked) {
-    if (monster.ghost) wakeFloorGhost();
+    // Кладбищенский призрак не дерётся даже за себя: ударить его можно, но
+    // отвечать он не станет — он уже своё отходил.
+    if (monster.graveyardGhost) monster.provoked = false;
+    else if (monster.ghost) wakeFloorGhost();
     else provokeCityWatch(monster);
   }
   const profile = combatImpactProfile(style, { projectile, boss: monster.boss });
@@ -14489,6 +14528,9 @@ function placeFloorGhost() {
   if (!bones) return;
   // Remembered is not the same as met. Most floors keep their body to themselves.
   if (!ghostWakes({ seed: run.seed, depth: dungeon.depth })) return;
+  // На кладбище стоит добрый призрак, и второй, злой, там лишний: тело лежит
+  // в этом зале, и его тень успокоилась рядом с ним.
+  if (activeGraveyardBones) return;
   const spawnCell = { x: Math.floor(dungeon.spawn.x), y: Math.floor(dungeon.spawn.y) };
   const busy = new Set([
     `${spawnCell.x},${spawnCell.y}`,
@@ -14535,6 +14577,92 @@ function placeFloorGhost() {
   const [entry] = createLootDefinitions({ loot: [{ ...reward, x: spot.x, y: spot.y }] });
   if (!entry) return;
   lootDefinitions = [...lootDefinitions, { ...entry, bones: true }];
+}
+
+/**
+ * Разговор с призраком: где он кончился и что с этим делать.
+ *
+ * Речь собирают правила кладбища — два урока из разбора смерти, не больше:
+ * «совет из восьми пунктов — это не совет». Показывает её то же окно, каким
+ * игра объясняет сытость и усталость, поэтому читается привычно и закрывается
+ * привычно.
+ *
+ * Если рассказать нечего — а так бывает, когда о смерти нечего сказать, —
+ * призрак молчит, и это тоже ответ, а не пустое окно.
+ */
+function speakWithGraveyardGhost(ghost) {
+  const bones = ghost?.bones ?? activeGraveyardBones;
+  const copy = graveyardCopy(itemDetailLanguage);
+  const speech = ghostSpeech({ bones, language: itemDetailLanguage });
+  playSound('ui-tap');
+  if (!speech) {
+    showLootToast({ path: 'mon/undead/ghost.png', rarity: 1 }, copy.silent);
+    return true;
+  }
+  openLore({
+    title: copy.name,
+    subtitle: copy.spoken,
+    icon: 'mon/undead/ghost.png',
+    color: '#9fc7d8',
+    body: [speech.where, ...speech.lessons, speech.parting],
+  });
+  return true;
+}
+
+/**
+ * Призрак на кладбище — тот, кто уже своё отходил.
+ *
+ * Иван: «пусть там ходит добрый НПС, призрак игрока, которого убили, и даёт
+ * совет, что делать, чтобы не повторить прошлую ошибку». Он не сторожит
+ * добычу и не нападает: единственное, что он умеет, — рассказать, где и от
+ * чего кончился прошлый забег.
+ *
+ * Тот, что сторожит кости, — существо другой породы, и на кладбище его нет:
+ * тело лежит здесь, и его призрак здесь же успокоился. Два призрака одного
+ * покойника на одном этаже читались бы как сбой.
+ */
+function placeGraveyardGhost() {
+  monsters = monsters.filter((monster) => !monster.graveyardGhost);
+  graveyardGhost = null;
+  const bones = activeGraveyardBones;
+  const room = Number.isInteger(activeGraveyardRoom) ? dungeon.rooms?.[activeGraveyardRoom] : null;
+  if (!bones || !room) return;
+  const busy = new Set([
+    `${Math.floor(dungeon.spawn.x)},${Math.floor(dungeon.spawn.y)}`,
+    `${dungeon.exit.x},${dungeon.exit.y}`,
+    ...lootDefinitions.map((loot) => `${Math.floor(loot.x / TILE)},${Math.floor(loot.y / TILE)}`),
+    ...findDefinitions.map((find) => `${find.x},${find.y}`),
+    ...monsters.map((monster) => `${Math.floor(monster.x / TILE)},${Math.floor(monster.y / TILE)}`),
+  ]);
+  // Ближе к середине зала: призрак стоит между саркофагов, а не у стены.
+  const centre = { x: room.x + Math.floor(room.width / 2), y: room.y + Math.floor(room.height / 2) };
+  const cells = [];
+  for (let y = room.y; y < room.y + room.height; y += 1) {
+    for (let x = room.x; x < room.x + room.width; x += 1) {
+      if (!isWalkable(x, y) || busy.has(`${x},${y}`)) continue;
+      cells.push({ x, y });
+    }
+  }
+  cells.sort((a, b) => (
+    Math.abs(a.x - centre.x) + Math.abs(a.y - centre.y)
+    - (Math.abs(b.x - centre.x) + Math.abs(b.y - centre.y))
+  ));
+  const [spot] = cells;
+  if (!spot) return;
+  const [ghost] = createRuntimeMonsters(dungeon, [{
+    instanceId: `graveyard-ghost-${dungeon.depth}`,
+    id: 'player-ghost',
+    x: spot.x,
+    y: spot.y,
+  }]);
+  if (!ghost) return;
+  ghost.ghost = true;
+  ghost.graveyardGhost = true;
+  ghost.neutral = true;
+  ghost.bones = bones;
+  ghost.layers = ghostLayers(bones);
+  monsters = [...monsters, ghost];
+  graveyardGhost = ghost;
 }
 
 /**
@@ -14619,6 +14747,7 @@ function replaceFloor(nextDepth, arrival = null) {
   // are added on top of the environment the floor just built.
   applyCampProps();
   placeFloorGhost();
+  placeGraveyardGhost();
   // Этаж успел собраться — можно сказать, что на нём не так.
   showOmenNote(dungeon.rareEncounter?.omen);
   revealed.clear();
@@ -16741,7 +16870,12 @@ function pollGamepads(delta) {
     // Клетка героя стоит в той же строке: «работает ли крестовина» — это
     // вопрос о том, меняется ли она, и глазами по карте его не решить.
     const cell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
-    padReportLine.textContent = `герой: ${cell} · шаг: ${padLastStep} · экран: ${uiScreen}/${runStatus} · ${padReport(pad)}`;
+    // Кладбищенский призрак — тоже в строке: найти его глазами в тумане
+    // нельзя, а проверять, что он сел куда надо, приходится каждый раз.
+    const ghost = graveyardGhost
+      ? ` · призрак: ${Math.floor(graveyardGhost.x / TILE)},${Math.floor(graveyardGhost.y / TILE)}`
+      : ` · кладбище: ${activeGraveyardRoom ?? 'нет'}`;
+    padReportLine.textContent = `герой: ${cell}${ghost} · шаг: ${padLastStep} · экран: ${uiScreen}/${runStatus} · ${padReport(pad)}`;
   }
   if (!pad) {
     paintPadTarget(null);

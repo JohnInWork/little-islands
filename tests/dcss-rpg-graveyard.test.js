@@ -153,3 +153,58 @@ test('оба языка говорят об одном и том же', () => {
   }
   assert.deepEqual(Object.keys(graveyardCopy('ru')), Object.keys(graveyardCopy('en')));
 });
+
+/**
+ * Призрак не только говорит — он ещё и стоит на кладбище.
+ *
+ * Правила речи были написаны и покрыты тестами задолго до того, как призрака
+ * посадили в мир: слова есть, а сказать их некому. Эти два теста сторожат
+ * вторую половину — что он появляется там и только там, где есть кладбище, и
+ * что разговор с ним идёт через общий реестр, а не через отдельную ветку.
+ */
+test('реестр показывает призрака одним действием и его же словами', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  const copy = graveyardCopy('ru');
+  const model = contextActionModel({
+    target: {
+      kind: 'graveyard-ghost',
+      name: copy.name,
+      summary: copy.summary,
+      action: copy.action,
+      icon: 'mon/undead/ghost.png',
+    },
+    language: 'ru',
+  });
+  assert.equal(model.interactionId, 'graveyard-ghost');
+  assert.equal(model.name, copy.name);
+  assert.equal(model.description, copy.summary);
+  // Одно действие и никакого выбора: коснулся — он рассказал.
+  assert.deepEqual(model.actions.map(({ id }) => id), ['speak']);
+  assert.equal(model.actions[0].label, copy.action);
+  assert.equal(model.actions[0].command, 'ghost-speak');
+  // И спрашивать тут нечего: разговор ничего не отнимает.
+  assert.equal(model.confirm, false);
+});
+
+test('рантайм сажает призрака на кладбище и не ставит там второго, злого', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const body = runtime.match(/function placeGraveyardGhost\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(body, 'не нашлась посадка кладбищенского призрака');
+  // Комната берётся та самая, что выбрали правила кладбища.
+  assert.match(body, /activeGraveyardRoom/);
+  assert.match(body, /activeGraveyardBones/);
+  // Он мирный и помечен, чтобы его ни с кем не спутали.
+  assert.match(body, /ghost\.neutral = true;/);
+  assert.match(body, /ghost\.graveyardGhost = true;/);
+  // Повторный вызов на том же этаже не оставляет двух призраков.
+  assert.match(body, /monsters\.filter\(\(monster\) => !monster\.graveyardGhost\)/);
+
+  // А сторож костей на кладбищенском этаже не появляется вовсе.
+  const hostile = runtime.match(/function placeFloorGhost\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(hostile, 'не нашлась посадка призрака-сторожа');
+  assert.match(hostile, /if \(activeGraveyardBones\) return;/);
+
+  // Ударить кладбищенского можно, но драки не будет.
+  assert.match(runtime, /if \(monster\.graveyardGhost\) monster\.provoked = false;/);
+});

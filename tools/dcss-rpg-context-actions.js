@@ -613,6 +613,30 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     /**
+     * Призрак прошлого героя — единственное существо в игре, которое говорит
+     * о самом игроке.
+     *
+     * Он не сторожит добычу и не нападает, поэтому у него одно действие и
+     * никакого выбора: коснулся — он рассказал, где и от чего кончился
+     * прошлый забег. Имя, описание и подпись приходят с самим призраком:
+     * они живут в правилах кладбища, а не в этой таблице.
+     */
+    id: 'graveyard-ghost',
+    command: 'ghost-speak',
+    matches: (target) => target?.kind === 'graveyard-ghost'
+      && typeof target.name === 'string'
+      && typeof target.summary === 'string'
+      && typeof target.action === 'string',
+    present: ({ target }) => ({
+      name: target.name,
+      description: target.summary,
+      icon: target.icon,
+      accent: '#9fc7d8',
+      actions: [{ id: 'speak', label: target.action, glyph: '\u2026' }],
+    }),
+  }),
+  defineInteraction({
+    /**
      * Лестница наверх — шаг обратно в город, и его нельзя сделать нечаянно.
      *
      * Клетка, на которой герой появился, и есть эта лестница, и раньше шаг на
