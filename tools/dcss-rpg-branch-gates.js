@@ -56,6 +56,27 @@ export const BRANCH_GATES = Object.freeze([
     }),
     enter: Object.freeze({ ru: 'Спуститься', en: 'Go down' }),
   }),
+  Object.freeze({
+    id: 'ossuary-door',
+    from: 'vaults',
+    to: 'crypt',
+    // Хранилища были дорогой в никуда: войти в них можно было от городских
+    // ворот, а выйти — только обратно наверх. У спуска есть врата ада, у
+    // открытой местности — спуск в катакомбы, а у подвалов не было ничего.
+    //
+    // Двенадцатый этаж — конец второй главы: к нему герой уже стоит того,
+    // чтобы шагнуть с 1,15 на 1,2. Правило «врата ведут только туда, где
+    // тяжелее» выполняется, и по смыслу тоже: кладка старых подвалов
+    // упирается в костницу, а за ней начинаются катакомбы.
+    depth: 12,
+    path: 'dngn/gateways/ossuary_portal.png',
+    name: Object.freeze({ ru: 'Костница', en: 'The ossuary' }),
+    description: Object.freeze({
+      ru: 'Кладка кончилась. Дальше кладут не камень, и ход уходит в катакомбы.',
+      en: 'The masonry ends. What is stacked past it is not stone, and the way runs into the catacombs.',
+    }),
+    enter: Object.freeze({ ru: 'Пройти в катакомбы', en: 'Into the catacombs' }),
+  }),
 ]);
 
 export const BRANCH_GATE_PATHS = Object.freeze(BRANCH_GATES.map(({ path }) => path));

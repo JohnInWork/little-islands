@@ -305,3 +305,36 @@ test('the runtime draws the gate and offers exactly one way through it', async (
   assert.match(body, /replaceFloor\(run\.depth\)/);
   assert.match(body, /persistRun\(\);/);
 });
+
+/**
+ * Дорога, с которой некуда идти дальше, — это тупик, а не дорога.
+ *
+ * У городских ворот игрок выбирает из трёх: пещеры, поверхность, подвалы. У
+ * первых двух был выход дальше — врата ада и спуск в катакомбы, — а подвалы
+ * кончались ничем: дошёл до дна и возвращайся тем же путём. Костница на
+ * двенадцатом этаже это закрывает.
+ *
+ * Тест сторожит не саму костницу, а правило: с каждой дороги, которую
+ * предлагают у ворот, должен быть ход дальше.
+ */
+test('с каждой дороги от городских ворот есть ход дальше', () => {
+  for (const branch of ['deep', 'surface', 'vaults']) {
+    const выходы = BRANCH_GATES.filter((gate) => gate.from === branch);
+    assert.ok(выходы.length > 0, `с дороги «${branch}» некуда идти дальше`);
+    for (const gate of выходы) {
+      assert.ok(
+        branchDifficulty(gate.to) > branchDifficulty(branch),
+        `${gate.id} ведёт туда, где легче`,
+      );
+      assert.ok(Number.isInteger(gate.depth) && gate.depth >= 1 && gate.depth <= 18);
+    }
+  }
+  // Костница: подвалы упираются в неё и выходят в катакомбы.
+  const ossuary = BRANCH_GATES.find(({ id }) => id === 'ossuary-door');
+  assert.ok(ossuary, 'костница пропала');
+  assert.equal(ossuary.from, 'vaults');
+  assert.equal(ossuary.to, 'crypt');
+  assert.equal(ossuary.depth, 12);
+  // И у неё своя картинка: одинаковых ворот в игре быть не должно.
+  assert.equal(new Set(BRANCH_GATES.map(({ path }) => path)).size, BRANCH_GATES.length);
+});
