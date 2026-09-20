@@ -1,3 +1,4 @@
+import { BESTIARY_WAVE_TWO } from './dcss-rpg-bestiary.js';
 import { FINAL_BOSS_ID } from './dcss-rpg-run.js';
 
 /**
@@ -774,6 +775,10 @@ export const MONSTER_CATALOG = Object.freeze([
     tier: 7, hp: 104, damage: 17, speed: 0.96, xp: 0, bloodColor: '#6d3b33', spawn: 'summon',
     threat: { attackRate: 0.8, vision: 7.6, windup: 0.3, pursuit: 6 },
   },
+  // Вторая волна: сто с лишним существ, набранных снизу — тиров 1-3 в ней
+  // больше, чем 7-9, потому что узким местом был не размер каталога, а
+  // потолок тира на первых этажах. Подробности — в модуле.
+  ...BESTIARY_WAVE_TWO,
 ]);
 export const LOOT_CATALOG = Object.freeze([
   {
