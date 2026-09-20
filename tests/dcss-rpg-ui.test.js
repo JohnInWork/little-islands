@@ -618,3 +618,23 @@ test('описание характеристики раскрывается т�
   assert.match(runtime, /openAttributeId = openAttributeId === id \? null : id;/);
   assert.match(css, /\.character-attribute-name\[aria-expanded='true'\]/);
 });
+
+/**
+ * «Давай уберём обводку в интерфейсе, чтобы она разгрузила его.» Совсем снять
+ * нельзя: рамка отличает нажимаемое от ненажимаемого, и это правило Иван
+ * просил раньше — «полоска здоровья и кнопка рюкзака носили одинаковую рамку».
+ */
+test('панель носит волосяную линию, клавиша — рамку', async () => {
+  const css = await readFile(cssUrl, 'utf8');
+  const rule = css.slice(css.indexOf('.pixel-frame:not(.tappable):not(button) {'));
+  const body = rule.slice(0, rule.indexOf('}'));
+  assert.ok(body, 'панели снова обведены как клавиши');
+  // Ширина рамки не трогается: она в потоке, и три пикселя с каждой стороны
+  // сдвинули бы все выверенные размеры панелей.
+  assert.doesNotMatch(body, /border-width|border:/, 'рамка меняет размер панели');
+  assert.match(body, /border-color: var\(--coal\);/);
+  assert.match(body, /box-shadow: inset 0 0 0 1px/);
+  // А клавиша по-прежнему клавиша: своя рамка и губа тени под ней.
+  assert.match(css, /\.pixel-frame \{\s*border: var\(--pixel-unit\) solid var\(--frame-mid\);/);
+  assert.match(css, /\.tappable \{/);
+});
