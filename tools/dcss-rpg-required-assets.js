@@ -54,6 +54,7 @@ export const RUNTIME_FALLBACK_PATHS = Object.freeze([
 export const HUD_METER_PATHS = Object.freeze([
   'item/food/bread_ration.png',
   'derived/hud/moon.png',
+  'derived/hud/home.png',
 ]);
 
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */

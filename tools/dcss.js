@@ -829,6 +829,7 @@ const closeLoreButton = document.querySelector('#close-lore');
 const hudGold = document.querySelector('#hud-gold');
 const characterSheetFace = document.querySelector('#character-sheet-face');
 const depthBadge = document.querySelector('.depth');
+const depthHome = document.querySelector('#depth-home');
 const floorMap = document.querySelector('#floor-map');
 const floorMapCanvas = document.querySelector('#floor-map-canvas');
 const floorMapTitle = document.querySelector('#floor-map-title');
@@ -7325,7 +7326,11 @@ function renderPack() {
    * искать. Над двумя вещами они не экономили ни одного движения — только
    * занимали верх экрана и просили в себе разобраться.
    */
-  const controls = inventoryControlsUseful(backpackItems.filter(Boolean).length);
+  const carried = backpackItems.filter(Boolean).length;
+  const controls = inventoryControlsUseful(carried);
+  // Разбирать нечего — и кнопки разбора нет. Пустой рюкзак не предлагает
+  // действий над тем, чего в нём не лежит.
+  salvageButton.hidden = carried === 0;
   inventoryFilters.hidden = !controls;
   inventoryViewSwitcher.hidden = !controls;
   // Спрятанная вкладка не должна оставлять рюкзак отфильтрованным: иначе вещи
@@ -8163,7 +8168,19 @@ function updateHud() {
   // only ever visible inside the bag, which is the one place you do not need to
   // be told: the decision to spend or to go one floor deeper is taken out here.
   hudGold.textContent = String(gold);
-  depthBadge.querySelector('span').textContent = romanDepth(dungeon.depth);
+  /**
+   * В городе на значке этажа не цифра, а домик.
+   *
+   * Иван: «эта кнопка ломается в городе — надо ставить иконку домика». Ломалась
+   * буквально: значок размером с римскую цифру, а `romanDepth` отдаёт там слово
+   * «ГОРОД» — пять букв в квадрате под одну-две. Домик говорит то же самое и
+   * занимает ровно столько, сколько есть.
+   */
+  const inCity = isCityDepth(dungeon.depth);
+  const numeral = depthBadge.querySelector('span');
+  numeral.textContent = inCity ? '' : romanDepth(dungeon.depth);
+  numeral.hidden = inCity;
+  depthHome.hidden = !inCity;
   refreshFloorMapCopy();
   bagButton.querySelector('b').textContent = String(
     backpackItems.filter(Boolean).length,

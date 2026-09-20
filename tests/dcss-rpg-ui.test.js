@@ -638,3 +638,36 @@ test('панель носит волосяную линию, клавиша — 
   assert.match(css, /\.pixel-frame \{\s*border: var\(--pixel-unit\) solid var\(--frame-mid\);/);
   assert.match(css, /\.tappable \{/);
 });
+
+/**
+ * «Эта кнопка ломается в городе — надо ставить иконку домика.» Ломалась
+ * буквально: значок размером с римскую цифру, а в городе `romanDepth` отдаёт
+ * слово «ГОРОД» — пять букв в квадрате под одну-две.
+ */
+test('в городе на значке этажа домик, а не слово', async () => {
+  const [runtime, html] = await Promise.all([readFile(runtimeUrl, 'utf8'), readFile(htmlUrl, 'utf8')]);
+  const tag = html.match(/<img id="depth-home"[^>]*>/)?.[0] ?? '';
+  assert.ok(tag, 'домика нет в разметке');
+  assert.match(tag, /alt=""/, 'домик читается вслух поверх подписи кнопки');
+  assert.match(tag, /hidden/, 'домик видно и вне города');
+  const source = tag.match(/src="\.\.\/assets\/dcss-preview\/([^"]+)"/)?.[1] ?? '';
+  assert.ok(existsSync(new URL(`../public/assets/dcss-preview/${source}`, import.meta.url)), `${source} не поставляется`);
+  const { requiredAssetPaths } = await import('../tools/dcss-rpg-required-assets.js');
+  assert.ok(requiredAssetPaths().includes(source), `${source} не грузится`);
+  // Цифра и домик меняются местами, а не накладываются друг на друга.
+  assert.match(runtime, /numeral\.textContent = inCity \? '' : romanDepth\(dungeon\.depth\);/);
+  assert.match(runtime, /numeral\.hidden = inCity;/);
+  assert.match(runtime, /depthHome\.hidden = !inCity;/);
+});
+
+/** Подвал рюкзака не держит места под кнопку, которой сейчас нет. */
+test('«Получить» появляется только во время разбора, «Разбор» — только когда есть что разбирать', async () => {
+  const [runtime, css] = await Promise.all([readFile(runtimeUrl, 'utf8'), readFile(cssUrl, 'utf8')]);
+  const hidden = css.slice(css.indexOf('#salvage-confirm {'));
+  assert.match(hidden.slice(0, hidden.indexOf('}')), /display: none;/, 'кнопка держит место, будучи прозрачной');
+  assert.match(css, /\[data-salvage='true'\] #salvage-confirm \{\s*display: inline-flex;/);
+  assert.match(runtime, /salvageButton\.hidden = carried === 0;/);
+  // Слово «Разбор» на телефоне вернулось: место освободилось.
+  const narrow = css.slice(css.indexOf('#salvage-confirm strong {'));
+  assert.doesNotMatch(narrow.slice(0, 80), /#salvage strong/, 'подпись «Разбор» снова скрыта');
+});
