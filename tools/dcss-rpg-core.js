@@ -119,6 +119,7 @@ import {
   createChestContainerStates,
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
+import { branchDifficulty, branchGateFor } from './dcss-rpg-branch-gates.js';
 import {
   CHASM_CELL,
   carveChasm,
@@ -646,10 +647,24 @@ export function generateDungeon({
   if (width < 24 || height < 18) throw new Error('Dungeon dimensions are too small');
   // The surface has no difficulty curve of its own; it borrows the first floor's
   // numbers so every consumer still sees a complete scaling record.
+  /**
+   * A road's own difficulty, on top of the run's.
+   *
+   * «Чтобы адская ветка была сложной, реально <...> чтобы другие ветки были
+   * попроще.» The multiplier belongs to the road, not to the floor number, so
+   * the first floor of hell already hits like the descent's deep ones and the
+   * open country stays the place you can walk out of town into. Clamped,
+   * because the curve refuses anything outside its own range and a broken
+   * table should not be able to crash a floor.
+   */
+  const roadDifficulty = Math.max(
+    MIN_DIFFICULTY,
+    Math.min(MAX_DIFFICULTY, difficulty * branchDifficulty(branch)),
+  );
   const scaling = floorScaling(
     isCityDepth(depth) ? 1 : depth,
     scalingVersion,
-    difficulty,
+    isCityDepth(depth) ? difficulty : roadDifficulty,
     lootAbundance,
   );
   const floorSeed = mixSeed(seed, depth);
@@ -1242,6 +1257,42 @@ export function generateDungeon({
     }
   }
 
+  /**
+   * The way onto another road, when this floor is the one that has it.
+   *
+   * It is placed like anything else the floor owns — a free cell, away from
+   * the stairs and from whatever is standing about — and carried on the level
+   * so the runtime only has to draw it and offer it.
+   */
+  const branchGate = (() => {
+    const gate = branchGateFor(branch, depth);
+    if (!gate) return null;
+    const taken = new Set([
+      `${spawn.x},${spawn.y}`,
+      `${exit.x},${exit.y}`,
+      ...events.map(({ x, y }) => `${x},${y}`),
+      ...finds.map(({ x, y }) => `${x},${y}`),
+      ...loot.map(({ x, y }) => `${x},${y}`),
+      ...monsters.map(({ x, y }) => `${x},${y}`),
+      ...doorPlan.doors.map(({ x, y }) => `${x},${y}`),
+    ]);
+    const gateRng = createRng(mixSeed(floorSeed, 0x47415445));
+    // The far end of the floor from the way in: a door to somewhere else is
+    // not something you trip over on the first step.
+    const open = [];
+    for (let y = 0; y < grid.length; y += 1) {
+      for (let x = 0; x < grid[y].length; x += 1) {
+        if (grid[y][x] !== '.' || taken.has(`${x},${y}`)) continue;
+        const away = Math.abs(x - spawn.x) + Math.abs(y - spawn.y);
+        if (away < 8) continue;
+        open.push({ x, y });
+      }
+    }
+    if (open.length === 0) return null;
+    const spot = open[gateRng.int(0, open.length - 1)];
+    return Object.freeze({ id: gate.id, to: gate.to, path: gate.path, x: spot.x, y: spot.y });
+  })();
+
   const roomContent = materializeDungeonRoomContent({
     seed: floorSeed,
     themeId,
@@ -1263,6 +1314,7 @@ export function generateDungeon({
     roomPlans,
   });
   return {
+    branchGate,
     seed: floorSeed,
     // `seed` above is the FLOOR seed (`mixSeed(seed, depth)`), so nothing
     // downstream can recover the run seed from it. Everything that needs the
@@ -2649,6 +2701,23 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
  * archived: those floors belong to the other road, and the dungeon has moved on
  * anyway — the same rule the Return Stone already lives by.
  */
+/**
+ * Walking through a gate onto another road. The new road starts at its own
+ * first floor: hell does not carry the descent's numbering, and the floors of
+ * the road left behind are forgotten the same way the city forgets them.
+ */
+export function enterBranchThroughGate(snapshot, branch) {
+  if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
+  if (!validateRunBranch(branch)) throw new Error('Unknown run branch');
+  if (snapshot.status !== 'playing') throw new Error('Cannot change roads after the run has ended');
+  if (snapshot.branch === branch) return snapshot;
+  const arrived = travelRunToDepth({ ...snapshot, branch, floors: {} }, 1);
+  // Travelling files the floor it left behind, and the floor it left behind is
+  // on the other road: keeping it would mean climbing out of hell onto the
+  // eighteenth floor of the descent.
+  return { ...arrived, floors: {} };
+}
+
 export function switchRunBranch(snapshot, branch) {
   if (!validateRun(snapshot)) throw new Error('Invalid RPG save snapshot');
   if (!validateRunBranch(branch)) throw new Error('Unknown run branch');

@@ -703,6 +703,25 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     /**
+     * A door onto another road.
+     *
+     * It is the only thing in the game that changes which dungeon you are in,
+     * so it says what it is and where it goes, and the picture is that road's
+     * own mouth — the player recognises a way out of here before reading it.
+     */
+    id: 'branch-gate',
+    command: 'branch-gate',
+    matches: (target) => target?.kind === 'branch-gate' && typeof target.to === 'string',
+    present: ({ target }) => ({
+      name: target.name,
+      description: target.description,
+      icon: target.path,
+      accent: '#c06a4a',
+      actions: [{ id: 'enterBranch', label: target.enter, glyph: '\u21B3', enabled: true }],
+    }),
+  }),
+  defineInteraction({
+    /**
      * Jumping in on purpose.
      *
      * The hole is a shaft with a floor under it, so falling in is a way down

@@ -16,6 +16,7 @@ import {
   SAVE_KEY,
   advanceRunFloor,
   retreatRunFloor,
+  enterBranchThroughGate,
   switchRunBranch,
   travelRunToDepth,
   createRun,
@@ -438,6 +439,7 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
+import { BRANCH_GATES, branchGateCopy } from './dcss-rpg-branch-gates.js';
 import {
   CHASM_CELL,
   CHASM_FALL_PERCENT,
@@ -5169,6 +5171,22 @@ function worldMarkers3D() {
     dungeon.depth > CITY_DEPTH
     && isCurrentlyVisible((dungeon.spawn.x + 0.5) * TILE, (dungeon.spawn.y + 0.5) * TILE)
   ) {
+  // The way onto another road, standing where the floor put it.
+  if (dungeon.branchGate && isCurrentlyVisible((dungeon.branchGate.x + 0.5) * TILE, (dungeon.branchGate.y + 0.5) * TILE)) {
+    markers.push({
+      id: 'marker:branch-gate',
+      path: dungeon.branchGate.path,
+      x: (dungeon.branchGate.x + 0.5) * TILE,
+      y: (dungeon.branchGate.y + 0.5) * TILE,
+      size: 72,
+      facing: 1,
+      screenOffsetY: -6 + groundLift(72),
+      opacity: 1,
+      hit: false,
+      shadowScale: 0.75,
+      shadowOpacity: 0.32,
+    });
+  }
     markers.push({
       id: 'marker:ascent',
       path: ascentVisual.path,
@@ -8332,6 +8350,13 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
+  if (entry.kind === 'branch-gate') {
+    const gate = BRANCH_GATES.find(({ id }) => id === entry.value.id) ?? null;
+    const copy = branchGateCopy(gate, itemDetailLanguage);
+    return gate && copy
+      ? { kind: 'branch-gate', to: gate.to, path: gate.path, ...copy }
+      : null;
+  }
   if (entry.kind === 'chasm') {
     const floors = Math.max(1, chasmFallFloors(world, entry.value, dungeon.seed));
     const cost = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT * floors / 100));
@@ -9835,6 +9860,7 @@ function nearbyContextTargets() {
   add('wildlife', nearbyWildlife());
   // A cold campfire is still something to sit at, it is just not cooking.
   if (campfire && !canCook) add('campfire', campfire);
+  add('branch-gate', nearbyBranchGate());
   add('chasm', nearbyChasm());
   add('portal', nearbyPortal());
   add('door', nearbyDoor());
@@ -9860,6 +9886,13 @@ function portalCellHere() {
   if (!portal) return null;
   if (isCityDepth(dungeon.depth)) return cityPortalCell(dungeon);
   return portal.depth === dungeon.depth ? { x: portal.x, y: portal.y } : null;
+}
+
+/** The gate onto another road, when the hero is standing next to it. */
+function nearbyBranchGate() {
+  if (runStatus !== 'playing' || hero.dead || !dungeon.branchGate) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return cellStepDistance(cell, dungeon.branchGate) <= 1 ? dungeon.branchGate : null;
 }
 
 /** A hole within reach. The nearest one, so the card is about that hole. */
@@ -10067,6 +10100,11 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     }
     descendFloor();
     return true;
+  },
+  'branch-gate'({ target }) {
+    closeContextActions();
+    if (!target?.value?.to) return false;
+    return enterBranch(target.value.to);
   },
   'chasm-jump'({ target }) {
     closeContextActions();
@@ -14394,6 +14432,23 @@ function useHomeStone() {
   playSound('spell-toggle');
   burst(hero.x, hero.y - 12, '#d8bf68', 24);
   return '';
+}
+
+/**
+ * Stepping onto another road. The new one starts at its own first floor, and
+ * the floors of the one left behind are forgotten the way the city forgets
+ * them — a road is a place you are on, not a stack you can climb back up.
+ */
+function enterBranch(branch) {
+  if (isTerminalRunStatus(runStatus)) return false;
+  run = enterBranchThroughGate(captureRun(), branch);
+  hero.hp = run.hero.hp;
+  hero.hunger = run.hero.hunger;
+  replaceFloor(run.depth);
+  playerHasActed = true;
+  playSound('descend');
+  persistRun();
+  return true;
 }
 
 function descendFloor() {
