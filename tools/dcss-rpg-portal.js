@@ -17,12 +17,17 @@
  *
  * Three rules follow from that and are enforced here rather than remembered:
  *
- * - **One portal.** Opening is refused while one is open, so there is never a
- *   second mouth to get confused about, and never a way to strand the first.
+ * - **One portal, and a new one replaces it.** The first version refused a
+ *   second while one stood open. Ivan cut that out — «мы делаем не душную
+ *   игру» — and he is right that it costs nothing: a portal you replace is
+ *   always one you walked away from yourself, on a floor you already left.
+ *   The way back from *where you are standing* can never be taken away,
+ *   because that is the portal you are opening.
  * - **The far floor is never forgotten.** The dungeon keeps only the floors
  *   near the hero; a floor with a portal on it is pinned, the way the house
  *   stone's floor is, so stepping back does not land on a floor that has
- *   quietly regenerated its monsters.
+ *   quietly regenerated its monsters. Move the portal and the pin moves with
+ *   it — the old floor was left behind on purpose.
  * - **Closing happens on arrival, not on departure.** The portal is spent by
  *   the hero standing on the far side of it, never before — so no failure in
  *   between can consume it.
@@ -44,8 +49,8 @@ const COPY = Object.freeze({
     description: 'Синее кольцо держит проход. Шаг — и ты в городе.',
     cityDescription: ({ depth }) => `Проход на ${depth}-й этаж, туда, где ты его открыл.`,
     hint: 'Обратный проход закроется, когда ты им вернёшься.',
+    replaced: 'Прежний портал закрылся',
     refusal: Object.freeze({
-      'already-open': 'Портал уже открыт',
       'in-city': 'Ты и так в городе',
       'not-playing': 'Не сейчас',
       'no-room': 'Здесь негде его развернуть',
@@ -59,8 +64,8 @@ const COPY = Object.freeze({
     description: 'A blue ring holds the way open. One step and you are in the city.',
     cityDescription: ({ depth }) => `The way back to floor ${depth}, where you opened it.`,
     hint: 'The way back closes once you have come back through it.',
+    replaced: 'The old portal closed',
     refusal: Object.freeze({
-      'already-open': 'A portal is already open',
       'in-city': 'You are in the city already',
       'not-playing': 'Not now',
       'no-room': 'No room to open one here',
@@ -95,27 +100,37 @@ export function validatePortalState(portal) {
 }
 
 /**
- * Can one be opened here? Never in the city — the city is what a portal is
- * for — and never while one is already open, because two mouths in a dungeon
- * is one mouth nobody can find.
+ * Can one be opened here? Only the city says no, because the city is what a
+ * portal is for. Standing in the dungeon is the whole requirement — there is
+ * no cost, no cooldown and no stock to run out of.
  */
-export function canOpenPortal({ depth = CITY_DEPTH, status = 'playing', portal = null } = {}) {
+export function canOpenPortal({ depth = CITY_DEPTH, status = 'playing' } = {}) {
   if (status !== 'playing') return Object.freeze({ ok: false, reason: 'not-playing' });
   if (!Number.isInteger(depth) || depth <= CITY_DEPTH) return Object.freeze({ ok: false, reason: 'in-city' });
-  if (createPortalState(portal)) return Object.freeze({ ok: false, reason: 'already-open' });
   return Object.freeze({ ok: true, reason: 'ready' });
 }
 
 /**
- * Opening one. The cell is the hero's own: a portal you step out of should put
- * you where you were standing, not beside it.
+ * Opening one, which is also how you move one. Whatever stood before is gone;
+ * `replaced` says so, because a ring vanishing off a floor you cannot see
+ * deserves a word.
  */
 export function openPortalAt({ depth, x, y, status = 'playing', portal = null } = {}) {
-  const decision = canOpenPortal({ depth, status, portal });
+  const decision = canOpenPortal({ depth, status });
   if (!decision.ok) return Object.freeze({ ok: false, reason: decision.reason, portal });
   const next = createPortalState({ depth, x, y });
   if (!next) return Object.freeze({ ok: false, reason: 'no-room', portal });
-  return Object.freeze({ ok: true, reason: 'opened', portal: next });
+  const previous = createPortalState(portal);
+  // Re-opening one on the cell it already stands on is not a replacement,
+  // whatever the bookkeeping says: nothing went out anywhere.
+  const moved = previous
+    && (previous.depth !== next.depth || previous.x !== next.x || previous.y !== next.y);
+  return Object.freeze({
+    ok: true,
+    reason: moved ? 'replaced' : 'opened',
+    portal: next,
+    replaced: moved ? previous : null,
+  });
 }
 
 /** Where a portal stands right now, on this floor, or nowhere. */

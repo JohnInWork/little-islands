@@ -9605,12 +9605,15 @@ function openHeroPortal() {
     if (refusal) showLootToast({ path: PORTAL_PATH, rarity: 0 }, refusal);
     return false;
   }
+  const copy = portalCopy(itemDetailLanguage);
   run.portal = result.portal;
   playerHasActed = true;
   playSound('descend');
   const at = { x: (beside.x + 0.5) * TILE, y: (beside.y + 0.5) * TILE };
   burst(at.x, at.y - 8, '#5aa8e0', 18);
   addImpactWave(at.x, at.y - 2, '#5aa8e0', 46, 0);
+  // A ring going out on a floor nobody can see deserves a word.
+  if (result.reason === 'replaced') showLootToast({ path: PORTAL_PATH, rarity: 1 }, copy.replaced);
   updatePortalButton();
   persistRun();
   return true;
@@ -9644,21 +9647,20 @@ function stepThroughPortal() {
   return true;
 }
 
-/** Always carried, never spent — and dark while one is already open. */
+/**
+ * Always carried, never spent, and never greyed out.
+ *
+ * It used to go dark while a portal stood open. Ivan: «надо чтобы можно было
+ * новый открыть и чтобы старый закрывался — мы делаем не душную игру.» A key
+ * that refuses is a key the player has to think about; this one never does.
+ */
 function updatePortalButton() {
   if (!openPortalButton) return;
-  const decision = canOpenPortal({
-    depth: dungeon.depth,
-    status: runStatus,
-    portal: run.portal ?? null,
-  });
+  const decision = canOpenPortal({ depth: dungeon.depth, status: runStatus });
   const copy = portalCopy(itemDetailLanguage);
   openPortalButton.hidden = isCityDepth(dungeon.depth) || isTerminalRunStatus(runStatus);
   openPortalButton.disabled = !decision.ok;
-  openPortalButton.setAttribute(
-    'aria-label',
-    decision.ok ? copy.open : copy.refusal[decision.reason] ?? copy.open,
-  );
+  openPortalButton.setAttribute('aria-label', decision.ok ? copy.open : copy.refusal[decision.reason] ?? copy.open);
   openPortalButton.title = openPortalButton.getAttribute('aria-label');
 }
 

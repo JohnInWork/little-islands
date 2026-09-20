@@ -20,11 +20,26 @@ import {
 } from '../tools/dcss-rpg-core.js';
 import { cityPortalCell } from '../tools/dcss-rpg-city.js';
 
-test('a portal is always available, never runs out, and there is only ever one', () => {
+/**
+ * «Телепорт открыт сразу и он бесконечный» — and the second half, which
+ * arrived after the first build refused a second portal: «надо чтобы можно
+ * было новый открыть и чтобы старый закрывался — мы делаем не душную игру».
+ *
+ * Replacing costs nothing, and that is the point worth writing down: the
+ * portal you replace is always one you walked away from yourself, on a floor
+ * you already left. The way back from where you are standing cannot be taken
+ * away, because that is the portal you are opening.
+ */
+test('a portal is always available, never runs out, and a new one replaces the old', () => {
   // Nothing to buy, nothing to carry: standing in the dungeon is the whole
-  // requirement. «Телепорт открыт сразу и он бесконечный.»
+  // requirement, whether or not one is already open somewhere.
   assert.deepEqual(canOpenPortal({ depth: 1 }), { ok: true, reason: 'ready' });
   assert.deepEqual(canOpenPortal({ depth: 40 }), { ok: true, reason: 'ready' });
+  assert.deepEqual(
+    canOpenPortal({ depth: 40, portal: { depth: 9, x: 1, y: 1 } }),
+    { ok: true, reason: 'ready' },
+    'an open portal makes the key refuse',
+  );
 
   // The city is what a portal is for, so it cannot be opened there.
   assert.equal(canOpenPortal({ depth: 0 }).reason, 'in-city');
@@ -32,19 +47,33 @@ test('a portal is always available, never runs out, and there is only ever one',
 
   const first = openPortalAt({ depth: 9, x: 4, y: 5 });
   assert.equal(first.ok, true);
+  assert.equal(first.reason, 'opened');
+  assert.equal(first.replaced, null, 'the first one replaced something');
   assert.deepEqual(first.portal, { depth: 9, x: 4, y: 5 });
-  // A second mouth is a mouth nobody can find, and a way to strand the first.
-  const second = openPortalAt({ depth: 9, x: 10, y: 10, portal: first.portal });
-  assert.equal(second.ok, false);
-  assert.equal(second.reason, 'already-open');
-  assert.deepEqual(second.portal, first.portal, 'the refusal moved the portal');
+
+  // The second one opens, and takes the first one's place.
+  const second = openPortalAt({ depth: 14, x: 10, y: 10, portal: first.portal });
+  assert.equal(second.ok, true);
+  assert.equal(second.reason, 'replaced', 'a replacement passes for a first opening');
+  assert.deepEqual(second.portal, { depth: 14, x: 10, y: 10 });
+  assert.deepEqual(second.replaced, first.portal, 'nothing says the old one went out');
+  // And there is still only one: the pin follows it to the new floor.
+  assert.deepEqual([...portalAnchoredDepths(second.portal)], [14]);
 
   for (const language of ['ru', 'en']) {
     const copy = portalCopy(language);
     assert.ok(copy.open.length > 0);
-    assert.ok(copy.refusal['already-open'].length > 0);
+    assert.ok(copy.replaced.length > 0, `${language}: nothing to say when one closes`);
+    assert.equal(copy.refusal['already-open'], undefined, 'the refusal is still written');
   }
   assert.notEqual(portalCopy('ru').open, portalCopy('en').open);
+  assert.notEqual(portalCopy('ru').replaced, portalCopy('en').replaced);
+
+  // Opening one where it already stands is not a replacement: nothing went
+  // out anywhere, so nothing is announced.
+  const again = openPortalAt({ depth: 14, x: 10, y: 10, portal: second.portal });
+  assert.equal(again.reason, 'opened');
+  assert.equal(again.replaced, null);
 });
 
 test('a portal is two coordinates, and anything else is no portal at all', () => {
@@ -152,10 +181,16 @@ test('coming back is what closes it, and leaving never does', async () => {
   // can eat the way home.
   assert.match(body, /if \(!goingHome\) run\.portal = null;/);
   assert.ok(!/run\.portal = null;[\s\S]*travelRunToDepth/.test(body), 'it is closed before the trip');
-  // The button exists, is hidden in town, and goes dark while one is open.
+  // The button exists and is hidden in town — and never refuses because a
+  // portal is already open: «мы делаем не душную игру».
   assert.match(runtime, /openPortalButton\.addEventListener\('click', openHeroPortal\)/);
   assert.match(runtime, /openPortalButton\.hidden = isCityDepth\(dungeon\.depth\)/);
-  assert.match(runtime, /openPortalButton\.disabled = !decision\.ok;/);
+  const button = runtime.slice(runtime.indexOf('function updatePortalButton()'));
+  const buttonBody = button.slice(0, button.indexOf('\nfunction '));
+  assert.doesNotMatch(buttonBody, /portal: run\.portal/, 'the key still looks at the open portal');
+  // Opening on top of one says so, because a ring goes out where nobody sees.
+  const open = runtime.slice(runtime.indexOf('function openHeroPortal()'));
+  assert.match(open.slice(0, open.indexOf('\nfunction ')), /result\.reason === 'replaced'/);
   // And it is drawn on whichever floor it stands on, standing on the ground.
   assert.match(runtime, /id: 'marker:portal'/);
   assert.match(runtime, /screenOffsetY: visual\.offsetY \+ groundLift\(60 \* visual\.scale\)/);
