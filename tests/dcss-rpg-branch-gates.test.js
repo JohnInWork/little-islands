@@ -7,6 +7,8 @@ import {
   BRANCH_DIFFICULTY,
   BRANCH_GATES,
   BRANCH_GATE_PATHS,
+  BRANCH_STAIRS,
+  BRANCH_STAIR_PATHS,
   branchDifficulty,
   branchGateCopy,
   branchGateFor,
@@ -118,6 +120,56 @@ test('walking through a gate starts the new road at its own first floor', () => 
   // Asking for the road you are already on changes nothing.
   assert.equal(enterBranchThroughGate(moved, 'hell'), moved);
   assert.throws(() => enterBranchThroughGate(moved, 'nowhere'));
+});
+
+/**
+ * «Чтобы для каждой из этих веток были свои входы и выходы текстурки — чтобы
+ * игрок понимал, что это вход в какое-то новое прям подземелье.»
+ */
+test('every road has its own stairs, and its two are never confusable', () => {
+  const loaded = requiredAssetPaths();
+  const preview = new URL('../public/assets/dcss-preview/', import.meta.url);
+  assert.deepEqual(Object.keys(BRANCH_STAIRS).sort(), [...RUN_BRANCHES].sort());
+  for (const [branch, stairs] of Object.entries(BRANCH_STAIRS)) {
+    for (const side of ['down', 'up']) {
+      const path = stairs[side];
+      assert.ok(path, `${branch} has no way ${side}`);
+      assert.ok(existsSync(new URL(path, preview)), `${path} does not ship`);
+      assert.ok(loaded.includes(path), `${path} is never loaded`);
+    }
+    // The two stand on the same floor, and the screen is a phone.
+    assert.notEqual(stairs.down, stairs.up, `${branch} draws both its stairs the same`);
+  }
+  // A road's way down is its own: that picture is how the player knows the
+  // place changed. Two roads may share a way *back*, since no one ever sees
+  // two roads at once — but nobody may share a descent.
+  const downs = Object.values(BRANCH_STAIRS).map(({ down }) => down);
+  assert.equal(new Set(downs).size, downs.length, 'two roads go down through the same door');
+  assert.equal(
+    BRANCH_STAIR_PATHS.length,
+    new Set(Object.values(BRANCH_STAIRS).flatMap(({ down, up }) => [down, up])).size,
+  );
+  // And a gate into a road never looks like that road's own stairs, or the
+  // player would read «дальше вниз» where the game means «другое место».
+  for (const gate of BRANCH_GATES) {
+    assert.equal(BRANCH_STAIR_PATHS.includes(gate.path), false, `${gate.id} is drawn as a stair`);
+  }
+});
+
+test('the runtime draws the stairs of the road the run is on', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Resolved once per road rather than per frame, and keyed so that a player
+  // who overrides «the stair» still overrides it everywhere.
+  assert.match(runtime, /function branchStairVisuals\(id, side\) \{/);
+  assert.match(runtime, /runtimeVisual\('system', id, 'world', stairs\[side\], 1, 0\)/);
+  assert.match(runtime, /const exitVisual = \(\) => exitVisuals\[run\?\.branch\] \?\? exitVisuals\.deep;/);
+  assert.match(runtime, /const ascentVisual = \(\) => ascentVisuals\[run\?\.branch\] \?\? ascentVisuals\.deep;/);
+  // Nothing may reach for one fixed picture any more: the toasts, the marker
+  // and the boss reward all go through the road's own stair.
+  assert.doesNotMatch(runtime, /\bEXIT_PATH\b/, 'the adapter still hard-codes one stair down');
+  assert.doesNotMatch(runtime, /\bASCENT_PATH\b/, 'the adapter still hard-codes one stair up');
+  assert.match(runtime, /path: exitVisual\(\)\.path/);
+  assert.match(runtime, /path: ascentVisual\(\)\.path/);
 });
 
 /**

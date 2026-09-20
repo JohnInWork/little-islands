@@ -608,6 +608,61 @@ export const ROOM_ARCHETYPE_CATALOG = Object.freeze([
     dangerMultiplier: 1,
     rewardMultiplier: 1.3,
   }),
+  // ── A room apiece for the five branch events ────────────────────────────
+  // These carry no `environmentThemeIds` map on purpose. Every other archetype
+  // needs one because it can turn up on any road and must dress itself for
+  // fourteen different places; each of these belongs to exactly one road, and
+  // on that road there is only one way its room should look.
+  defineRoomArchetype({
+    id: 'shrine-glade',
+    defaultEnvironmentThemeId: 'shrine-glade',
+    role: 'discovery',
+    weight: 0,
+    content: { findId: 'wild-shrine' },
+    variants: ['flowering', 'overgrown'],
+    dangerMultiplier: 0.8,
+    rewardMultiplier: 1.2,
+  }),
+  defineRoomArchetype({
+    id: 'idol-cut',
+    defaultEnvironmentThemeId: 'idol-cut',
+    role: 'discovery',
+    weight: 0,
+    content: { findId: 'strangers-idol' },
+    variants: ['propped', 'leaning'],
+    dangerMultiplier: 0.9,
+    rewardMultiplier: 1.25,
+  }),
+  defineRoomArchetype({
+    id: 'treasury-alcove',
+    defaultEnvironmentThemeId: 'treasury-alcove',
+    role: 'discovery',
+    weight: 0,
+    content: { findId: 'golden-idol' },
+    variants: ['guarded', 'ransacked'],
+    dangerMultiplier: 1.1,
+    rewardMultiplier: 1.45,
+  }),
+  defineRoomArchetype({
+    id: 'named-plot',
+    defaultEnvironmentThemeId: 'named-plot',
+    role: 'discovery',
+    weight: 0,
+    content: { findId: 'named-grave' },
+    variants: ['tended', 'sunken'],
+    dangerMultiplier: 1.1,
+    rewardMultiplier: 1.35,
+  }),
+  defineRoomArchetype({
+    id: 'speaking-wall',
+    defaultEnvironmentThemeId: 'speaking-wall',
+    role: 'discovery',
+    weight: 0,
+    content: { findId: 'stone-face' },
+    variants: ['watching', 'silent'],
+    dangerMultiplier: 1.3,
+    rewardMultiplier: 1.4,
+  }),
   defineRoomArchetype({
     id: 'ambush-chamber',
     defaultEnvironmentThemeId: 'fallen-hall',

@@ -157,13 +157,27 @@ test('nothing growing is painted onto a wall', async () => {
 test('no crypt statue ever stands in a meadow', async () => {
   const { DUNGEON_THEME_CATALOG, ROOM_ARCHETYPE_CATALOG, environmentThemeFor } =
     await import('../tools/dcss-rpg-room-plans.js');
-  const outdoors = new Set(['open-wood', 'mangrove-shallows', 'boneyard', 'ruined-yard']);
+  const { findById } = await import('../tools/dcss-rpg-finds.js');
+  const outdoors = new Set([
+    'open-wood', 'mangrove-shallows', 'boneyard', 'ruined-yard',
+    // The wild shrine's own clearing: trees, briar and moss, and only ever
+    // placed on the road out, so it belongs on this list rather than needing
+    // an exception from it.
+    'shrine-glade',
+  ]);
   // The rule is that open country does not borrow a crypt's statuary — not that
   // the road out has no buildings on it. The wayside inn is a room with a roof
   // and its own furniture, and it is the only archetype allowed to be one.
   const indoorsOnPurpose = new Map([['wayside-inn', 'tavern-hall']]);
+  // A room built to hold one road's landmark cannot turn up on another road at
+  // all, so hell's speaking wall is not a meadow's problem.
+  const elsewhere = (archetype) => {
+    const branch = findById(archetype.content?.findId)?.branch;
+    return Boolean(branch) && branch !== 'surface';
+  };
   for (const theme of DUNGEON_THEME_CATALOG.filter(({ branch }) => branch === 'surface')) {
     for (const archetype of ROOM_ARCHETYPE_CATALOG) {
+      if (elsewhere(archetype)) continue;
       const look = environmentThemeFor(archetype, theme.id);
       if (indoorsOnPurpose.get(archetype.id) === look) continue;
       assert.ok(outdoors.has(look), `${archetype.id} in ${theme.id} is decorated as ${look}`);

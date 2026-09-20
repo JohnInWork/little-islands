@@ -82,6 +82,53 @@ export function branchGateCopy(gate, language = 'ru') {
 }
 
 /**
+ * The stairs of each road.
+ *
+ * Ivan: «чтобы для каждой из этих веток были свои входы и выходы текстурки —
+ * чтобы игрок понимал, что это вход в какое-то новое прям подземелье». The
+ * gate at the mouth was the first half; this is the second. Every road's way
+ * down and way back up are drawn from its own place, so the stair tells the
+ * player where they are even with the map closed.
+ *
+ * One rule governs the pairs: **down and up must never be confusable on the
+ * same floor**, because they stand on the same floor and a phone screen is
+ * small. Across roads they may rhyme freely — two roads are never underfoot at
+ * once, so the catacombs' gravestone arch and hell's skull arch can both be
+ * dark stone without anyone ever having to tell them apart.
+ */
+export const BRANCH_STAIRS = Object.freeze({
+  // The descent, unchanged: the grey arch with red eyes, and its plain twin.
+  deep: Object.freeze({
+    down: 'dngn/gateways/enter_depths.png',
+    up: 'dngn/gateways/return_depths.png',
+  }),
+  // Open country: a hole torn in green earth, and standing stones to climb to.
+  surface: Object.freeze({
+    down: 'dngn/gateways/enter_lair.png',
+    up: 'dngn/gateways/stone_arch.png',
+  }),
+  // The vaults are machinery and money: a bolted hatch down, a gilt arch back.
+  vaults: Object.freeze({
+    down: 'dngn/gateways/enter_vaults_open.png',
+    up: 'dngn/gateways/return_zot.png',
+  }),
+  // The catacombs: a gilded tomb mouth down, a dark stone arch back up.
+  crypt: Object.freeze({
+    down: 'dngn/gateways/enter_tomb.png',
+    up: 'dngn/gateways/return_vestibule.png',
+  }),
+  // Hell: fire going down, and a grey skull arch to climb out by.
+  hell: Object.freeze({
+    down: 'dngn/gateways/enter_gehenna1.png',
+    up: 'dngn/gateways/return_hell.png',
+  }),
+});
+
+export const BRANCH_STAIR_PATHS = Object.freeze([
+  ...new Set(Object.values(BRANCH_STAIRS).flatMap(({ down, up }) => [down, up])),
+]);
+
+/**
  * How hard a road is, as a plain multiplier on what its monsters are worth
  * being. Ivan: «чтобы адская ветка была сложной, реально, чтобы сложно было,
  * чтобы там другие ветки были попроще <...> и логично их нужно расставить».

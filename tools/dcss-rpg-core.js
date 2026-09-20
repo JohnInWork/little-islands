@@ -1142,6 +1142,9 @@ export function generateDungeon({
       surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
       sealedCache: artifactFloor,
       themeId,
+      // A road's own landmark is picked from here: without this the catacombs
+      // and hell would go on offering the descent's three bargains.
+      branch,
     },
     rng: findRng,
     landmarkRng,

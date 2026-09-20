@@ -12,6 +12,7 @@ import {
   clearActorEffects,
   createActorEffects,
 } from './dcss-rpg-effects.js';
+import { BRANCH_EVENTS } from './dcss-rpg-branch-events.js';
 import { cellStepDistance } from './dcss-rpg-geometry.js';
 import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 import { WATER_CELL } from './dcss-rpg-terrain.js';
@@ -365,6 +366,10 @@ export const FIND_CATALOG = Object.freeze([
       },
     },
   }),
+  // One landmark per road, locked to that road. They are ordinary landmarks in
+  // every respect the rest of this module can see; only `placeLandmarks` knows
+  // they are not for everyone.
+  ...BRANCH_EVENTS.map(defineFind),
 ]);
 
 const FINDS_BY_ID = new Map(FIND_CATALOG.map((definition) => [definition.id, definition]));
@@ -529,6 +534,24 @@ function placeSecrets({ level, rng, roomEntries, occupied, avoided, usedRooms })
 }
 
 /**
+ * Which landmarks this road is allowed to show.
+ *
+ * A branch-locked landmark appears on its own road and nowhere else; the three
+ * generic ones appear everywhere, as they always have. `weight` decides how
+ * much of the floor's chance a road's own landmark takes from them — at three
+ * to one it lands on about half the road's floors, which is often enough to be
+ * that road's landmark and rare enough to still be worth walking over to.
+ */
+function landmarkPool(branch) {
+  return LANDMARK_CATALOG
+    .filter((definition) => !definition.branch || definition.branch === branch)
+    .flatMap((definition) => Array.from(
+      { length: Math.max(1, definition.weight ?? 1) },
+      () => definition,
+    ));
+}
+
+/**
  * Landmarks (altar today; fountain/rune later) are placed after the core
  * finds from their own seeded stream. Adding or retuning one therefore never
  * reshuffles the chest, crystal, grave, monsters, loot or doors of a floor.
@@ -540,7 +563,12 @@ function placeLandmarks({ level, rng, roomEntries, occupied, avoided, usedRooms 
     rng,
     roomEntries.filter(({ roomIndex }) => !usedRooms.has(roomIndex)),
   );
-  const blueprints = shuffle(rng, [...LANDMARK_CATALOG]);
+  // The pool is weighted by repetition, so the shuffle does the weighting; the
+  // dedupe afterwards keeps one floor from carrying the same landmark twice.
+  const blueprints = [];
+  for (const definition of shuffle(rng, landmarkPool(level.branch))) {
+    if (!blueprints.includes(definition)) blueprints.push(definition);
+  }
   const targetCount = Math.min(LANDMARKS_PER_FLOOR, rooms.length, blueprints.length);
   // A blueprint that wants water takes the flooded room when the floor has one.
   // The sort is stable, so every other floor keeps the shuffled order exactly.

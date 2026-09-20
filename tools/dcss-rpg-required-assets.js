@@ -21,7 +21,7 @@ import { CITY_ASSET_PATHS } from './dcss-rpg-city.js';
 import { stashAssetPaths } from './dcss-rpg-stash.js';
 import { ACTOR_EFFECT_PATHS } from './dcss-rpg-effects.js';
 import { SPELL_ASSET_PATHS } from './dcss-rpg-spells.js';
-import { BRANCH_GATE_PATHS } from './dcss-rpg-branch-gates.js';
+import { BRANCH_GATE_PATHS, BRANCH_STAIR_PATHS } from './dcss-rpg-branch-gates.js';
 import { CHASM_ICON_PATH } from './dcss-rpg-chasm.js';
 import { PORTAL_PATH } from './dcss-rpg-portal.js';
 
@@ -72,6 +72,7 @@ export function requiredAssetPaths(extra = []) {
     PORTAL_PATH,
     CHASM_ICON_PATH,
     ...BRANCH_GATE_PATHS,
+    ...BRANCH_STAIR_PATHS,
     ...RUNTIME_FALLBACK_PATHS,
     MERCHANT_ACTOR_PATH,
     MERCHANT_ICON_PATH,

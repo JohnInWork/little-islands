@@ -1,8 +1,6 @@
 import { canCloseDoor } from './dcss-rpg-doors.js';
 import {
   ARTIFACT_PATH,
-  ASCENT_PATH,
-  EXIT_PATH,
   FINAL_GATE_PATH,
   LOOT_CATALOG,
   SANCTUARY_PATH,
@@ -439,7 +437,7 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
-import { BRANCH_GATES, branchGateCopy } from './dcss-rpg-branch-gates.js';
+import { BRANCH_GATES, BRANCH_STAIRS, branchGateCopy } from './dcss-rpg-branch-gates.js';
 import {
   CHASM_CELL,
   CHASM_FALL_PERCENT,
@@ -938,7 +936,27 @@ const rarityGlow = ['#9da39c', '#66b47a', '#62a9dc', '#d0b45e'];
 let waterPaths = WATER_PATHS;
 
 const sanctuaryVisual = runtimeVisual('system', 'sanctuary', 'world', SANCTUARY_PATH, 1, -5);
-const exitVisual = runtimeVisual('system', 'exit', 'world', EXIT_PATH, 1, 0);
+/**
+ * Every road's own stairs, resolved once each.
+ *
+ * The binding key is the same for all of them — a player who replaces «the
+ * stair down» replaces it on every road, which is what they meant — but the
+ * picture behind that binding is the one this road actually uses. Ivan asked
+ * for this so a player can tell at a glance that they are somewhere new.
+ */
+function branchStairVisuals(id, side) {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(BRANCH_STAIRS).map(([branch, stairs]) => [
+      branch,
+      runtimeVisual('system', id, 'world', stairs[side], 1, 0),
+    ]),
+  ));
+}
+const exitVisuals = branchStairVisuals('exit', 'down');
+const ascentVisuals = branchStairVisuals('ascent', 'up');
+/** The stair of the road the run is on right now. */
+const exitVisual = () => exitVisuals[run?.branch] ?? exitVisuals.deep;
+const ascentVisual = () => ascentVisuals[run?.branch] ?? ascentVisuals.deep;
 /**
  * The city's three ways out. One gate that asked which road is not a gate, it
  * is a menu; three places that each go somewhere are three decisions a player
@@ -949,7 +967,6 @@ const CITY_GATE_VISUALS = Object.freeze({
   surface: Object.freeze({ path: CITY_GATE_PATHS.surface, ru: 'Наружу', en: 'Out' }),
   vaults: Object.freeze({ path: CITY_GATE_PATHS.vaults, ru: 'Хранилища', en: 'Vaults' }),
 });
-const ascentVisual = runtimeVisual('system', 'ascent', 'world', ASCENT_PATH, 1, 0);
 const finalGateVisual = runtimeVisual('system', 'final-gate', 'world', FINAL_GATE_PATH, 1, 0);
 const artifactVisual = runtimeVisual('system', 'artifact', 'world', ARTIFACT_PATH, 1, -8);
 const armedPlayerTrapVisual = runtimeVisual('trap', 'player-armed', 'world', PLAYER_TRAP_PATH, 1, 5);
@@ -3949,7 +3966,7 @@ function fallIntoChasm(cell) {
   hero.path = [];
   hero.pendingAttack = null;
   playSound('descend');
-  showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+  showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
 }
 
 /** Where a fall puts you: not the stairs — somewhere the floor had room. */
@@ -5105,7 +5122,7 @@ function worldMarkers3D() {
         : finalGateVisual
       : chapterGateLocked
         ? finalGateVisual
-        : exitVisual;
+        : exitVisual();
     markers.push({
       id: 'marker:exit',
       path: visual.path,
@@ -5189,12 +5206,12 @@ function worldMarkers3D() {
   }
     markers.push({
       id: 'marker:ascent',
-      path: ascentVisual.path,
+      path: ascentVisual().path,
       x: (dungeon.spawn.x + 0.5) * TILE,
       y: (dungeon.spawn.y + 0.5) * TILE,
-      size: 64 * ascentVisual.scale,
+      size: 64 * ascentVisual().scale,
       facing: 1,
-      screenOffsetY: ascentVisual.offsetY + groundLift(64 * ascentVisual.scale),
+      screenOffsetY: ascentVisual().offsetY + groundLift(64 * ascentVisual().scale),
       opacity: 1,
       hit: false,
       shadowScale: 0.7,
@@ -13588,7 +13605,7 @@ function defeatMonster(monster) {
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
     const finalGuardian = dungeon.depth === STORY_DEPTH;
     showLootToast(
-      { path: finalGuardian ? ARTIFACT_PATH : EXIT_PATH, rarity: 3 },
+      { path: finalGuardian ? ARTIFACT_PATH : exitVisual().path, rarity: 3 },
       finalGuardian ? '◆' : romanDepth(dungeon.depth),
     );
     burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
@@ -14408,7 +14425,7 @@ function useHomeStone() {
     run = travelRunToDepth(captureRun(), back.anchor.depth, { x: back.anchor.x, y: back.anchor.y });
     replaceFloor(run.depth, { x: back.anchor.x, y: back.anchor.y });
     playSound('descend');
-    showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+    showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
     return '';
   }
   const cityDepth = CITY_DEPTHS[0];
@@ -14459,7 +14476,7 @@ function descendFloor() {
   hero.hunger = run.hero.hunger;
   replaceFloor(run.depth);
   playSound('descend');
-  showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+  showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
 }
 
 /** The way back up. The floor above is the one the hero left, not a new one. */
@@ -14474,7 +14491,7 @@ function climbFloor() {
   // at the far side of town. The gate you used is the gate you arrive by.
   if (isCityDepth(run.depth) && dungeon.gates?.[road]) placeHeroAtCell(dungeon.gates[road]);
   playSound('descend');
-  showLootToast({ path: ASCENT_PATH, rarity: 2 }, romanDepth(run.depth));
+  showLootToast({ path: ascentVisual().path, rarity: 2 }, romanDepth(run.depth));
 }
 
 function restartRun(seed = null) {
@@ -16827,7 +16844,7 @@ playDailyButton.addEventListener('click', () => {
   closeRecords();
   if (uiScreen === 'menu') startGameFromMenu();
   restartRun(seed);
-  showLootToast({ path: EXIT_PATH, rarity: 2 }, String(seed));
+  showLootToast({ path: exitVisual().path, rarity: 2 }, String(seed));
 });
 openOutfitButton.addEventListener('click', openOutfit);
 closeOutfitButton.addEventListener('click', closeOutfit);

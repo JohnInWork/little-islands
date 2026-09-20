@@ -29,15 +29,23 @@ import {
 const THEME_IDS = ['ashen-vault', 'buried-sanctum', 'frozen-depths', 'infernal-core'];
 const assetUrl = (path) => new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
 
-/** One landmark per floor: scan forward until the wanted one shows up. */
+/**
+ * One landmark per floor: scan forward until the wanted one shows up. A road's
+ * own landmark only ever appears on that road, so the search has to walk the
+ * right one — looking for the wild shrine on the descent finds nothing, ever.
+ */
 function landmarkFixture(id, seed = 3, depth = 5) {
+  const branch = findById(id)?.branch ?? 'deep';
   for (let attempt = 0; attempt < 400; attempt += 1) {
-    const dungeon = generateDungeon({ seed: seed + attempt, depth });
+    const dungeon = generateDungeon({ seed: seed + attempt, depth, branch });
     const find = dungeon.finds.find((candidate) => candidate.id === id);
     if (find) return { dungeon, find, seed: seed + attempt };
   }
-  throw new Error(`No ${id} fixture near seed ${seed}`);
+  throw new Error(`No ${id} fixture near seed ${seed} on ${branch}`);
 }
+
+const GENERIC_LANDMARKS = LANDMARK_CATALOG.filter(({ branch }) => !branch);
+const BRANCH_LANDMARKS = LANDMARK_CATALOG.filter(({ branch }) => branch);
 
 const heroNear = (find, overrides = {}) => ({
   x: find.x + 1,
@@ -60,9 +68,9 @@ const resolve = (find, action, { hero = {}, gold = 100 } = {}) => resolveFindInt
 });
 
 test('three landmarks share one contract: skins, lights, rolled outcomes and bilingual copy', async () => {
-  assert.deepEqual(LANDMARK_CATALOG.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
+  assert.deepEqual(GENERIC_LANDMARKS.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
   const actionIds = new Set();
-  for (const landmark of LANDMARK_CATALOG) {
+  for (const landmark of GENERIC_LANDMARKS) {
     assert.equal(landmark.wave, 'landmark');
     assert.equal(landmark.category, 'choice');
     assert.equal(landmark.outcomes.length, 3, `${landmark.id} offers three answers`);
@@ -101,7 +109,7 @@ test('three landmarks share one contract: skins, lights, rolled outcomes and bil
 
 test('every landmark rolls only known outcome keys and each one is a real choice', () => {
   for (let depth = 1; depth <= 9; depth += 1) {
-    for (const landmark of LANDMARK_CATALOG) {
+    for (const landmark of GENERIC_LANDMARKS) {
       const rolled = landmark.outcomes.map(({ id, roll }) => [id, roll(depth, { int: (min, max) => Math.min(max, min + (depth % 2)) })]);
       for (const [id, outcome] of rolled) {
         for (const key of Object.keys(outcome)) {
@@ -129,6 +137,7 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
   let flooded = 0;
   let fountainInPool = 0;
   let fountainWithPool = 0;
+  let floors = 0;
   for (let seed = 1; seed <= 400; seed += 1) {
     const depth = 1 + (seed % 9);
     // The city has no rooms for a landmark to sit in.
@@ -137,6 +146,7 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
     const landmarks = level.finds.filter((find) => isLandmarkFind(find));
     assert.ok(landmarks.length <= 1, 'never two landmarks on one floor');
     if (landmarks.length === 0) continue;
+    floors += 1;
     const [landmark] = landmarks;
     seen.set(landmark.id, (seen.get(landmark.id) ?? 0) + 1);
     assert.equal(landmark.themeId, level.themeId);
@@ -146,9 +156,16 @@ test('floors draw from all three landmarks and the fountain prefers the flooded 
     fountainWithPool += 1;
     if (landmark.roomIndex === level.floodedRoomIndex) fountainInPool += 1;
   }
+  // The descent now shares its landmark floors with its own idol, so each of
+  // the three generic ones takes about a sixth rather than a third. All three
+  // must still be common enough that a run meets each of them.
   for (const id of ['ancient-altar', 'sunken-fountain', 'warded-rune']) {
-    assert.ok(seen.get(id) > 60, `${id} appears on ${seen.get(id) ?? 0} of 400 floors`);
+    assert.ok(seen.get(id) / floors > 0.1, `${id} appears on ${seen.get(id) ?? 0} of ${floors} landmark floors`);
   }
+  // And the road's own landmark takes about half of them — often enough to be
+  // the thing you expect on the descent, rare enough to still be a find.
+  const own = seen.get('strangers-idol') ?? 0;
+  assert.ok(own / floors > 0.4 && own / floors < 0.65, `the descent's idol took ${own} of ${floors}`);
   assert.ok(flooded > 50, `flooded floors in the sample: ${flooded}`);
   assert.ok(
     fountainInPool / Math.max(1, fountainWithPool) > 0.4,
@@ -254,7 +271,9 @@ test('a landmark choice states its price and its payoff before it is taken', () 
       const ru = landmarkOutcomeSummary(outcome, 'ru');
       const en = landmarkOutcomeSummary(outcome, 'en');
       assert.ok(ru.length > 0, `${id}/${key} says nothing in Russian`);
-      assert.notEqual(ru, en, `${id}/${key} was never translated`);
+      // Words have to be translated; a summary that is only figures and hearts
+      // — «+35% ❤» — reads the same in both languages and should.
+      if (/\p{L}/u.test(ru)) assert.notEqual(ru, en, `${id}/${key} was never translated`);
       // Every number the outcome carries has to reach the button. A cost that
       // is not shown is the whole reason the altar felt like a lottery.
       for (const [field, needle] of [

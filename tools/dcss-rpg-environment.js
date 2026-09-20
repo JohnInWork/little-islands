@@ -245,6 +245,86 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     ],
     floorAccents: numberedPaths('dngn/floor/grey_dirt_b_', [0, 1, 2, 3]),
   }),
+  // ── The rooms a road keeps for its own landmark ──────────────────────────
+  // Each of these holds exactly one branch event, so it is only ever seen on
+  // that road. The rule from `altar-niche` still applies throughout: nothing
+  // decorative may look like the interactive thing standing in the middle.
+  roomTheme({
+    // Открытая местность: поляна вокруг дикого святилища.
+    id: 'shrine-glade',
+    features: [
+      prop('dngn/trees/tree1_yellow.png', { size: 88, screenOffsetY: -18 }),
+      prop('dngn/trees/tree2_yellow.png', { size: 88, screenOffsetY: -18 }),
+      prop('dngn/statues/statue_cat.png', { size: 70 }),
+    ],
+    details: [
+      prop('mon/fungi_plants/bush3.png', { size: 58, screenOffsetY: -3 }),
+      prop('mon/fungi_plants/bush4.png', { size: 58, screenOffsetY: -3 }),
+      prop('mon/fungi_plants/briar_patch.png', { size: 60, screenOffsetY: -4 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/moss', [0, 1, 2, 3]),
+  }),
+  roomTheme({
+    // Спуск: выработка, в которой чужой идол стоит уже очень давно.
+    id: 'idol-cut',
+    features: [
+      prop('dngn/statues/statue_dwarf.png', { size: 70 }),
+      prop('dngn/statues/statue_iron.png', { size: 72 }),
+      prop('dngn/statues/crumbled_column_1.png', { size: 68 }),
+    ],
+    details: [
+      emberBrazier,
+      prop('dngn/statues/crumbled_column_6.png', { size: 64 }),
+      prop('dngn/statues/crumbled_column_4.png', { size: 62 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/pebble_brown', [0, 1, 2, 3]),
+  }),
+  roomTheme({
+    // Хранилища: ниша с золотым истуканом, и сторожа при нём.
+    id: 'treasury-alcove',
+    features: [
+      prop('dngn/vaults/statue_iron_golem.png', { size: 74 }),
+      prop('dngn/statues/statue_orb_guardian.png', { size: 76 }),
+      prop('dngn/vaults/statue_elephant_jade.png', { size: 72 }),
+    ],
+    details: [
+      prop('dngn/statues/crumbled_column_2.png', { size: 66 }),
+      prop('dngn/statues/statue_sword.png', { size: 68 }),
+      emberBrazier,
+    ],
+    floorAccents: numberedPaths('dngn/floor/marble_floor', [1, 2, 3, 4]),
+  }),
+  roomTheme({
+    // Катакомбы: участок с одной плитой, на которой ещё читается имя. Сам
+    // саркофаг сюда не ставится — им уже обозначена «древняя гробница».
+    id: 'named-plot',
+    features: [
+      prop('dngn/statues/statue_wraith.png', { size: 74, screenOffsetY: -12 }),
+      prop('dngn/statues/statue_ancient_evil.png', { size: 74 }),
+      prop('dngn/statues/statue_twins.png', { size: 72 }),
+    ],
+    details: [
+      prop('dngn/statues/crumbled_column_5.png', { size: 62 }),
+      prop('dngn/statues/crumbled_column_3.png', { size: 60 }),
+      prop('mon/fungi_plants/plant_crypt.png', { size: 60, screenOffsetY: -4 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/tomb', [0, 1, 2, 3]),
+  }),
+  roomTheme({
+    // Ад: стена, из которой говорит лик. Всё остальное здесь тоже смотрит.
+    id: 'speaking-wall',
+    features: [
+      prop('dngn/statues/statue_cerebov.png', { size: 76 }),
+      prop('dngn/statues/statue_demonic_bust.png', { size: 74 }),
+      prop('dngn/statues/statue_imp.png', { size: 70 }),
+    ],
+    details: [
+      emberBrazier,
+      prop('dngn/vaults/brick_dark_eyes.png', { size: 70 }),
+      prop('mon/fungi_plants/plant_demonic.png', { size: 62, screenOffsetY: -4 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/demonic_red', [1, 2, 3, 4]),
+  }),
 ]);
 
 const START_ROOM_THEME = roomTheme({

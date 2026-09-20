@@ -76,7 +76,12 @@ function heroNear(find, overrides = {}) {
 test('the altar is a landmark: catalog, themed skins and bundled assets', async () => {
   const altar = findById('ancient-altar');
   assert.equal(altar.wave, 'landmark');
-  assert.deepEqual(LANDMARK_CATALOG.map(({ id }) => id), ['ancient-altar', 'sunken-fountain', 'warded-rune']);
+  // The three that belong to every road. The five after them belong to one
+  // road apiece and are checked in the branch-events test.
+  assert.deepEqual(
+    LANDMARK_CATALOG.filter(({ branch }) => !branch).map(({ id }) => id),
+    ['ancient-altar', 'sunken-fountain', 'warded-rune'],
+  );
   assert.equal(CORE_FIND_CATALOG.length, 3);
   assert.equal(MAX_FINDS_PER_FLOOR, 5);
   assert.deepEqual(altar.outcomes.map(({ id }) => id), ['pray', 'offer', 'plunder']);
