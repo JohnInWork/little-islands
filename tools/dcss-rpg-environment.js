@@ -41,6 +41,10 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'fallen-hall',
     features: [
+      prop('dngn/statues/statue_archer.png', { size: 72 }),
+      prop('dngn/statues/statue_dwarf.png', { size: 70 }),
+      prop('dngn/statues/statue_twins.png', { size: 74 }),
+      prop('dngn/statues/statue_princess.png', { size: 72 }),
       prop('dngn/statues/statue_ancient_hero.png', { size: 74 }),
       prop('dngn/dry_fountain.png', { size: 72 }),
       prop('dngn/statues/statue_sword.png', { size: 72 }),
@@ -53,6 +57,8 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'forgotten-crypt',
     features: [
+      prop('dngn/statues/statue_sigmund.png', { size: 72 }),
+      prop('dngn/statues/statue_imp.png', { size: 68 }),
       prop('dngn/statues/statue_wraith.png', { size: 74 }),
       prop('dngn/statues/statue_demonic_bust.png', { size: 72 }),
       prop('dngn/statues/statue_iron.png', { size: 72 }),
@@ -67,11 +73,14 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'ashen-shrine',
     features: [
+      prop('dngn/statues/orcish_idol.png', { size: 72 }),
+      prop('dngn/statues/statue_cerebov.png', { size: 76 }),
       prop('dngn/altars/generic.png', { size: 76 }),
       prop('dngn/statues/statue_ancient_evil.png', { size: 74 }),
       prop('dngn/statues/statue_triangle.png', { size: 72 }),
     ],
     details: [
+      prop('mon/fungi_plants/plant_demonic.png', { size: 64, screenOffsetY: -4 }),
       emberBrazier,
       prop('dngn/statues/crumbled_column_1.png', { size: 68 }),
       prop('dngn/statues/crumbled_column_4.png', { size: 68 }),
@@ -113,6 +122,7 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'rune-vault',
     features: [
+      prop('dngn/statues/statue_orb_guardian.png', { size: 76 }),
       prop('dngn/statues/statue_iron.png', { size: 72 }),
       prop('dngn/statues/statue_triangle.png', { size: 72 }),
       prop('dngn/statues/statue_orb.png', { size: 72 }),
@@ -154,6 +164,7 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
       prop('mon/fungi_plants/bush3.png', { size: 64, screenOffsetY: -3 }),
     ],
     details: [
+      prop('dngn/statues/statue_snail.png', { size: 66 }),
       prop('mon/fungi_plants/plant_crypt.png', { size: 60, screenOffsetY: -3 }),
       prop('mon/fungi_plants/briar_patch.png', { size: 60, screenOffsetY: -2 }),
       prop('dngn/statues/crumbled_column_6.png', { size: 64 }),
@@ -165,6 +176,10 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'open-wood',
     features: [
+      prop('dngn/statues/statue_elephant.png', { size: 74 }),
+      prop('dngn/statues/statue_cat.png', { size: 64 }),
+      prop('dngn/statues/statue_centaur.png', { size: 74 }),
+      prop('dngn/statues/statue_tengu.png', { size: 70 }),
       prop('dngn/trees/tree1_yellow.png', { size: 96, screenOffsetY: -22 }),
       prop('dngn/trees/tree2_red.png', { size: 96, screenOffsetY: -22 }),
       prop('dngn/trees/tree1_lightred.png', { size: 92, screenOffsetY: -20 }),
@@ -194,6 +209,8 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
   roomTheme({
     id: 'boneyard',
     features: [
+      prop('dngn/statues/statue_hydra.png', { size: 76 }),
+      prop('dngn/statues/statue_dragon.png', { size: 76 }),
       prop('dngn/vaults/sarcophagus_pedestal_left.png', { size: 72, screenOffsetY: -9 }),
       prop('dngn/statues/statue_angel.png', { size: 76, screenOffsetY: -12 }),
       prop('dngn/vaults/sarcophagus_pedestal_right.png', { size: 72, screenOffsetY: -9 }),
