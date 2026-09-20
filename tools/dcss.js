@@ -438,7 +438,12 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
-import { CHASM_CELL, CHASM_FALL_PERCENT, chasmCopy } from './dcss-rpg-chasm.js';
+import {
+  CHASM_CELL,
+  CHASM_FALL_PERCENT,
+  chasmCopy,
+  chasmFallFloors,
+} from './dcss-rpg-chasm.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -3901,17 +3906,74 @@ function updateHeroFooting() {
   if (hero.dead || runStatus !== 'playing') return;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   if (world[cell.y]?.[cell.x] !== CHASM_CELL || currentHeroMagic().flight) return;
-  const landing = nearestFooting(cell);
-  if (!landing) return;
-  hero.x = (landing.x + 0.5) * TILE;
-  hero.y = (landing.y + 0.5) * TILE;
+  fallIntoChasm(cell);
+}
+
+/**
+ * Down the hole.
+ *
+ * «Пусть он падает на этаж или на два ниже в зависимости от дыры.» So a
+ * chasm is a shaft, not a hazard tile: the floor underneath is a real floor
+ * and the hero arrives on it, somewhere the fall put them rather than at the
+ * stairs. Which floor is the hole's own answer — every cell of one hole gives
+ * the same one — and a two-floor drop costs twice as much health, because it
+ * skipped twice as much dungeon.
+ *
+ * The bottom of the written road is still the bottom: at the deepest floor
+ * the shaft has nowhere to lead, and the fall is a hard landing in place.
+ */
+function fallIntoChasm(cell) {
+  const floors = Math.max(1, chasmFallFloors(world, cell, dungeon.seed));
+  const damage = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT * floors / 100));
+  const target = Math.min(DEEPEST_DEPTH, dungeon.depth + floors);
+  addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).fell, '#9aa4ad', -64);
+  burst(hero.x, hero.y, '#6f6a63', 18);
+  playSound('hurt');
+  damageHero(damage, { direct: true, source: 'chasm', impactColor: '#6f6a63' });
+  // Dying in the shaft ends the run where the run was: nobody lands dead on a
+  // floor they never saw.
+  if (hero.dead || runStatus !== 'playing') return;
+  if (target === dungeon.depth) {
+    // Nowhere further to fall: put the hero back on the nearest solid ground.
+    const landing = nearestFooting(cell);
+    if (landing) placeHeroAtCell(landing);
+    hero.path = [];
+    return;
+  }
+  run = travelRunToDepth(captureRun(), target, chasmLandingCell(target));
+  hero.hp = run.hero.hp;
+  hero.hunger = run.hero.hunger;
+  replaceFloor(run.depth);
   hero.path = [];
   hero.pendingAttack = null;
-  const damage = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT / 100));
-  damageHero(damage, { direct: true, source: 'chasm', impactColor: '#6f6a63' });
-  addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).fell, '#9aa4ad', -64);
-  burst(hero.x, hero.y, '#6f6a63', 16);
-  playSound('hurt');
+  playSound('descend');
+  showLootToast({ path: EXIT_PATH, rarity: 2 }, romanDepth(run.depth));
+}
+
+/** Where a fall puts you: not the stairs — somewhere the floor had room. */
+function chasmLandingCell(depth) {
+  const level = generateDungeon({
+    seed: run.seed,
+    depth,
+    branch: run.branch,
+    scalingVersion: run.scalingVersion,
+    difficulty: run.difficulty,
+    lootAbundance: run.lootAbundance,
+  });
+  const taken = new Set([
+    ...level.monsters.map(({ x, y }) => `${x},${y}`),
+    ...level.finds.map(({ x, y }) => `${x},${y}`),
+    ...level.events.map(({ x, y }) => `${x},${y}`),
+  ]);
+  const open = [];
+  for (let y = 0; y < level.grid.length; y += 1) {
+    for (let x = 0; x < level.grid[y].length; x += 1) {
+      if (level.grid[y][x] === '.' && !taken.has(`${x},${y}`)) open.push({ x, y });
+    }
+  }
+  if (open.length === 0) return undefined;
+  const pick = Math.abs(Math.imul(run.seed + depth, 0x9e3779b1)) % open.length;
+  return open[pick];
 }
 
 /** The closest cell that is actually floor, searched outwards from the hole. */
@@ -8270,6 +8332,21 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
+  if (entry.kind === 'chasm') {
+    const floors = Math.max(1, chasmFallFloors(world, entry.value, dungeon.seed));
+    const cost = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT * floors / 100));
+    return {
+      kind: 'chasm',
+      floors,
+      cost,
+      // A jump that kills is not a shortcut, and the game says so instead of
+      // taking the hero's last three points of health for a staircase.
+      survivable: hero.hp > cost && dungeon.depth < DEEPEST_DEPTH,
+      hint: dungeon.depth >= DEEPEST_DEPTH
+        ? chasmCopy(itemDetailLanguage).bottom
+        : chasmCopy(itemDetailLanguage).tooHurt,
+    };
+  }
   if (entry.kind === 'portal') {
     return {
       kind: 'portal',
@@ -9758,6 +9835,7 @@ function nearbyContextTargets() {
   add('wildlife', nearbyWildlife());
   // A cold campfire is still something to sit at, it is just not cooking.
   if (campfire && !canCook) add('campfire', campfire);
+  add('chasm', nearbyChasm());
   add('portal', nearbyPortal());
   add('door', nearbyDoor());
   return targets;
@@ -9782,6 +9860,18 @@ function portalCellHere() {
   if (!portal) return null;
   if (isCityDepth(dungeon.depth)) return cityPortalCell(dungeon);
   return portal.depth === dungeon.depth ? { x: portal.x, y: portal.y } : null;
+}
+
+/** A hole within reach. The nearest one, so the card is about that hole. */
+function nearbyChasm() {
+  if (runStatus !== 'playing' || hero.dead || currentHeroMagic().flight) return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+    const x = cell.x + dx;
+    const y = cell.y + dy;
+    if (world[y]?.[x] === CHASM_CELL && revealed.has(`${x},${y}`)) return { x, y };
+  }
+  return null;
 }
 
 function nearbyPortal() {
@@ -9976,6 +10066,12 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
       run = switchRunBranch(captureRun(), branch);
     }
     descendFloor();
+    return true;
+  },
+  'chasm-jump'({ target }) {
+    closeContextActions();
+    if (!target?.value) return false;
+    fallIntoChasm(target.value);
     return true;
   },
   'portal-step'() {

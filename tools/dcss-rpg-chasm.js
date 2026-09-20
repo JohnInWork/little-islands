@@ -22,6 +22,9 @@
  *   it is being unreadable.
  */
 
+/** The picture a chasm shows on its card. The hole itself has no tile. */
+export const CHASM_ICON_PATH = 'dngn/gateways/enter_abyss1.png';
+
 /** The cell. One character, like water's `~`, so grids stay plain strings. */
 export const CHASM_CELL = ':';
 
@@ -413,6 +416,56 @@ export function chasmIslands(grid, from) {
   return Object.freeze([...islands].sort((left, right) => right.length - left.length));
 }
 
+/**
+ * How far down a particular hole goes.
+ *
+ * Ivan: «пусть он падает на этаж или на два ниже в зависимости от дыры». So a
+ * chasm is not a uniform hazard — it is a shaft with a bottom somewhere, and
+ * which bottom is a property of that hole rather than of the cell the hero
+ * happened to step off. Every cell of one hole answers the same, because the
+ * answer is derived from the hole's own corner: flood the connected void,
+ * take its topmost-leftmost cell, and hash that.
+ *
+ * Two floors is the rarer one. A fall is a shortcut nobody planned, and the
+ * deeper it is the more it skips — one floor is a stumble, two is a drop past
+ * a whole level of the dungeon, with everything that floor would have given.
+ */
+export const CHASM_FALL_FLOORS = Object.freeze([1, 1, 2]);
+
+export function chasmShaft(grid, cell) {
+  if (!isChasmCell(grid, cell?.x, cell?.y)) return null;
+  const seen = new Set([`${cell.x},${cell.y}`]);
+  const queue = [cell];
+  let anchor = { x: cell.x, y: cell.y };
+  let size = 0;
+  while (queue.length > 0) {
+    const at = queue.shift();
+    size += 1;
+    if (at.y < anchor.y || (at.y === anchor.y && at.x < anchor.x)) anchor = { x: at.x, y: at.y };
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const x = at.x + dx;
+      const y = at.y + dy;
+      const key = `${x},${y}`;
+      if (seen.has(key) || !isChasmCell(grid, x, y)) continue;
+      seen.add(key);
+      queue.push({ x, y });
+    }
+  }
+  return Object.freeze({ anchor: Object.freeze(anchor), size });
+}
+
+/** One or two floors, the same answer for every cell of the same hole. */
+export function chasmFallFloors(grid, cell, seed = 0) {
+  const shaft = chasmShaft(grid, cell);
+  if (!shaft) return 0;
+  // A small hole is a stumble; only a real void drops two floors.
+  const mixed = Math.abs(Math.imul(shaft.anchor.x + 41, 0x9e3779b1)
+    ^ Math.imul(shaft.anchor.y + 73, 0x85ebca6b)
+    ^ Math.imul(seed + 17, 0xc2b2ae35));
+  const pick = CHASM_FALL_FLOORS[mixed % CHASM_FALL_FLOORS.length];
+  return shaft.size >= 6 ? pick : 1;
+}
+
 /** A tenth of the hero's health: a real cost, never a death sentence. */
 export const CHASM_FALL_PERCENT = 10;
 
@@ -423,6 +476,8 @@ const COPY = Object.freeze({
     refusal: 'Туда без полёта не шагнуть',
     overChasm: 'Не над пропастью',
     fell: 'Падение',
+    bottom: 'Ниже уже некуда',
+    tooHurt: 'Такого падения не пережить',
   }),
   en: Object.freeze({
     name: 'Chasm',
@@ -430,6 +485,8 @@ const COPY = Object.freeze({
     refusal: 'No stepping into that without flight',
     overChasm: 'Not over a chasm',
     fell: 'A fall',
+    bottom: 'Nothing below this',
+    tooHurt: 'That fall would kill you',
   }),
 });
 

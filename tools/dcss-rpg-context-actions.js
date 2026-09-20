@@ -1,3 +1,4 @@
+import { CHASM_ICON_PATH } from './dcss-rpg-chasm.js';
 import { chestContextPresentation } from './dcss-rpg-chests.js';
 import { isLandmarkFind, landmarkContextPresentation } from './dcss-rpg-finds.js';
 
@@ -215,6 +216,11 @@ const COPY = Object.freeze({
     roadEndClaim: 'Забег закончен победой',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     priestName: 'Жрец',
+    chasmName: 'Провал',
+    chasmDescription: (floors, cost) => floors === 1
+      ? `Вниз на этаж. Падение стоит ${cost} здоровья.`
+      : `Вниз на два этажа. Падение стоит ${cost} здоровья.`,
+    chasmJump: 'Спрыгнуть',
     recruiterName: 'Трактирщик',
     tavernHire: 'Нанять',
     tavernBed: 'Ночлег',
@@ -290,6 +296,11 @@ const COPY = Object.freeze({
     roadEndClaim: 'The run ends in victory',
     roadEndDeeper: 'This stair does not carry anyone back up',
     priestName: 'Priest',
+    chasmName: 'Chasm',
+    chasmDescription: (floors, cost) => floors === 1
+      ? `One floor down. The fall costs ${cost} health.`
+      : `Two floors down. The fall costs ${cost} health.`,
+    chasmJump: 'Jump down',
     recruiterName: 'Innkeeper',
     tavernHire: 'Hire',
     tavernBed: 'A room',
@@ -688,6 +699,33 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: 'dngn/gateways/portal.png',
       accent: '#5aa8e0',
       actions: [{ id: 'enterPortal' }],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * Jumping in on purpose.
+     *
+     * The hole is a shaft with a floor under it, so falling in is a way down
+     * — a rough one, paid for in health, that skips the stairs and sometimes
+     * a whole level with them. Offering it as an action rather than letting
+     * the player walk in by accident keeps both halves true: nobody falls
+     * without choosing to, and choosing to is a real option.
+     */
+    id: 'chasm',
+    command: 'chasm-jump',
+    matches: (target) => target?.kind === 'chasm' && Number.isInteger(target.floors),
+    present: ({ target, copy }) => ({
+      name: copy.chasmName,
+      description: copy.chasmDescription(target.floors, target.cost),
+      icon: CHASM_ICON_PATH,
+      accent: '#6f6a63',
+      actions: [{
+        id: 'jump',
+        label: `${copy.chasmJump} · ${target.floors === 1 ? 'I' : 'II'}`,
+        glyph: '\u2193',
+        enabled: target.survivable === true,
+        hint: target.survivable ? '' : target.hint ?? '',
+      }],
     }),
   }),
   defineInteraction({

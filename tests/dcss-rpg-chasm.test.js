@@ -169,13 +169,78 @@ test('flight cannot be switched off over a hole, and losing it is a fall', async
     /usedSpell\.id === 'flight'[\s\S]{0,240}?CHASM_CELL[\s\S]{0,120}?return false;/,
     'the hero can dispel their own flight in mid-air',
   );
-  // But flight can end for reasons the hero did not choose, and then they fall.
+  // But flight can end for reasons the hero did not choose, and then they fall
+  // — down the shaft, onto the floor below, which is what a chasm is for.
   const footing = runtime.slice(runtime.indexOf('function updateHeroFooting() {'));
-  const body = footing.slice(0, footing.indexOf('\n}'));
-  assert.match(body, /currentHeroMagic\(\)\.flight/);
-  assert.match(body, /nearestFooting\(cell\)/, 'a fall lands nowhere');
+  assert.match(footing.slice(0, footing.indexOf('\n}')), /currentHeroMagic\(\)\.flight/);
+  const falling = runtime.slice(runtime.indexOf('function fallIntoChasm(cell) {'));
+  const body = falling.slice(0, falling.indexOf('\nfunction '));
+  assert.match(body, /chasmFallFloors\(world, cell, dungeon\.seed\)/, 'every hole is the same depth');
+  assert.match(body, /CHASM_FALL_PERCENT \* floors/, 'two floors cost the same as one');
+  assert.match(body, /travelRunToDepth\(captureRun\(\), target/);
+  assert.match(body, /if \(hero\.dead \|\| runStatus !== 'playing'\) return;/, 'a dead hero still lands');
   assert.match(body, /damageHero\(damage/);
   // And the check runs every frame the hero moves, not on some event.
   assert.match(runtime, /updateHeroEffects\(delta\);\s*\n\s*updateHeroFooting\(\);/);
   assert.ok(CHASM_FALL_PERCENT > 0 && CHASM_FALL_PERCENT <= 25, 'a fall should cost, not kill');
+});
+
+/**
+ * «Пусть он падает на этаж или на два ниже в зависимости от дыры.» The depth
+ * belongs to the hole, not to the cell: every square of one chasm answers the
+ * same, or stepping off one side of a hole would drop you further than
+ * stepping off the other.
+ */
+test('a hole has its own depth, and every cell of it agrees', async () => {
+  const { chasmFallFloors, chasmShaft } = await import('../tools/dcss-rpg-chasm.js');
+  const grid = [
+    ['#', '#', '#', '#', '#', '#', '#', '#'],
+    ['#', '.', CHASM_CELL, CHASM_CELL, CHASM_CELL, '.', '.', '#'],
+    ['#', '.', CHASM_CELL, CHASM_CELL, CHASM_CELL, '.', '.', '#'],
+    ['#', '.', '.', '.', '.', '.', CHASM_CELL, '#'],
+    ['#', '#', '#', '#', '#', '#', '#', '#'],
+  ];
+  const big = chasmShaft(grid, { x: 2, y: 1 });
+  assert.equal(big.size, 6, 'the shaft did not find its whole void');
+  assert.deepEqual(big.anchor, { x: 2, y: 1 }, 'the anchor moved, so the depth would too');
+  const depths = new Set();
+  for (const cell of [{ x: 2, y: 1 }, { x: 4, y: 1 }, { x: 3, y: 2 }, { x: 4, y: 2 }]) {
+    depths.add(chasmFallFloors(grid, cell, 7));
+  }
+  assert.equal(depths.size, 1, 'one hole gave two different drops');
+  assert.ok([1, 2].includes([...depths][0]));
+
+  // A single missing tile is a stumble, never a two-floor drop.
+  assert.equal(chasmFallFloors(grid, { x: 6, y: 3 }, 7), 1);
+  assert.equal(chasmFallFloors(grid, { x: 1, y: 1 }, 7), 0, 'floor is not a shaft');
+
+  // Across many holes both depths actually occur.
+  const seen = new Set();
+  for (let seed = 0; seed < 60; seed += 1) seen.add(chasmFallFloors(grid, { x: 2, y: 1 }, seed));
+  assert.deepEqual([...seen].sort(), [1, 2], 'every hole in the game is the same depth');
+});
+
+/**
+ * A hole with a floor under it is a way down, so jumping in is offered as a
+ * choice rather than left as an accident: «пусть он падает на этаж или на два
+ * ниже в зависимости от дыры».
+ */
+test('the hole offers the jump, and refuses the one that would kill', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const registry = await readFile(new URL('../tools/dcss-rpg-context-actions.js', import.meta.url), 'utf8');
+  // The card exists and says how far down and what it costs.
+  assert.match(registry, /id: 'chasm',\s*\n\s*command: 'chasm-jump',/);
+  assert.match(registry, /chasmDescription\(target\.floors, target\.cost\)/);
+  // Standing next to one is what puts it in the column, and flying past it
+  // does not — somebody in the air is not looking for a way down.
+  const finder = runtime.slice(runtime.indexOf('function nearbyChasm() {'));
+  const body = finder.slice(0, finder.indexOf('\n}'));
+  assert.match(body, /currentHeroMagic\(\)\.flight/);
+  assert.match(body, /revealed\.has/, 'an unseen hole is offered as a route');
+  // A jump that kills is refused: a shortcut is not a way to die by mistake.
+  const model = runtime.slice(runtime.indexOf("if (entry.kind === 'chasm') {"));
+  assert.match(model.slice(0, 900), /survivable: hero\.hp > cost/);
+  assert.match(model.slice(0, 900), /dungeon\.depth < DEEPEST_DEPTH/);
+  // And the action falls through the same door an accident does.
+  assert.match(runtime, /'chasm-jump'\(\{ target \}\)[\s\S]{0,200}?fallIntoChasm\(target\.value\)/);
 });
