@@ -200,11 +200,19 @@ test('the city furnishes itself and ships its own sprites', async () => {
     'the hero can still cook in town',
   );
   for (const prop of environment.props) {
-    assert.equal(level.grid[prop.gridY][prop.gridX], '.', 'a prop stands on open ground');
+    // Everything on the ground stands on open ground; a sign hangs over the
+    // doorway it names, which is exactly the cell nothing may stand in.
+    const expected = prop.hangs ? 'D' : '.';
+    assert.equal(level.grid[prop.gridY][prop.gridX], expected, `a prop stands on ${expected}`);
     assert.match(prop.id, new RegExp(`^environment-${cityDepth}-\\d+-\\d+$`));
   }
-  const propCells = environment.props.map(({ gridX, gridY }) => `${gridX},${gridY}`);
+  const standing = environment.props.filter(({ hangs }) => !hangs);
+  const propCells = standing.map(({ gridX, gridY }) => `${gridX},${gridY}`);
   assert.equal(new Set(propCells).size, propCells.length, 'two props never share a cell');
+  // And every door carries at most one sign.
+  const signCells = environment.props.filter(({ hangs }) => hangs).map(({ gridX, gridY }) => `${gridX},${gridY}`);
+  assert.equal(new Set(signCells).size, signCells.length, 'two signs over one door');
+  assert.ok(signCells.length >= 4, 'the town hung no signs at all');
 
   const required = requiredAssetPaths();
   for (const path of CITY_ASSET_PATHS) {

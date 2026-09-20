@@ -660,6 +660,9 @@ export function cityShrineCell(plan) {
 }
 
 /** The city's own furniture. The dungeon's prop builder never sees this floor. */
+const VILLAGE = 'licensed/lpc-village/cut/';
+const LAMPS = 'licensed/lpc-lamps/posts/';
+
 const CITY_PROPS = Object.freeze({
   fountain: Object.freeze({
     path: 'dngn/blue_fountain.png',
@@ -710,15 +713,52 @@ const CITY_PROPS = Object.freeze({
     interactionId: 'campfire',
   }),
   lamp: Object.freeze({
-    path: 'dngn/altars/makhleb_flame3.png',
-    frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
-    size: 46,
-    screenOffsetY: -22,
+    // The path is replaced per city by `cityLampPath`; this is the fallback a
+    // town with no palette would get, and it is a lamp either way.
+    path: `${LAMPS}lamp-1-post-1/lamp-1-post-1-tall-single.png`,
+    frames: Object.freeze([`${LAMPS}lamp-1-post-1/lamp-1-post-1-tall-single.png`]),
+    size: 72,
+    screenOffsetY: -30,
     // A street lamp that lights two cells lights the post it stands on. Its
-    // reach is now most of the way to the next corner, which is what a lamp on
-    // a corner is for.
+    // reach is most of the way to the next corner, which is what a lamp on a
+    // corner is for.
     light: Object.freeze({ color: '#f0c079', radius: 3.8, beam: false, flame: true }),
     interactionId: null,
+  }),
+  anvil: Object.freeze({
+    path: `${VILLAGE}anvil-stump.png`,
+    frames: Object.freeze([`${VILLAGE}anvil-stump.png`]),
+    size: 52, screenOffsetY: -8, light: null, interactionId: null,
+  }),
+  anvilTools: Object.freeze({
+    path: `${VILLAGE}anvil-tools.png`,
+    frames: Object.freeze([`${VILLAGE}anvil-tools.png`]),
+    size: 52, screenOffsetY: -8, light: null, interactionId: null,
+  }),
+  crate: Object.freeze({
+    path: `${VILLAGE}crate.png`,
+    frames: Object.freeze([`${VILLAGE}crate.png`]),
+    size: 66, screenOffsetY: -6, light: null, interactionId: null,
+  }),
+  hay: Object.freeze({
+    path: `${VILLAGE}hay-bale.png`,
+    frames: Object.freeze([`${VILLAGE}hay-bale.png`]),
+    size: 56, screenOffsetY: -6, light: null, interactionId: null,
+  }),
+  woodpile: Object.freeze({
+    path: `${VILLAGE}woodpile-tall.png`,
+    frames: Object.freeze([`${VILLAGE}woodpile-tall.png`]),
+    size: 60, screenOffsetY: -14, light: null, interactionId: null,
+  }),
+  cart: Object.freeze({
+    path: `${VILLAGE}cart.png`,
+    frames: Object.freeze([`${VILLAGE}cart.png`]),
+    size: 72, screenOffsetY: -10, light: null, interactionId: null,
+  }),
+  stumpBlock: Object.freeze({
+    path: `${VILLAGE}stump.png`,
+    frames: Object.freeze([`${VILLAGE}stump.png`]),
+    size: 48, screenOffsetY: -4, light: null, interactionId: null,
   }),
 });
 
@@ -749,10 +789,93 @@ const CITY_INTERIOR_PROPS = Object.freeze({
 });
 
 /**
+ * What a tradesman leaves outside his own door.
+ *
+ * Ivan: «у бронника наковальню можно поставить, и ещё что по смыслу
+ * подходит». A door with an anvil beside it says what is behind it before the
+ * sign does — and says it from further away, because the sign is small.
+ */
+const CITY_TRADE_PROPS = Object.freeze({
+  armourer: Object.freeze([CITY_PROPS.anvil, CITY_PROPS.anvilTools, CITY_PROPS.stumpBlock]),
+  'relic-dealer': Object.freeze([CITY_PROPS.crate, TAVERN_PROPS.basket, CITY_PROPS.stumpBlock]),
+  provisioner: Object.freeze([CITY_PROPS.crate, CITY_PROPS.hay, TAVERN_PROPS.basket]),
+  temple: Object.freeze([CITY_PROPS.bush, TAVERN_PROPS.candles]),
+  barracks: Object.freeze([CITY_PROPS.woodpile, TAVERN_PROPS.barrels]),
+  jail: Object.freeze([CITY_PROPS.woodpile, CITY_PROPS.stumpBlock]),
+  tavern: Object.freeze([TAVERN_PROPS.keg, TAVERN_PROPS.barrels, CITY_PROPS.cart]),
+  market: Object.freeze([CITY_PROPS.cart, CITY_PROPS.hay, CITY_PROPS.crate]),
+});
+
+/**
  * The square: grass, the paths worn across it, and a few flowers where nobody
  * walks. Mostly mixed tiles, so the green reads as a common people cross
  * rather than a lawn somebody mows.
  */
+/**
+ * One lamp for a whole town.
+ *
+ * Ivan: «фонари на каждый город свои, и чтобы подходили под цвет стен — а
+ * форма случайная на город, а не так что один фонарь в городе такой, а другой
+ * такой». Both halves matter. A street where every post is a different post is
+ * not a street somebody built, it is a catalogue; and a blue lamp on a brown
+ * wall is two decisions arguing. So the shape is drawn once, from the town's
+ * own seed, and the colour is read off the walls.
+ */
+const LAMP_SHAPES = Object.freeze([
+  'lamp-1-post-1-tall-single', 'lamp-1-post-1-short-single',
+  'lamp-1-post-2-tall-single', 'lamp-1-post-2-short-single',
+  'lamp-2-post-1-tall-single', 'lamp-2-post-1-short-single',
+  // `lamp-2-post-2` ships short only: the pack has no tall version of it, and
+  // a path to a picture that does not exist is the bug that froze the city.
+  'lamp-2-post-2-short-single',
+]);
+
+/**
+ * Which of the three metals a palette asks for. Warm stone takes bronze, cold
+ * stone takes blue, and everything else keeps the iron grey the pack ships as
+ * its default — a lamp is not supposed to be the brightest thing on a street.
+ */
+const LAMP_METAL_BY_PALETTE = Object.freeze({
+  town: 'bronze', hamlet: 'bronze', loam: 'bronze', ochre: 'bronze',
+  autumn: 'bronze', ember: 'bronze', magma: 'bronze', scorch: 'bronze',
+  sepia: 'bronze', viscera: 'bronze',
+  frost: 'blue', ice: 'blue', cobalt: 'blue', prism: 'blue',
+  verdigris: 'blue', dusk: 'blue', bog: 'blue',
+});
+
+export function cityLampPath({ seed = 0, palette = 'town' } = {}) {
+  const shape = LAMP_SHAPES[Math.abs(Number.isFinite(seed) ? seed : 0) % LAMP_SHAPES.length];
+  const metal = LAMP_METAL_BY_PALETTE[palette] ?? '';
+  const post = shape.slice(0, shape.indexOf('-tall') > 0 ? shape.indexOf('-tall') : shape.indexOf('-short'));
+  return `${LAMPS}${post}/${shape}${metal ? `-${metal}` : ''}.png`;
+}
+
+/**
+ * A sign over every door, and the right sign.
+ *
+ * The town had one picture for every shop in it — `shop_gadgets.png`, which is
+ * the only shop tile Dungeon Crawl owns. A blade over the armourer and a loaf
+ * over the provisioner is the cheapest thing a town can do to stop being a
+ * grid of identical boxes.
+ */
+export const CITY_SIGN_PATHS = Object.freeze({
+  armourer: `${VILLAGE}sign-smith.png`,
+  'relic-dealer': `${VILLAGE}sign-jewellery.png`,
+  provisioner: `${VILLAGE}sign-bread.png`,
+  temple: `${VILLAGE}sign-book.png`,
+  barracks: `${VILLAGE}sign-blade.png`,
+  tavern: `${VILLAGE}sign-inn.png`,
+  jail: `${VILLAGE}sign-blank.png`,
+  plot: `${VILLAGE}sign-blank.png`,
+  market: `${VILLAGE}sign-jar.png`,
+});
+
+/** Market stalls, both of the ones that come with a counter. */
+export const CITY_STALL_PATHS = Object.freeze([
+  `${VILLAGE}stall-grey.png`,
+  `${VILLAGE}stall-red.png`,
+]);
+
 export const CITY_GREEN_PATHS = Object.freeze([
   // Weighted by repetition rather than evenly: the three grasses differ enough
   // in brightness that an even mix tiles the square into a chequerboard. One
@@ -795,12 +918,24 @@ export const CITY_GATE_PATHS = Object.freeze({
   vaults: 'dngn/gateways/enter_vaults_open.png',
 });
 
+/** Every lamp the seed and the palettes can choose between. */
+const CITY_LAMP_PATHS = Object.freeze([
+  ...new Set(
+    ['town', 'frost', 'slate'].flatMap((palette) => (
+      LAMP_SHAPES.map((_, seed) => cityLampPath({ seed, palette }))
+    )),
+  ),
+]);
+
 export const CITY_ASSET_PATHS = Object.freeze([
   ...new Set([
     ...Object.values(CITY_PROPS).flatMap(({ frames }) => frames),
     ...TAVERN_ASSET_PATHS,
     ...CITY_GREEN_PATHS,
     ...Object.values(CITY_GATE_PATHS),
+    ...Object.values(CITY_SIGN_PATHS),
+    ...CITY_STALL_PATHS,
+    ...CITY_LAMP_PATHS,
   ]),
 ]);
 
@@ -827,15 +962,23 @@ export function createCityEnvironment(level) {
     ]),
   ]);
   const props = [];
-  const place = (visual, cell, roomIndex) => {
+  /**
+   * `hangs` is for the things that are not on the ground: a sign over a door
+   * takes the doorway's cell, which is reserved precisely so nothing stands in
+   * it. Nothing stands in it — the sign is above head height.
+   */
+  const place = (visual, cell, roomIndex, { hangs = false } = {}) => {
     if (!visual) return;
     const key = cellKey(cell);
-    if (reserved.has(key)) return;
-    if (level.grid[cell.y]?.[cell.x] !== CITY_FLOOR) return;
-    reserved.add(key);
+    if (!hangs && reserved.has(key)) return;
+    if (!hangs && level.grid[cell.y]?.[cell.x] !== CITY_FLOOR) return;
+    if (!hangs) reserved.add(key);
     props.push(Object.freeze({
       id: `environment-${level.depth}-${roomIndex}-${props.length}`,
       themeId: 'gate-town',
+      // A hanging thing is over the cell, not on it: it may share a doorway,
+      // and nothing should draw a shadow under it.
+      hangs,
       ...visual,
       gridX: cell.x,
       gridY: cell.y,
@@ -844,6 +987,26 @@ export function createCityEnvironment(level) {
       phase: props.length * 0.37,
     }));
   };
+
+  // One lamp for the whole town, drawn from its own seed and coloured by the
+  // walls it stands against; and a counter of shops, so the first is the
+  // provisioner, the second the armourer, the third the relic dealer — the
+  // same order the merchants themselves are dealt in.
+  const lamp = Object.freeze({
+    ...CITY_PROPS.lamp,
+    path: cityLampPath({ seed: level.seed ?? 0, palette: 'town' }),
+    frames: Object.freeze([cityLampPath({ seed: level.seed ?? 0, palette: 'town' })]),
+  });
+  const signVisual = (path) => Object.freeze({
+    path, frames: Object.freeze([path]),
+    // Над притолокой, не на ней: вывеска должна читаться, не споря с дверью.
+    size: 52, screenOffsetY: -48, light: null, interactionId: null,
+  });
+  const stallVisual = (path) => Object.freeze({
+    path, frames: Object.freeze([path]),
+    size: 74, screenOffsetY: -26, light: null, interactionId: null,
+  });
+  let shopIndex = 0;
 
   for (const [roomIndex, block] of plan.blocks.entries()) {
     const { rect, kind } = block;
@@ -862,10 +1025,12 @@ export function createCityEnvironment(level) {
     }
     if (kind === 'market') {
       place(CITY_PROPS.hearth, { x: rect.x + Math.floor(rect.w / 2), y: rect.y }, roomIndex);
-      place(CITY_PROPS.stall, corners[0], roomIndex);
-      place(CITY_PROPS.stall, corners[3], roomIndex);
+      // Both stalls the pack ships with a counter, so the market is a market
+      // and not the same awning twice.
+      place(stallVisual(CITY_STALL_PATHS[0]), corners[0], roomIndex);
+      place(stallVisual(CITY_STALL_PATHS[1]), corners[3], roomIndex);
       place(CITY_PROPS.bush, corners[1], roomIndex);
-      placeAlongStreet(place, rect, roomIndex);
+      placeAlongStreet(place, rect, roomIndex, lamp);
       continue;
     }
     if (kind === 'tavern' && block.interior) {
@@ -888,10 +1053,22 @@ export function createCityEnvironment(level) {
         place(visual, spots[(roomIndex + index) % spots.length], roomIndex);
       }
     }
+    // The sign over the door, and the two or three things the trade behind it
+    // leaves out in the street. A shop that says what it sells from across the
+    // square is a shop the player walks to on purpose.
+    const trade = kind === 'shop'
+      ? MERCHANT_VARIANT_ORDER[shopIndex++ % MERCHANT_VARIANT_ORDER.length]
+      : kind;
+    if (block.door && CITY_SIGN_PATHS[trade]) {
+      place(signVisual(CITY_SIGN_PATHS[trade]), block.door, roomIndex, { hangs: true });
+    }
+    for (const [index, visual] of (CITY_TRADE_PROPS[trade] ?? []).entries()) {
+      place(visual, { x: rect.x + index, y: rect.y + rect.h }, roomIndex);
+    }
     // A lamp on the street corner of every block, so the city is lit at night,
     // and then the things people actually leave outside their own walls.
-    place(CITY_PROPS.lamp, { x: rect.x - 1, y: rect.y - 1 }, roomIndex);
-    placeAlongStreet(place, rect, roomIndex);
+    place(lamp, { x: rect.x - 1, y: rect.y - 1 }, roomIndex);
+    placeAlongStreet(place, rect, roomIndex, lamp);
   }
 
   // Cooking needs a fire the hero can reach; the market hearth is that fire.
@@ -914,12 +1091,12 @@ export function createCityEnvironment(level) {
  * corner is decided by the block's own index, so it is the same city twice and
  * two neighbouring blocks never put out the same three things.
  */
-function placeAlongStreet(place, rect, roomIndex) {
+function placeAlongStreet(place, rect, roomIndex, lamp = CITY_PROPS.lamp) {
   // The far corner gets a second lamp. One lamp a block was enough to say the
   // city is lit; it is not enough to see the city by, and a street dressed with
   // barrels and woodpiles nobody can make out at night is a street with nothing
   // on it. Two diagonal lamps put light on both ends of every block.
-  place(CITY_PROPS.lamp, { x: rect.x + rect.w, y: rect.y + rect.h }, roomIndex);
+  place(lamp, { x: rect.x + rect.w, y: rect.y + rect.h }, roomIndex);
   const outside = [
     { x: rect.x + rect.w, y: rect.y - 1 },
     { x: rect.x - 1, y: rect.y + rect.h },
