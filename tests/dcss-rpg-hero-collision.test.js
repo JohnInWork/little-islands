@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { CHASM_CELL } from '../tools/dcss-rpg-chasm.js';
 import { readFile } from 'node:fs/promises';
 
 import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
@@ -119,6 +121,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     stopAmbient: () => {},
     startAmbient: () => {},
     setAmbientLevel: () => {},
+    CHASM_CELL,
     TILE, HERO_BASE_MOVE_SPEED, hero, monsters, passiveCreatures: [], allies: [], placedTraps: [], world: grid,
     updateAllies: () => {},
     allyInMeleeOf: () => null,

@@ -119,6 +119,13 @@ import {
   createChestContainerStates,
   validateChestContainerStates,
 } from './dcss-rpg-chest-containers.js';
+import {
+  CHASM_CELL,
+  carveChasm,
+  carveRiftFloor,
+  chasmRoomCandidates,
+  isRiftDepth,
+} from './dcss-rpg-chasm.js';
 import { WATER_LIFE_MINIMUM, WATER_ROOM_CHANCE, chooseFloodedRoom, floodRoom } from './dcss-rpg-terrain.js';
 import { CAMP_FIRE_SECONDS, createCampStash, validateCampRunState } from './dcss-rpg-camp.js';
 import { validateCampState } from './dcss-rpg-camp.js';
@@ -1145,6 +1152,57 @@ export function generateDungeon({
     finds,
     loot,
   });
+  /**
+   * The holes go in last, when the floor is fully furnished.
+   *
+   * They used to be cut right after the water, which is the tidy place for a
+   * terrain pass and the wrong one for this: everything scattered afterwards —
+   * monsters, finds, the room content — was placed on a grid that still had
+   * floor where the holes are, and sixty-seven things across forty floors
+   * ended up standing in mid-air. Cutting at the end costs nothing and means
+   * the keep-list is simply everything that exists.
+   */
+  let chasmCells = [];
+  {
+    const chasmRng = createRng(mixSeed(floorSeed, 0x43484153));
+    const standing = [
+      spawn, exit, sanctuary, objective?.boss,
+      ...events, ...monsters, ...passiveCreatures, ...finds, ...loot,
+      ...doorPlan.doors,
+      ...(doorPlan.surprise ? [doorPlan.surprise] : []),
+    ].filter(Boolean);
+    if (isRiftDepth(depth)) {
+      // A rift floor is torn across: long faults through rooms and corridors
+      // alike, which is the «локация с другой генерацией» Ivan asked for.
+      chasmCells = carveRiftFloor(grid, {
+        rng: chasmRng,
+        from: spawn,
+        mustReach: [exit, ...(objective?.boss ? [objective.boss] : [])],
+        keepCells: standing,
+      });
+    } else {
+      // An ordinary floor deep enough may get one room with a hole in it.
+      for (const roomIndex of chasmRoomCandidates({
+        rng: chasmRng,
+        rooms,
+        grid,
+        depth,
+        excluded: dryRooms,
+      })) {
+        const room = rooms[roomIndex];
+        const cut = carveChasm(grid, room, {
+          rng: chasmRng,
+          keepCells: standing.filter((entry) => roomHolds(room, entry)),
+          reach: { from: spawn, mustReach: [exit, ...(objective?.boss ? [objective.boss] : [])] },
+        });
+        if (cut) {
+          chasmCells = cut.cells;
+          break;
+        }
+      }
+    }
+  }
+
   const roomContent = materializeDungeonRoomContent({
     seed: floorSeed,
     themeId,

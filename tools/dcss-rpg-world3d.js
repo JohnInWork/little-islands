@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CHASM_CELL } from './dcss-rpg-chasm.js';
 import {
   MAX_SPOT_SHADOW_LIGHTS,
   VOLUMETRIC_LIGHT_HEIGHT,
@@ -799,7 +800,12 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     const doorByCell = new Map(doors.map((door) => [`${door.x},${door.y}`, door]));
     for (let y = 0; y < grid.length; y += 1) {
       for (let x = 0; x < grid[0].length; x += 1) {
-        floorRecords.push({ x, y, path: floorPathAt(x, y, grid[y][x]) });
+        // A chasm has no floor. That is the whole of it in the renderer: no
+        // tile is laid, so what the player sees through the gap is the dark
+        // under the level, and the edge reads as an edge with nothing drawn.
+        if (grid[y][x] !== CHASM_CELL) {
+          floorRecords.push({ x, y, path: floorPathAt(x, y, grid[y][x]) });
+        }
         // Standing timber blocks the way without being a block of stone: the
         // floor keeps its ground and the tree itself is drawn in the prop pass.
         if (grid[y][x] === '#' && skipWallAt?.(x, y)) continue;

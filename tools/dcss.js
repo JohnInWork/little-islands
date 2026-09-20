@@ -438,6 +438,7 @@ import {
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
+import { CHASM_CELL } from './dcss-rpg-chasm.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
   WATER_CONDUCTION_PERCENT,
@@ -3873,11 +3874,14 @@ function resize() {
 }
 
 function isWalkable(x, y) {
+  // Nothing in the dungeon flies yet, so a chasm is simply not floor here.
   return x >= 0 && y >= 0 && x < WORLD_WIDTH && y < WORLD_HEIGHT && (world[y][x] === '.' || world[y][x] === '~');
 }
 
 function isHeroWalkable(x, y) {
   if (x < 0 || y < 0 || x >= (world[0]?.length ?? 0) || y >= world.length) return false;
+  // A chasm is floor to somebody who is flying and a wall to everybody else.
+  if (world[y][x] === CHASM_CELL) return currentHeroMagic().flight === true;
   return world[y][x] === '.' || world[y][x] === '~';
 }
 
