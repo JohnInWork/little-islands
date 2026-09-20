@@ -11,7 +11,8 @@
     "test": "node --test tests/dcss-rpg-*.test.js",
     "check": "npm test && npm run build",
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
-    "package:itch": "npm run build && node scripts/package-itch.mjs"
+    "package:itch": "npm run build && node scripts/package-itch.mjs",
+    "demo": "npm run build && vite preview --host 0.0.0.0 --port 4173 --strictPort"
   },
   "dependencies": {
     "three": "0.186.0"

@@ -112,6 +112,12 @@ import {
 import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
 import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
+import {
+  assignPads,
+  createPadState,
+  padLabel,
+  readPad,
+} from './dcss-rpg-gamepad.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
@@ -758,6 +764,12 @@ const spellBar = document.querySelector('#spell-bar');
 const spellActionButtons = [...spellBar.querySelectorAll('[data-spell-slot]')];
 const bagButton = document.querySelector('#bag');
 const interactActions = document.querySelector('#interact-actions');
+const coopHud = document.querySelector('#coop-hud');
+const coopHudName = document.querySelector('#coop-name');
+const coopHealthPips = [...document.querySelectorAll('#coop-health i')];
+const coopHudHealth = document.querySelector('#coop-health-text');
+const coopHudPurse = document.querySelector('#coop-purse');
+const coopHudPack = document.querySelector('#coop-pack');
 const inventory = document.querySelector('#inventory');
 const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
@@ -1116,6 +1128,22 @@ let detectedTrapIds = new Set(run.floor.detectedTrapIds);
 let stairsArmed = false;
 /** Raised servants: one per prepared summoning spell, never in the save. */
 let allies = [];
+/**
+ * Кооп на один экран: первый геймпад ведёт героя, второй — спутника.
+ *
+ * Иван: «надо, чтобы мы вдвоём играли на одном телике, вдвоём в одной карте, на
+ * геймпадах». Второго героя в движок, написанный про одного, быстро не
+ * вставить — зато спутник уже ходит, дерётся и переживает спуск. Второму игроку
+ * отдаём его, забрав у него ИИ.
+ *
+ * Карманы у игроков разные: «надо, чтобы всё считалось как для разных
+ * персонажей». Дом и склад общие — это Иван разрешил отдельно.
+ */
+const heroPad = createPadState();
+const matePad = createPadState();
+let matePack = [];
+let mateGold = 0;
+let coopAnnounced = false;
 let hazardInputState = createHazardInputState();
 let permittedHazardCell = null;
 let inputGesture = 0;
@@ -15605,6 +15633,163 @@ function updatePassiveCreatures(delta) {
  * walks back to them: the leash is measured from the hero, so a raised thing
  * never wanders off to die alone in the dark.
  */
+/** Шаг по уже проложенному маршруту: одинаков и для ИИ, и для второго игрока. */
+function walkAlly(ally, delta) {
+  const step = ally.route[0];
+  if (!step) return;
+  const dx = step.x - ally.x;
+  const dy = step.y - ally.y;
+  const distance = Math.hypot(dx, dy);
+  const movement = Math.min(distance, delta * TILE * ally.speed);
+  if (distance <= 0 || movement <= 0) return;
+  ally.x += (dx / distance) * movement;
+  ally.y += (dy / distance) * movement;
+  ally.facing = dx < 0 ? -1 : 1;
+  if (Math.hypot(step.x - ally.x, step.y - ally.y) < 2) ally.route.shift();
+}
+
+/** Враг в шаге от спутника — тот, кого он ударит сам, без приказа. */
+function enemyBeside(ally) {
+  return monsters.find((monster) => (
+    monster.dead === 0
+    && (!monster.neutral || monster.provoked)
+    && canActorsMelee(ally, monster)
+  )) ?? null;
+}
+
+/** Спутник, которого ведёт второй игрок. Он же — первый в отряде. */
+function pilotedAlly() {
+  return allies.find((ally) => ally.companion && ally.dead === 0) ?? null;
+}
+
+/**
+ * Второму игроку нужен напарник, иначе водить нечего.
+ *
+ * Выдаётся ровно один раз и только когда второй геймпад действительно
+ * подключён: в одиночной игре отряд по-прежнему зарабатывается, а не выдаётся.
+ */
+function grantCoopCompanion() {
+  if (run.companions.length > 0) return;
+  const stats = companionStats({
+    creatureId: 'sellsword',
+    profile: tamingProfile(currentSkillCapabilities()),
+  });
+  if (!stats) return;
+  run.companions = createCompanionParty([{ id: 'sellsword', hp: stats.maxHp, mode: 'guard' }]);
+  updateAllySlots();
+  persistRun();
+}
+
+/**
+ * Карман второго игрока.
+ *
+ * Иван: «надо, чтобы всё считалось как для разных персонажей». Поэтому подобранное
+ * напарником не смешивается с рюкзаком героя: у него свой счёт золота и свой
+ * список вещей. Дом и склад при этом общие — это решено отдельно.
+ */
+function mateTakeLoot(ally) {
+  const index = lootDefinitions.findIndex(
+    (loot) => !loot.bones && Math.hypot(loot.x - ally.x, loot.y - ally.y) <= TILE * 0.9,
+  );
+  if (index < 0) return false;
+  const loot = lootDefinitions[index];
+  lootDefinitions.splice(index, 1);
+  run.floor.collected.push(loot.instanceId);
+  if (loot.definition.gold) {
+    const reward = Math.max(1, loot.amount ?? 1);
+    mateGold += reward;
+    playSound('gold');
+    showLootToast(loot.definition, `P2 +${reward}`);
+  } else {
+    matePack = [...matePack, loot.definition];
+    playSound('pickup');
+    burst(ally.x, ally.y - 8, '#9ad3b8', 10);
+    showLootToast(loot.definition, 'P2');
+  }
+  updateCoopHud();
+  persistRun();
+  return true;
+}
+
+/** Дверь в шаге от напарника: второй игрок открывает её сам. */
+function mateOpenDoor(ally) {
+  const cell = { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) };
+  const door = doorDefinitions.find((entry) => (
+    cellStepDistance(cell, { x: entry.x, y: entry.y }) <= 1
+    && !run.floor.opened.includes(entry.instanceId)
+  ));
+  if (!door) return false;
+  return beginDoorTransition(door, true);
+}
+
+function updateCoopHud() {
+  const ally = pilotedAlly();
+  const on = Boolean(ally?.pilot);
+  coopHud.hidden = !on;
+  if (!on) return;
+  const record = run.companions[ally.companionIndex ?? 0];
+  coopHudName.textContent = (record && companionName(record.id, itemDetailLanguage)) || 'Напарник';
+  const hp = Math.max(0, Math.round(ally.hp));
+  const maxHp = Math.max(1, Math.round(ally.maxHp));
+  coopHudHealth.textContent = `${hp}/${maxHp}`;
+  // Полоса считается ровно как геройская, теми же шестью делениями.
+  const filled = Math.ceil((hp / maxHp) * coopHealthPips.length);
+  coopHealthPips.forEach((pip, index) => pip.classList.toggle('empty', index >= filled));
+  coopHudPurse.textContent = String(mateGold);
+  coopHudPack.textContent = String(matePack.length);
+}
+
+/**
+ * Геймпады, раз в кадр.
+ *
+ * Браузер отдаёт состояние, а не события, поэтому нажатие от удержания
+ * отличает модуль ввода, а не этот код. Здесь только раздача: кто что делает.
+ */
+function pollGamepads(delta) {
+  if (typeof navigator.getGamepads !== 'function') return;
+  const pads = assignPads([...navigator.getGamepads()]);
+  if (pads.hero) {
+    const { step, edge } = readPad(heroPad, pads.hero, delta);
+    if (uiScreen === 'game' && step) queueDirectionalMove(step);
+    if (edge.has('cross') && uiScreen === 'game') {
+      const button = interactActions.querySelector('.interact-action');
+      if (button) button.click();
+    }
+    if (edge.has('square')) (uiScreen === 'inventory' ? closeInventory : openInventory)();
+    if (edge.has('triangle') && uiScreen === 'game') openCharacterSheet();
+    if (edge.has('options')) openMainMenu();
+  }
+  const ally = pilotedAlly();
+  if (!pads.companion) {
+    if (ally) ally.pilot = false;
+    if (coopAnnounced) updateCoopHud();
+    return;
+  }
+  if (!coopAnnounced) {
+    coopAnnounced = true;
+    grantCoopCompanion();
+    showLootToast(
+      { path: 'mon/unique/edmund.png', rarity: 2 },
+      `P2: ${padLabel(pads.companion)}`,
+    );
+  }
+  const mate = ally ?? pilotedAlly();
+  if (!mate) return;
+  mate.pilot = true;
+  const { step, edge } = readPad(matePad, pads.companion, delta);
+  if (uiScreen !== 'game' || runStatus !== 'playing') return;
+  if (step) {
+    const vector = directionVector(step);
+    const cell = { x: Math.floor(mate.x / TILE) + vector[0], y: Math.floor(mate.y / TILE) + vector[1] };
+    if (isWalkable(cell.x, cell.y)) {
+      mate.route = [{ x: (cell.x + 0.5) * TILE, y: (cell.y + 0.5) * TILE }];
+    }
+  }
+  // Крестик — «возьми/открой»: сначала то, что под ногами, потом дверь рядом.
+  if (edge.has('cross') && !mateTakeLoot(mate)) mateOpenDoor(mate);
+  updateCoopHud();
+}
+
 function updateAllies(delta) {
   updateAllySlots();
   if (allies.length === 0) return;
@@ -15621,6 +15806,23 @@ function updateAllies(delta) {
       continue;
     }
     if (runStatus !== 'playing' || hero.dead || !playerHasActed) continue;
+    // Спутник под вторым игроком не слушает ИИ вовсе: маршрут ему ставит рука,
+    // а бьёт он сам того, кто оказался в шаге — иначе бой превратился бы в
+    // жонглирование кнопками на чужом геймпаде.
+    if (ally.pilot) {
+      const beside = enemyBeside(ally);
+      if (beside && ally.attackCooldown === 0) {
+        ally.attackCooldown = 1 / ally.attackRate;
+        ally.facing = beside.x < ally.x ? -1 : 1;
+        damageMonster(beside, ally.damage, '#cfc6ad', {
+          style: 'blade',
+          sourceX: ally.x,
+          sourceY: ally.y,
+        });
+      }
+      walkAlly(ally, delta);
+      continue;
+    }
     const intent = minionIntent({
       minion: { x: ally.x / TILE, y: ally.y / TILE },
       hero: { x: hero.x / TILE, y: hero.y / TILE },
@@ -15696,17 +15898,7 @@ function updateAllies(delta) {
       }
       ally.route = route;
     }
-    const step = ally.route[0];
-    if (!step) continue;
-    const dx = step.x - ally.x;
-    const dy = step.y - ally.y;
-    const distance = Math.hypot(dx, dy);
-    const movement = Math.min(distance, delta * TILE * ally.speed);
-    if (distance <= 0 || movement <= 0) continue;
-    ally.x += (dx / distance) * movement;
-    ally.y += (dy / distance) * movement;
-    ally.facing = dx < 0 ? -1 : 1;
-    if (Math.hypot(step.x - ally.x, step.y - ally.y) < 2) ally.route.shift();
+    walkAlly(ally, delta);
   }
   allies = allies.filter((ally) => ally.dead === 0 || ally.dead < 0.9);
 }
@@ -16405,6 +16597,7 @@ function animate(time) {
     previousTime = time;
     elapsed += delta;
     if (!document.hidden && ready) {
+      framePhase('pads', () => pollGamepads(delta));
       if (uiScreen === 'game') {
         if (hitStop > 0) {
           hitStop = Math.max(0, hitStop - delta);
