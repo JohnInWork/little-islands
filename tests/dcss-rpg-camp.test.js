@@ -253,7 +253,7 @@ test('the runtime pitches from the bag and puts the camp on the floor', async ()
   assert.match(runtime, /if \(nextContainer\.findId === CAMP_STASH_CONTAINER_ID\) \{[\s\S]*run\.camp = \{ stash:/);
   assert.match(
     runtime,
-    /dungeonEnvironment = createDungeonEnvironment\(dungeon\);[\s\S]*applyCampProps\(\);/,
+    /dungeonEnvironment = createDungeonEnvironment\(dungeon, \{ graveyardRoom[\s\S]*applyCampProps\(\);/,
     'a new floor rebuilds the placed props on top of its own',
   );
 });

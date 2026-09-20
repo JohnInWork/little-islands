@@ -110,6 +110,7 @@ import {
 } from './dcss-rpg-visuals.js';
 import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
+import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
@@ -1060,7 +1061,7 @@ let itemInstances = new Map(run.items.map((record) => [record.uid, materializeIn
 let backpackItems = run.inventory.map((uid) => itemInstances.get(uid)).filter(Boolean);
 const revealed = new Set(run.floor.revealed);
 revealAround(revealed, world, { x: run.hero.x, y: run.hero.y }, 4);
-let dungeonEnvironment = createDungeonEnvironment(dungeon);
+let dungeonEnvironment = createDungeonEnvironment(dungeon, { graveyardRoom: activeGraveyardRoom });
 if (previewHuntNearSpawn) {
   const cookingSite = dungeonEnvironment.props.find(({ interactionId }) => interactionId === 'campfire');
   const occupiedPreviewCells = new Set([
@@ -1206,12 +1207,25 @@ const createAtmosphereMotes = (seed) =>
     deterministicAtmosphereMote(seed, index, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE),
   );
 let motes = createAtmosphereMotes(run.seed);
+/**
+ * Комната этажа, ставшая кладбищем, и смерть, которую она хоронит.
+ *
+ * Решение принимается здесь, а не в генераторе: кладбище зависит от того,
+ * умирал ли игрок раньше, а это знание живёт в метасостоянии, которого этаж
+ * не видит и видеть не должен — иначе один и тот же сейв собирал бы разные
+ * этажи. Обстановка и туман — единственное, на что влияет ответ, поэтому
+ * сохранение остаётся нетронутым.
+ */
+let activeGraveyardRoom = null;
+let activeGraveyardBones = null;
+
 const createMistAnchors = (level) =>
   fogAnchorsForDungeon({
     seed: level.seed,
     spawn: level.spawn,
     rooms: level.rooms,
     tileSize: TILE,
+    denseRoom: activeGraveyardRoom == null ? null : level.rooms[activeGraveyardRoom] ?? null,
   });
 let mistAnchors = createMistAnchors(dungeon);
 const createVoidStars = (level) =>
@@ -10578,6 +10592,11 @@ function startGameFromMenu() {
   bagButton.disabled = false;
   characterSheetButton.disabled = false;
   pauseGameButton.disabled = false;
+  // Кладбище решается по метасостоянию, а оно загружается позже, чем этаж
+  // обставляется в первый раз: на первом кадре обстановку надо пересобрать.
+  resolveGraveyard();
+  dungeonEnvironment = createDungeonEnvironment(dungeon, { graveyardRoom: activeGraveyardRoom });
+  mistAnchors = createMistAnchors(dungeon);
   // A loaded save can already own a camp or a house; their things belong on
   // the floor before the first frame, not only after the next descent.
   applyCampProps();
@@ -14292,10 +14311,28 @@ function wakeFloorGhost() {
   playSound('spell-toggle');
 }
 
+/**
+ * Есть ли на этом этаже кладбище, и если да — в какой комнате.
+ *
+ * Иван выбрал самое строгое из трёх правил: «нет смерти — нет кладбища».
+ * Место существует только тогда, когда есть кому там лежать, поэтому пустой
+ * список костей выключает его целиком, а не оставляет пустые гробы.
+ */
+function resolveGraveyard() {
+  activeGraveyardBones = graveyardOnFloor({
+    branch: run.branch,
+    seed: run.seed,
+    depth: dungeon.depth,
+    bones: metaState.bones,
+  });
+  activeGraveyardRoom = activeGraveyardBones ? graveyardRoomIndex(dungeon) : null;
+}
+
 function replaceFloor(nextDepth, arrival = null) {
   run.depth = nextDepth;
   dungeon = hydrateDungeon(run);
   world = dungeon.grid;
+  resolveGraveyard();
   startAmbient(biomeThemeFor(dungeon.themeId).palette);
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
@@ -14326,7 +14363,7 @@ function replaceFloor(nextDepth, arrival = null) {
   waterPaths = waterTiles(dungeon.themeId);
   openingDoor = null;
   activeChestFindId = null;
-  dungeonEnvironment = createDungeonEnvironment(dungeon);
+  dungeonEnvironment = createDungeonEnvironment(dungeon, { graveyardRoom: activeGraveyardRoom });
   // After the dungeon's own props, never before: the hero's camp and house
   // are added on top of the environment the floor just built.
   applyCampProps();

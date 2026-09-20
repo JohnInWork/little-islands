@@ -55,6 +55,29 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
     floorAccents: numberedPaths('dngn/floor/grey_dirt', [0, 1, 2, 3]),
   }),
   roomTheme({
+    /**
+     * Кладбище: единственная комната, где обстановка — это сюжет.
+     *
+     * Иван: «кладбище — сделать там туман сильнее и гробы». Гробы здесь не
+     * украшение, а счёт: запечатанный саркофаг стоит за каждую забытую смерть,
+     * и один из них — твой. Поэтому в features только гробы и надгробия,
+     * никаких статуй: статуя — это чья-то гордость, а тут лежат.
+     */
+    id: 'graveyard',
+    features: [
+      prop('dngn/vaults/sarcophagus_sealed.png', { size: 74, screenOffsetY: -10 }),
+      prop('dngn/vaults/sarcophagus_pedestal_left.png', { size: 72, screenOffsetY: -9 }),
+      prop('dngn/vaults/sarcophagus_pedestal_right.png', { size: 72, screenOffsetY: -9 }),
+      prop('dngn/altars/yredelemnul.png', { size: 68, screenOffsetY: -6 }),
+    ],
+    details: [
+      prop('dngn/statues/crumbled_column_3.png', { size: 64 }),
+      prop('dngn/statues/crumbled_column_6.png', { size: 62 }),
+      prop('mon/fungi_plants/plant_crypt.png', { size: 60, screenOffsetY: -4 }),
+    ],
+    floorAccents: numberedPaths('dngn/floor/green_bones0', [1, 2, 3, 4]),
+  }),
+  roomTheme({
     id: 'forgotten-crypt',
     features: [
       prop('dngn/statues/statue_sigmund.png', { size: 72 }),
@@ -365,6 +388,9 @@ function isTransitSurface(level, x, y) {
   return level.grid[y]?.[x] === '.' || level.grid[y]?.[x] === 'D';
 }
 
+/** Обстановка кладбища — не из общего колеса тем, её назначают поимённо. */
+export const GRAVEYARD_ROOM_THEME = ENVIRONMENT_ROOM_THEMES.find(({ id }) => id === 'graveyard');
+
 export function environmentTransitCells(level) {
   const transit = new Set();
   const reserveWithClearance = (x, y) => {
@@ -532,7 +558,16 @@ function tavernProp({ piece, level, roomIndex, themeId, phase, index }) {
   });
 }
 
-export function createDungeonEnvironment(level) {
+/**
+ * `graveyardRoom` — единственная комната, чья обстановка назначена снаружи.
+ *
+ * Кладбище зависит от того, умирал ли игрок раньше, а это знание живёт в
+ * метасостоянии, а не в этаже. Поэтому решение принимает адаптер, а сюда
+ * приходит уже готовый номер комнаты. Подмена стоит ДО обычного выбора темы и
+ * не берёт ни одного случайного числа — геометрия этажа обязана остаться той
+ * же, что и без кладбища.
+ */
+export function createDungeonEnvironment(level, { graveyardRoom = null } = {}) {
   // A city furnishes itself: streets, stalls and lamps, not braziers and bones.
   if (isCityDepth(level.depth)) return createCityEnvironment(level);
   if (
@@ -573,7 +608,9 @@ export function createDungeonEnvironment(level) {
   const outsideAnyInn = ({ x, y }) => !innFloor.has(`${x},${y}`);
 
   for (const [roomIndex, room] of level.rooms.entries()) {
-    const theme = themeForRoom(level, roomIndex, themeOffset, themeStride);
+    const theme = roomIndex === graveyardRoom
+      ? GRAVEYARD_ROOM_THEME
+      : themeForRoom(level, roomIndex, themeOffset, themeStride);
     roomThemes.push(theme.id);
     // An inn is a composed room, not a wall with things leaning on it: the same
     // module that furnishes the city's tavern furnishes this one, so the two

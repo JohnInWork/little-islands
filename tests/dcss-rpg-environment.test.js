@@ -111,7 +111,7 @@ test('environment catalog has distinct room identities and uses bundled assets',
 test('runtime sends decorations through the depth-tested 3D world and gives lights to luminous props', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   const world3d = await readFile(new URL('../tools/dcss-rpg-world3d.js', import.meta.url), 'utf8');
-  assert.match(runtime, /createDungeonEnvironment\(dungeon\)/);
+  assert.match(runtime, /createDungeonEnvironment\(dungeon, \{ graveyardRoom: activeGraveyardRoom \}\)/);
   assert.match(runtime, /decorations: \[/);
   assert.match(runtime, /\.\.\.dungeonEnvironment\.props/);
   assert.match(runtime, /decoration\.frames/);

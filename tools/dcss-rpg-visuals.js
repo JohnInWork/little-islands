@@ -1337,7 +1337,19 @@ export function deterministicAtmosphereMote(seed, index, width, height) {
   });
 }
 
-export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
+/**
+ * `denseRoom` — комната, над которой тумана заметно больше.
+ *
+ * Иван про кладбище: «сделать там туман сильнее». Сильнее делается здесь, а не
+ * в освещении: туман — это облака, привязанные к комнатам, и добавить их над
+ * одной комнатой дешевле и честнее, чем гасить герою обзор. Тьма у нас уже
+ * есть — у света факела; второй способ ничего не увидеть игрок прочитал бы как
+ * поломку, а не как погоду.
+ *
+ * Комната встаёт сразу за стартовой, потому что облака получают только первые
+ * восемь: кладбище, оказавшееся девятым, осталось бы вовсе без тумана.
+ */
+export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64, denseRoom = null }) {
   if (
     !Number.isInteger(seed) ||
     !spawn ||
@@ -1364,13 +1376,13 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
       spawn.y >= room.y &&
       spawn.y < room.y + room.height,
   );
-  const orderedRooms = spawnRoom
-    ? [spawnRoom, ...rooms.filter((room) => room !== spawnRoom)]
-    : rooms;
+  const ordered = [spawnRoom, denseRoom, ...rooms].filter(Boolean);
+  const orderedRooms = ordered.filter((room, index) => ordered.indexOf(room) === index);
   const anchors = [];
   for (let roomIndex = 0; roomIndex < Math.min(8, orderedRooms.length); roomIndex += 1) {
     const room = orderedRooms[roomIndex];
-    const copies = roomIndex === 0 ? 4 : 1;
+    const dense = denseRoom != null && room === denseRoom;
+    const copies = dense ? 7 : roomIndex === 0 ? 4 : 1;
     const inset = 0.82;
     const innerWidth = Math.max(0.4, room.width - inset * 2);
     const innerHeight = Math.max(0.4, room.height - inset * 2);
@@ -1383,7 +1395,7 @@ export function fogAnchorsForDungeon({ seed, spawn, rooms, tileSize = 64 }) {
           phase: unit(index, 47) * Math.PI * 2,
           drift: 18 + unit(index, 59) * 28,
           speed: 0.07 + unit(index, 71) * 0.08,
-          size: 0.82 + unit(index, 83) * 0.36,
+          size: 0.82 + unit(index, 83) * 0.36 + (dense ? 0.46 : 0),
         }),
       );
     }
