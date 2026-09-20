@@ -78,7 +78,7 @@ export const BRANCH_EVENTS = Object.freeze([
     copy: {
       ru: {
         name: 'Дикое святилище',
-        summary: 'Камень, заросший лозой и цветом. Ухаживать — зелень лечит даром, привить черенок — стоит денег и делает крепче, вырвать корни — золото ценой шипов.',
+        summary: 'Камень, заросший лозой и цветом. Здесь всё ещё живо.',
         action: 'Подойти к святилищу',
         inspected: 'Плита под лозой. Цветы на ней распустились сами.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -93,7 +93,7 @@ export const BRANCH_EVENTS = Object.freeze([
       },
       en: {
         name: 'Wild shrine',
-        summary: 'A stone swallowed by vine and blossom. Tending it heals for nothing, a grafted cutting costs coin and makes you hardier, tearing out the roots pays in gold and thorns.',
+        summary: 'A stone swallowed by vine and blossom. It is still alive.',
         action: 'Approach the shrine',
         inspected: 'A slab under the vines. The flowers on it opened by themselves.',
         unsafe: 'Too dangerous at this health',
@@ -137,7 +137,7 @@ export const BRANCH_EVENTS = Object.freeze([
     copy: {
       ru: {
         name: 'Чужой идол',
-        summary: 'Грубый истукан тех, кто рыл здесь до тебя. Внять — он снимает хворь даром, покормить — платит за твёрдость руки, свалить — золото и грохот на весь ствол.',
+        summary: 'Грубый истукан тех, кто рыл здесь до тебя.',
         action: 'Подойти к идолу',
         inspected: 'Истукан вырублен наспех. У подножия — стёртые следы чужих ладоней.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -152,7 +152,7 @@ export const BRANCH_EVENTS = Object.freeze([
       },
       en: {
         name: 'A stranger’s idol',
-        summary: 'The rough idol of whoever dug here first. Heeding it lifts sickness for nothing, feeding it buys a steadier hand, toppling it pays in gold and in noise down the whole shaft.',
+        summary: 'The rough idol of whoever dug here first.',
         action: 'Approach the idol',
         inspected: 'The idol was cut in a hurry. Worn handprints ring its base.',
         unsafe: 'Too dangerous at this health',
@@ -198,7 +198,7 @@ export const BRANCH_EVENTS = Object.freeze([
     copy: {
       ru: {
         name: 'Золотой истукан',
-        summary: 'Литое золото с кубком в поднятой руке. Поклониться — лечит и очищает, откупиться — платит щедрее, чем где-либо ещё, отломать руку — много золота и тревога на весь этаж.',
+        summary: 'Литое золото с кубком в поднятой руке. В хранилищах всё — сделка.',
         action: 'Подойти к истукану',
         inspected: 'Золото литое, не накладное. Кубок в руке пуст уже очень давно.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -213,7 +213,7 @@ export const BRANCH_EVENTS = Object.freeze([
       },
       en: {
         name: 'The golden idol',
-        summary: 'Cast gold with a cup held high. Bowing heals and cleanses, buying its favour pays better than anywhere else, prying off the arm is a great deal of gold and an alarm across the floor.',
+        summary: 'Cast gold with a cup held high. In the vaults everything is a bargain.',
         action: 'Approach the idol',
         inspected: 'Solid gold, not gilt. The cup in its hand has been empty a very long time.',
         unsafe: 'Too dangerous at this health',
@@ -258,7 +258,7 @@ export const BRANCH_EVENTS = Object.freeze([
     copy: {
       ru: {
         name: 'Надгробие с именем',
-        summary: 'Плита, на которой ещё читается имя. Заплатить за покой — и мёртвый отпустит; вскрыть — и платить будешь ты.',
+        summary: 'Плита, на которой ещё читается имя. Середины с мёртвыми не бывает.',
         action: 'Подойти к надгробию',
         inspected: 'Буквы стёрлись не все. Имя читается, даты — нет.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -272,7 +272,7 @@ export const BRANCH_EVENTS = Object.freeze([
       },
       en: {
         name: 'A named gravestone',
-        summary: 'A slab with a name still legible on it. Pay for their peace and the dead let go; break it open and you are the one who pays.',
+        summary: 'A slab with a name still legible on it. There is no middle way with the dead.',
         action: 'Approach the gravestone',
         inspected: 'Not every letter is gone. The name can be read; the dates cannot.',
         unsafe: 'Too dangerous at this health',
@@ -323,7 +323,7 @@ export const BRANCH_EVENTS = Object.freeze([
     copy: {
       ru: {
         name: 'Лик в камне',
-        summary: 'Каменное лицо в стене. Выслушать — оно расскажет, где золото, и его услышат все. Поклясться — возьмёт вперёд и подожжёт. Дерзить — изувечит и сделает живучее. Оно не лечит никого.',
+        summary: 'Каменное лицо в стене. Оно не лечит никого.',
         action: 'Подойти к лику',
         inspected: 'Губы каменные, а двигаются. Смотрит оно не на героя, а сквозь него.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -338,7 +338,7 @@ export const BRANCH_EVENTS = Object.freeze([
       },
       en: {
         name: 'The face in the stone',
-        summary: 'A stone face in the wall. Listen and it tells you where the gold is, loudly enough for everything to hear. Swear and it takes payment up front and sets you alight. Defy it and it maims you into something harder to kill. It heals no one.',
+        summary: 'A stone face in the wall. It heals no one.',
         action: 'Approach the face',
         inspected: 'The lips are stone and they move. It is not looking at the hero but through them.',
         unsafe: 'Too dangerous at this health',

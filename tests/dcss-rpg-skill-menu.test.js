@@ -80,32 +80,48 @@ test('production menu exposes implemented trap skills, with no empty categories'
   assert.deepEqual(unsupported.groups, []);
 });
 
+/**
+ * Точные числа рангов переехали из описания в лестницу: описание говорит, ЧТО
+ * это за навык, лестница — что даёт каждая ступень. Проверки ниже поэтому
+ * спрашивают лестницу; гарантия та же — игрок может прочитать точные числа, —
+ * просто она больше не требует держать их в прозе дважды.
+ */
+const gainsAt = (skill, rank) => skill.ladder[rank - 1].gains
+  .map(({ label, value }) => (value ? `${label} ${value}` : label))
+  .join(' · ');
+
 test('production appraisal explains safe item identification tiers in both languages', () => {
   const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   const appraisal = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
   assert.equal(appraisal.name, 'Оценка');
-  assert.match(appraisal.description, /зелья, свитки, жезлы и книги сложности I\/II\/III/);
-  assert.match(appraisal.description, /Без расхода/);
+  assert.match(appraisal.description, /зелья, свитки, жезлы и книги/);
+  assert.match(appraisal.description, /ничего не тратя/);
+  for (const rank of [1, 2, 3]) assert.match(gainsAt(appraisal, rank), new RegExp(`ступень ${rank}`));
   const en = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
   });
   const english = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'appraisal');
-  assert.match(english.description, /tier I\/II\/III potions, scrolls, wands and books/);
-  assert.match(english.description, /without consuming/);
+  assert.match(english.description, /potions, scrolls, wands and books/);
+  assert.match(english.description, /using nothing up/);
+  assert.match(gainsAt(english, 3), /tier 3/);
 });
 
 test('production shield skill explains exact block ranks and rank III stun in both languages', () => {
   const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   const shield = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'shield');
   assert.equal(shield.name, 'Щит');
-  assert.match(shield.description, /15%\/25%\/35%/);
-  assert.match(shield.description, /III ранге.*оглушает/);
+  assert.match(shield.description, /заблокировать удар щитом/);
+  assert.deepEqual([1, 2, 3].map((rank) => gainsAt(shield, rank)), [
+    'шанс блока 15%',
+    'шанс блока 25%',
+    'шанс блока 35% · блок оглушает на 0.6 с',
+  ]);
   const en = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
   });
   const englishShield = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'shield');
-  assert.match(englishShield.description, /15%\/25%\/35%/);
-  assert.match(englishShield.description, /rank III.*stuns/);
+  assert.match(englishShield.description, /block a hit completely/);
+  assert.match(gainsAt(englishShield, 3), /block chance 35%.*a block stuns for 0\.6s/);
 });
 
 test('pyromancy spends the same level point but also requires intelligence', () => {
@@ -136,8 +152,9 @@ test('cryomancy is an implemented intelligence-gated three-stage mechanic', () =
   });
   const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'cryomancy');
   assert.equal(available.canLearn, true);
-  assert.match(available.description, /замораживает мокрые цели/);
-  assert.match(available.description, /раскалывает лёд/);
+  assert.match(available.description, /замораживает мокрых/);
+  assert.match(available.description, /раскалывается по замороженным/);
+  assert.match(gainsAt(available, 3), /раскалывает лёд/);
 });
 
 test('storm magic exposes its wet-chain rules and intelligence gate in both languages', () => {
@@ -148,44 +165,53 @@ test('storm magic exposes its wet-chain rules and intelligence gate in both lang
   const blocked = blockedModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
   assert.equal(blocked.canLearn, false);
   assert.equal(blocked.reasonLabel, 'Нужно: Интеллект 5');
-  assert.match(blocked.description, /1\/2\/3 мокрые цели/);
+  assert.match(blocked.description, /перескакивает на мокрые цели/);
 
   const availableModel = skillMenuModel({
     state, heroLevel: 8, runStatus: 'playing', language: 'en', attributes: { intelligence: 5 },
   });
   const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
   assert.equal(available.canLearn, true);
-  assert.match(available.description, /55%\/65%\/75%/);
+  assert.deepEqual([1, 2, 3].map((rank) => gainsAt(available, rank)), [
+    'targets 1 · damage to them 55% · the arc jumps 2.5 tiles',
+    'targets 2 · damage to them 65% · the arc jumps 3 tiles',
+    'targets 3 · damage to them 75% · the arc jumps 3.5 tiles',
+  ]);
 });
 
 test('production axes specialization explains both grips and all three real cleave ranks', () => {
   const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   const axes = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'axes');
   assert.equal(axes.name, 'Топоры');
-  assert.match(axes.description, /25%\/40%\/55%/);
-  assert.match(axes.description, /35%\/60%/);
-  assert.match(axes.description, /две цели по 80%/);
+  assert.match(axes.description, /Размах топора задевает соседних врагов/);
+  assert.match(gainsAt(axes, 1), /размах двумя руками 35%.*размах одной рукой 25%/);
+  assert.match(gainsAt(axes, 3), /размах двумя руками 80% · двумя руками задевает 2 цел\./);
   const en = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
   });
   const englishAxes = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'axes');
-  assert.match(englishAxes.description, /One-handed axes/);
-  assert.match(englishAxes.description, /two targets for 80% at rank III/);
+  assert.match(englishAxes.description, /An axe sweep catches/);
+  assert.match(gainsAt(englishAxes, 3), /two-handed sweep 80% · two-handed hits 2/);
 });
 
 test('production sword specialization explains cadence, bonuses and target reset in both languages', () => {
   const ru = skillMenuModel({ state: createSkillState(8), heroLevel: 8, runStatus: 'playing' });
   const swords = ru.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'swords');
   assert.equal(swords.name, 'Мечи');
-  assert.match(swords.description, /4-й\/3-й\/2-й/);
-  assert.match(swords.description, /40%\/60%\/80%/);
+  assert.match(swords.description, /усиливает каждый следующий/);
   assert.match(swords.description, /Смена цели сбрасывает/);
+  assert.deepEqual([1, 2, 3].map((rank) => gainsAt(swords, rank)), [
+    'ритм каждые 4 удара · ритмовый удар 40%',
+    'ритм каждые 3 удара · ритмовый удар 60%',
+    'ритм каждые 2 удара · ритмовый удар 80%',
+  ]);
   const en = skillMenuModel({
     state: createSkillState(8), heroLevel: 8, runStatus: 'playing', language: 'en',
   });
   const englishSwords = en.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'swords');
-  assert.match(englishSwords.description, /4th\/3rd\/2nd/);
+  assert.match(englishSwords.description, /empowers the next/);
   assert.match(englishSwords.description, /Changing targets resets/);
+  assert.match(gainsAt(englishSwords, 3), /rhythm every 2 hits · rhythm strike 80%/);
 });
 
 test('ready mechanic is shown with bilingual catalog copy and matching learn decision', () => {
@@ -200,7 +226,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   const { ladder, ...shape } = firstSkill(ru);
   assert.deepEqual(shape, {
     id: 'trap-sense', name: 'Чутьё',
-    description: 'Обнаруживает механические ловушки в радиусе 2/3/4 клеток. Не видит сквозь стены и не обезвреживает.',
+    description: 'Показывает механические ловушки поблизости. Не видит сквозь стены и не обезвреживает.',
     rank: 0, trainedRank: 0, rankAdjustment: 0, rankAdjustmentLabel: '', maxRank: 3, nextRank: 1,
     canLearn: true, actionLabel: 'Изучить', reasonLabel: '',
     // The straight branch Ivan asked to see: three nodes, the first reachable
@@ -234,7 +260,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   assert.equal(en.pointsLabel, 'Skill points');
   assert.equal(en.groups[0].label, 'Exploration');
   assert.equal(firstSkill(en).name, 'Trap sense');
-  assert.match(firstSkill(en).description, /^Detects mechanical traps within 2\/3\/4 tiles/);
+  assert.match(firstSkill(en).description, /^Shows mechanical traps nearby/);
   assert.equal(firstSkill(en).actionLabel, 'Learn');
 });
 

@@ -169,7 +169,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Древний алтарь',
-        summary: 'Камень забытого бога. Молитва лечит, дар делает крепче навсегда, грабёж даёт золото и проклятие.',
+        summary: 'Камень забытого бога. Он всё ещё отвечает.',
         action: 'Подойти к древнему алтарю',
         inspected: 'Каменный алтарь. В чаше видны следы прежних подношений.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -184,7 +184,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Ancient altar',
-        summary: 'The stone of a forgotten god. Prayer heals, an offering makes you hardier for good, plunder pays in gold and a curse.',
+        summary: 'The stone of a forgotten god. It still answers.',
         action: 'Approach the ancient altar',
         inspected: 'A stone altar. The bowl holds traces of old offerings.',
         unsafe: 'Too dangerous at this health',
@@ -243,7 +243,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Затопленный фонтан',
-        summary: 'Чаша тёмной воды с монетами на дне. Пить — лечит и мочит, бросить монету — платит за твёрдость руки, нырнуть — деньги в обмен на холод.',
+        summary: 'Чаша тёмной воды, и на дне её поблёскивают монеты.',
         action: 'Подойти к фонтану',
         inspected: 'Чаша полна тёмной воды. На дне поблёскивают монеты.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -258,7 +258,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Sunken fountain',
-        summary: 'A basin of dark water with coins on the bottom. Drinking heals and soaks, a tossed coin buys a steadier hand, diving trades cold for money.',
+        summary: 'A basin of dark water, with coins glinting at the bottom.',
         action: 'Approach the fountain',
         inspected: 'The basin holds dark water. Coins glint at the bottom.',
         unsafe: 'Too dangerous at this health',
@@ -311,7 +311,7 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Запечатанная руна',
-        summary: 'Камень в цепях, исписанный знаками. Прочесть их — сила удара ценой крови, настроиться — лечение, расколоть — золото, яд и шум.',
+        summary: 'Камень в цепях, исписанный знаками. Золота он не берёт.',
         action: 'Подойти к руне',
         inspected: 'Камень в цепях. Знаки на нём ещё держат тепло.',
         unsafe: 'Слишком опасно при таком здоровье',
@@ -326,7 +326,7 @@ export const FIND_CATALOG = Object.freeze([
       },
       en: {
         name: 'Warded rune',
-        summary: 'A chained stone covered in marks. Reading them buys attack with blood, attuning heals, breaking it pays in gold, poison and noise.',
+        summary: 'A chained stone covered in marks. It takes no gold.',
         action: 'Approach the rune',
         inspected: 'A stone bound in chains. Its marks still hold warmth.',
         unsafe: 'Too dangerous at this health',
