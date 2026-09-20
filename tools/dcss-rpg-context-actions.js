@@ -43,6 +43,7 @@ const ACTION_COPY = Object.freeze({
     goSurface: 'Наружу, за ворота',
     goVaults: 'Вниз, в старые подвалы',
     retire: 'Закончить забег',
+    enterPortal: 'Войти',
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
     unbind: 'Снять оковы',
@@ -93,6 +94,7 @@ const ACTION_COPY = Object.freeze({
     unbind: 'Lift the binding',
     hire: 'Hire',
     retire: 'End the run',
+    enterPortal: 'Step through',
   }),
 });
 
@@ -138,6 +140,7 @@ const GLYPHS = Object.freeze({
   goSurface: '▲',
   goVaults: '◫',
   retire: '◆',
+  enterPortal: '◎',
   claim: '◆',
   descend: '▼',
   unbind: '⛓',
@@ -164,6 +167,11 @@ const COPY = Object.freeze({
     trapReady: 'Можно обезвредить.',
     merchantName: 'Странствующий торговец',
     merchantDescription: '',
+    portalName: 'Портал в город',
+    portalCityName: 'Портал вниз',
+    portalDescription: 'Синее кольцо держит проход. Шаг — и ты в городе.',
+    portalCityDescription: (depth) => `Проход на ${depth}-й этаж, туда, где ты его открыл.`,
+    portalHint: 'Обратный проход закроется, когда ты им вернёшься.',
     campfireName: 'Костёр',
     campfireUse: 'Огонь для еды: сырое мясо на нём становится сытным и безопасным.',
     campfireBrew: (label) => `Можно сварить: ${label}.`,
@@ -239,6 +247,11 @@ const COPY = Object.freeze({
     trapReady: 'It can be disarmed.',
     merchantName: 'Wandering merchant',
     merchantDescription: '',
+    portalName: 'Town portal',
+    portalCityName: 'Portal down',
+    portalDescription: 'A blue ring holds the way open. One step and you are in the city.',
+    portalCityDescription: (depth) => `The way back to floor ${depth}, where you opened it.`,
+    portalHint: 'The way back closes once you have come back through it.',
     campfireName: 'Campfire',
     campfireUse: 'A fire to cook on: raw meat becomes filling and safe to eat.',
     campfireBrew: (label) => `Can be brewed: ${label}.`,
@@ -652,6 +665,25 @@ export const INTERACTION_REGISTRY = Object.freeze([
       icon: target.iconPath || 'dngn/shops/shop_gadgets.png',
       accent: '#d1b35c',
       actions: [{ id: 'trade' }],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * Both mouths of the town portal are the same object, so they are the
+     * same card: one verb, «Войти», and a line saying where it comes out.
+     * Which side you are on decides only what that line says.
+     */
+    id: 'portal',
+    command: 'portal-step',
+    matches: (target) => target?.kind === 'portal' && (target.end === 'city' || target.end === 'dungeon'),
+    present: ({ target, copy }) => ({
+      name: target.end === 'city' ? copy.portalCityName : copy.portalName,
+      description: target.end === 'city'
+        ? copy.portalCityDescription(target.depth ?? 1)
+        : `${copy.portalDescription} ${copy.portalHint}`,
+      icon: 'dngn/gateways/portal.png',
+      accent: '#5aa8e0',
+      actions: [{ id: 'enterPortal' }],
     }),
   }),
   defineInteraction({

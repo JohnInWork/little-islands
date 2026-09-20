@@ -84,6 +84,11 @@ import {
 import { CITY_DEPTH, buildCityFloor, generateCityPlan, isCityDepth } from './dcss-rpg-city.js';
 import { generateSurfacePlan, surfaceProfile } from './dcss-rpg-surface-plan.js';
 import { createHouseState, validateHouseState } from './dcss-rpg-house.js';
+import {
+  createPortalState,
+  portalAnchoredDepths,
+  validatePortalState,
+} from './dcss-rpg-portal.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
 import { validateReforgeState } from './dcss-rpg-smithing.js';
@@ -1321,6 +1326,8 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
     inventory,
     camp: { stash: createCampStash() },
     house: createHouseState(),
+    // Открыт или нет — это две координаты в сохранении, а не вещь на этаже.
+    portal: null,
     crime: createCrimeState(),
     companions: [],
     floors: {},
@@ -1514,14 +1521,27 @@ export const FLOOR_MEMORY = FLOORS_PER_CHAPTER;
  * that exact spot — so that floor is kept however far away it is, or the
  * promise is a lie and the chests you already opened are full again.
  */
-function anchoredDepth(snapshot) {
-  const depth = snapshot?.house?.anchor?.depth;
-  return Number.isInteger(depth) ? depth : null;
+/**
+ * Floors the dungeon must not forget however far the hero walks from them.
+ *
+ * The home stone promised to put the hero back on its floor, and a town portal
+ * promises the same thing — more loudly, because the hero may be forty floors
+ * up drinking tea when the game is closed. A floor that falls out of the
+ * archive is rebuilt from its seed with every monster alive again, which is
+ * not a stranding but is a nasty thing to come back to.
+ */
+function anchoredDepths(snapshot) {
+  const stone = snapshot?.house?.anchor?.depth;
+  return [
+    ...(Number.isInteger(stone) ? [stone] : []),
+    ...portalAnchoredDepths(snapshot?.portal ?? null),
+  ];
 }
 
-function withinFloorMemory(depth, currentDepth, anchorDepth = null) {
+function withinFloorMemory(depth, currentDepth, anchors = []) {
+  const pinned = Array.isArray(anchors) ? anchors : [anchors];
   return depth === CITY_DEPTH
-    || depth === anchorDepth
+    || pinned.includes(depth)
     || Math.abs(depth - currentDepth) <= FLOOR_MEMORY;
 }
 
@@ -1529,13 +1549,13 @@ function withinFloorMemory(depth, currentDepth, anchorDepth = null) {
  * Keeps only well-formed floors, never the one the hero stands on, and never
  * more than the dungeon can remember.
  */
-function normalizedFloorArchive(source, currentDepth, anchorDepth = null) {
+function normalizedFloorArchive(source, currentDepth, anchors = []) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
   const archive = {};
   for (const [key, floor] of Object.entries(source)) {
     const depth = Number(key);
     if (!isFiniteInteger(depth, CITY_DEPTH, DEEPEST_DEPTH) || depth === currentDepth) continue;
-    if (!withinFloorMemory(depth, currentDepth, anchorDepth)) continue;
+    if (!withinFloorMemory(depth, currentDepth, anchors)) continue;
     if (!validateFloorShape(floor, depth)) continue;
     archive[key] = floor;
   }
@@ -1607,7 +1627,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepths(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -1736,7 +1756,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepths(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -1880,7 +1900,7 @@ export function migrateLegacyRun(snapshot) {
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
     // v42 remembers the floors the hero has left; a migrated run remembers none.
-    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
+    migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepths(migrated));
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
@@ -2000,7 +2020,7 @@ export function migrateLegacyRun(snapshot) {
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
   migrated.house = createHouseState(migrated.house);
   // v42 remembers the floors the hero has left; a migrated run remembers none.
-  migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepth(migrated));
+  migrated.floors = normalizedFloorArchive(migrated.floors, migrated.depth, anchoredDepths(migrated));
   // v43 lets the city keep a record; a migrated hero has none.
   migrated.crime = createCrimeState(migrated.crime);
   // v44 lets a beast walk with the hero; a migrated run walks alone.
@@ -2246,6 +2266,8 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateHouseState(snapshot.house)) return false;
+  // A save written before portals existed simply has none.
+  if (!validatePortalState(snapshot.portal ?? null)) return false;
   if (!validateCrimeState(snapshot.crime)) return false;
   if (!validateCompanionParty(snapshot.companions ?? [])) return false;
   if (!validateFloorShape(floor, snapshot.depth)) return false;
@@ -2458,9 +2480,9 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   // Everything further than the dungeon remembers is let go here, at the one
   // place a floor ever enters the archive — the anchored floor excepted, since
   // the stone promised to put the hero back on it.
-  const anchor = anchoredDepth(snapshot);
+  const anchors = anchoredDepths(snapshot);
   for (const key of Object.keys(floors)) {
-    if (!withinFloorMemory(Number(key), depth, anchor)) delete floors[key];
+    if (!withinFloorMemory(Number(key), depth, anchors)) delete floors[key];
   }
   const landing = arrival && isWalkableCell(dungeon.grid, arrival.x, arrival.y)
     ? { x: arrival.x, y: arrival.y }
@@ -2484,6 +2506,8 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
     camp: { stash: { ...snapshot.camp.stash, items: snapshot.camp.stash.items.map((item) => ({ ...item })) } },
     // The deed, the furniture and the way home all belong to the run.
     house: createHouseState(snapshot.house),
+    // And so does the portal: it is the one thing that spans two floors.
+    portal: createPortalState(snapshot.portal ?? null),
     // The city's memory is the run's, not the floor's.
     crime: createCrimeState(snapshot.crime),
     companions: createCompanionParty(snapshot.companions),

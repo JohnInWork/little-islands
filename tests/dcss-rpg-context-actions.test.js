@@ -55,7 +55,7 @@ test('inspection reveals a hidden chest mechanism through the shared registry', 
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'guard',
-    'city-gate', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'door', 'trap', 'chest',
+    'city-gate', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'portal', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);
@@ -68,6 +68,18 @@ test('interaction registry owns target matching and stable command families', ()
   assert.equal(interactionDefinitionFor({ kind: 'priest' }).command, 'priest');
   assert.equal(interactionDefinitionFor({ kind: 'recruiter', rows: [] }).command, 'recruiter');
   assert.equal(interactionDefinitionFor({ kind: 'companion', id: 'hog', icon: 'x.png' }).command, 'companion-care');
+  // One object with two mouths: the same card either side, and one verb.
+  for (const end of ['city', 'dungeon']) {
+    assert.equal(interactionDefinitionFor({ kind: 'portal', end }).command, 'portal-step');
+    const model = contextActionModel({ target: { kind: 'portal', end, depth: 7 } });
+    assert.deepEqual(model.actions.map(({ id }) => id), ['enterPortal']);
+    assert.equal(model.actions[0].label, 'Войти');
+  }
+  assert.equal(interactionDefinitionFor({ kind: 'portal', end: 'nowhere' }), null);
+  // Each side says where it comes out, and only the dungeon side warns.
+  const back = contextActionModel({ target: { kind: 'portal', end: 'city', depth: 12 } });
+  assert.match(back.description, /12-й этаж/);
+  assert.equal(contextActionModel({ target: { kind: 'portal', end: 'dungeon' } }).description.includes('закроется'), true);
 });
 
 test('world-object descriptions identify visible state without predicting outcomes', () => {

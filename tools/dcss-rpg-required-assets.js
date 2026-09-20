@@ -21,6 +21,7 @@ import { CITY_ASSET_PATHS } from './dcss-rpg-city.js';
 import { stashAssetPaths } from './dcss-rpg-stash.js';
 import { ACTOR_EFFECT_PATHS } from './dcss-rpg-effects.js';
 import { SPELL_ASSET_PATHS } from './dcss-rpg-spells.js';
+import { PORTAL_PATH } from './dcss-rpg-portal.js';
 
 /** Shallow water: the only liquid in the dungeon, animated between two frames. */
 export const WATER_PATHS = Object.freeze(['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png']);
@@ -66,6 +67,7 @@ export function requiredAssetPaths(extra = []) {
     ...stashAssetPaths(),
     ...ACTOR_EFFECT_PATHS,
     ...SPELL_ASSET_PATHS,
+    PORTAL_PATH,
     ...RUNTIME_FALLBACK_PATHS,
     MERCHANT_ACTOR_PATH,
     MERCHANT_ICON_PATH,

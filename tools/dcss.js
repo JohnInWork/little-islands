@@ -301,6 +301,13 @@ import {
   unbindItem,
 } from './dcss-rpg-curse.js';
 import {
+  PORTAL_PATH,
+  canOpenPortal,
+  createPortalState,
+  openPortalAt,
+  portalCopy,
+} from './dcss-rpg-portal.js';
+import {
   CITY_CAPTAIN_ID,
   CITY_DEPTH,
   CITY_DEPTHS,
@@ -311,6 +318,7 @@ import {
   CITY_GREEN_PATHS,
   cityGreenCells,
   cityInteriorFloorCells,
+  cityPortalCell,
   CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
   isCityDepth,
@@ -708,6 +716,7 @@ const characterKnownSpells = document.querySelector('#character-known-spells');
 const characterPaperdoll = document.querySelector('#character-paperdoll');
 const characterPaperContext = characterPaperdoll.getContext('2d');
 const characterIdentity = characterSheet.querySelector('.character-identity');
+const openPortalButton = document.querySelector('#open-portal');
 const frameFailureBanner = document.querySelector('#frame-failure');
 const frameFailureText = document.querySelector('#frame-failure-text');
 const frameFailureClose = document.querySelector('#frame-failure-close');
@@ -4867,6 +4876,26 @@ function worldMarkers3D() {
       shadowOpacity: 0.3,
     });
   }
+  // The town portal. One picture for both mouths, because it is one portal —
+  // the only thing in the game that is in two places at once.
+  const portalCell = portalCellHere();
+  if (portalCell && revealed.has(`${portalCell.x},${portalCell.y}`)) {
+    const visual = portalVisual();
+    const shimmer = reducedMotion ? 0 : Math.sin(elapsed * 3.1) * 0.06;
+    markers.push({
+      id: 'marker:portal',
+      path: visual.path,
+      x: (portalCell.x + 0.5) * TILE,
+      y: (portalCell.y + 0.5) * TILE,
+      size: 60 * visual.scale,
+      facing: 1,
+      screenOffsetY: visual.offsetY + groundLift(60 * visual.scale),
+      opacity: 0.94 + shimmer,
+      hit: false,
+      shadowScale: 0.62,
+      shadowOpacity: 0.26,
+    });
+  }
   // The city's three gates, each drawn where it stands. The ordinary exit
   // marker above is skipped there: in town the east gate is one of these three.
   if (isCityDepth(dungeon.depth) && dungeon.gates) {
@@ -7740,6 +7769,7 @@ function renderHungerHud() {
 }
 
 function updateHud() {
+  updatePortalButton();
   const stats = currentHeroStats();
   const combat = currentHeroCombat();
   const filled = Math.ceil((hero.hp / stats.maxHp) * healthSegments.length);
@@ -8057,6 +8087,13 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
+  if (entry.kind === 'portal') {
+    return {
+      kind: 'portal',
+      end: isCityDepth(dungeon.depth) ? 'city' : 'dungeon',
+      depth: createPortalState(run.portal ?? null)?.depth ?? dungeon.depth,
+    };
+  }
   if (entry.kind === 'campfire') {
     const profile = alchemyProfile(currentSkillCapabilities());
     const recipe = nextBrew({ essence: interactionResourceCount(ESSENCE_ITEM_ID), profile });
@@ -8320,6 +8357,7 @@ function contextTargetIsAdjacent(entry) {
   if (propTarget) return distance <= 1;
   if (entry.kind === 'companion') return distance <= COMPANION_REACH && entry.value.dead === 0;
   if (entry.kind === 'city-gate') return distance <= 1;
+  if (entry.kind === 'portal') return distance <= 1 && Boolean(run.portal);
   // The stair is a tile the hero stands on, not one they stand beside.
   if (entry.kind === 'road-end') return distance === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
@@ -9509,8 +9547,119 @@ function nearbyContextTargets() {
   add('wildlife', nearbyWildlife());
   // A cold campfire is still something to sit at, it is just not cooking.
   if (campfire && !canCook) add('campfire', campfire);
+  add('portal', nearbyPortal());
   add('door', nearbyDoor());
   return targets;
+}
+
+/**
+ * The town portal, both ends of it.
+ *
+ * Two coordinates in the run decide everything: which floor its dungeon mouth
+ * stands on, and where. The town mouth is derived from the city itself, beside
+ * the stairs down, so only one end ever has to be remembered. Neither is a
+ * thing on a floor — that is the whole point, because a floor can be forgotten
+ * and a run cannot.
+ */
+function portalVisual() {
+  return runtimeVisual('system', 'portal', 'world', PORTAL_PATH, 1, 0);
+}
+
+/** Where the portal stands on the floor the hero is on, if it stands here. */
+function portalCellHere() {
+  const portal = createPortalState(run.portal ?? null);
+  if (!portal) return null;
+  if (isCityDepth(dungeon.depth)) return cityPortalCell(dungeon);
+  return portal.depth === dungeon.depth ? { x: portal.x, y: portal.y } : null;
+}
+
+function nearbyPortal() {
+  if (runStatus !== 'playing' || hero.dead) return null;
+  const cell = portalCellHere();
+  if (!cell) return null;
+  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return cellStepDistance(heroCell, cell) <= 1 ? cell : null;
+}
+
+/**
+ * Opening one. It goes on a free cell beside the hero, the way Diablo has
+ * always placed them: a ring under your own feet is a ring you cannot see,
+ * and stepping into it should be something you decide to do rather than
+ * something you are already standing in. If the hero is boxed in, it opens
+ * where they stand — a portal you cannot see beats a portal you cannot have.
+ */
+function openHeroPortal() {
+  const beside = freeCellNearHero() ?? {
+    x: Math.floor(hero.x / TILE),
+    y: Math.floor(hero.y / TILE),
+  };
+  const result = openPortalAt({
+    depth: dungeon.depth,
+    x: beside.x,
+    y: beside.y,
+    status: runStatus,
+    portal: run.portal ?? null,
+  });
+  if (!result.ok) {
+    const refusal = portalCopy(itemDetailLanguage).refusal[result.reason] ?? '';
+    if (refusal) showLootToast({ path: PORTAL_PATH, rarity: 0 }, refusal);
+    return false;
+  }
+  run.portal = result.portal;
+  playerHasActed = true;
+  playSound('descend');
+  const at = { x: (beside.x + 0.5) * TILE, y: (beside.y + 0.5) * TILE };
+  burst(at.x, at.y - 8, '#5aa8e0', 18);
+  addImpactWave(at.x, at.y - 2, '#5aa8e0', 46, 0);
+  updatePortalButton();
+  persistRun();
+  return true;
+}
+
+/**
+ * Stepping through, either way.
+ *
+ * The portal is spent by *arriving* on the dungeon side, never by leaving —
+ * so nothing that could go wrong in between can eat it. Going down to the city
+ * leaves it standing, which is what makes the tea Ivan asked about safe: close
+ * the game in town, come back a week later, the ring is still by the stairs.
+ */
+function stepThroughPortal() {
+  const portal = createPortalState(run.portal ?? null);
+  if (!portal || runStatus !== 'playing') return false;
+  const goingHome = !isCityDepth(dungeon.depth);
+  const arrival = goingHome ? cityPortalCell(dungeon) : { x: portal.x, y: portal.y };
+  const depth = goingHome ? CITY_DEPTH : portal.depth;
+  run = travelRunToDepth(captureRun(), depth, arrival ?? undefined);
+  // Coming back is what closes it. Leaving never does.
+  if (!goingHome) run.portal = null;
+  hero.hp = run.hero.hp;
+  hero.hunger = run.hero.hunger;
+  // `replaceFloor` is the one place that knows how to land a hero on a floor.
+  replaceFloor(run.depth, arrival ?? undefined);
+  playSound('descend');
+  showLootToast({ path: PORTAL_PATH, rarity: 2 }, romanDepth(run.depth));
+  updatePortalButton();
+  persistRun();
+  return true;
+}
+
+/** Always carried, never spent — and dark while one is already open. */
+function updatePortalButton() {
+  if (!openPortalButton) return;
+  const decision = canOpenPortal({
+    depth: dungeon.depth,
+    status: runStatus,
+    portal: run.portal ?? null,
+  });
+  const copy = portalCopy(itemDetailLanguage);
+  openPortalButton.hidden = isCityDepth(dungeon.depth) || isTerminalRunStatus(runStatus);
+  openPortalButton.disabled = !decision.ok;
+  openPortalButton.setAttribute(
+    'aria-label',
+    decision.ok ? copy.open : copy.refusal[decision.reason] ?? copy.open,
+  );
+  openPortalButton.title = openPortalButton.getAttribute('aria-label');
 }
 
 function nearbyContextTarget() {
@@ -9615,6 +9764,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     }
     descendFloor();
     return true;
+  },
+  'portal-step'() {
+    closeContextActions();
+    return stepThroughPortal();
   },
   'jail-door'({ action }) {
     closeContextActions();
@@ -16176,6 +16329,7 @@ characterSheetLanguageButton.addEventListener('click', () => {
   setInterfaceLanguage(itemDetailLanguage === 'ru' ? 'en' : 'ru');
 });
 bagButton.addEventListener('click', openInventory);
+openPortalButton.addEventListener('click', openHeroPortal);
 
 closeMerchantShopButton.addEventListener('click', closeMerchantShop);
 closeChestContainerButton.addEventListener('click', closeChestContainerUi);

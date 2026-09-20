@@ -1470,6 +1470,53 @@ body {
   box-shadow: 2px 2px 0 var(--frame-black);
 }
 
+/* Портал стоит третьим в той же колонке, под паузой: карта, пауза, портал. */
+.open-portal {
+  position: fixed;
+  z-index: 6;
+  top: max(145px, calc(env(safe-area-inset-top) + 145px));
+  right: max(13px, env(safe-area-inset-right));
+  width: 54px;
+  height: 54px;
+  padding: 7px;
+  display: grid;
+  place-items: center;
+  border-color: #46708c;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 80ms steps(2, end);
+}
+
+[data-screen='game'] .open-portal:not([hidden]) {
+  opacity: 0.94;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.open-portal img {
+  width: 38px;
+  height: 38px;
+  image-rendering: pixelated;
+}
+
+/* Открытый портал гасит кнопку, а не прячет её: второго не бывает. */
+.open-portal:disabled {
+  border-color: #2c3b45;
+  cursor: default;
+}
+
+.open-portal:disabled img {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}
+
+.open-portal:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--frame-black);
+}
+
 /*
  * The thumb dock. Everything reachable without looking sits on one of three
  * columns — bag and actions on the left, the stick in the middle, spells on the

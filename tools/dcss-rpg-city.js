@@ -363,6 +363,33 @@ export function cityGreenCells(plan) {
   return cells;
 }
 
+/** The eight around a cell, in reading order, so the answer never wobbles. */
+function neighboursOf({ x, y }) {
+  const cells = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      cells.push({ x: x + dx, y: y + dy });
+    }
+  }
+  return cells;
+}
+
+/**
+ * Where the town end of a portal stands.
+ *
+ * Beside the stairs down: the way into the dungeon and the way back from it
+ * belong in the same corner of town, and a player who has used the gate once
+ * knows where to look. Derived from the level, never stored — a portal is two
+ * coordinates in the dungeon and this side is always the same place.
+ */
+export function cityPortalCell(level) {
+  const gate = level?.gates?.deep;
+  if (!gate || !Array.isArray(level.grid)) return null;
+  const free = neighboursOf(gate).find(({ x, y }) => level.grid[y]?.[x] === CITY_FLOOR);
+  return free ?? { x: gate.x, y: gate.y };
+}
+
 export function cityMerchantSpots(plan) {
   const spots = [];
   for (const block of plan.blocks) {
