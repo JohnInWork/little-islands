@@ -405,4 +405,9 @@ test('карточка навыка показывает лестницу', asyn
   for (const state of ['taken', 'next', 'later']) {
     assert.match(css, new RegExp(`\\.skill-ladder-step\\[data-state='${state}'\\]`), state);
   }
+  // На телефоне в вертикали ступень складывается в две строки: в два столбца
+  // «Ранг 2 · ур. 4 · ЛОВ 5» съедает половину карточки, и эффекты ломаются в
+  // пять строк лапши на оставшихся ста пикселях.
+  const narrow = css.slice(css.indexOf('@media (max-width: 640px) and (orientation: portrait) {', css.indexOf('.skill-ladder-step')));
+  assert.match(narrow.slice(0, 220), /\.skill-ladder-step \{\s*grid-template-columns: 1fr;/);
 });
