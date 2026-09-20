@@ -111,7 +111,13 @@ import {
 } from './dcss-rpg-visuals.js';
 import { itemPresentation } from './dcss-rpg-item-details.js';
 import { fittedSpriteRect, opaquePixelBounds } from './dcss-rpg-item-sprites.js';
-import { createPadState, readPad } from './dcss-rpg-gamepad.js';
+import {
+  chooseTarget,
+  createPadState,
+  padDpadDirection,
+  padStickDirection,
+  readPad,
+} from './dcss-rpg-gamepad.js';
 import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
@@ -768,6 +774,10 @@ const interactActions = document.querySelector('#interact-actions');
  * «стандартными», так что таблица одна на обе приставки.
  */
 const heroPad = createPadState();
+/** Что сейчас выбрано стиком на экране игры. Хранится по селектору, не по узлу:
+ *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
+let padTargetKey = null;
+let padStick = null;
 const inventory = document.querySelector('#inventory');
 const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
@@ -16417,15 +16427,27 @@ function moveScreenFocus(direction) {
   targets[next].focus();
 }
 
-/** Круг — «назад»: закрывает тот экран, который сейчас открыт. */
+/**
+ * Круг — «назад»: закрывает тот экран, который сейчас открыт.
+ *
+ * Список закрывателей перечислен руками намеренно. Соблазн послать в окно
+ * Escape и положиться на клавиатурный обработчик велик, но он знает не все
+ * экраны — карту этажа, например, закрывает своя кнопка, — и «назад», который
+ * иногда не работает, хуже, чем «назад», которого нет.
+ */
 function closeTopScreen() {
   if (uiScreen === 'inventory') closeInventory();
   else if (uiScreen === 'character') closeCharacterSheet();
   else if (uiScreen === 'context') closeContextActions({ restoreFocus: true });
+  else if (uiScreen === 'map') closeFloorMap();
   // На паузе «назад» означает «продолжить»: кнопки выхода из неё нет, а
   // запереть игрока на паузе с падом в руках — худшее, что может сделать ввод.
   else if (uiScreen === 'menu' && menuMode === 'pause') startGameFromMenu();
-  else document.querySelector(`[data-screen='${uiScreen}'] [data-close]`)?.click();
+  else {
+    const close = document.querySelector(`[data-screen='${uiScreen}'] [data-close]`)
+      ?? document.querySelector(`[data-screen='${uiScreen}'] [aria-label^='Закрыть']`);
+    close?.click();
+  }
 }
 
 /**
@@ -16434,25 +16456,85 @@ function closeTopScreen() {
  * Браузер отдаёт состояние, а не события, поэтому нажатие от удержания отличает
  * модуль ввода, а не этот код. Здесь только раздача: что какая кнопка делает.
  */
+/**
+ * Кнопки экрана, между которыми ходит выбор стика.
+ *
+ * Порядок здесь не важен — важно, что все они видимы и нажимаемы: выбор
+ * пространственный, и он считает по тому, где кнопка на самом деле лежит.
+ */
+function padTargets() {
+  const nodes = [
+    bagButton,
+    characterSheetButton,
+    depthBadge,
+    openPortalButton,
+    pauseGameButton,
+    ...spellBar.querySelectorAll('.spell-action'),
+    ...interactActions.querySelectorAll('.interact-action'),
+  ];
+  return nodes.filter((node) => node && !node.hidden && !node.disabled && node.offsetParent !== null
+    || (node && !node.hidden && !node.disabled && getComputedStyle(node).position === 'fixed'
+      && node.getBoundingClientRect().width > 0));
+}
+
+/** Ключ кнопки: у постоянных — их id, у пересобираемых — их подпись. */
+const padKeyOf = (node) => node.id || node.getAttribute('aria-label') || '';
+
+function paintPadTarget(chosen) {
+  for (const node of document.querySelectorAll('[data-pad-target]')) {
+    if (node !== chosen) delete node.dataset.padTarget;
+  }
+  if (chosen) chosen.dataset.padTarget = 'true';
+}
+
+/**
+ * Стик выбирает окно, крестовина ходит.
+ *
+ * Иван: «кнопок в игре мало — он только ходит и кастует; сделать игру чисто на
+ * крестовине, а на стике — выбор окна, которое он хочет нажать, и нижней правой
+ * кнопкой открывает». Ходьба — это шаг по клетке, ей нужен щелчок крестовины;
+ * стик тогда освобождается под то, чего в игре с тремя кнопками всегда не
+ * хватает, — под сам интерфейс.
+ */
 function pollGamepads(delta) {
   if (typeof navigator.getGamepads !== 'function') return;
   const [pad] = [...navigator.getGamepads()].filter((entry) => entry && entry.connected !== false);
-  if (!pad) return;
-  const { step, edge } = readPad(heroPad, pad, delta);
-  if (uiScreen === 'game') {
-    if (step) queueDirectionalMove(step);
-    if (edge.has('cross')) {
-      // Крестик — «потрогай то, что рядом»: атака делается шагом в противника.
-      const button = interactActions.querySelector('.interact-action');
-      if (button) button.click();
-    }
-    if (edge.has('triangle')) openCharacterSheet();
-  } else {
-    if (step) moveScreenFocus(step);
-    if (edge.has('cross')) document.activeElement?.click?.();
-    if (edge.has('circle')) closeTopScreen();
+  if (!pad) {
+    paintPadTarget(null);
+    return;
   }
-  if (edge.has('square')) (uiScreen === 'inventory' ? closeInventory : openInventory)();
+  const { edge } = readPad(heroPad, pad, delta);
+  const walk = padDpadDirection(pad);
+  const aim = padStickDirection(pad);
+  // Наклон считается один раз на движение стика, а не каждый кадр: иначе выбор
+  // пролетает через весь экран за одно движение большого пальца.
+  const aimed = aim && aim !== padStick ? aim : null;
+  padStick = aim;
+
+  if (uiScreen !== 'game') {
+    paintPadTarget(null);
+    if (aimed) moveScreenFocus(aimed);
+    if (edge.has('cross')) document.activeElement?.click?.();
+    if (edge.has('circle') || edge.has('square')) closeTopScreen();
+    return;
+  }
+
+  if (walk) queueDirectionalMove(walk);
+  const targets = padTargets();
+  const rects = targets.map((node) => {
+    const box = node.getBoundingClientRect();
+    return { id: padKeyOf(node), x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  });
+  if (aimed) padTargetKey = chooseTarget({ rects, from: padTargetKey, direction: aimed });
+  let chosen = targets.find((node) => padKeyOf(node) === padTargetKey) ?? null;
+  // Выбранное исчезло — например, ушла колонка взаимодействия. Не молчим:
+  // переносим выбор на рюкзак, он есть всегда.
+  if (!chosen && padTargetKey) {
+    chosen = bagButton;
+    padTargetKey = padKeyOf(bagButton);
+  }
+  paintPadTarget(chosen);
+  if (edge.has('cross')) chosen?.click();
   if (edge.has('options')) openMainMenu();
 }
 

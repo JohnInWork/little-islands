@@ -54,25 +54,74 @@ export const STEP_REPEAT_SECONDS = 0.16;
 const clamp = (value) => (Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0);
 
 /**
- * Куда наклонён стик — одной из четырёх сторон.
+ * Крестовина и стик делают разное, и это главное решение раскладки.
  *
- * Игра ходит по клеткам, диагоналей у шага нет, поэтому наклон сводится к
- * стороне: побеждает та ось, которой наклонили сильнее. Крестовина считается
- * тем же стиком — ей пользуются те, кому так привычнее.
+ * Иван: «кнопок в игре мало — он только ходит и кастует; сделать игру чисто на
+ * крестовине, а на стике — выбор окна, которое он хочет нажать, и нижней правой
+ * кнопкой открывает». Так и есть: ходьба — это шаг по клетке, ей нужна
+ * крестовина с её щелчком, а стик освобождается под то, чего в игре с тремя
+ * кнопками всегда не хватает, — под сам интерфейс.
  */
-export function padDirection(pad, deadZone = STICK_DEAD_ZONE) {
-  if (!pad) return null;
-  const buttons = pad.buttons ?? [];
+export function padDpadDirection(pad) {
+  const buttons = pad?.buttons ?? [];
   const held = (index) => buttons[index]?.pressed === true;
   if (held(PAD_BUTTONS.up)) return 'up';
   if (held(PAD_BUTTONS.down)) return 'down';
   if (held(PAD_BUTTONS.left)) return 'left';
   if (held(PAD_BUTTONS.right)) return 'right';
-  const x = clamp(pad.axes?.[0]);
-  const y = clamp(pad.axes?.[1]);
+  return null;
+}
+
+/** Наклон стика стороной. Диагоналей нет: выбор идёт по четырём направлениям. */
+export function padStickDirection(pad, deadZone = STICK_DEAD_ZONE) {
+  const x = clamp(pad?.axes?.[0]);
+  const y = clamp(pad?.axes?.[1]);
   if (Math.abs(x) < deadZone && Math.abs(y) < deadZone) return null;
   if (Math.abs(x) >= Math.abs(y)) return x < 0 ? 'left' : 'right';
   return y < 0 ? 'up' : 'down';
+}
+
+/** Куда наклонили хоть чем-нибудь: крестовина главнее, она точнее. */
+export function padDirection(pad, deadZone = STICK_DEAD_ZONE) {
+  if (!pad) return null;
+  return padDpadDirection(pad) ?? padStickDirection(pad, deadZone);
+}
+
+/**
+ * Какая кнопка интерфейса ближайшая в эту сторону.
+ *
+ * Выбор по списку («следующая, предыдущая») на экране, где кнопки стоят по
+ * углам, читается как лотерея: игрок тянет стик вправо и попадает в кнопку
+ * снизу слева. Поэтому выбор пространственный — берётся та, что действительно
+ * лежит в ту сторону, и из них ближайшая.
+ *
+ * Сторона считается по вектору между центрами: смещение вдоль выбранной оси
+ * должно быть больше, чем поперёк, иначе кнопка «сбоку-сверху» украдёт ход
+ * вверх. Расстояние поперёк оси весит вдвое — из двух одинаково далёких
+ * выигрывает та, что ближе к прямой линии взгляда.
+ */
+export function chooseTarget({ rects, from = null, direction }) {
+  const list = Array.isArray(rects) ? rects.filter(Boolean) : [];
+  if (list.length === 0 || !direction) return null;
+  const current = from ? list.find(({ id }) => id === from) ?? null : null;
+  if (!current) return list[0].id;
+  const axis = direction === 'left' || direction === 'right' ? 'x' : 'y';
+  const sign = direction === 'left' || direction === 'up' ? -1 : 1;
+  const across = axis === 'x' ? 'y' : 'x';
+  let best = null;
+  let bestCost = Infinity;
+  for (const rect of list) {
+    if (rect.id === current.id) continue;
+    const along = (rect[axis] - current[axis]) * sign;
+    const side = Math.abs(rect[across] - current[across]);
+    if (along <= 0 || along < side) continue;
+    const cost = along + side * 2;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = rect.id;
+    }
+  }
+  return best ?? current.id;
 }
 
 /** Набор нажатых сейчас кнопок — по именам, а не по номерам. */

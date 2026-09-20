@@ -6,10 +6,13 @@ import {
   STICK_DEAD_ZONE,
   assignPads,
   createPadState,
+  chooseTarget,
   padDirection,
+  padDpadDirection,
   padEdge,
   padLabel,
   padPressed,
+  padStickDirection,
   readPad,
 } from '../tools/dcss-rpg-gamepad.js';
 
@@ -78,4 +81,45 @@ test('обе приставки узнаются по имени', () => {
   assert.equal(padLabel(pad({ id: 'Wireless Controller (Vendor: 054c Product: 09cc)' })), 'DualShock 4');
   assert.equal(padLabel(pad({ id: 'Xbox 360 Controller' })), 'Геймпад');
   assert.equal(padLabel(null), null);
+});
+
+test('крестовина ходит, стик выбирает — это разные руки', () => {
+  const both = pad({ axes: [1, 0], held: [PAD_BUTTONS.up] });
+  assert.equal(padDpadDirection(both), 'up', 'крестовина слышит только себя');
+  assert.equal(padStickDirection(both), 'right', 'стик слышит только себя');
+  // Общий вопрос «куда наклонили» отдаёт крестовину: она точнее.
+  assert.equal(padDirection(both), 'up');
+  assert.equal(padDpadDirection(pad({ axes: [1, 0] })), null);
+  assert.equal(padStickDirection(pad({ held: [PAD_BUTTONS.up] })), null);
+});
+
+test('стик выбирает кнопку по стороне, а не по порядку в списке', () => {
+  // Расстановка как на экране: рюкзак слева внизу, карта и пауза справа сверху.
+  const rects = [
+    { id: 'bag', x: 40, y: 600 },
+    { id: 'map', x: 900, y: 40 },
+    { id: 'pause', x: 900, y: 110 },
+    { id: 'spell', x: 900, y: 600 },
+  ];
+  assert.equal(chooseTarget({ rects, from: 'bag', direction: 'right' }), 'spell', 'вправо — то, что справа');
+  assert.equal(chooseTarget({ rects, from: 'spell', direction: 'up' }), 'pause', 'вверх — ближайшее сверху');
+  assert.equal(chooseTarget({ rects, from: 'pause', direction: 'up' }), 'map');
+  assert.equal(chooseTarget({ rects, from: 'map', direction: 'down' }), 'pause');
+  // В пустую сторону выбор не срывается: остаёшься там, где был.
+  assert.equal(chooseTarget({ rects, from: 'map', direction: 'up' }), 'map');
+  // Без выбора берётся первая, без списка — ничего.
+  assert.equal(chooseTarget({ rects, from: null, direction: 'down' }), 'bag');
+  assert.equal(chooseTarget({ rects: [], direction: 'down' }), null);
+  assert.equal(chooseTarget({ rects, from: 'bag', direction: null }), null);
+});
+
+test('кнопка сбоку не крадёт ход вверх', () => {
+  // Соседняя по горизонтали стоит чуть выше — но это движение вбок, не вверх.
+  const rects = [
+    { id: 'here', x: 500, y: 400 },
+    { id: 'beside', x: 900, y: 380 },
+    { id: 'above', x: 520, y: 100 },
+  ];
+  assert.equal(chooseTarget({ rects, from: 'here', direction: 'up' }), 'above');
+  assert.equal(chooseTarget({ rects, from: 'here', direction: 'right' }), 'beside');
 });
