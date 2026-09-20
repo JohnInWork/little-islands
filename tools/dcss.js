@@ -767,6 +767,7 @@ const interactActions = document.querySelector('#interact-actions');
 const coopHud = document.querySelector('#coop-hud');
 const coopHudName = document.querySelector('#coop-name');
 const coopHealthPips = [...document.querySelectorAll('#coop-health i')];
+const coopFace = document.querySelector('#coop-face');
 const coopHudHealth = document.querySelector('#coop-health-text');
 const coopHudPurse = document.querySelector('#coop-purse');
 const coopHudPack = document.querySelector('#coop-pack');
@@ -819,7 +820,7 @@ const levelUpCelebration = document.querySelector('#level-up-celebration');
 const levelUpLabel = document.querySelector('#level-up-label');
 const levelUpValue = document.querySelector('#level-up-value');
 const levelUpPoints = document.querySelector('#level-up-points');
-const healthSegments = [...document.querySelectorAll('.health i')];
+const healthSegments = [...document.querySelectorAll('.hud-p1 .health i')];
 const hungerMeter = document.querySelector('#hunger-meter');
 const restMeter = document.querySelector('#rest-meter');
 const restFill = document.querySelector('#rest-fill');
@@ -15854,8 +15855,10 @@ function updateCoopHud() {
   const on = Boolean(ally?.pilot);
   // Открытый рюкзак встаёт на место полоски: два счёта друг на друге читаются
   // как один испорченный.
+  document.body.dataset.coop = coopActive ? 'on' : 'off';
   coopHud.hidden = !on || mateBagOpen;
   if (!on) return;
+  coopFace.src = assetUrl(ally.spritePath ?? 'mon/unique/edmund.png');
   const record = run.companions[ally.companionIndex ?? 0];
   coopHudName.textContent = (record && companionName(record.id, itemDetailLanguage)) || 'Напарник';
   const hp = Math.max(0, Math.round(ally.hp));
@@ -15866,6 +15869,7 @@ function updateCoopHud() {
   coopHealthPips.forEach((pip, index) => pip.classList.toggle('empty', index >= filled));
   coopHudPurse.textContent = String(mateGold);
   coopHudPack.textContent = String(matePack.length);
+  coopBagPurse.textContent = `${mateGold}●`;
 }
 
 /**

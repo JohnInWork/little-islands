@@ -159,7 +159,8 @@
         <button id="frame-failure-close" type="button">Понятно</button>
       </div>
 
-      <header class="hud pixel-frame" aria-label="Состояние героя">
+      <header class="hud hud-p1 pixel-frame" aria-label="Состояние героя">
+        <span class="coop-tag coop-tag-one hud-tag" aria-hidden="true">P1</span>
         <div class="portrait" aria-hidden="true"><span>ᚱ</span></div>
         <div class="vitals">
           <div class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -364,11 +365,22 @@
         </div>
       </section>
 
-      <div id="coop-hud" class="coop-hud pixel-frame" hidden>
-        <b><span class="coop-tag">P2</span> <span id="coop-name">Напарник</span></b>
-        <div id="coop-health" class="coop-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <small><span id="coop-health-text">0/0</span> ❤ · <span id="coop-purse">0</span>● · <span id="coop-pack">0</span> вещей</small>
-      </div>
+      <!--
+        Половина второго игрока: та же шапка, что у героя, только справа и с
+        его собственными числами. Голода и сна у напарника нет, поэтому на их
+        месте — счёт вещей: строка обязана отвечать на «как я и что у меня».
+      -->
+      <header id="coop-hud" class="hud hud-p2 pixel-frame" aria-label="Состояние напарника" hidden>
+        <div class="portrait" aria-hidden="true"><img id="coop-face" alt="" src="../assets/dcss-preview/mon/unique/edmund.png" /></div>
+        <div class="vitals">
+          <div id="coop-health" class="health" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <small class="hud-line"><span class="coop-tag">P2</span> <span id="coop-name">Напарник</span> · <span id="coop-health-text">0/0</span> ❤ · <span id="coop-pack">0</span> вещей</small>
+        </div>
+        <div class="purse" aria-label="Золото напарника">
+          <img class="purse-coin" src="../assets/dcss-preview/item/gold/16.png" alt="" />
+          <b id="coop-purse">0</b>
+        </div>
+      </header>
 
       <p id="door-announcement" class="screen-reader-message" role="status" aria-live="polite"></p>
 
