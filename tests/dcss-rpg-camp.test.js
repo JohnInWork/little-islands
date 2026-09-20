@@ -460,3 +460,65 @@ test('the runtime swaps the flame for cold wood and takes the cooking with it', 
   assert.match(burnBody, /applyCampProps\(\);/, 'the flame is still drawn after it went out');
   assert.ok(CAMP_ASSET_PATHS.includes(CAMP_FIRE_OUT_PATH), 'the cold wood does not ship');
 });
+
+/**
+ * «Если коридор узкий в одну клетку? у нас все это продумано?» — нет, не было.
+ * Everything in a camp used to be one cell, so `campLayout` only ever asked
+ * whether a cell was floor. A tent is about two cells across and two tall, and
+ * in a one-cell corridor it would have been drawn standing through the wall.
+ */
+test('a tent needs a room, and a one-cell corridor is refused', () => {
+  const corridor = [
+    '#########',
+    '.........',
+    '#########',
+  ].map((row) => [...row]);
+  const room = [
+    '#########',
+    '#.......#',
+    '#.......#',
+    '#.......#',
+    '#########',
+  ].map((row) => [...row]);
+
+  // A fire alone fits anywhere: one cell, one picture.
+  const fireInCorridor = campLayout({ cell: { x: 4, y: 1 }, features: ['fire'], grid: corridor });
+  assert.equal(fireInCorridor.length, 1);
+
+  // A tent does not: nothing beside the corridor cell is open.
+  assert.deepEqual(
+    campLayout({ cell: { x: 4, y: 1 }, features: ['fire', 'bedroll'], grid: corridor }),
+    [],
+    'the tent was pitched inside the corridor wall',
+  );
+  // And the camp says why, in words that already existed.
+  const refused = canPitchCamp({
+    profile: campProfile({ campRank: 2, campRestPercent: 25 }),
+    kits: 1,
+    grid: corridor,
+    cell: { x: 4, y: 1 },
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.reason, 'no-room');
+  assert.ok(campRefusalText('no-room', 'ru').length > 0);
+
+  // In a room it pitches, and the tent stands where it has space on both sides
+  // and behind — never against a wall it would be drawn through.
+  const pitched = campLayout({ cell: { x: 4, y: 2 }, features: ['fire', 'bedroll', 'chest'], grid: room });
+  assert.equal(pitched.length, 3);
+  const tent = pitched.find(({ feature }) => feature === 'bedroll');
+  assert.ok(tent, 'the room lost the tent');
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1]]) {
+    assert.equal(room[tent.y + dy][tent.x + dx], '.', `the tent has a wall at ${dx},${dy}`);
+  }
+
+  // A doorway is a corridor too: standing in one, the camp is refused.
+  const doorway = [
+    '#########',
+    '#...#...#',
+    '#####.###',
+    '#...#...#',
+    '#########',
+  ].map((row) => [...row]);
+  assert.deepEqual(campLayout({ cell: { x: 5, y: 2 }, features: ['fire', 'bedroll'], grid: doorway }), []);
+});

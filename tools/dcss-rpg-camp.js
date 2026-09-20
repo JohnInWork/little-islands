@@ -116,6 +116,31 @@ function isOpenCell(grid, x, y) {
 }
 
 /**
+ * A tent is not a bedroll: it is about two cells wide and two tall, so it needs
+ * a room rather than a crack. Ivan asked the right question — «если коридор
+ * узкий в одну клетку?» — and the honest answer was that nothing checked: the
+ * camp would pitch in a one-cell corridor and the tent would be drawn standing
+ * through the wall above it.
+ *
+ * So the tent's cell has to have open ground to the left, to the right and
+ * behind it. Everything else in a camp is one cell and fits anywhere; when no
+ * cell has the room, the whole camp refuses with «мало места», which is a
+ * refusal that already exists and already explains itself. A corridor is a bad
+ * place to sleep, and the game is allowed to say so.
+ */
+const TENT_CLEARANCE = Object.freeze([
+  Object.freeze({ x: -1, y: 0 }),
+  Object.freeze({ x: 1, y: 0 }),
+  Object.freeze({ x: 0, y: -1 }),
+]);
+
+const WIDE_FEATURES = new Set(['bedroll']);
+
+function hasRoomForTent(grid, x, y) {
+  return TENT_CLEARANCE.every((offset) => isOpenCell(grid, x + offset.x, y + offset.y));
+}
+
+/**
  * Where the camp's things stand: around the hero, in a stable order, so the
  * same spot always produces the same little camp.
  */
@@ -129,8 +154,10 @@ export function campLayout({ cell, features = [], grid, occupied = [] } = {}) {
     const x = cell.x + offset.x;
     const y = cell.y + offset.y;
     if (!isOpenCell(grid, x, y) || taken.has(`${x},${y}`)) continue;
+    const feature = features[places.length];
+    if (WIDE_FEATURES.has(feature) && !hasRoomForTent(grid, x, y)) continue;
     taken.add(`${x},${y}`);
-    places.push({ feature: features[places.length], x, y });
+    places.push({ feature, x, y });
   }
   return places.length === features.length ? Object.freeze(places.map(Object.freeze)) : [];
 }

@@ -2582,10 +2582,12 @@ const CAMP_PROP_VISUALS = Object.freeze({
   bedroll: Object.freeze({
     path: CAMP_BEDROLL_PATH,
     frames: Object.freeze([CAMP_BEDROLL_PATH]),
-    // A tent is a thing you walk into, not a thing you step over: it stands
-    // about two cells wide and looks like shelter beside a person.
-    size: 132,
-    screenOffsetY: -34,
+    // A tent is a thing you walk into, not a thing you step over — but it is
+    // also the only piece of camp wider than its own cell, so it is kept as
+    // small as still reads as shelter: a bit under two cells, and `campLayout`
+    // will not put one where the walls are closer than that.
+    size: 112,
+    screenOffsetY: -28,
     light: null,
     interactionId: 'camp-rest',
   }),
