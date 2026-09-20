@@ -117,6 +117,7 @@ import {
   padDpadDirection,
   padStickDirection,
   readPad,
+  stepFor,
 } from './dcss-rpg-gamepad.js';
 import { graveyardOnFloor, graveyardRoomIndex } from './dcss-rpg-graveyard.js';
 import { materializeItemAffixes } from './dcss-rpg-affixes.js';
@@ -774,6 +775,8 @@ const interactActions = document.querySelector('#interact-actions');
  * «стандартными», так что таблица одна на обе приставки.
  */
 const heroPad = createPadState();
+/** Отдельный счётчик повтора для ходьбы: стик выбирает окна и шагать не должен. */
+const heroWalk = createPadState();
 /** Что сейчас выбрано стиком на экране игры. Хранится по селектору, не по узлу:
  *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
 let padTargetKey = null;
@@ -16510,6 +16513,7 @@ function pollGamepads(delta) {
   const [pad] = [...navigator.getGamepads()].filter((entry) => entry && entry.connected !== false);
   if (!pad) {
     paintPadTarget(null);
+    stepFor(heroWalk, null, delta);
     return;
   }
   const { edge } = readPad(heroPad, pad, delta);
@@ -16528,7 +16532,10 @@ function pollGamepads(delta) {
     return;
   }
 
-  if (walk) queueDirectionalMove(walk);
+  // Шаг по расписанию, а не каждый кадр: игра ходит по клетке, и поток из
+  // шестидесяти шагов в секунду сбрасывает начатый шаг снова и снова.
+  const walkStep = stepFor(heroWalk, walk, delta);
+  if (walkStep) queueDirectionalMove(walkStep);
   const targets = padTargets();
   const rects = targets.map((node) => {
     const box = node.getBoundingClientRect();

@@ -69,7 +69,46 @@ export function padDpadDirection(pad) {
   if (held(PAD_BUTTONS.down)) return 'down';
   if (held(PAD_BUTTONS.left)) return 'left';
   if (held(PAD_BUTTONS.right)) return 'right';
-  return null;
+  return hatDirection(pad?.axes?.[HAT_AXIS]);
+}
+
+/** Ось «шляпки»: у части геймпадов крестовины-кнопок нет вовсе. */
+export const HAT_AXIS = 9;
+
+/**
+ * Крестовина, пришедшая осью.
+ *
+ * Стандартная раскладка отдаёт крестовину кнопками 12–15, но не всякий пад в
+ * неё попадает: часть DualShock 4 по Bluetooth приходит «нестандартной», и
+ * тогда крестовина — одна ось с восемью положениями по кругу, от −1 (вверх) по
+ * часовой стрелке до 1 (вверх-влево), а покой лежит вне отрезка. Диагонали
+ * сводятся к стороне, потому что шаг у игры по клетке.
+ */
+const HAT_POSITIONS = Object.freeze([
+  [-1, 'up'],
+  [-5 / 7, 'right'],
+  [-3 / 7, 'right'],
+  [-1 / 7, 'down'],
+  [1 / 7, 'down'],
+  [3 / 7, 'left'],
+  [5 / 7, 'left'],
+  [1, 'up'],
+]);
+
+export function hatDirection(value) {
+  if (!Number.isFinite(value) || value < -1.05 || value > 1.05) return null;
+  // Ближайшее из восьми известных положений, а не арифметика по кругу:
+  // сектора лежат неровно, и округление съезжало на трёх из восьми.
+  let best = null;
+  let bestGap = Infinity;
+  for (const [at, direction] of HAT_POSITIONS) {
+    const gap = Math.abs(value - at);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = direction;
+    }
+  }
+  return bestGap <= 1 / 7 ? best : null;
 }
 
 /** Наклон стика стороной. Диагоналей нет: выбор идёт по четырём направлениям. */
@@ -183,25 +222,35 @@ export function createPadState() {
   return { pressed: new Set(), direction: null, repeatIn: 0 };
 }
 
+/**
+ * Шаг с повтором: сразу при наклоне, потом через `STEP_REPEAT_SECONDS`.
+ *
+ * Без этого зажатая крестовина шлёт шаг каждый кадр — шестьдесят раз в
+ * секунду. Игра ходит по клетке: такой поток сбрасывает начатый шаг снова и
+ * снова, и герой стоит на месте, хотя ввод «работает». Ровно поэтому экранный
+ * джойстик в игре тоже повторяет шаг, а не шлёт его непрерывно.
+ */
+export function stepFor(state, direction, delta) {
+  if (!direction) {
+    state.direction = null;
+    state.repeatIn = 0;
+    return null;
+  }
+  if (direction !== state.direction) {
+    state.direction = direction;
+    state.repeatIn = STEP_REPEAT_SECONDS;
+    return direction;
+  }
+  state.repeatIn -= Number.isFinite(delta) ? delta : 0;
+  if (state.repeatIn > 0) return null;
+  state.repeatIn = STEP_REPEAT_SECONDS;
+  return direction;
+}
+
 export function readPad(state, pad, delta, deadZone = STICK_DEAD_ZONE) {
   const pressed = padPressed(pad);
   const edge = padEdge(state.pressed, pressed);
   state.pressed = pressed;
   const direction = padDirection(pad, deadZone);
-  let step = null;
-  if (!direction) {
-    state.direction = null;
-    state.repeatIn = 0;
-  } else if (direction !== state.direction) {
-    state.direction = direction;
-    state.repeatIn = STEP_REPEAT_SECONDS;
-    step = direction;
-  } else {
-    state.repeatIn -= Number.isFinite(delta) ? delta : 0;
-    if (state.repeatIn <= 0) {
-      state.repeatIn = STEP_REPEAT_SECONDS;
-      step = direction;
-    }
-  }
-  return { step, direction, edge };
+  return { step: stepFor(state, direction, delta), direction, edge };
 }

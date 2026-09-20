@@ -12,8 +12,10 @@ import {
   padEdge,
   padLabel,
   padPressed,
+  hatDirection,
   padStickDirection,
   readPad,
+  stepFor,
 } from '../tools/dcss-rpg-gamepad.js';
 
 const pad = ({ axes = [0, 0], held = [], id = 'Wireless Controller', connected = true } = {}) => ({
@@ -122,4 +124,35 @@ test('кнопка сбоку не крадёт ход вверх', () => {
   ];
   assert.equal(chooseTarget({ rects, from: 'here', direction: 'up' }), 'above');
   assert.equal(chooseTarget({ rects, from: 'here', direction: 'right' }), 'beside');
+});
+
+test('крестовина, пришедшая осью, читается всеми восемью положениями', () => {
+  // Часть DualShock 4 по Bluetooth приходит «нестандартной»: кнопок 12–15 нет
+  // вовсе, а крестовина — одна ось. Диагонали сводятся к стороне: шаг по клетке.
+  assert.equal(hatDirection(-1), 'up');
+  assert.equal(hatDirection(-5 / 7), 'right');
+  assert.equal(hatDirection(-3 / 7), 'right');
+  assert.equal(hatDirection(-1 / 7), 'down');
+  assert.equal(hatDirection(1 / 7), 'down');
+  assert.equal(hatDirection(3 / 7), 'left');
+  assert.equal(hatDirection(5 / 7), 'left');
+  assert.equal(hatDirection(1), 'up');
+  // Покой у шляпки лежит вне отрезка, и это не направление.
+  assert.equal(hatDirection(3.2857), null);
+  assert.equal(hatDirection(undefined), null);
+  // Пад без кнопок крестовины всё равно ходит.
+  const hatPad = { ...pad(), axes: [0, 0, 0, 0, 0, 0, 0, 0, 0, -1] };
+  assert.equal(padDpadDirection(hatPad), 'up');
+});
+
+test('зажатая крестовина шлёт шаг по расписанию, а не каждый кадр', () => {
+  const state = createPadState();
+  const frame = 1 / 60;
+  assert.equal(stepFor(state, 'up', frame), 'up', 'первый шаг сразу');
+  let sent = 0;
+  for (let i = 0; i < 60; i += 1) if (stepFor(state, 'up', frame)) sent += 1;
+  // За секунду удержания — единицы шагов, а не шестьдесят: игра ходит по клетке.
+  assert.ok(sent >= 4 && sent <= 8, `за секунду ушло ${sent} шагов`);
+  assert.equal(stepFor(state, null, frame), null);
+  assert.equal(stepFor(state, 'up', frame), 'up', 'после отпускания снова сразу');
 });
