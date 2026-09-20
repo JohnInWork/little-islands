@@ -723,6 +723,9 @@ const characterAttributePoints = document.querySelector('#character-attribute-po
 const characterAttributeRows = document.querySelector('#character-attribute-rows');
 const characterSkillPoints = document.querySelector('#character-skill-points');
 const characterSkillGroups = document.querySelector('#character-skill-groups');
+const characterSkillLadder = document.querySelector('#character-skill-ladder');
+/** Подписи лестницы приходят из модели навыков — слова принадлежат правилам. */
+let skillLadderCopy = { rank: 'Ранг', level: 'ур.' };
 const characterSkillDetail = document.querySelector('#character-skill-detail');
 const characterSkillDetailName = document.querySelector('#character-skill-detail-name');
 const characterSkillDetailBranch = document.querySelector('#character-skill-detail-branch');
@@ -3512,6 +3515,7 @@ function renderCharacterSkills() {
   characterSkills.hidden = !model.visible;
   characterSkillsTitle.textContent = model.title;
   characterSkillPoints.textContent = `${model.pointsLabel}: ${model.points}`;
+  skillLadderCopy = { rank: model.ladderRankLabel, level: model.ladderLevelLabel };
   characterSkillGroups.replaceChildren(...model.groups.map((group) => {
     const section = document.createElement('section');
     section.className = 'character-skill-group';
@@ -3562,11 +3566,42 @@ function selectSkill(skill) {
   requestAnimationFrame(() => (skill.canLearn ? characterSkillLearn : characterSkillCancel).focus());
 }
 
+/**
+ * Лестница рангов: по строке на ступень, и в каждой — что она даёт.
+ *
+ * До этого карточка показывала одно слитное описание («радиус 2/3/4 клеток»),
+ * и игрок сам разбирался, какая цифра к какому рангу. Иван: «суть в том,
+ * чтобы я удобно видел, что на каком уровне навыка я получаю». Ступень, на
+ * которой герой уже стоит, помечена: тогда видно не только куда идти, но и
+ * что уже куплено.
+ */
+function renderSkillLadder(skill, copy) {
+  if (!characterSkillLadder) return;
+  const attributes = attributeCopy(itemDetailLanguage);
+  characterSkillLadder.replaceChildren(...skill.ladder.map((step) => {
+    const row = document.createElement('li');
+    row.className = 'skill-ladder-step';
+    row.dataset.state = step.rank <= skill.rank ? 'taken' : step.rank === skill.rank + 1 ? 'next' : 'later';
+    const head = document.createElement('b');
+    const need = [`${copy.rank} ${step.rank}`];
+    if (Number.isInteger(step.heroLevel)) need.push(`${copy.level} ${step.heroLevel}`);
+    if (step.attribute) need.push(`${attributes[step.attribute].short} ${step.attributeValue}`);
+    head.textContent = need.join(' · ');
+    const gains = document.createElement('span');
+    gains.textContent = step.gains
+      .map(({ label, value }) => (value ? `${label} ${value}` : label))
+      .join(' · ');
+    row.append(head, gains);
+    return row;
+  }));
+}
+
 function showSkillCard(skill) {
   characterSkillDetail.hidden = false;
   characterSkillDetailName.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}`;
   renderSkillBranch(characterSkillDetailBranch, skill.branch);
   characterSkillDetailText.textContent = skill.description;
+  renderSkillLadder(skill, skillLadderCopy);
   characterSkillDetailNext.textContent = skill.nextRankNote;
   characterSkillDetailCost.textContent = skill.costLabel;
   characterSkillLearn.textContent = skill.canLearn ? skill.actionLabel : skill.reasonLabel;

@@ -1,3 +1,4 @@
+import { skillRankLadder } from './dcss-rpg-skill-ranks.js';
 import { attributeCopy } from './dcss-rpg-attributes.js';
 import { SKILL_CATEGORIES, SKILL_CATALOG } from './dcss-rpg-skill-content.js';
 import {
@@ -30,6 +31,8 @@ const COPY = Object.freeze({
     cost: 'Стоит 1 очко навыка',
     nextRank: (rank) => `Следующая ступень — ${rank}-я`,
     rankNeeds: (rank, level) => `${rank}-я ступень открывается на ${level} уровне`,
+    ladderRank: 'Ранг',
+    ladderLevel: 'ур.',
   }),
   en: Object.freeze({
     language: 'en',
@@ -50,6 +53,8 @@ const COPY = Object.freeze({
     cost: 'Costs 1 skill point',
     nextRank: (rank) => `Next step is rank ${rank}`,
     rankNeeds: (rank, level) => `Rank ${rank} opens at level ${level}`,
+    ladderRank: 'Rank',
+    ladderLevel: 'lv.',
   }),
 });
 
@@ -171,6 +176,10 @@ export function skillMenuModel({
           nextRank: isMaxRank ? null : rank + 1,
           canLearn,
           branch,
+          // Что даёт каждая ступень — числами из тех же данных, по которым
+          // игра считает бой. Иван: «суть в том, чтобы я удобно видел, что на
+          // каком уровне навыка я получаю».
+          ladder: skillRankLadder({ skillId: definition.id, language: locale }),
           // «Что я получу и когда» — the question a point is spent against.
           nextRankNote: upcoming === null
             ? copy.maxRank
@@ -197,6 +206,8 @@ export function skillMenuModel({
     visible: groups.length > 0,
     title: copy.title,
     pointsLabel: copy.points,
+    ladderRankLabel: copy.ladderRank,
+    ladderLevelLabel: copy.ladderLevel,
     points: state.points,
     groups: Object.freeze(groups),
   });

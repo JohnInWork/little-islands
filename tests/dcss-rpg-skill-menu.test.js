@@ -195,7 +195,10 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   assert.equal(ru.pointsLabel, 'Очки навыков');
   assert.equal(ru.groups.length, 1);
   assert.equal(ru.groups[0].label, 'Исследование');
-  assert.deepEqual(firstSkill(ru), {
+  // Лестница рангов проверяется отдельно ниже: она длинная, и вкладывать её
+  // сюда значило бы прятать самое полезное внутрь сверки формы.
+  const { ladder, ...shape } = firstSkill(ru);
+  assert.deepEqual(shape, {
     id: 'trap-sense', name: 'Чутьё',
     description: 'Обнаруживает механические ловушки в радиусе 2/3/4 клеток. Не видит сквозь стены и не обезвреживает.',
     rank: 0, trainedRank: 0, rankAdjustment: 0, rankAdjustmentLabel: '', maxRank: 3, nextRank: 1,
@@ -211,8 +214,23 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
     costLabel: 'Стоит 1 очко навыка',
     cancelLabel: 'Отмена',
   });
+  /**
+   * «Суть в том, чтобы я удобно видел, что на каком уровне навыка я получаю.»
+   * Одно слитное описание «радиус 2/3/4 клеток» этого не говорило: игрок сам
+   * разбирался, какая цифра к какому рангу.
+   */
+  assert.deepEqual(ladder, [
+    { rank: 1, heroLevel: 2, attribute: null, attributeValue: 0, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '2 кл' }] },
+    { rank: 2, heroLevel: 4, attribute: 'intelligence', attributeValue: 5, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '3 кл' }] },
+    { rank: 3, heroLevel: 6, attribute: 'intelligence', attributeValue: 7, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '4 кл' }] },
+  ]);
+  assert.equal(ru.ladderRankLabel, 'Ранг');
+  assert.equal(ru.ladderLevelLabel, 'ур.');
+
   const en = skillMenuModel({ ...options(), language: 'en' });
   assert.equal(en.title, 'Skills');
+  assert.equal(firstSkill(en).ladder[0].gains[0].label, 'sees traps');
+  assert.equal(en.ladderRankLabel, 'Rank');
   assert.equal(en.pointsLabel, 'Skill points');
   assert.equal(en.groups[0].label, 'Exploration');
   assert.equal(firstSkill(en).name, 'Trap sense');
@@ -310,5 +328,81 @@ test('a skill point is spent on purpose: the row reads, the card confirms', asyn
   assert.match(runtime, /pip\.dataset\.node = node\.state/);
   for (const state of ['trained', 'granted', 'open']) {
     assert.ok(css.includes(`.skill-branch i[data-node='${state}']`), `${state} node has no look`);
+  }
+});
+
+/**
+ * Главный инвариант лестницы: **ранг не имеет права молчать.**
+ *
+ * Молчащая ступень — это либо ранг, который ничего не даёт (ошибка баланса),
+ * либо ключ без подписи (ошибка в модуле лестницы). Игроку разницы нет: он
+ * платит очко и не узнаёт за что.
+ */
+test('ни один ранг навыка не молчит, и каждое число подписано', async () => {
+  const { skillRankLadder, skillRankProblems, unlabelledRankKeys } =
+    await import('../tools/dcss-rpg-skill-ranks.js');
+  const { SKILL_CATALOG } = await import('../tools/dcss-rpg-skill-content.js');
+  const { SKILL_IMPLEMENTATIONS } = await import('../tools/dcss-rpg-skills.js');
+  // Навыки без реализации в меню не показываются — с них и спроса нет.
+  const shown = SKILL_CATALOG.filter(({ id }) => SKILL_IMPLEMENTATIONS[id]).map(({ id }) => id);
+  assert.ok(shown.length >= 38, `навыков с реализацией всего ${shown.length}`);
+  assert.deepEqual(unlabelledRankKeys(shown), [], 'эти числа игра покажет, но назвать не сможет');
+  assert.deepEqual(
+    skillRankProblems(shown),
+    [
+      // Известные дыры баланса, а не UI: на этих ступенях профиль отдаёт ровно
+      // то же, что и на предыдущей. Строка здесь — чтобы они не потерялись.
+      'weaponsmithing: ранг 3 ничего не обещает',
+      'armorsmithing: ранг 3 ничего не обещает',
+      'pack-leader: ранг 2 ничего не обещает',
+    ],
+    'появился новый молчащий ранг',
+  );
+  for (const id of shown) {
+    const ladder = skillRankLadder({ skillId: id });
+    const definition = SKILL_CATALOG.find((skill) => skill.id === id);
+    assert.equal(ladder.length, definition.maxRank, `${id}: ступеней не столько, сколько рангов`);
+    for (const [index, step] of ladder.entries()) {
+      assert.equal(step.rank, index + 1);
+      assert.equal(step.heroLevel, definition.rankLevels[index], `${id}: ступень ${step.rank} врёт про уровень`);
+      // Первый ранг свободен — но только у тех, кто идёт по общей лестнице.
+      // Три школы магии написали себе собственную, и она просит интеллект
+      // сразу: без него заклинание не прочесть вовсе.
+      if (step.rank === 1 && !definition.attributeRequirements) {
+        assert.equal(step.attribute, null, `${id}: за первый ранг просят характеристику`);
+      }
+      for (const gain of step.gains) {
+        assert.ok(gain.label.length > 0, `${id}/${step.rank}: подпись пустая`);
+        assert.equal(typeof gain.value, 'string');
+      }
+    }
+    // И обе лестницы переведены.
+    const en = skillRankLadder({ skillId: id, language: 'en' });
+    for (const [index, step] of en.entries()) {
+      for (const [slot, gain] of step.gains.entries()) {
+        const ru = ladder[index].gains[slot];
+        assert.equal(gain.key, ru.key);
+        assert.notEqual(gain.label, ru.label, `${id}/${gain.key}: подпись не переведена`);
+      }
+    }
+  }
+});
+
+/** Карточка навыка рисует лестницу, а не только слитное описание. */
+test('карточка навыка показывает лестницу', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const [runtime, html, css] = await Promise.all([
+    readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8'),
+    readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
+  ]);
+  assert.match(html, /id="character-skill-ladder"/);
+  assert.match(runtime, /function renderSkillLadder\(skill, copy\) \{/);
+  assert.match(runtime, /renderSkillLadder\(skill, skillLadderCopy\);/);
+  // Купленная ступень, следующая и дальние отличаются — иначе лестница не
+  // говорит, где ты сейчас стоишь.
+  assert.match(runtime, /step\.rank <= skill\.rank \? 'taken' : step\.rank === skill\.rank \+ 1 \? 'next' : 'later'/);
+  for (const state of ['taken', 'next', 'later']) {
+    assert.match(css, new RegExp(`\\.skill-ladder-step\\[data-state='${state}'\\]`), state);
   }
 });
