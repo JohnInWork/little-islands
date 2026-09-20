@@ -16,6 +16,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'index.html'),
         game: resolve(import.meta.dirname, 'tools/dcss.html'),
         sprites: resolve(import.meta.dirname, 'tools/sprites.html'),
+        coop: resolve(import.meta.dirname, 'tools/coop.html'),
       },
     },
   },

@@ -24,6 +24,7 @@ import { SPELL_ASSET_PATHS } from './dcss-rpg-spells.js';
 import { BRANCH_GATE_PATHS, BRANCH_RUNE_PATHS, BRANCH_STAIR_PATHS } from './dcss-rpg-branch-gates.js';
 import { CHASM_ICON_PATH } from './dcss-rpg-chasm.js';
 import { PORTAL_PATH } from './dcss-rpg-portal.js';
+import { COOP_ASSET_PATHS } from './dcss-rpg-coop.js';
 
 /** Shallow water: the only liquid in the dungeon, animated between two frames. */
 export const WATER_PATHS = Object.freeze(['dngn/water/shallow_water.png', 'dngn/water/shallow_water2.png']);
@@ -87,6 +88,8 @@ export function requiredAssetPaths(extra = []) {
     ...BRANCH_RUNE_PATHS,
     ...RUNTIME_FALLBACK_PATHS,
     ...HUD_METER_PATHS,
+    // Отдельный клиент на двоих одевает своих героев сам.
+    ...COOP_ASSET_PATHS,
     ...MERCHANT_ACTOR_PATHS,
     MERCHANT_ICON_PATH,
     ...extra,

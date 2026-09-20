@@ -1,0 +1,163 @@
+/*
+ * Клиент на двоих: интерфейс прижат к краям, середина отдана игре.
+ *
+ * Правило одно и оно жёсткое: ничто не встаёт между героями. Телевизор смотрят
+ * с полутора метров вдвоём, и каждый ищет глазами свою половину, а не читает
+ * экран целиком.
+ */
+
+:root {
+  --coal: #0d1214;
+  --bone: #d8d0ba;
+  --blood: #b6413f;
+  --gold: #d6bd62;
+  --one: #d6bd62;
+  --two: #7fc7a4;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #05080a;
+  color: var(--bone);
+  font: 16px/1.3 ui-monospace, "SF Mono", Menlo, monospace;
+  overflow: hidden;
+  user-select: none;
+}
+
+.stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* Полоса игрока. Цвет — единственное, что читается через комнату. */
+.party {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  width: min(360px, 40vw);
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  background: rgb(8 12 14 / 88%);
+  border: 3px solid #2f3a3c;
+}
+
+.party-one {
+  left: max(14px, env(safe-area-inset-left));
+  border-color: var(--one);
+}
+
+.party-two {
+  right: max(14px, env(safe-area-inset-right));
+  border-color: var(--two);
+}
+
+.party[data-down='true'] {
+  filter: grayscale(0.8);
+}
+
+.badge {
+  grid-row: 1 / -1;
+  display: grid;
+  place-items: center;
+  color: #101619;
+  font-weight: 700;
+}
+
+.party-one .badge { background: var(--one); }
+.party-two .badge { background: var(--two); }
+
+.bars {
+  display: grid;
+  gap: 4px;
+}
+
+.bar {
+  position: relative;
+  height: 18px;
+  background: #1b2225;
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  transition: width 120ms linear;
+}
+
+.bar.health i { background: var(--blood); }
+.bar.xp { height: 12px; }
+.bar.xp i { background: #4f7f96; }
+
+.bar b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 400;
+  text-shadow: 1px 1px #05080a;
+}
+
+.tally {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  color: #9fb0a8;
+  font-size: 13px;
+}
+
+.depth {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  margin: 0;
+  padding: 6px 14px;
+  transform: translateX(-50%);
+  background: rgb(8 12 14 / 88%);
+  border: 3px solid #2f3a3c;
+  font-size: 15px;
+}
+
+.notice {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  display: grid;
+  gap: 4px;
+  padding: 14px 20px;
+  transform: translateX(-50%);
+  background: rgb(8 12 14 / 94%);
+  border: 3px solid var(--gold);
+  text-align: center;
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+.notice b {
+  color: var(--gold);
+  font-size: 18px;
+}
+
+.notice span {
+  color: #9fb0a8;
+  font-size: 14px;
+}

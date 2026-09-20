@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>DNG Codex · вдвоём</title>
+    <link rel="stylesheet" href="./coop.css" />
+  </head>
+  <body>
+    <!--
+      Отдельный клиент на двоих.
+
+      Иван: «дай мне мини отдельный клиент, который мы запустим и сразу начнём
+      играть». Поэтому здесь нет меню, сохранения и настроек: страница
+      открывается, ждёт два геймпада и начинает. Всё, что можно отложить, —
+      отложено; всё, что нужно двоим, — есть.
+    -->
+    <main id="stage" class="stage">
+      <canvas id="world"></canvas>
+
+      <header class="party party-one" data-slot="1">
+        <span class="badge">P1</span>
+        <div class="bars">
+          <div class="bar health"><i id="p1-health"></i><b id="p1-health-text">0/0</b></div>
+          <div class="bar xp"><i id="p1-xp"></i><b id="p1-xp-text">ур. 1</b></div>
+        </div>
+        <div class="tally"><span id="p1-gold">0●</span><span id="p1-kills">0 ✕</span></div>
+      </header>
+
+      <header class="party party-two" data-slot="2">
+        <span class="badge">P2</span>
+        <div class="bars">
+          <div class="bar health"><i id="p2-health"></i><b id="p2-health-text">0/0</b></div>
+          <div class="bar xp"><i id="p2-xp"></i><b id="p2-xp-text">ур. 1</b></div>
+        </div>
+        <div class="tally"><span id="p2-gold">0●</span><span id="p2-kills">0 ✕</span></div>
+      </header>
+
+      <p id="depth" class="depth">Этаж I</p>
+
+      <div id="notice" class="notice">
+        <b id="notice-title">Подключите два геймпада</b>
+        <span id="notice-text">DualShock 4 или DualSense. Нажмите любую кнопку на каждом.</span>
+      </div>
+    </main>
+
+    <script type="module" src="./coop.js"></script>
+  </body>
+</html>
