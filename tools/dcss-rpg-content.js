@@ -345,7 +345,10 @@ export const MONSTER_CATALOG = Object.freeze([
   },
   // The four that hold the crypt's chapters.
   {
-    id: 'tomb-warden', habitat: 'crypt', kin: 'undead', path: 'mon/undead/skeletal_warrior.png',
+    // Свой скелет, а не общий: костяной рыцарь, страж гробниц и призванный
+    // страж стояли на одной картинке втроём.
+    id: 'tomb-warden', habitat: 'crypt', kin: 'undead',
+    path: 'mon/undead/skeletons/skeleton_humanoid_large.png',
     tier: 3, hp: 34, damage: 12, speed: 0.9, xp: 42, bloodColor: '#cfc6ad',
     unique: true, boss: true,
     threat: { attackRate: 0.82, vision: 7, windup: 0.34, pursuit: 6.6 },
