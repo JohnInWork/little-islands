@@ -1792,6 +1792,108 @@ body {
   background: #9ad3b8;
 }
 
+/*
+ * Рюкзак напарника.
+ *
+ * Иван: «а как мне или напарнику попасть в наши инвентари?» У героя рюкзак был
+ * всегда, у второго игрока — только счётчик. Это его собственный экран, и он
+ * поверх игры, а не вместо неё: первый игрок в это время продолжает ходить,
+ * иначе кооп на один экран превращается в очередь.
+ */
+.coop-bag {
+  position: fixed;
+  z-index: 23;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(212px, calc(env(safe-area-inset-top) + 206px));
+  width: min(340px, 44vw);
+}
+
+/*
+ * Экран поделён по интерфейсу, но не по игре.
+ *
+ * Иван: «пусть слева у него всё открывается, а справа у другого — чтобы экран
+ * был поделён по интерфейсу, но по геймплею карта и монстры одни». Поэтому обе
+ * панели — накладки поверх игры, а не экраны: мир под ними продолжает идти, и
+ * никто никого не ждёт, пока другой роется в рюкзаке.
+ */
+.coop-bag-left {
+  right: auto;
+  left: max(12px, env(safe-area-inset-left));
+  top: max(150px, calc(env(safe-area-inset-top) + 144px));
+}
+
+.coop-tag-one {
+  background: #d6bd62;
+}
+
+.coop-bag[hidden] {
+  display: none;
+}
+
+.coop-bag-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: rgb(10 16 18 / 97%);
+  border-color: #6f8f7c;
+}
+
+.coop-bag-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #9ad3b8;
+  font-size: 14px;
+}
+
+.coop-bag-list {
+  max-height: 46vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.coop-bag-list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  color: #cfe3d4;
+  background: #16201f;
+  border: 2px solid transparent;
+  font-size: 13px;
+}
+
+.coop-bag-list li[data-picked='true'] {
+  border-color: #9ad3b8;
+  background: #1e2c29;
+}
+
+.coop-bag-list img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.coop-bag-list li.empty {
+  grid-template-columns: 1fr;
+  color: #7f8f86;
+  text-align: center;
+}
+
+.coop-bag-hint {
+  margin: 0;
+  color: #8fa79a;
+  font-size: 12px;
+  text-align: center;
+}
+
 /* Та же полоса, что у героя: два здоровья обязаны читаться одинаково. */
 .coop-bar {
   width: 128px;

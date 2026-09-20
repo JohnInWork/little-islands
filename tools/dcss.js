@@ -770,6 +770,13 @@ const coopHealthPips = [...document.querySelectorAll('#coop-health i')];
 const coopHudHealth = document.querySelector('#coop-health-text');
 const coopHudPurse = document.querySelector('#coop-purse');
 const coopHudPack = document.querySelector('#coop-pack');
+const coopBag = document.querySelector('#coop-bag');
+const coopBagName = document.querySelector('#coop-bag-name');
+const coopBagPurse = document.querySelector('#coop-bag-purse');
+const coopBagList = document.querySelector('#coop-bag-list');
+const coopHeroBag = document.querySelector('#coop-bag-hero');
+const coopHeroPurse = document.querySelector('#coop-hero-purse');
+const coopHeroList = document.querySelector('#coop-hero-list');
 const inventory = document.querySelector('#inventory');
 const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
@@ -1142,6 +1149,11 @@ let allies = [];
 const heroPad = createPadState();
 const matePad = createPadState();
 let matePack = [];
+let matePick = 0;
+let mateBagOpen = false;
+let heroPick = 0;
+let heroBagOpen = false;
+let coopActive = false;
 let mateGold = 0;
 let coopAnnounced = false;
 let hazardInputState = createHazardInputState();
@@ -15701,7 +15713,7 @@ function mateTakeLoot(ally) {
     playSound('gold');
     showLootToast(loot.definition, `P2 +${reward}`);
   } else {
-    matePack = [...matePack, loot.definition];
+    matePack = [...matePack, { definition: loot.definition, uid: loot.instanceId }];
     playSound('pickup');
     burst(ally.x, ally.y - 8, '#9ad3b8', 10);
     showLootToast(loot.definition, 'P2');
@@ -15722,10 +15734,127 @@ function mateOpenDoor(ally) {
   return beginDoorTransition(door, true);
 }
 
+/**
+ * Рюкзак напарника — поверх игры, а не вместо неё.
+ *
+ * Первый игрок в это время продолжает ходить: кооп на один экран, где один
+ * лезет в рюкзак, а второй ждёт, — это очередь, а не совместная игра. Поэтому
+ * экран игры не переключается, меняется только видимость панели.
+ */
+function renderCoopBag() {
+  const ally = pilotedAlly();
+  if (!ally) return;
+  const record = run.companions[ally.companionIndex ?? 0];
+  coopBagName.textContent = (record && companionName(record.id, itemDetailLanguage)) || 'Напарник';
+  coopBagPurse.textContent = `${mateGold}●`;
+  if (matePack.length === 0) matePick = 0;
+  else matePick = Math.max(0, Math.min(matePack.length - 1, matePick));
+  coopBagList.replaceChildren(...(matePack.length === 0
+    ? [Object.assign(document.createElement('li'), {
+      className: 'empty',
+      textContent: itemDetailLanguage === 'ru' ? 'Пока пусто' : 'Empty so far',
+    })]
+    : matePack.map((entry, index) => {
+      const row = document.createElement('li');
+      row.dataset.picked = String(index === matePick);
+      const icon = document.createElement('img');
+      icon.alt = '';
+      icon.src = assetUrl(entry.definition.icon ?? entry.definition.path ?? '');
+      const name = document.createElement('span');
+      name.textContent = itemPresentation(entry.definition, itemDetailLanguage).name;
+      row.append(icon, name);
+      return row;
+    })));
+}
+
+/**
+ * Рюкзак героя в коопе — такая же накладка, как у напарника, только слева.
+ *
+ * Настоящий экран рюкзака замораживает мир: игровой цикл обновляет героя и
+ * этаж только на экране игры. В одиночной игре это пауза, а в коопе — «второй
+ * стоит и ждёт», то есть не кооп. Поэтому здесь список и один обмен, а полный
+ * рюкзак с надеванием и разбором остаётся там же, где был.
+ */
+function renderHeroBag() {
+  coopHeroPurse.textContent = `${gold}●`;
+  if (backpackItems.length === 0) heroPick = 0;
+  else heroPick = Math.max(0, Math.min(backpackItems.length - 1, heroPick));
+  coopHeroList.replaceChildren(...(backpackItems.length === 0
+    ? [Object.assign(document.createElement('li'), {
+      className: 'empty',
+      textContent: itemDetailLanguage === 'ru' ? 'Пока пусто' : 'Empty so far',
+    })]
+    : backpackItems.map((item, index) => {
+      const row = document.createElement('li');
+      row.dataset.picked = String(index === heroPick);
+      const icon = document.createElement('img');
+      icon.alt = '';
+      icon.src = assetUrl(spriteForItem(item));
+      const name = document.createElement('span');
+      name.textContent = itemPresentation(item, itemDetailLanguage).name;
+      row.append(icon, name);
+      return row;
+    })));
+}
+
+function toggleHeroBag(open) {
+  heroBagOpen = open ?? !heroBagOpen;
+  coopHeroBag.hidden = !heroBagOpen;
+  if (heroBagOpen) renderHeroBag();
+}
+
+/** Отдать вещь напарнику — зеркало обмена в другую сторону. */
+function heroGiveToMate() {
+  const item = backpackItems[heroPick];
+  if (!item) return false;
+  matePack = [...matePack, { definition: item, uid: item.uid }];
+  backpackItems = backpackItems.filter((_, index) => index !== heroPick);
+  run.inventory = backpackItems.map(({ uid }) => uid);
+  heroPick = Math.max(0, Math.min(backpackItems.length - 1, heroPick));
+  playSound('pickup');
+  showLootToast(item, '→ P2');
+  renderHeroBag();
+  // Панель получателя тоже открыта — она обязана показать пришедшее сразу.
+  if (mateBagOpen) renderCoopBag();
+  renderPack();
+  updateCoopHud();
+  persistRun();
+  return true;
+}
+
+function toggleCoopBag(open) {
+  mateBagOpen = open ?? !mateBagOpen;
+  coopBag.hidden = !mateBagOpen;
+  if (mateBagOpen) renderCoopBag();
+}
+
+/** Отдать выбранную вещь герою: единственный обмен, который нужен в бою. */
+function mateGiveToHero() {
+  const entry = matePack[matePick];
+  if (!entry) return false;
+  if (!addInventoryItem(entry.definition, entry.uid)) return false;
+  matePack = matePack.filter((_, index) => index !== matePick);
+  matePick = Math.max(0, Math.min(matePack.length - 1, matePick));
+  playSound('pickup');
+  showLootToast(entry.definition, '→ P1');
+  renderPack();
+  renderCoopBag();
+  if (heroBagOpen) renderHeroBag();
+  updateCoopHud();
+  persistRun();
+  return true;
+}
+
 function updateCoopHud() {
+  if (uiScreen !== 'game') {
+    if (heroBagOpen) toggleHeroBag(false);
+    if (mateBagOpen) toggleCoopBag(false);
+  }
   const ally = pilotedAlly();
   const on = Boolean(ally?.pilot);
-  coopHud.hidden = !on;
+  // Открытый рюкзак встаёт на место полоски: два счёта друг на друге читаются
+  // как один испорченный.
+  coopHud.hidden = !on || mateBagOpen;
   if (!on) return;
   const record = run.companions[ally.companionIndex ?? 0];
   coopHudName.textContent = (record && companionName(record.id, itemDetailLanguage)) || 'Напарник';
@@ -15745,26 +15874,77 @@ function updateCoopHud() {
  * Браузер отдаёт состояние, а не события, поэтому нажатие от удержания
  * отличает модуль ввода, а не этот код. Здесь только раздача: кто что делает.
  */
+/**
+ * Фокус по кнопкам открытого экрана.
+ *
+ * Пальцем по экрану ходят касанием, геймпадом — фокусом; браузер уже умеет
+ * второе, поэтому стик просто двигает по списку того, что можно нажать.
+ */
+function moveScreenFocus(direction) {
+  const screen = document.querySelector(`[data-screen='${uiScreen}']`) ?? document.body;
+  const targets = [...screen.querySelectorAll('button, [tabindex]:not([tabindex="-1"])')]
+    .filter((node) => !node.disabled && node.offsetParent !== null);
+  if (targets.length === 0) return;
+  const at = targets.indexOf(document.activeElement);
+  const forward = direction === 'down' || direction === 'right';
+  const next = at < 0 ? 0 : (at + (forward ? 1 : -1) + targets.length) % targets.length;
+  targets[next].focus();
+}
+
+/** Круг — «назад»: закрывает тот экран, который сейчас открыт. */
+function closeTopScreen() {
+  if (uiScreen === 'inventory') closeInventory();
+  else if (uiScreen === 'character') closeCharacterSheet();
+  else if (uiScreen === 'context') closeContextActions({ restoreFocus: true });
+  else document.querySelector(`[data-screen='${uiScreen}'] [data-close]`)?.click();
+}
+
 function pollGamepads(delta) {
   if (typeof navigator.getGamepads !== 'function') return;
   const pads = assignPads([...navigator.getGamepads()]);
   if (pads.hero) {
     const { step, edge } = readPad(heroPad, pads.hero, delta);
-    if (uiScreen === 'game' && step) queueDirectionalMove(step);
-    if (edge.has('cross') && uiScreen === 'game') {
-      const button = interactActions.querySelector('.interact-action');
-      if (button) button.click();
+    // Открытая панель забирает стик и крестик себе целиком. Иначе одно нажатие
+    // делает два дела сразу: отдаёт вещь и открывает окно взаимодействия с тем,
+    // кто стоит рядом, — а окно закрывает панель, и обмена будто не было.
+    const heroPanel = coopActive && heroBagOpen && uiScreen === 'game';
+    if (heroPanel) {
+      if (step === 'up' || step === 'down') {
+        heroPick += step === 'down' ? 1 : -1;
+        renderHeroBag();
+      }
+      if (edge.has('cross')) heroGiveToMate();
+      if (edge.has('circle')) toggleHeroBag(false);
+    } else {
+      if (uiScreen === 'game' && step) queueDirectionalMove(step);
+      if (edge.has('cross') && uiScreen === 'game') {
+        const button = interactActions.querySelector('.interact-action');
+        if (button) button.click();
+      }
     }
-    if (edge.has('square')) (uiScreen === 'inventory' ? closeInventory : openInventory)();
+    if (edge.has('square')) {
+      if (coopActive && uiScreen === 'game') toggleHeroBag();
+      else (uiScreen === 'inventory' ? closeInventory : openInventory)();
+    }
     if (edge.has('triangle') && uiScreen === 'game') openCharacterSheet();
     if (edge.has('options')) openMainMenu();
+    // На открытом экране стик водит фокус по кнопкам, а крестик их нажимает:
+    // рюкзак, который можно открыть и нельзя тронуть, — половина рюкзака.
+    if (uiScreen !== 'game') {
+      if (step) moveScreenFocus(step);
+      if (edge.has('cross')) document.activeElement?.click?.();
+      if (edge.has('circle')) closeTopScreen();
+    }
   }
   const ally = pilotedAlly();
   if (!pads.companion) {
+    coopActive = false;
+    if (heroBagOpen) toggleHeroBag(false);
     if (ally) ally.pilot = false;
     if (coopAnnounced) updateCoopHud();
     return;
   }
+  coopActive = true;
   if (!coopAnnounced) {
     coopAnnounced = true;
     grantCoopCompanion();
@@ -15778,6 +15958,18 @@ function pollGamepads(delta) {
   mate.pilot = true;
   const { step, edge } = readPad(matePad, pads.companion, delta);
   if (uiScreen !== 'game' || runStatus !== 'playing') return;
+  if (edge.has('square')) toggleCoopBag();
+  if (mateBagOpen) {
+    // Открытый рюкзак забирает стик себе: иначе напарник ходил бы вслепую.
+    if (step === 'up' || step === 'down') {
+      matePick += step === 'down' ? 1 : -1;
+      renderCoopBag();
+    }
+    if (edge.has('cross')) mateGiveToHero();
+    if (edge.has('circle')) toggleCoopBag(false);
+    updateCoopHud();
+    return;
+  }
   if (step) {
     const vector = directionVector(step);
     const cell = { x: Math.floor(mate.x / TILE) + vector[0], y: Math.floor(mate.y / TILE) + vector[1] };
