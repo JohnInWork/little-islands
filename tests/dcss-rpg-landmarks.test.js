@@ -263,6 +263,42 @@ test('the shared registry speaks for every landmark in both languages', () => {
   }
 });
 
+/**
+ * Every answer on every landmark needs a word on its button, not just figures.
+ * The five road landmarks shipped without one: the buttons in hell read
+ * «+23● · шум на весь этаж» with no verb in front of them, because their action
+ * ids were never added to the shared registry. A hard-coded list of two
+ * landmarks could not catch that, so this walks the whole catalogue.
+ */
+test('every answer on every landmark has a word on its button', () => {
+  for (const landmark of LANDMARK_CATALOG) {
+    const { find } = landmarkFixture(landmark.id);
+    const target = { kind: 'find', ...find };
+    const actor = { gold: 4000, vitals: { hp: 20, maxHp: 800, effects: {} } };
+    for (const language of ['ru', 'en']) {
+      const model = contextActionModel({ target, actor, language });
+      assert.equal(model.interactionId, 'landmark');
+      assert.equal(model.name, landmark.copy[language].name);
+      assert.deepEqual(
+        model.actions.map(({ id }) => id),
+        ['inspect', ...landmark.outcomes.map(({ id }) => id)],
+      );
+      for (const action of model.actions) {
+        assert.ok(action.label?.length > 0, `${landmark.id}/${language}/${action.id} has no label`);
+        assert.ok(action.glyph?.length > 0, `${landmark.id}/${language}/${action.id} has no glyph`);
+        // Every button shares one row on a 390px phone.
+        assert.ok(
+          action.label.length <= 12,
+          `${landmark.id}/${language}/${action.id}: «${action.label}» will not fit`,
+        );
+      }
+      // Two answers with the same word on them are one answer twice.
+      const labels = model.actions.map(({ label }) => label);
+      assert.equal(new Set(labels).size, labels.length, `${landmark.id}/${language} repeats a label`);
+    }
+  }
+});
+
 test('a landmark choice states its price and its payoff before it is taken', () => {
   for (const id of LANDMARK_CATALOG.map(({ id: found }) => found)) {
     const { find } = landmarkFixture(id);
