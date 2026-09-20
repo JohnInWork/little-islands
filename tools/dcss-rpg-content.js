@@ -937,7 +937,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'channeling-staff',
-    icon: 'item/staff/i-staff_channeling.png',
+    icon: 'derived/icon/staff-staff_channeling.png',
     slot: 'hand1',
     weaponFamily: 'staff',
     hands: 2,
@@ -1956,7 +1956,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'spirit-amulet',
-    icon: 'item/amulet/i-spirit.png',
+    icon: 'derived/icon/amulet-spirit.png',
     slot: 'amulet',
     variant: 1,
     stats: { attack: 1, maxHp: 8, attackSpeed: 0.06 },
@@ -1992,7 +1992,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'mystery-potion',
-    icon: 'item/potion/i-might.png',
+    icon: 'derived/icon/potion-might.png',
     slot: null,
     kind: 'potion',
     rarity: 1,
@@ -2016,7 +2016,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'cleansing-potion',
-    icon: 'item/potion/i-curing.png',
+    icon: 'derived/icon/potion-curing.png',
     slot: null,
     kind: 'potion',
     rarity: 2,
@@ -2028,7 +2028,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'venom-potion',
-    icon: 'item/potion/i-poison.png',
+    icon: 'derived/icon/potion-poison.png',
     slot: null,
     kind: 'potion',
     rarity: 2,
@@ -2042,7 +2042,7 @@ export const LOOT_CATALOG = Object.freeze([
     // Found, never sold: the lucky way out of a binding. The temple is the
     // reliable one and it costs; this one costs nothing and cannot be planned.
     id: 'unbinding-scroll',
-    icon: 'item/scroll/i-remove_curse.png',
+    icon: 'derived/icon/scroll-remove_curse.png',
     slot: null,
     kind: 'scroll',
     useEffect: { type: 'unbind' },
@@ -2054,7 +2054,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'blink-scroll',
-    icon: 'item/scroll/i-blinking.png',
+    icon: 'derived/icon/scroll-blinking.png',
     slot: null,
     kind: 'scroll',
     useEffect: { type: 'blink', range: 5 },
@@ -2066,7 +2066,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'flame-scroll', element: 'fire',
-    icon: 'item/scroll/i-immolation.png',
+    icon: 'derived/icon/scroll-immolation.png',
     slot: null,
     kind: 'scroll',
     useEffect: { type: 'flame-burst', damage: 11, radius: 2 },
@@ -2078,7 +2078,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'frost-scroll', element: 'ice',
-    icon: 'item/scroll/i-fog.png',
+    icon: 'derived/icon/scroll-fog.png',
     slot: null,
     kind: 'scroll',
     useEffect: { type: 'frost-bind', duration: 5, radius: 2 },
@@ -2090,7 +2090,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'insight-scroll',
-    icon: 'item/scroll/i-magic_mapping.png',
+    icon: 'derived/icon/scroll-magic_mapping.png',
     slot: null,
     kind: 'scroll',
     useEffect: { type: 'insight', radius: 9 },
@@ -2114,7 +2114,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'tide-wand',
-    icon: 'item/wand/i-cold.png',
+    icon: 'derived/icon/wand-cold.png',
     slot: null,
     kind: 'wand',
     useEffect: { type: 'target-effect', effectId: 'wet', duration: 10, range: 6 },
@@ -2725,7 +2725,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'poison-vial',
-    icon: 'item/potion/i-poison.png',
+    icon: 'derived/icon/potion-poison.png',
     slot: null,
     kind: 'tool',
     useEffect: { type: 'coat' },

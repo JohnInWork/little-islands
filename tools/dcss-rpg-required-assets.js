@@ -43,7 +43,7 @@ export const EFFECT_PATHS = Object.freeze([
  */
 export const RUNTIME_FALLBACK_PATHS = Object.freeze([
   'item/misc/misc_orb.png',
-  'item/ring/i-regeneration.png',
+  'derived/icon/ring-regeneration.png',
 ]);
 
 /**

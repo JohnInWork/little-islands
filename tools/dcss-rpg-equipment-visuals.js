@@ -175,7 +175,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     iconVariants: Object.freeze(['item/staff/staff02.png', 'item/staff/staff03.png']),
   }),
   'channeling-staff': Object.freeze({
-    icon: 'item/staff/i-staff_channeling.png', layer: 'player/hand1/staff_mage.png',
+    icon: 'derived/icon/staff-staff_channeling.png', layer: 'player/hand1/staff_mage.png',
   }),
   'skull-staff': Object.freeze({
     icon: 'item/staff/staff00.png', layer: 'player/hand1/staff_skull.png',
@@ -327,7 +327,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   'vitality-amulet': Object.freeze({
     icon: 'item/amulet/artefact/urand_vitality.png', layer: null,
   }),
-  'spirit-amulet': Object.freeze({ icon: 'item/amulet/i-spirit.png', layer: null }),
+  'spirit-amulet': Object.freeze({ icon: 'derived/icon/amulet-spirit.png', layer: null }),
   'wood-buckler': Object.freeze({
     icon: 'item/armour/shields/buckler1.png', layer: 'player/hand2/buckler_green.png',
     iconVariants: Object.freeze(['item/armour/shields/buckler2.png', 'item/armour/shields/buckler3.png']),

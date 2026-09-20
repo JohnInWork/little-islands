@@ -9900,7 +9900,7 @@ function brewAtCampfire() {
   });
   if (!result.ok) {
     showLootToast(
-      { path: lootById(recipe.id)?.icon ?? 'item/potion/i-curing.png', rarity: 2 },
+      { path: lootById(recipe.id)?.icon ?? 'derived/icon/potion-curing.png', rarity: 2 },
       alchemyRefusalText(result.reason, itemDetailLanguage),
     );
     return false;
@@ -12799,7 +12799,7 @@ function applyWeaponCoating(monster) {
   addCombatGlyph(monster.x, monster.y, '☠', ACTOR_EFFECTS.poison.color, -62);
   if (!hero.coating) {
     showLootToast(
-      { path: lootById(POISON_VIAL_ITEM_ID)?.icon ?? 'item/potion/i-poison.png', rarity: 1 },
+      { path: lootById(POISON_VIAL_ITEM_ID)?.icon ?? 'derived/icon/potion-poison.png', rarity: 1 },
       poisonRefusalText('spent', itemDetailLanguage),
     );
   }
@@ -13724,7 +13724,7 @@ function defeatMonster(monster) {
     burst(hero.x, hero.y - 12, '#8bc59c', 9);
     addImpactWave(hero.x, hero.y - 4, '#8bc59c', 38, 0);
     addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#8bc59c');
-    showLootToast({ icon: 'item/ring/i-regeneration.png', rarity: 2 }, `+${recovery.healed} ♥`);
+    showLootToast({ icon: 'derived/icon/ring-regeneration.png', rarity: 2 }, `+${recovery.healed} ♥`);
     updateHud();
   }
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
@@ -14066,7 +14066,7 @@ function liftBindings(uids) {
   burst(hero.x, hero.y - 10, '#e8dcc0', 26);
   addCombatGlyph(hero.x, hero.y, '⛓', '#e8dcc0', -70);
   playSound('spell-toggle');
-  showLootToast({ icon: 'item/scroll/i-remove_curse.png', rarity: 2 }, curseCopy(itemDetailLanguage).lifted);
+  showLootToast({ icon: 'derived/icon/scroll-remove_curse.png', rarity: 2 }, curseCopy(itemDetailLanguage).lifted);
   updateGearUi();
   renderPack();
   updateHud();

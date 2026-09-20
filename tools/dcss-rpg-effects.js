@@ -37,7 +37,7 @@ export const ACTOR_EFFECTS = Object.freeze({
   }),
   chilled: Object.freeze({
     id: 'chilled',
-    icon: 'item/ring/i-ice.png',
+    icon: 'derived/icon/ring-ice.png',
     color: '#9edfe4',
     damagePerPulse: 0,
     moveSpeed: 0.74,
@@ -49,7 +49,7 @@ export const ACTOR_EFFECTS = Object.freeze({
   }),
   frozen: Object.freeze({
     id: 'frozen',
-    icon: 'item/ring/i-ice.png',
+    icon: 'derived/icon/ring-ice.png',
     color: '#d7ffff',
     damagePerPulse: 0,
     moveSpeed: 0,
