@@ -132,9 +132,20 @@ export function goldRewardForMonster(monster) {
   return 1 + Math.floor(Math.max(1, monster.tier) / 2) + (monster.boss ? 4 : 0);
 }
 
+/**
+ * Камень лечит везде, где он стоит.
+ *
+ * Правило «не ниже второго этажа» писалось раньше города: на первом этаже
+ * святилища и не ставят, так что запрет сторожил пустоту. А город — этаж
+ * нулевой, и камень там есть: игрок подходил к нему раненым, с монетами в
+ * кармане, видел «+28 ❤ · −3●», жал — и не происходило ничего. Иван поймал
+ * это на телефоне: «было достаточно денег, а не восстанавливал».
+ *
+ * Отказывать теперь есть за что только по существу: лечить нечего или платить
+ * нечем. Есть ли здесь камень вообще — знает тот, кто рядом с ним стоит.
+ */
 export function useSanctuary({ depth, hp, maxHp, gold }) {
   const unchanged = { depth, hp, maxHp, gold };
-  if (depth <= 1) return { ok: false, reason: 'unavailable', state: unchanged };
   if (hp >= maxHp) return { ok: false, reason: 'full-health', state: unchanged };
   if (gold < SANCTUARY_COST) {
     return { ok: false, reason: 'not-enough-gold', state: unchanged };

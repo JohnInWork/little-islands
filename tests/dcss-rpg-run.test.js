@@ -35,9 +35,8 @@ test('three weak victories fund exactly one meaningful sanctuary heal', () => {
   assert.deepEqual(result.state, { depth: 2, hp: 76, maxHp: 100, gold: 0 });
 });
 
-test('sanctuary transactions reject unavailable, full-health and unaffordable use atomically', () => {
+test('sanctuary transactions reject full-health and unaffordable use atomically', () => {
   for (const state of [
-    { depth: 1, hp: 40, maxHp: 100, gold: 9 },
     { depth: 2, hp: 100, maxHp: 100, gold: 9 },
     { depth: 2, hp: 40, maxHp: 100, gold: SANCTUARY_COST - 1 },
   ]) {
@@ -45,6 +44,16 @@ test('sanctuary transactions reject unavailable, full-health and unaffordable us
     assert.equal(result.ok, false);
     assert.deepEqual(result.state, state);
   }
+});
+
+test('городской камень лечит так же, как подземный', () => {
+  // Город — нулевой этаж, и святилище там стоит. Запрет «не ниже второго»
+  // сторожил пустоту на первом этаже, а бил по городу: раненый игрок с
+  // монетами жал кнопку, и не происходило ничего.
+  const result = useSanctuary({ depth: 0, hp: 40, maxHp: 100, gold: SANCTUARY_COST });
+  assert.equal(result.ok, true);
+  assert.equal(result.healed, SANCTUARY_HEAL);
+  assert.deepEqual(result.state, { depth: 0, hp: 40 + SANCTUARY_HEAL, maxHp: 100, gold: 0 });
 });
 
 test('boss rewards are exceptional and the artifact closes only a final run', () => {

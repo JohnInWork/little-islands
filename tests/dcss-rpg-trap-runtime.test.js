@@ -6,6 +6,7 @@ import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
 import vm from 'node:vm';
 
 import { findGridPath } from '../tools/dcss-rpg-core.js';
+import { cellStepDistance } from '../tools/dcss-rpg-geometry.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
 import { combatDamage, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
 import { createSwordRhythmState } from '../tools/dcss-rpg-swords.js';
@@ -258,6 +259,8 @@ function movementRuntime() {
     revealed: new Set(['1,1']),
     doorAnnouncement: { textContent: '' },
     createHazardInputState,
+    // Дверь меряет расстояние тем же королевским шагом, что и взаимодействие.
+    cellStepDistance,
   });
   installFunctions(context, ['commitHeroPath', 'beginOpenDoor', 'beginDoorTransition']);
   return context;

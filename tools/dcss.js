@@ -4702,6 +4702,19 @@ function requestHeroMove(targetX, targetY) {
 function commitHeroPath(nextPath, allowedHazardCell = null) {
   if (!nextPath.length) return false;
   if (hero.attack > 0) {
+    /*
+     * Шаг отменяет замах, но не выстрел.
+     *
+     * Меч, от которого ушли, не бьёт, — это честно: замахнулся и ушёл значит
+     * не ударил. Стрела, уже наложенная на тетиву, от шага не исчезает: её
+     * отпускают. Гасло же и то, и другое, а на телефоне ходят пальцем по полу
+     * — и лук оказывался бесполезен. Иван: «стреляю, начинаю двигаться, и
+     * выстрел отменяется».
+     *
+     * Досрочное разрешение отдаёт стрелу тем же путём, каким её отдал бы
+     * доигравший замах: попадание считается один раз и по тем же правилам.
+     */
+    if (hero.pendingAttack?.combat?.projectile) resolvePendingHeroAttack(hero.attack, 0);
     hero.attack = 0;
     hero.pendingAttack = null;
   }
@@ -10437,8 +10450,23 @@ function beginDoorTransition(door, targetOpen) {
     !revealed.has(`${door.x},${door.y}`)) return false;
   const wasOpen = run.floor.opened.includes(door.instanceId);
   if (wasOpen === targetOpen) return false;
-  const distance = Math.abs(Math.floor(hero.x / TILE) - door.x) +
-    Math.abs(Math.floor(hero.y / TILE) - door.y);
+  /*
+   * Мерить надо тем же, чем меряет само взаимодействие.
+   *
+   * Кнопку «Открыть» игра предлагает по королевскому шагу — по диагонали дверь
+   * считается соседней. Открывала же по ладейному: сумма по осям, и на
+   * диагонали выходило два. Игрок подходил к лавке углом, получал карточку,
+   * жал «Открыть» — и не происходило ничего, молча. В городе двери стоят в
+   * стене вдоль улицы, и угол — самый естественный подход: три лавки из
+   * четырёх оказывались наглухо закрыты, а выглядело это как «в магазинах не
+   * спавнятся торговцы».
+   *
+   * Правило простое: если игра дала нажать — она обязана открыть.
+   */
+  const distance = cellStepDistance(
+    { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    door,
+  );
   if (distance > 1 || (targetOpen && distance !== 1)) return false;
   const merchants = (typeof merchantDefinitions === 'undefined' ? [] : merchantDefinitions)
     .map((merchant) => ({ x: (merchant.x + 0.5) * TILE, y: (merchant.y + 0.5) * TILE }));
@@ -14263,6 +14291,23 @@ function healAtSanctuary() {
   });
   if (!result.ok) {
     renderContextActions();
+    /*
+     * Отказ обязан звучать.
+     *
+     * Раньше здесь была одна перерисовка: игрок видел цену, жал — и не
+     * происходило ровным счётом ничего, ни звука, ни строки. Понять, что
+     * камень отказал и почему, было неоткуда. Причину карточка уже знает —
+     * её и показываем.
+     */
+    const hint = contextTarget?.kind === 'sanctuary'
+      ? contextActionModel({
+          target: contextModelTarget(),
+          actor: currentInteractionActor(),
+          language: itemDetailLanguage,
+          inspected: contextInspected,
+        }).actions[0]?.hint
+      : null;
+    if (hint) showLootToast({ path: SANCTUARY_PATH, rarity: 0 }, hint);
     return;
   }
   hero.hp = result.state.hp;
