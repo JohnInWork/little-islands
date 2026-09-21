@@ -145,6 +145,14 @@ from the site's public HQ previews.
 - Files: `sfx/descend.mp3` (Step, shoe on stone staircase, 1.55 s excerpt),
   `sfx/door.mp3` (Creaking door 2, open, first 1.2 s; with Axeline T.)
 
+## Ogrebane — Teleport Spell
+
+- Source: <https://opengameart.org/content/teleport-spell>
+- License: CC0 1.0
+- Files: `sfx/portal.mp3` (teleport.wav, сведён в моно и выровнен по громкости).
+  Портал, домашний камень и всякое перемещение не шагами: до него единственным
+  звуком перехода был шаг по каменной лестнице, и портал открывался им же.
+
 ## LordTomorrow — Coin Splash
 
 - Source: <https://opengameart.org/content/coin-splash>

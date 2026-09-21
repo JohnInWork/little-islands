@@ -10,6 +10,7 @@ import {
   CITY_PRIEST_ID,
   CITY_RECRUITER_ID,
   CITY_DEPTHS,
+  CITY_SIGN_PATHS,
   CITY_BROKER_ID,
   CITY_GUARD_ID,
   cityBlockRects,
@@ -439,4 +440,47 @@ test('купленный дом маклера больше не держит, �
   assert.equal(runtime.includes('deedSignCell'), false, 'клетка под вывеску осталась в коде');
   // И он стоит на месте, пока не продал: за бродящим продавцом пришлось бы бегать.
   assert.match(runtime, /if \(monster\.id === CITY_BROKER_ID\) return false;/);
+});
+
+/**
+ * Один торговец на ремесло, и вывеска — его собственная.
+ *
+ * Лавок план ставит четыре, а ремесла три: четвёртая заворачивалась на первое,
+ * и в городе всегда оказывалось два снабженца. Иван: «в городе заспаунилось два
+ * снабженца… пусть будет по одному торговцу, пусть они не повторяются».
+ *
+ * Вывеска при этом считалась отдельным счётчиком, и стоило одной лавке не
+ * получить торговца, как вывески разъезжались со своими хозяевами — отсюда и
+ * дом с вывеской кузнеца, в котором никого нет: «есть торговец оружием судя по
+ * вывеске, захожу в дом, и там нет торговца».
+ */
+test('торговцы в городе не повторяются, и вывеска висит над своим хозяином', async () => {
+  const { createDungeonEnvironment } = await import('../tools/dcss-rpg-environment.js');
+  const { MERCHANT_VARIANTS } = await import('../tools/dcss-rpg-merchant.js');
+  const ремёсла = Object.keys(MERCHANT_VARIANTS);
+  const вывескиРемёсел = new Set(ремёсла.map((id) => CITY_SIGN_PATHS[id]).filter(Boolean));
+
+  for (const seed of [1, 5, 77, 12345]) {
+    const town = generateDungeon({ seed, depth: cityDepth });
+    const виды = town.merchants.map(({ variantId }) => variantId);
+    assert.equal(new Set(виды).size, виды.length, `сид ${seed}: два торговца одного ремесла`);
+    assert.ok(виды.length <= ремёсла.length, `сид ${seed}: торговцев больше, чем ремёсел`);
+    assert.ok(виды.length >= 2, `сид ${seed}: городу нечем торговать`);
+
+    // Торговых вывесок ровно столько же, сколько торговцев, и каждая — своя.
+    const props = createDungeonEnvironment(town).props;
+    const торговые = props.filter(({ hangs, path }) => hangs && вывескиРемёсел.has(path));
+    assert.equal(
+      торговые.length,
+      виды.length,
+      `сид ${seed}: вывесок ${торговые.length} на ${виды.length} торговцев`,
+    );
+    for (const merchant of town.merchants) {
+      const своя = CITY_SIGN_PATHS[merchant.variantId];
+      assert.ok(
+        торговые.some(({ path }) => path === своя),
+        `сид ${seed}: над ${merchant.variantId} висит чужая вывеска`,
+      );
+    }
+  }
 });

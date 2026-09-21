@@ -234,7 +234,7 @@ export const CREDITS_SECTIONS = Object.freeze([
       lines: Object.freeze([
         'Kenney (kenney.nl); Still North Media — Ben Jaszczak и Brian Nelson; '
           + 'Galacti-Chron, голос — Sky Rae.',
-        'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP.',
+        'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'Фон этажей и мелодии дорог — OpenGameArt: JaggedStone, Paul Wortmann, '
           + 'RandomMind, cynicmusic, Brandon75689, pauliuw, josepharaoh99, Joth, '
           + 'Cleyton Kauffman.',
@@ -246,7 +246,7 @@ export const CREDITS_SECTIONS = Object.freeze([
       lines: Object.freeze([
         'Kenney (kenney.nl); Still North Media — Ben Jaszczak and Brian Nelson; '
           + 'Galacti-Chron, voice by Sky Rae.',
-        'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP.',
+        'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'Floor ambience and road themes from OpenGameArt: JaggedStone, '
           + 'Paul Wortmann, RandomMind, cynicmusic, Brandon75689, pauliuw, '
           + 'josepharaoh99, Joth, Cleyton Kauffman.',

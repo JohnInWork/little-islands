@@ -4551,7 +4551,7 @@ function fallIntoChasm(cell) {
   replaceFloor(run.depth);
   hero.path = [];
   hero.pendingAttack = null;
-  playSound('descend');
+  playSound('hit-heavy');
   showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
 }
 
@@ -11138,7 +11138,7 @@ function openHeroPortal() {
   const copy = portalCopy(itemDetailLanguage);
   run.portal = result.portal;
   playerHasActed = true;
-  playSound('descend');
+  playSound('portal');
   const at = { x: (beside.x + 0.5) * TILE, y: (beside.y + 0.5) * TILE };
   burst(at.x, at.y - 8, '#5aa8e0', 18);
   addImpactWave(at.x, at.y - 2, '#5aa8e0', 46, 0);
@@ -11170,7 +11170,7 @@ function stepThroughPortal() {
   hero.hunger = run.hero.hunger;
   // `replaceFloor` is the one place that knows how to land a hero on a floor.
   replaceFloor(run.depth, arrival ?? undefined);
-  playSound('descend');
+  playSound('portal');
   showLootToast({ path: PORTAL_PATH, rarity: 2 }, romanDepth(run.depth));
   updatePortalButton();
   persistRun();
@@ -16168,7 +16168,7 @@ function useHomeStone() {
     run.house = back.house;
     run = travelRunToDepth(captureRun(), back.anchor.depth, { x: back.anchor.x, y: back.anchor.y });
     replaceFloor(run.depth, { x: back.anchor.x, y: back.anchor.y });
-    playSound('descend');
+    playSound('portal');
     showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
     return '';
   }

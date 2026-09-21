@@ -48,3 +48,30 @@ test('удар по зверю звучит так же, как удар по м
   assert.match(тело, /playSound\(projectile \?/, 'удар по зверю снова молчит');
   assert.match(тело, /if \(lethal\) playSound\('kill'\);/, 'добитый зверь обязан звучать');
 });
+
+/**
+ * Перемещение без шагов.
+ *
+ * Портал, домашний камень и падение в провал звучали шагом по каменной
+ * лестнице — единственным звуком перехода, который был в игре. Иван: «когда я
+ * призвал портал, звук шагов почему-то был». Шаг честен для лестницы и только
+ * для неё; всё, что переносит героя иначе, звучит иначе.
+ */
+test('шаг остаётся лестнице, а перенос звучит своим звуком', async () => {
+  const { SOUND_SAMPLES } = await import('../tools/dcss-rpg-audio.js');
+  assert.ok(SOUND_SAMPLES.portal, 'переносу нечем звучать');
+
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const звук = (имя) => {
+    const начало = runtime.indexOf(`function ${имя}(`);
+    assert.ok(начало > 0, `нет функции ${имя}`);
+    const тело = runtime.slice(начало, runtime.indexOf('\n}\n', начало));
+    return [...тело.matchAll(/playSound\('([a-z-]+)'/g)].map(([, id]) => id);
+  };
+  // Портал — в обе стороны, и домашний камень вместе с ним.
+  assert.ok(звук('stepThroughPortal').includes('portal'), 'шаг сквозь портал звучит шагом');
+  assert.equal(звук('stepThroughPortal').includes('descend'), false);
+  // А лестница остаётся лестницей.
+  assert.ok(звук('descendFloor').includes('descend'), 'спуск потерял свой звук');
+  assert.ok(звук('climbFloor').includes('descend'), 'подъём потерял свой звук');
+});

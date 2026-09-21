@@ -31,6 +31,15 @@ export const SOUND_SAMPLES = Object.freeze({
   door: sample('sfx/door.mp3', 0.45),
   chest: sample('sfx/chest.mp3', 0.4),
   descend: sample('sfx/descend.mp3', 0.5),
+  /*
+   * Перемещение без шагов.
+   *
+   * Портал, домашний камень и падение в провал звучали шагом по каменной
+   * лестнице — единственным звуком перехода, который был в игре. Иван: «когда
+   * я призвал портал, звук шагов почему-то был». Шаг честен для лестницы и
+   * только для неё; всё, что переносит героя иначе, звучит иначе.
+   */
+  portal: sample('sfx/portal.mp3', 0.45),
   'spell-fire': sample('sfx/spell-fire.mp3', 0.4),
   'spell-heal': sample('sfx/spell-heal.mp3', 0.4),
   'spell-ice': sample('sfx/spell-ice.mp3', 0.4),

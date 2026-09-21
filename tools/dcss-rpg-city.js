@@ -456,6 +456,15 @@ export function cityMerchantSpots(plan) {
   return spots;
 }
 
+/** Стоит ли клетка внутри прямоугольника комнаты. */
+function cellInside(rect, cell) {
+  if (!rect || !cell) return false;
+  const width = rect.w ?? rect.width;
+  const height = rect.h ?? rect.height;
+  return cell.x >= rect.x && cell.x < rect.x + width
+    && cell.y >= rect.y && cell.y < rect.y + height;
+}
+
 function centreOf(rect) {
   return { x: rect.x + Math.floor(rect.w / 2), y: rect.y + Math.floor(rect.h / 2) };
 }
@@ -660,14 +669,26 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
     }));
   }
 
+  /*
+   * Торговцев в городе столько, сколько ремёсел, и все разные.
+   *
+   * Лавок план ставит четыре, а ремесла три — и четвёртая заворачивалась на
+   * первое: в городе всегда оказывалось два снабженца. Иван: «в городе
+   * заспаунилось два снабженца, кажется, это неправильно; пусть будет по
+   * одному торговцу, пусть они не повторяются».
+   *
+   * Лишняя лавка теперь остаётся домом без торговли — и без вывески: вывеска
+   * читается у того, кто за прилавком, а не считается отдельно. Раньше они
+   * считались порознь, и стоило одной лавке не получить торговца, как вывески
+   * разъезжались со своими хозяевами — отсюда и дом с вывеской кузнеца, в
+   * котором никого нет.
+   */
   const merchants = [];
   for (const spot of cityMerchantSpots(plan)) {
     if (roomIndexAt(rooms, spot) < 0) continue;
-    // Two stalls can share a block, so a trader is numbered by its own stall,
-    // not by the room it stands in: the number keys its id, stock and prices.
+    if (merchants.length >= MERCHANT_VARIANT_ORDER.length) break;
     const stall = merchants.length;
-    const variantId = MERCHANT_VARIANT_ORDER[stall % MERCHANT_VARIANT_ORDER.length];
-    merchants.push({ roomIndex: stall, variantId, x: spot.x, y: spot.y });
+    merchants.push({ roomIndex: stall, variantId: MERCHANT_VARIANT_ORDER[stall], x: spot.x, y: spot.y });
   }
 
   const monsters = [];
@@ -1157,7 +1178,6 @@ export function createCityEnvironment(level) {
     path, frames: Object.freeze([path]),
     size: 74, screenOffsetY: -26, light: null, interactionId: null,
   });
-  let shopIndex = 0;
 
   for (const [roomIndex, block] of plan.blocks.entries()) {
     const { rect, kind } = block;
@@ -1208,9 +1228,12 @@ export function createCityEnvironment(level) {
     // The sign over the door, and the two or three things the trade behind it
     // leaves out in the street. A shop that says what it sells from across the
     // square is a shop the player walks to on purpose.
-    const trade = kind === 'shop'
-      ? MERCHANT_VARIANT_ORDER[shopIndex++ % MERCHANT_VARIANT_ORDER.length]
-      : kind;
+    // Ремесло дома — то, чем торгует стоящий в нём человек. Нет человека —
+    // нет и ремесла: дом остаётся жилым, и вывески над ним не будет.
+    const хозяин = kind === 'shop'
+      ? (level.merchants ?? []).find((merchant) => cellInside(block.interior, merchant))
+      : null;
+    const trade = kind === 'shop' ? хозяин?.variantId ?? null : kind;
     if (block.door && CITY_SIGN_PATHS[trade]) {
       place(signVisual(CITY_SIGN_PATHS[trade]), block.door, roomIndex, { hangs: true });
     }
