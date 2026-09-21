@@ -10885,10 +10885,30 @@ function brewAtCampfire() {
 }
 
 /** The two roads out of the city, offered where they part. */
+/**
+ * Ворота города — все три, а не одни.
+ *
+ * Город рисует три выхода: вниз в пещеры, наружу за ворота и вниз в подвалы. А
+ * развилку открывали только те, что совпали с `dungeon.exit`, — и это всегда
+ * одни и те же ворота, наружные. К двум остальным игрок подходил и не получал
+ * ничего: ни окна, ни отказа, ни подсказки.
+ *
+ * Хуже: поднявшись из пещер, герой встаёт у ворот своей дороги — то есть как
+ * раз у тех, которые не работали. Иван: «нажимаю кнопку подняться наверх, и
+ * ничего не происходит; портал тоже не работает». Ворота были мёртвые, а
+ * портал в городе и не должен вести никуда, кроме как обратно вниз.
+ *
+ * Развилка у всех трёх одна и та же — она и так предлагает все дороги, — так
+ * что достаточно перестать спрашивать, те ли это ворота.
+ */
 function nearbyCityGate() {
   if (!isCityDepth(dungeon.depth) || runStatus !== 'playing' || hero.dead) return null;
   if (run.crime.jailed) return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  const ворота = Object.values(dungeon.gates ?? {}).filter(Boolean);
+  const рядом = ворота.find((gate) => cellStepDistance(cell, gate) <= 1);
+  if (рядом) return рядом;
+  // Выход этажа остаётся выходом даже там, где ворот в плане нет.
   return cellStepDistance(cell, dungeon.exit) <= 1 ? dungeon.exit : null;
 }
 
@@ -11212,8 +11232,17 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id !== 'unbind') return false;
     return payPriestForUnbinding();
   },
-  'city-gate'({ action }) {
+  'city-gate'({ target, action }) {
     closeContextActions();
+    /*
+     * Вернёшься — встанешь там же, откуда ушёл.
+     *
+     * Раньше подъём ставил героя у ворот его дороги, а ушёл он мог другими:
+     * Иван: «спустился на второй этаж и поднялся наверх, а он меня заспаунил
+     * не там, где я спустился, а возле другой двери». Теперь клетка ворот
+     * запоминается, и дорога обратно кончается ровно там, где началась.
+     */
+    if (target?.value) run.cityGate = { x: target.value.x, y: target.value.y };
     // «Уйти с добычей» is gone: a run ends by dying, by winning, or by the
     // player starting the next one.
     const branch = action.id === 'goSurface'
@@ -16142,7 +16171,10 @@ function climbFloor() {
   replaceFloor(run.depth);
   // Come out of the caves and you are standing at the hole you came out of, not
   // at the far side of town. The gate you used is the gate you arrive by.
-  if (isCityDepth(run.depth) && dungeon.gates?.[road]) placeHeroAtCell(dungeon.gates[road]);
+  if (isCityDepth(run.depth)) {
+    const воротаДороги = dungeon.gates?.[road] ?? null;
+    placeHeroAtCell(run.cityGate ?? воротаДороги ?? dungeon.exit);
+  }
   playSound('descend');
   showLootToast({ path: ascentVisual().path, rarity: 2 }, romanDepth(run.depth));
 }

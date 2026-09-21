@@ -161,8 +161,45 @@ test('the runtime draws the way up and only climbs once the hero steps off it', 
   assert.match(runtime, /if \(!onStair\(dungeon\.exit\) && !onStair\(dungeon\.spawn\) && !cityGate\) \{\s+stairsArmed = true;/);
   // And each city gate goes one way, without asking which road.
   assert.match(runtime, /if \(run\.branch !== cityGate\) run = switchRunBranch\(captureRun\(\), cityGate\);/);
-  assert.match(runtime, /if \(isCityDepth\(run\.depth\) && dungeon\.gates\?\.\[road\]\) placeHeroAtCell/, 'you come out where you went in');
+  // Возвращается герой ровно в те ворота, которыми ушёл, а не в ворота своей
+  // дороги: уйти можно одними, а дорога при этом выбирается другая.
+  assert.match(runtime, /placeHeroAtCell\(run\.cityGate \?\? воротаДороги \?\? dungeon\.exit\);/, 'you come out where you went in');
   assert.match(runtime, /if \(!stairsArmed\) return;/);
   assert.match(runtime, /stairsArmed = false;/, 'arriving disarms both stairs');
   assert.match(runtime, /dungeon = hydrateDungeon\(run\);/, 'a floor change loads what the run remembers');
+});
+
+/**
+ * Все трое ворот города — выход, а не два из трёх декорация.
+ *
+ * Город рисует три выхода, а развилку открывали только те, что совпали с
+ * `dungeon.exit`, — и это всегда одни и те же, наружные. К двум остальным игрок
+ * подходил и не получал ничего: ни окна, ни отказа. Хуже: поднявшись из пещер,
+ * герой встаёт у ворот своей дороги — как раз у тех, которые молчали. Иван:
+ * «нажимаю кнопку подняться наверх, и ничего не происходит».
+ */
+test('развилку открывают все ворота города, и возвращают они туда же', async () => {
+  const { generateDungeon, validateCityGate } = await import('../tools/dcss-rpg-core.js');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+
+  // Ворот в плане трое, и `exit` — только одни из них.
+  for (const seed of [5, 63, 77, 12345]) {
+    const town = generateDungeon({ seed, depth: 0 });
+    const ворота = Object.values(town.gates ?? {});
+    assert.equal(ворота.length, 3, `сид ${seed}: ворот не три`);
+    const совпало = ворота.filter((gate) => gate.x === town.exit.x && gate.y === town.exit.y);
+    assert.equal(совпало.length, 1, `сид ${seed}: выход совпал не с одними воротами`);
+  }
+
+  // Поэтому развилка спрашивается у всех ворот, а не у клетки выхода.
+  const поиск = runtime.slice(runtime.indexOf('function nearbyCityGate()'));
+  const тело = поиск.slice(0, поиск.indexOf('\n}\n'));
+  assert.match(тело, /Object\.values\(dungeon\.gates \?\? \{\}\)/, 'развилка снова только у одних ворот');
+
+  // И клетка ухода — законное поле сохранения, а не что попало.
+  assert.equal(validateCityGate(undefined), true, 'забег без выхода из города испорчен');
+  assert.equal(validateCityGate({ x: 3, y: 4 }), true);
+  assert.equal(validateCityGate({ x: -1, y: 4 }), false);
+  assert.equal(validateCityGate({ x: 3 }), false);
+  assert.equal(validateCityGate([3, 4]), false);
 });

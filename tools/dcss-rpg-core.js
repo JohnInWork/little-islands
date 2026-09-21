@@ -2496,6 +2496,20 @@ export function validateThiefState(thief) {
   return isFiniteInteger(thief.floors, 0, DEEPEST_DEPTH);
 }
 
+/**
+ * Ворота, которыми герой вышел из города.
+ *
+ * Поле необязательное: забег, ни разу не выходивший из города, его не имеет, и
+ * старые сохранения от этого не портятся. Нужно оно затем, чтобы подъём
+ * возвращал ровно туда, откуда ушли, — Иван: «спустился и поднялся, а он меня
+ * заспаунил не там, где я спустился, а возле другой двери».
+ */
+export function validateCityGate(cell) {
+  if (cell === undefined || cell === null) return true;
+  if (typeof cell !== 'object' || Array.isArray(cell)) return false;
+  return isFiniteInteger(cell.x, 0, MAP_WIDTH - 1) && isFiniteInteger(cell.y, 0, MAP_HEIGHT - 1);
+}
+
 export function validateRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== SAVE_VERSION) return false;
   if (
@@ -2606,6 +2620,7 @@ export function validateRun(snapshot) {
   if (!validateHouseState(snapshot.house)) return false;
   if (!validateThiefState(snapshot.thief)) return false;
   if (!validateBuild(snapshot.build)) return false;
+  if (!validateCityGate(snapshot.cityGate)) return false;
   // A save written before portals existed simply has none.
   if (!validatePortalState(snapshot.portal ?? null)) return false;
   if (!validateCrimeState(snapshot.crime)) return false;

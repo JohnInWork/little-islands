@@ -140,7 +140,9 @@ test('a fork asks, and stepping on it never answers for the hero', async () => {
   assert.match(runtime, /if \(artifactAvailable\(\)\) return;/);
   assert.match(runtime, /if \(isCityDepth\(dungeon\.depth\)\) return;\s*\n\s*descendFloor\(\);/);
   assert.match(runtime, /function nearbyCityGate\(\)[\s\S]*isCityDepth\(dungeon\.depth\)/);
-  assert.match(runtime, /'city-gate'\(\{ action \}\)[\s\S]*switchRunBranch\(captureRun\(\), branch\)/);
+  // Развилка получает и сами ворота: уходя, герой запоминает, какими вышел.
+  assert.match(runtime, /'city-gate'\(\{ target, action \}\)[\s\S]*switchRunBranch\(captureRun\(\), branch\)/);
+  assert.match(runtime, /run\.cityGate = \{ x: target\.value\.x, y: target\.value\.y \};/);
   assert.match(runtime, /'road-end'\(\{ action \}\)[\s\S]*completeVictory\(\)[\s\S]*descendFloor\(\)/);
 });
 
