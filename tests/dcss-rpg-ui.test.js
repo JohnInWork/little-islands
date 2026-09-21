@@ -706,3 +706,34 @@ test('«Получить» появляется только во время р�
   const narrow = css.slice(css.indexOf('#salvage-confirm strong {'));
   assert.doesNotMatch(narrow.slice(0, 80), /#salvage strong/, 'подпись «Разбор» снова скрыта');
 });
+
+/**
+ * Выбор класса и сборка своего — два шага, а не одно окно.
+ *
+ * Сначала было всё сразу: четыре готовых героя и под ними три строки
+ * характеристик с сорока навыками. Иван: «надо разделить выбор класса — сначала
+ * выбор класса и в этом выборе кнопка „Создать свой“, и только потом уже
+ * создавать свой класс, а не мешать это всё в одно окно».
+ */
+test('экран создания героя разделён на два шага', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const разметка = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
+  const стили = await readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8');
+
+  // Шаг записан на карточке, и по нему прячется половина экрана.
+  assert.match(runtime, /creationCard\.dataset\.step = creationStep;/);
+  assert.match(стили, /\[data-step='archetypes'\] \.creation-custom/);
+  assert.match(стили, /\[data-step='custom'\] \.creation-archetypes/);
+  assert.match(разметка, /id="creation-open-custom"/);
+
+  /*
+   * «Начать» на первом шаге ждёт выбора.
+   *
+   * Иначе её можно было бы нажать, не выбрав никого, — и забег начинался бы
+   * героем без единого очка, хотя очки игроку предлагали.
+   */
+  assert.match(runtime, /confirmCreationButton\.disabled = !свой && !model\.archetypes\.some/);
+  // «Назад» со второго шага возвращает к выбору, а не закрывает всё окно.
+  assert.match(runtime, /function backFromCreation\(\)/);
+  assert.match(runtime, /if \(creationStep !== 'custom'\) return closeCharacterCreation\(\);/);
+});

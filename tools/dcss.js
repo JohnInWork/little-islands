@@ -722,6 +722,9 @@ const creationArchetypes = document.querySelector('#creation-archetypes');
 const creationAttributes = document.querySelector('#creation-attributes');
 const creationSkills = document.querySelector('#creation-skills');
 const creationSkillsLeft = document.querySelector('#creation-skills-left');
+const creationCard = document.querySelector('.character-creation-card');
+const creationOwnButton = document.querySelector('#creation-open-custom');
+const creationHint = document.querySelector('#character-creation-hint');
 const cancelCreationButton = document.querySelector('#cancel-creation');
 const confirmCreationButton = document.querySelector('#confirm-creation');
 const newRunFromMenuLabel = document.querySelector('#restart-from-menu-label');
@@ -11480,9 +11483,55 @@ function cycleAppearance(kind, step) {
  */
 let pendingBuild = null;
 
+/**
+ * На каком шаге игрок.
+ *
+ * `archetypes` — выбор готового, `custom` — сборка своего. Иван: «сначала выбор
+ * класса и в этом выборе кнопка „Создать свой“, и только потом уже создавать
+ * свой класс, а не мешать это всё в одно окно».
+ */
+let creationStep = 'archetypes';
+
+const CREATION_COPY = Object.freeze({
+  ru: Object.freeze({
+    pickTitle: 'Кем выйти',
+    pickHint: 'Возьми готового героя или собери своего.',
+    ownTitle: 'Свой герой',
+    ownHint: 'Два очка характеристик и два навыка.',
+    own: 'Создать своего',
+    back: 'Назад',
+    cancel: 'Отмена',
+  }),
+  en: Object.freeze({
+    pickTitle: 'Who walks out',
+    pickHint: 'Take a ready hero or build your own.',
+    ownTitle: 'Your own hero',
+    ownHint: 'Two attribute points and two skills.',
+    own: 'Build your own',
+    back: 'Back',
+    cancel: 'Cancel',
+  }),
+});
+
 function renderCharacterCreation() {
   const model = buildScreenModel({ build: pendingBuild, language: itemDetailLanguage });
   const ru = itemDetailLanguage !== 'en';
+  const copy = CREATION_COPY[ru ? 'ru' : 'en'];
+  const свой = creationStep === 'custom';
+  creationCard.dataset.step = creationStep;
+  creationCard.querySelector('#character-creation-title').textContent = свой ? copy.ownTitle : copy.pickTitle;
+  creationHint.textContent = свой ? copy.ownHint : copy.pickHint;
+  creationOwnButton.textContent = copy.own;
+  cancelCreationButton.textContent = свой ? copy.back : copy.cancel;
+  /*
+   * На первом шаге «Начать» ждёт выбора.
+   *
+   * Иначе нажать её можно было бы, не выбрав никого, — и забег начинался бы
+   * героем без единого очка, хотя игроку их предлагали. Кто хочет такого
+   * героя, доберётся до него через «Создать своего»: там пустой набор —
+   * законное решение, а не промах.
+   */
+  confirmCreationButton.disabled = !свой && !model.archetypes.some(({ chosen }) => chosen);
 
   creationArchetypes.replaceChildren(...model.archetypes.map((archetype) => {
     const card = document.createElement('button');
@@ -11563,6 +11612,7 @@ function renderCharacterCreation() {
 
 function openCharacterCreation() {
   if (uiScreen !== 'menu' && uiScreen !== 'restart-confirm') return false;
+  creationStep = 'archetypes';
   if (uiScreen === 'restart-confirm') {
     newRunConfirm.inert = true;
     newRunConfirm.setAttribute('aria-hidden', 'true');
@@ -11578,6 +11628,17 @@ function openCharacterCreation() {
   renderCharacterCreation();
   playSound('ui-tap');
   requestAnimationFrame(() => confirmCreationButton.focus());
+  return true;
+}
+
+/** «Назад» со второго шага возвращает к выбору, а не закрывает всё окно. */
+function backFromCreation() {
+  if (uiScreen !== 'creation') return false;
+  if (creationStep !== 'custom') return closeCharacterCreation();
+  creationStep = 'archetypes';
+  pendingBuild = createEmptyBuild();
+  playSound('ui-close');
+  renderCharacterCreation();
   return true;
 }
 
@@ -18514,7 +18575,14 @@ saveAppearanceButton.addEventListener('click', () => closeAppearanceEditor({ sav
 newRunFromMenuButton.addEventListener('click', openNewRunConfirm);
 cancelNewRunButton.addEventListener('click', closeNewRunConfirm);
 confirmNewRunButton.addEventListener('click', confirmNewRun);
-cancelCreationButton.addEventListener('click', closeCharacterCreation);
+cancelCreationButton.addEventListener('click', backFromCreation);
+creationOwnButton.addEventListener('click', () => {
+  if (uiScreen !== 'creation') return;
+  creationStep = 'custom';
+  pendingBuild = createEmptyBuild();
+  playSound('ui-tap');
+  renderCharacterCreation();
+});
 confirmCreationButton.addEventListener('click', startRunFromCreation);
 /*
  * Один слушатель на все карточки: плитки перерисовываются на каждый выбор, и

@@ -8912,7 +8912,7 @@ body {
   width: min(460px, 100%);
   max-height: 100%;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
   gap: 10px;
   padding: 12px;
   overflow: hidden;
@@ -9000,10 +9000,6 @@ body {
   padding: 8px;
   border: 2px solid #2c3436;
   background: #0d1416;
-}
-
-.creation-custom > b {
-  font-size: 12px;
 }
 
 .creation-attributes {
@@ -9117,4 +9113,24 @@ body {
 
 .creation-attribute[data-attribute='intelligence'] output {
   color: #6fa8dc;
+}
+
+
+/*
+ * Два шага, а не одно окно.
+ *
+ * Сначала было всё сразу: четыре готовых героя и под ними три строки
+ * характеристик с сорока навыками. Иван: «надо разделить выбор класса — сначала
+ * выбор класса и в этом выборе кнопка „Создать свой“, и только потом уже
+ * создавать свой класс, а не мешать это всё в одно окно». Он прав: на первом
+ * шаге половина экрана была про решение, которого игрок ещё не принял.
+ */
+.character-creation-card[data-step='archetypes'] .creation-custom,
+.character-creation-card[data-step='custom'] .creation-archetypes,
+.character-creation-card[data-step='custom'] .creation-own {
+  display: none;
+}
+
+.creation-own {
+  width: 100%;
 }

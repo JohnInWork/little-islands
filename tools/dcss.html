@@ -158,8 +158,10 @@
             <p id="character-creation-hint">Возьми готового героя или собери своего.</p>
           </header>
           <div class="creation-archetypes" id="creation-archetypes"></div>
-          <section class="creation-custom" aria-labelledby="creation-custom-title">
-            <b id="creation-custom-title">Свой герой</b>
+          <button id="creation-open-custom" class="creation-own" type="button">Создать своего</button>
+          <!-- Заголовок у карточки один и тот же на оба шага, и на втором он и
+               есть «Свой герой»: повторять его внутри — значит писать дважды. -->
+          <section class="creation-custom" aria-labelledby="character-creation-title">
             <div class="creation-attributes" id="creation-attributes"></div>
             <div class="creation-skills-head">
               <span id="creation-skills-label">Навыки</span>
