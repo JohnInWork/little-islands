@@ -188,3 +188,40 @@ test('касание открытой двери ведёт героя скво�
   // Кнопка действия при этом остаётся: закрывать дверь по-прежнему можно.
   assert.match(runtime, /add\('door', nearbyDoor\(\)\)|kind: 'door'/, 'дверь пропала из кнопки действий');
 });
+
+/**
+ * Закрытая дверь — не стена, и герой открывает её по дороге.
+ *
+ * Для поиска пути дверь была ровно стеной, и всё за ней становилось
+ * недостижимым: стоящий в доме герой не мог дойти никуда наружу. Игра при этом
+ * не отказывала, а шла к ближайшей досягаемой клетке — то есть утыкалась в
+ * стену рядом с тем местом, куда ткнули пальцем. Иван: «нажимаю герою идти в
+ * тень, а он тупо упирается в стену».
+ *
+ * Разрешение открывать двери принадлежит не герою, а конкретному пути: дверь,
+ * захлопнувшаяся перед идущим, обязана его остановить — это чужое действие, и
+ * переигрывать его за игрока нельзя.
+ */
+test('путь сквозь дверь находится, и дверь на нём открывается сама', async () => {
+  const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+
+  // Дверь проходима только когда об этом просят.
+  assert.match(runtime, /throughDoors = false \} = \{\},/);
+  assert.match(runtime, /if \(throughDoors\) \{\s*\n\s*navigationGrid = navigationGrid\.map/);
+
+  // Просит один `requestHeroMove`, и только вторым заходом.
+  const ход = runtime.slice(runtime.indexOf('function requestHeroMove('));
+  const тело = ход.slice(0, ход.indexOf('\n}\n'));
+  assert.ok(
+    тело.indexOf('throughDoors: true') > тело.indexOf('let path = findPath'),
+    'путь сквозь двери ищется раньше обычного',
+  );
+  assert.ok(
+    тело.indexOf('throughDoors: true') < тело.indexOf('routeTowardCell(target)'),
+    'сдаваться начинают раньше, чем пробуют дверь',
+  );
+  assert.match(тело, /heroPathOpensDoors = пошёл && черезДвери;/);
+
+  // И открывает её только тот путь, который её наметил.
+  assert.match(runtime, /if \(!heroPathOpensDoors \|\| !дверь \|\| openingDoor \|\| !beginOpenDoor\(дверь\)\) hero\.path = \[\];/);
+});

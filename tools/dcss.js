@@ -1413,6 +1413,8 @@ let runStatus = run.status;
 let playerHasActed = run.started;
 /** Сколько вампиризм ещё может вернуть в этой секунде. Копится временем. */
 let vampiricPool = 0;
+/** Наметил ли игрок этим путём пройти сквозь дверь. */
+let heroPathOpensDoors = false;
 /** Screens where the world keeps moving; every other screen gets one frame on entry. */
 const LIVE_WORLD_SCREENS = new Set(['game', 'context', 'trap-placement', 'ability-targeting', 'chest', 'merchant']);
 const RENDER_INTERVAL_MS = 15.5;
@@ -4843,15 +4845,32 @@ function isCurrentlyVisible(x, y) {
 function findPath(
   targetX,
   targetY,
-  { allowHidden = false, start = null, blockedCells = null, allowBlockedEnd = true, allowedHazardCell = null, heroMovement = false, terrain = null } = {},
+  { allowHidden = false, start = null, blockedCells = null, allowBlockedEnd = true, allowedHazardCell = null, heroMovement = false, terrain = null, throughDoors = false } = {},
 ) {
   const startCell = start ?? { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const end = { x: Math.floor(targetX), y: Math.floor(targetY) };
-  if (!(heroMovement ? isHeroWalkable(end.x, end.y) : isWalkable(end.x, end.y))) return [];
+  const проходима = (cx, cy) => (throughDoors && world[cy]?.[cx] === 'D')
+    || (heroMovement ? isHeroWalkable(cx, cy) : isWalkable(cx, cy));
+  if (!проходима(end.x, end.y)) return [];
   if (!allowHidden && !revealed.has(`${end.x},${end.y}`)) return [];
   let navigationGrid = allowHidden
     ? world
     : world.map((row, y) => row.map((cell, x) => (revealed.has(`${x},${y}`) ? cell : '#')));
+  /*
+   * Закрытая дверь — не стена.
+   *
+   * Для поиска пути она была ровно стеной, и всё, что за ней, становилось
+   * недостижимым: герой, стоящий в доме, не мог дойти никуда наружу. Игра при
+   * этом не отказывала, а шла к ближайшей досягаемой клетке — то есть утыкалась
+   * в стену рядом с тем местом, куда ткнули пальцем. Иван: «нажимаю герою идти
+   * в тень, а он тупо упирается в стену».
+   *
+   * Дверь проходима только когда её об этом просят, и просит один
+   * `requestHeroMove` — вторым заходом, когда обычного пути не нашлось.
+   */
+  if (throughDoors) {
+    navigationGrid = navigationGrid.map((row) => row.map((cell) => (cell === 'D' ? '.' : cell)));
+  }
   // Water-bound creatures (an eel) only ever route through water.
   if (terrain?.land === 0) {
     navigationGrid = navigationGrid.map((row) => row.map((cell) => (cell === '~' ? cell : '#')));
@@ -5188,8 +5207,34 @@ function requestHeroMove(targetX, targetY) {
       return true;
     }
   }
+  /*
+   * Второй заход — через двери.
+   *
+   * Обычный путь их не видит, и всё за закрытой дверью недостижимо. Прежде чем
+   * сдаваться и идти «примерно туда», игра спрашивает ещё раз: а если дверь
+   * открыть? Откроет её сам герой, дойдя до неё, — как открыл бы рукой.
+   */
+  let черезДвери = false;
+  if (path.length === 0) {
+    path = findPath(targetX, targetY, {
+      allowBlockedEnd: false,
+      allowedHazardCell: intent.permittedCell,
+      heroMovement: true,
+      throughDoors: true,
+    });
+    черезДвери = path.length > 0;
+  }
   if (path.length === 0) path = routeTowardCell(target);
-  return commitHeroPath(path, intent.permittedCell);
+  const пошёл = commitHeroPath(path, intent.permittedCell);
+  /*
+   * Открывать двери разрешено только тому пути, который об этом просил.
+   *
+   * Дверь, захлопнувшаяся перед идущим героем, обязана его остановить — это
+   * чужое действие, и переигрывать его за игрока нельзя. А дверь, которую
+   * игрок сам наметил пройти, герой открывает сам.
+   */
+  heroPathOpensDoors = пошёл && черезДвери;
+  return пошёл;
 }
 
 function commitHeroPath(nextPath, allowedHazardCell = null) {
@@ -16415,7 +16460,18 @@ function updateHero(delta) {
       (!currentHeroMagic().flight && knownTrapCells().has(targetCell) && permittedHazardCell !== targetCell) ||
       (targetCell !== currentCell && heroBlockingCells().has(targetCell));
     if (targetBlocked) {
-      hero.path = [];
+      /*
+       * Дверь на пути открывают, а не упираются в неё.
+       *
+       * Путь сохраняется целиком: дверь откроется за свою долю секунды, и
+       * герой пойдёт дальше с того же места, вместо того чтобы остановиться и
+       * ждать второго касания.
+       */
+      const клетка = { x: Math.floor(target.x / TILE), y: Math.floor(target.y / TILE) };
+      const дверь = world[клетка.y]?.[клетка.x] === 'D'
+        ? doorDefinitions.find((door) => door.x === клетка.x && door.y === клетка.y)
+        : null;
+      if (!heroPathOpensDoors || !дверь || openingDoor || !beginOpenDoor(дверь)) hero.path = [];
     } else {
       const dx = target.x - hero.x;
       const dy = target.y - hero.y;

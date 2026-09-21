@@ -168,6 +168,10 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     // Копилка вампиризма живёт во времени; в песочнице времени нет.
     vampiricBudget: () => 0,
     vampiricPool: 0,
+    // Дверь на пути открывает только тот путь, который её и наметил.
+    heroPathOpensDoors: false,
+    doorDefinitions: [],
+    beginOpenDoor: () => false,
     burst: () => {}, addImpactWave: () => {}, addCombatGlyph: () => {},
     addBloodImpact: () => {}, beginHitStop: () => {}, updateBossHud: () => {},
     showSwordRhythmImpact: () => {},
