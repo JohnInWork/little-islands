@@ -176,7 +176,18 @@ test('the hero is hurt and dies in her own voice', async () => {
   assert.equal(playerVoice({ bodyId: 'human-f' }), 'female');
   assert.equal(playerVoice({ bodyId: 'human-m' }), 'male');
   assert.equal(playerVoice(null), 'male', 'an unknown body is not a crash');
-  assert.deepEqual(PLAYER_BODY_OPTIONS.map(({ id }) => id), ['human-m', 'human-f']);
+  // Тел стало шестнадцать, и голос у каждого свой: проверяем, что женским
+  // кричит не только человеческая женщина.
+  assert.equal(playerVoice({ bodyId: 'elf-f' }), 'female');
+  assert.ok(PLAYER_BODY_OPTIONS.length >= 8);
+  for (const тело of PLAYER_BODY_OPTIONS) {
+    assert.equal(playerVoice({ bodyId: тело.id }), тело.voice, `${тело.id}: голос не совпал с телом`);
+  }
+  assert.equal(
+    PLAYER_BODY_OPTIONS.filter(({ voice }) => voice === 'female').length,
+    PLAYER_BODY_OPTIONS.length / 2,
+    'у каждой расы должны быть оба голоса',
+  );
 
   assert.equal(heroVoiceSound('hero-hurt', 'female'), 'hero-hurt-f');
   assert.equal(heroVoiceSound('death', 'female'), 'death-f');

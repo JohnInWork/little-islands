@@ -84,6 +84,7 @@ import {
   itemSpriteVariants,
 } from './dcss-rpg-equipment-visuals.js';
 import {
+  PLAYER_BEARD_OPTIONS,
   PLAYER_BODY_OPTIONS,
   PLAYER_HAIR_OPTIONS,
   cyclePlayerAppearance,
@@ -711,6 +712,8 @@ const appearanceBodyLabel = document.querySelector('#appearance-body-label');
 const appearanceHairLabel = document.querySelector('#appearance-hair-label');
 const appearanceBodyValue = document.querySelector('#appearance-body-value');
 const appearanceHairValue = document.querySelector('#appearance-hair-value');
+const appearanceBeardValue = document.querySelector('#appearance-beard-value');
+const appearanceBeardLabel = document.querySelector('#appearance-beard-label');
 const appearanceCycleButtons = [...appearanceEditor.querySelectorAll('[data-appearance-kind]')];
 const saveAppearanceButton = document.querySelector('#save-appearance');
 const newRunConfirm = document.querySelector('#new-run-confirm');
@@ -1632,11 +1635,13 @@ function renderMainMenu() {
   appearancePaperdoll.setAttribute('aria-label', labels.appearancePreview);
   appearanceBodyLabel.textContent = labels.body;
   appearanceHairLabel.textContent = labels.hair;
+  appearanceBeardLabel.textContent = labels.beard;
   saveAppearanceButton.textContent = labels.appearanceDone;
   for (const button of appearanceCycleButtons) {
     const previous = Number(button.dataset.appearanceStep) < 0;
     const kind = button.dataset.appearanceKind;
-    const key = `${previous ? 'previous' : 'next'}${kind === 'body' ? 'Body' : 'Hair'}`;
+    const хвост = kind === 'body' ? 'Body' : kind === 'hair' ? 'Hair' : 'Beard';
+    const key = `${previous ? 'previous' : 'next'}${хвост}`;
     button.setAttribute('aria-label', labels[key]);
   }
   newRunConfirmTitle.textContent = labels.newRunConfirmTitle;
@@ -5189,6 +5194,7 @@ function playerLayers(profile = playerAppearance) {
   return composePlayerLayerStack({
     baseVisual: appearance.body,
     hairVisual: appearance.hair,
+    beardVisual: appearance.beard,
     cloakVisual: visualForItem(equippedItem('cloak')),
     bodyVisual: visualForItem(equippedItem('body')),
     beltVisual: visualForItem(equippedItem('belt')),
@@ -10853,6 +10859,7 @@ function renderAppearanceEditor() {
   const position = playerAppearancePosition(appearanceDraft);
   appearanceBodyValue.textContent = `${position.body + 1}/${PLAYER_BODY_OPTIONS.length}`;
   appearanceHairValue.textContent = `${position.hair + 1}/${PLAYER_HAIR_OPTIONS.length}`;
+  appearanceBeardValue.textContent = `${position.beard + 1}/${PLAYER_BEARD_OPTIONS.length}`;
   drawPaperDollTo(appearancePaperContext, appearancePaperdoll, appearanceDraft, false);
 }
 

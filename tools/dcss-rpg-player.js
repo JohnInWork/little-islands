@@ -3,6 +3,7 @@ export const BASE_PLAYER_LAYER = 'player/base/human_m.png';
 export function composePlayerLayers({
   baseVisual = null,
   hairVisual = null,
+  beardVisual = null,
   cloakVisual = null,
   bodyVisual = null,
   beltVisual = null,
@@ -17,6 +18,7 @@ export function composePlayerLayers({
   return composePlayerLayerStack({
     baseVisual,
     hairVisual,
+    beardVisual,
     cloakVisual,
     bodyVisual,
     beltVisual,
@@ -41,6 +43,7 @@ export function composePlayerLayers({
 export function composePlayerLayerStack({
   baseVisual = null,
   hairVisual = null,
+  beardVisual = null,
   cloakVisual = null,
   bodyVisual = null,
   beltVisual = null,
@@ -62,6 +65,8 @@ export function composePlayerLayerStack({
     layer(bootsVisual?.layer, bootsVisual),
     layer(bodyVisual?.layer, bodyVisual),
     layer(glovesVisual?.layer, glovesVisual),
+    // Борода лежит на лице: поверх тела, но под шлемом, который её закроет.
+    layer(beardVisual?.layer, beardVisual),
     hideHair ? null : layer(hairVisual?.layer, hairVisual),
     layer(headVisual?.layer, headVisual),
     layer(hand1Visual?.layer, hand1Visual),
