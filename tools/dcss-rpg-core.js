@@ -2422,6 +2422,27 @@ function validateFloorShape(floor, depth) {
   return true;
 }
 
+/**
+ * Приём сейва текущей версии: то немногое, что мы обязаны простить сами себе.
+ *
+ * Миграция чинит сохранения прошлых версий, а сейв сегодняшней версии шёл в
+ * проверку как есть. Пока каталог навыков только рос, это было безобидно. В тот
+ * день, когда лагерь и ловушки перестали быть навыками, вчерашний забег с
+ * вложенными туда очками стал «порченым»: проверка требует, чтобы каждый ранг
+ * принадлежал существующему навыку. Загрузчик такой сейв молча пропускает,
+ * идёт к резервной копии — а там то же самое, — и игрок видит «Начать забег»
+ * вместо своего героя.
+ *
+ * Поэтому снятый навык возвращается очками до проверки, а не после неё.
+ */
+export function adoptRun(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  if (!snapshot.hero || typeof snapshot.hero !== 'object') return snapshot;
+  const skills = refundRetiredSkills(snapshot.hero.skills);
+  if (skills === snapshot.hero.skills) return snapshot;
+  return { ...snapshot, hero: { ...snapshot.hero, skills } };
+}
+
 export function validateRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== SAVE_VERSION) return false;
   if (

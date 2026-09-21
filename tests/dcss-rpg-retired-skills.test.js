@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { adoptRun, createRun, validateRun } from '../tools/dcss-rpg-core.js';
+import { deriveSkillCapabilities } from '../tools/dcss-rpg-skills.js';
+import { skillById } from '../tools/dcss-rpg-skill-content.js';
+
+/**
+ * Снятый навык не имеет права стоить игроку забега.
+ *
+ * Лагерь и ловушки перестали быть навыками — их получают все и сразу. Но у
+ * того, кто уже вложил туда очки, сохранение остаётся с рангами несуществующих
+ * навыков. Проверка забега такие ранги считает порчей и отвергает сейв целиком,
+ * а загрузчик молча идёт к резервной копии, где ровно то же самое, — и вчерашний
+ * герой исчезает, будто его не было. Именно это и случилось бы на телефоне.
+ */
+
+const прежние = ['camping', 'trap-setting'];
+
+test('снятые навыки больше не существуют в каталоге', () => {
+  for (const id of прежние) {
+    assert.equal(skillById(id) ?? null, null, `${id} всё ещё навык`);
+  }
+});
+
+test('сейв с рангами снятых навыков принимается, а очки возвращаются', () => {
+  const run = createRun(4242);
+  const version = run.hero.skills.version;
+  run.hero.level = 5;
+
+  const чистый = { ...run, hero: { ...run.hero, skills: { version, points: 4, ranks: {} } } };
+  assert.equal(validateRun(чистый), true, 'обычный сейв пятого уровня должен быть годен');
+
+  const вчерашний = {
+    ...run,
+    hero: { ...run.hero, skills: { version, points: 1, ranks: { camping: 2, 'trap-setting': 1 } } },
+  };
+  assert.equal(validateRun(вчерашний), false, 'как есть сейв действительно негоден — ради этого и нужен приём');
+
+  const принятый = adoptRun(вчерашний);
+  assert.equal(validateRun(принятый), true, 'после приёма забег обязан загрузиться');
+  assert.deepEqual(принятый.hero.skills.ranks, {}, 'ранги снятых навыков убраны');
+  assert.equal(принятый.hero.skills.points, 4, 'все три вложенных очка вернулись игроку');
+  assert.notEqual(принятый, вчерашний, 'приём не правит чужой объект на месте');
+  assert.deepEqual(вчерашний.hero.skills.ranks, { camping: 2, 'trap-setting': 1 });
+});
+
+test('приём ничего не трогает там, где трогать нечего', () => {
+  const run = createRun(4243);
+  assert.equal(adoptRun(run), run, 'здоровый сейв возвращается тем же объектом');
+  assert.equal(adoptRun(null), null);
+  assert.equal(adoptRun({ hero: null }).hero, null);
+});
+
+test('умения лагеря и ловушек доступны без всяких очков', () => {
+  const run = createRun(4244);
+  const умения = deriveSkillCapabilities(run.hero.skills);
+  assert.ok(умения.campRank >= 3, `лагерь ранга ${умения.campRank}`);
+  assert.ok(умения.trapPlacementTier >= 3, `ловушки тира ${умения.trapPlacementTier}`);
+});

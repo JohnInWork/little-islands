@@ -12,6 +12,7 @@ import {
   MAP_WIDTH,
   LEGACY_SAVE_KEYS,
   SAVE_KEY,
+  adoptRun,
   advanceRunFloor,
   retreatRunFloor,
   enterBranchThroughGate,
@@ -1651,7 +1652,9 @@ function loadRun() {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
-      const snapshot = legacy ? migrateLegacyRun(parsed) : parsed;
+      // Сейв прошлой версии чинит миграция, сейв сегодняшней — приём: снятый
+      // навык возвращается очками, иначе вчерашний забег молча пропадёт.
+      const snapshot = legacy ? migrateLegacyRun(parsed) : adoptRun(parsed);
       if (!validateRun(snapshot)) continue;
       const level = hydrateDungeon(snapshot);
       return { run: snapshot, dungeon: level };
