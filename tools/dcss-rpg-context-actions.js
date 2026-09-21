@@ -587,6 +587,38 @@ export const INTERACTION_REGISTRY = Object.freeze([
     }),
   }),
   defineInteraction({
+    /*
+     * Разговор с именным.
+     *
+     * Карточка ничего не решает сама: имя, реплика и ответы приходят готовыми
+     * из `dcss-rpg-parley.js`, потому что у каждого именного они свои. Здесь
+     * только рамка, в которую это вставляется.
+     *
+     * `confirm` обязателен. Единственный доступный ответ игра выполнила бы
+     * сразу — и герой отдал бы меч, не увидев, что у него просили меч.
+     */
+    id: 'parley',
+    confirm: true,
+    command: 'parley',
+    matches: (target) => target?.kind === 'parley'
+      && typeof target.name === 'string'
+      && typeof target.line === 'string'
+      && Array.isArray(target.options)
+      && target.options.length > 0,
+    present: ({ target }) => ({
+      name: target.name,
+      description: target.line,
+      icon: target.icon,
+      accent: '#c98f5f',
+      actions: target.options.map(({ id, label, enabled, hint }) => ({
+        id,
+        label,
+        enabled: enabled !== false,
+        hint: enabled === false ? hint ?? '' : '',
+      })),
+    }),
+  }),
+  defineInteraction({
     id: 'guard',
     confirm: true,
     command: 'provoke-guard',

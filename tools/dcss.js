@@ -61,6 +61,7 @@ import {
   goldRewardForMonster,
   useSanctuary,
 } from './dcss-rpg-run.js';
+import { parleyFor, parleyModel, resolveParley } from './dcss-rpg-parley.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
   STASH_KEY,
@@ -2970,6 +2971,31 @@ function placeCamp(profile, { needsKit = true } = {}) {
   return '';
 }
 
+/**
+ * Именной, с которым ещё не поговорили.
+ *
+ * Разговорчивый именной нейтрален до ответа: пока герой не выбрал, он не
+ * нападает. Иван: «не делать так, что у игрока идеальный забег, но его убил
+ * очень сильный враг просто из ниоткуда». Стоит герою отказать — монстр
+ * становится обычным врагом и из этого списка пропадает.
+ */
+/** Как называется то, что у героя в руке. Пусто — руки пусты. */
+function equippedWeaponName() {
+  const held = equippedItem('hand1');
+  return held ? itemPresentation(presentedItem(held), itemDetailLanguage).name : '';
+}
+
+function nearbyParley() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return monsters.find((monster) => (
+    parleyFor(monster.id)
+    && monster.dead === 0
+    && !monster.provoked
+    && cellStepDistance(cell, { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }) <= 1
+  )) ?? null;
+}
+
 function nearbyCampProp(interactionId) {
   if (runStatus !== 'playing') return null;
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
@@ -3075,6 +3101,89 @@ function purchaseHouse() {
   updateGearUi();
   persistRun();
   return true;
+}
+
+/**
+ * Ответ именному.
+ *
+ * Всё, что решает исход, решено в чистом модуле; здесь только применяется:
+ * монеты, здоровье, оружие из руки и то, злится он или уходит.
+ *
+ * Договорившийся уходит с этажа и записывается в `floor.defeated` сразу, а не
+ * когда дойдёт: перезагрузка посреди его дороги не должна вернуть его обратно
+ * с тем же требованием.
+ */
+function answerParley(target, option) {
+  const monster = target?.value;
+  if (target?.kind !== 'parley' || !monster || monster.dead > 0) return false;
+  let result = null;
+  try {
+    result = resolveParley({
+      monsterId: monster.id,
+      option,
+      depth: dungeon.depth,
+      gold,
+      weaponName: equippedWeaponName(),
+      foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+      language: itemDetailLanguage,
+    });
+  } catch (error) {
+    reportFrameFailure(`parley:${monster.id}`, error);
+    return false;
+  }
+  if (!result.ok) return false;
+  // Отдать нечего — значит и разговор не состоялся: лучше ничего, чем монстр,
+  // ушедший с платой, которой герой не внёс.
+  if (result.takesWeapon && !surrenderWeapon()) return false;
+  if (result.takesFood && !consumeInteractionResources([{ id: RAW_MEAT_ITEM_ID, amount: 1 }])) return false;
+  gold = Math.max(0, gold + result.goldDelta);
+  if (result.heal > 0) hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + result.heal);
+  if (result.hostile) {
+    monster.provoked = true;
+    monster.alerted = monster.pursuit;
+    monster.alertFlash = 0.5;
+    addCombatGlyph(monster.x, monster.y, '!', '#e0603f', -68);
+  }
+  if (result.leaves) sendNamedAway(monster);
+  playerHasActed = true;
+  playSound(result.goldDelta !== 0 ? 'gold' : result.heal > 0 ? 'spell-heal' : 'ui-tap');
+  showLootToast({ path: monster.spritePath, rarity: result.hostile ? 0 : 2 }, result.message);
+  updateHud();
+  renderPack();
+  persistRun();
+  return true;
+}
+
+/** Отдать то, что в руке. Рюкзак может быть полон — тогда отдать не выйдет. */
+function surrenderWeapon() {
+  const held = equippedItem('hand1');
+  if (!held) return false;
+  const unequipped = unequipItem(currentItemState(), 'hand1');
+  if (!unequipped.ok) return false;
+  const stripped = salvageInventoryItems(unequipped.state, [held.uid]);
+  if (!stripped.ok) return false;
+  applyItemState(stripped.state);
+  return true;
+}
+
+/**
+ * Договорившийся именной уходит своей дорогой — тем же шагом, что и маклер,
+ * продавший дом. Исчезнуть на месте разговора он не должен: с этим уже
+ * разбирались, и вывод был тот же.
+ */
+function sendNamedAway(monster) {
+  if (!run.floor.defeated.includes(monster.instanceId)) {
+    run.floor.defeated.push(monster.instanceId);
+  }
+  const exit = dungeon.exit;
+  if (!exit) {
+    monster.dead = 0.01;
+    return;
+  }
+  monster.leaving = { x: exit.x, y: exit.y };
+  monster.route = [];
+  monster.patrolPause = 0;
+  monster.leavingPatience = 0;
 }
 
 /**
@@ -8963,6 +9072,24 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'camp-rest') {
     return { kind: 'camp-rest', reason: campRestDecision().reason };
   }
+  if (entry.kind === 'parley') {
+    const model = parleyModel({
+      monsterId: entry.value.id,
+      depth: dungeon.depth,
+      gold,
+      weaponName: equippedWeaponName(),
+      foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+      language: itemDetailLanguage,
+    });
+    return {
+      kind: 'parley',
+      id: model.id,
+      name: model.name,
+      line: model.line,
+      options: model.options,
+      icon: entry.value.spritePath,
+    };
+  }
   if (entry.kind === 'house-deed') {
     const decision = houseDeedDecision();
     return {
@@ -9216,6 +9343,7 @@ function contextTargetIsAdjacent(entry) {
     || entry.kind === 'guard'
     || entry.kind === 'graveyard-ghost'
     || entry.kind === 'priest'
+    || entry.kind === 'parley'
     || entry.kind === 'house-deed'
     || entry.kind === 'recruiter'
     || entry.kind === 'tavern-hire'
@@ -10543,6 +10671,7 @@ function nearbyContextTargets() {
     y: Math.floor(monster.y / TILE),
   }) <= 1;
 
+  add('parley', nearbyParley());
   add('merchant', nearbyMerchant());
   add('find', nearbyFind());
   add('trap', nearbyDetectedTrap());
@@ -10727,6 +10856,7 @@ function contextTargetAtCell(cellX, cellY) {
   if (creature) return { kind: 'wildlife', value: creature };
   const person = monsters.find((monster) => monster.dead === 0 && onCell(monster));
   if (!person) return null;
+  if (parleyFor(person.id) && !person.provoked) return { kind: 'parley', value: person };
   if (person.id === CITY_BROKER_ID) return { kind: 'house-deed', value: person };
   if (person.id === CITY_PRIEST_ID) return { kind: 'priest', value: person };
   if (person.id === CITY_RECRUITER_ID) return { kind: 'recruiter', value: person };
@@ -10860,6 +10990,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'buy-house'() {
     closeContextActions();
     return purchaseHouse();
+  },
+  parley({ target, action }) {
+    closeContextActions();
+    return answerParley(target, action?.id);
   },
   'install-furniture'({ target }) {
     closeContextActions();

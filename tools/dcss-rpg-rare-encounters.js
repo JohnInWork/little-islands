@@ -48,8 +48,13 @@ export const RARE_ENCOUNTER_CHANCE = Object.freeze({
   beastPerDepth: 0.0006,
   // Странник: чуть реже, чем именной враг. Один-два на забег.
   wanderer: 0.08,
-  // Именной враг: обычное содержимое редкой встречи.
-  named: 0.14,
+  /*
+   * Именной враг. Было 0.14 — примерно двое за забег, и каждый забег.
+   * Иван: «это всё-таки реально должны быть редкие события, а не так, что
+   * каждую катку ты встречаешь по три штуки». Теперь один за забег, а иногда
+   * ни одного — и встреча снова что-то значит.
+   */
+  named: 0.07,
 });
 
 /** Ближе этого к точке входа редкая встреча не садится. */
@@ -89,6 +94,8 @@ const ROSTER = [
   // ── Именные: поверхность ────────────────────────────────────────────────
   named({ id: 'nellie', habitat: 'surface', kin: 'beast', sprite: 'unique/nellie.png', tier: 3, style: 'brute', ru: 'Нелли', en: 'Nellie' }),
   named({ id: 'agnes', habitat: 'surface', sprite: 'unique/agnes.png', tier: 4, style: 'skirmisher', ru: 'Агнес', en: 'Agnes' }),
+  // Улитка в короне: единственная встреча, которая не может кончиться боем.
+  named({ id: 'gastronok', habitat: 'surface', kin: 'oddity', sprite: 'unique/gastronok.png', tier: 3, style: 'brute', neutral: true, ru: 'Гастроном', en: 'Gastronok' }),
   named({ id: 'sonja', habitat: 'surface', sprite: 'unique/sonja.png', tier: 5, style: 'skirmisher', ru: 'Соня', en: 'Sonja' }),
   named({ id: 'erica', habitat: 'surface', sprite: 'unique/erica.png', tier: 5, style: 'caster', element: 'fire', ru: 'Эрика', en: 'Erica' }),
   named({ id: 'rupert', habitat: 'surface', sprite: 'unique/rupert.png', tier: 6, style: 'brute', ru: 'Руперт', en: 'Rupert' }),
@@ -97,10 +104,10 @@ const ROSTER = [
   named({ id: 'robin', habitat: 'deep', sprite: 'unique/robin.png', tier: 2, style: 'brute', ru: 'Робин', en: 'Robin' }),
   named({ id: 'ijyb', habitat: 'deep', sprite: 'unique/ijyb.png', tier: 2, style: 'skirmisher', ru: 'Ийиб', en: 'Ijyb' }),
   named({ id: 'sigmund', habitat: 'deep', sprite: 'unique/sigmund.png', tier: 3, style: 'caster', ru: 'Сигмунд', en: 'Sigmund' }),
-  named({ id: 'blork-the-orc', habitat: 'deep', sprite: 'unique/blork_the_orc.png', tier: 3, style: 'brute', ru: 'Блорк Орк', en: 'Blork the orc' }),
-  named({ id: 'urug', habitat: 'deep', sprite: 'unique/urug.png', tier: 5, style: 'brute', ru: 'Уруг', en: 'Urug' }),
+  named({ id: 'blork-the-orc', habitat: 'deep', sprite: 'unique/blork_the_orc.png', tier: 3, style: 'brute', neutral: true, ru: 'Блорк Орк', en: 'Blork the orc' }),
+  named({ id: 'urug', habitat: 'deep', sprite: 'unique/urug.png', tier: 5, style: 'brute', neutral: true, ru: 'Уруг', en: 'Urug' }),
   named({ id: 'snorg', habitat: 'deep', sprite: 'unique/snorg.png', tier: 6, style: 'brute', large: true, ru: 'Снорг', en: 'Snorg' }),
-  named({ id: 'saint-roka', habitat: 'deep', sprite: 'unique/saint_roka.png', tier: 7, style: 'brute', ru: 'Святой Рока', en: 'Saint Roka' }),
+  named({ id: 'saint-roka', habitat: 'deep', sprite: 'unique/saint_roka.png', tier: 7, style: 'brute', neutral: true, ru: 'Святой Рока', en: 'Saint Roka' }),
   named({ id: 'polyphemus', habitat: 'deep', sprite: 'unique/polyphemus.png', tier: 7, style: 'brute', large: true, ru: 'Полифем', en: 'Polyphemus' }),
 
   // ── Именные: хранилища ──────────────────────────────────────────────────
@@ -174,9 +181,20 @@ const OMENS = Object.freeze({
   }),
 });
 
+/**
+ * Странники — это те двое, кто пришёл сюда торговать и наниматься, а не
+ *все подряд, кто не бьёт первым.
+ *
+ * Раньше вид встречи выводился из `neutral`, и это сломалось ровно тогда,
+ * когда именные заговорили: разговорчивый не нападает первым, но он именно
+ * враг — просто такой, которому сперва дают ответить. Через `neutral` эти двое
+ * различаться перестали, и Блорк с Уругом уехали в пул странников.
+ */
+const WANDERER_IDS = new Set(['wild-hunter', 'wild-free-blade']);
+
 const encounter = (monster, index) => {
   const dragon = monster.kin === 'dragon';
-  const friendly = monster.neutral === true;
+  const friendly = WANDERER_IDS.has(monster.id);
   return Object.freeze({
     id: `rare:${monster.id}`,
     kind: friendly ? 'wanderer' : dragon ? 'beast' : 'named',

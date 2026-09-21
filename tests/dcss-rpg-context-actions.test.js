@@ -123,6 +123,7 @@ test('недоступное одиночное действие отвечае�
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'sanctuary',
+    'parley',
     'guard',
     'city-gate', 'graveyard-ghost', 'stair-up', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
