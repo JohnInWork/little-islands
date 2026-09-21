@@ -40,6 +40,7 @@ import {
   STORY_DEPTH,
   chapterForDepth,
   chapterGuardianForDepth,
+  roadEndingAt,
 } from './dcss-rpg-run.js';
 import {
   DEFAULT_DIFFICULTY,
@@ -2577,11 +2578,25 @@ export function validateRun(snapshot) {
       || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
     ))
   ) return false;
+  /*
+   * Побед две, и обе настоящие.
+   *
+   * Проверка знала одну: восемнадцатый этаж и его хранитель. А у дороги с тех
+   * пор появился второй конец — руна ветки на двадцать четвёртом, и карточка
+   * там честно обещает «забег закончен победой». Обещание сбывалось на
+   * экране и не сбывалось в сохранении: `persistRun` молча отказывался
+   * записывать такой забег, потому что проверка считала его невозможным.
+   * Игрок выигрывал второй финал, закрывал вкладку — и возвращался живым на
+   * двадцать четвёртый этаж, будто ничего не было.
+   *
+   * Правило теперь общее: победа засчитывается на любом конце дороги, если
+   * страж этого этажа повержен.
+   */
   if (
     snapshot.status === 'victory' &&
     (
-      snapshot.depth !== STORY_DEPTH ||
-      !floor.defeated.includes(`monster-${STORY_DEPTH}-boss`)
+      roadEndingAt(snapshot.depth) === null ||
+      !floor.defeated.includes(`monster-${snapshot.depth}-boss`)
     )
   ) return false;
   return true;

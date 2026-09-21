@@ -8356,6 +8356,15 @@ function updateHud() {
   const numeral = depthBadge.querySelector('span');
   numeral.textContent = inCity ? '' : romanDepth(dungeon.depth);
   numeral.hidden = inCity;
+  /*
+   * Длинной цифре — мельче шрифт.
+   *
+   * Значок рассчитан на две-три буквы, а римское восемнадцать — это XVIII,
+   * пять: пятьдесят шесть пикселей в сорок шесть. Обрезался при этом самый
+   * важный этаж игры — тот, на котором стоит хранитель и лежит артефакт.
+   * Считать буквы в CSS нельзя, поэтому их считает тот, кто их пишет.
+   */
+  depthBadge.dataset.long = numeral.textContent.length >= 5 ? 'true' : 'false';
   depthHome.hidden = !inCity;
   refreshFloorMapCopy();
   bagButton.querySelector('b').textContent = String(

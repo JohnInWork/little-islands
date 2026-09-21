@@ -1489,6 +1489,12 @@ body {
 }
 
 /* Портал стоит третьим в той же колонке, под паузой: карта, пауза, портал. */
+/* Пять римских букв в значок на три не влезают: XVIII, XXIII, XXVIII. */
+#floor-map-button[data-long='true'] > span {
+  font-size: 11px;
+  letter-spacing: -0.04em;
+}
+
 .open-portal {
   position: fixed;
   z-index: 6;

@@ -338,3 +338,34 @@ test('с каждой дороги от городских ворот есть �
   // И у неё своя картинка: одинаковых ворот в игре быть не должно.
   assert.equal(new Set(BRANCH_GATES.map(({ path }) => path)).size, BRANCH_GATES.length);
 });
+
+/**
+ * Победа на втором конце дороги — тоже победа.
+ *
+ * Проверка сохранения знала один финал: восемнадцатый этаж и его хранитель.
+ * Руна ветки на двадцать четвёртом объявляла победу на экране, а `persistRun`
+ * молча отказывался записать такой забег — проверка считала его невозможным.
+ * Игрок выигрывал и, вернувшись, обнаруживал себя живым перед той же руной.
+ */
+test('сейв принимает победу на обоих концах дороги', async () => {
+  const { createRun, generateDungeon, validateRun } = await import('../tools/dcss-rpg-core.js');
+  const { STORY_DEPTH, BEYOND_ROAD_DEPTH } = await import('../tools/dcss-rpg-run.js');
+
+  // Забег собирается сразу на нужном этаже: состояние этажа обязано отвечать
+  // тому, где герой стоит, иначе проверка отвергнет сейв ещё до статуса.
+  const победа = (depth, убит = `monster-${depth}-boss`) => {
+    const run = createRun(11, generateDungeon({ seed: 11, depth }));
+    run.status = 'victory';
+    run.floor = { ...run.floor, defeated: [убит] };
+    return validateRun(run);
+  };
+
+  assert.equal(победа(STORY_DEPTH), true, 'написанная дорога перестала засчитываться');
+  assert.equal(победа(BEYOND_ROAD_DEPTH), true, 'руна за концом дороги не засчитывается');
+  // Без стража этажа победы нет ни там, ни там.
+  assert.equal(победа(STORY_DEPTH, 'monster-18-3'), false);
+  assert.equal(победа(BEYOND_ROAD_DEPTH, 'monster-24-3'), false);
+  // И посреди дороги победы не бывает вовсе.
+  assert.equal(победа(17), false);
+  assert.equal(победа(20), false);
+});
