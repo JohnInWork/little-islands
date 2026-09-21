@@ -74,6 +74,32 @@ test('окно нужно только там, где есть выбор', () =
   assert.equal(лестница.confirm, true);
 });
 
+/**
+ * Единственное действие, которое нельзя сделать, — это не выбор.
+ *
+ * Костёр без сырого мяса открывал целое окно, чтобы показать одну серую
+ * кнопку и строку «Нужно сырое мясо». Строка и есть весь ответ: она
+ * говорится всплывающей подписью, а окно остаётся закрытым. Молчать при
+ * этом нельзя — без подсказки окно всё же откроется, потому что тишина
+ * хуже лишнего экрана.
+ */
+test('недоступное одиночное действие отвечает подсказкой, а не окном', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const пустойКостёр = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 0 }, language: 'ru' });
+  assert.equal(пустойКостёр.actions.length, 1, 'без мяса и без варки действие ровно одно');
+  assert.equal(пустойКостёр.actions[0].enabled, false);
+  assert.ok(пустойКостёр.actions[0].hint.length > 0, 'причина обязана быть сказана');
+  assert.equal(пустойКостёр.confirm, false);
+
+  const сМясом = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 2 }, language: 'ru' });
+  assert.equal(сМясом.actions[0].enabled, true);
+
+  // И то же правило в переходнике: подсказка вместо окна, но не вместо тишины.
+  assert.match(adapter, /if \(!only\?\.enabled\) \{\s*\n\s*if \(!only\?\.hint\) return false;/);
+  assert.match(adapter, /showLootToast\(\{ path: model\.icon, rarity: 0 \}, only\.hint\);/);
+});
+
 test('interaction registry owns target matching and stable command families', () => {
   assert.deepEqual(INTERACTION_REGISTRY.map(({ id }) => id), [
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'sanctuary',

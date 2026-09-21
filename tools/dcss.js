@@ -9175,7 +9175,25 @@ function runLoneAction(nextTarget) {
   }
   if (model.confirm) return false;
   const [only, ...rest] = model.actions;
-  if (rest.length > 0 || !only?.enabled) return false;
+  if (rest.length > 0) return false;
+  /*
+   * Одно действие, и оно недоступно.
+   *
+   * Окно в этом случае показывает единственную серую кнопку и подпись под
+   * ней — целый экран ради одной строки «Нужно сырое мясо». Строка и есть
+   * весь ответ, поэтому она говорится всплывающей подписью, а окно не
+   * открывается вовсе. Без подсказки открыть окно всё же придётся: молчание
+   * хуже лишнего экрана.
+   */
+  if (!only?.enabled) {
+    if (!only?.hint) return false;
+    clearMoveControl();
+    hero.path = [];
+    onboardingInteracted = true;
+    playSound('ui-tap');
+    showLootToast({ path: model.icon, rarity: 0 }, only.hint);
+    return true;
+  }
   const handler = CONTEXT_COMMAND_HANDLERS[only.command];
   if (typeof handler !== 'function') return false;
   const previous = contextTarget;
