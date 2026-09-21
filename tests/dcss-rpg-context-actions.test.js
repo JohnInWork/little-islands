@@ -180,3 +180,27 @@ test('every creature that can stand beside the hero has a name, not an id', asyn
     }
   }
 });
+
+/**
+ * У каждого взаимодействия должен быть исполнитель.
+ *
+ * Реестр описывает, что игрок увидит, а рантайм — что произойдёт, и связывает
+ * их одна строка: имя команды. Промахнуться в ней легко и незаметно: кнопка
+ * появится, нажмётся и не сделает ничего — ровно та поломка, из-за которой
+ * игрок решает, что игра сломана.
+ *
+ * С правилом «одно действие — сразу выполняем» цена промаха выросла: окна,
+ * в котором было бы видно хоть что-то, теперь нет.
+ */
+test('у каждой команды реестра есть обработчик в рантайме', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const table = runtime.match(/const CONTEXT_COMMAND_HANDLERS = Object\.freeze\(\{[\s\S]*?\n\}\);/)?.[0];
+  assert.ok(table, 'не нашлась таблица обработчиков');
+  for (const command of new Set(INTERACTION_REGISTRY.map(({ command }) => command))) {
+    const pattern = /^[a-z][\w]*$/.test(command)
+      ? new RegExp(`\\n  ${command}\\(`)
+      : new RegExp(`\\n  '${command}'\\(`);
+    assert.match(table, pattern, `команда «${command}» некому исполнять`);
+  }
+});
