@@ -78,6 +78,7 @@ import {
   resolveParley,
 } from './dcss-rpg-parley.js';
 import { canRespec, respecHero } from './dcss-rpg-respec.js';
+import { dropForMonster } from './dcss-rpg-drops.js';
 import {
   DOUBLE_MONSTER_ID,
   REVIVING_MONSTER_ID,
@@ -1222,7 +1223,7 @@ if (previewHuntNearSpawn) {
     });
   }
 }
-let lootDefinitions = createLootDefinitions(dungeon);
+let lootDefinitions = createFloorLoot(dungeon);
 let eventDefinitions = createEventDefinitions(dungeon);
 let findDefinitions = createFindDefinitions(dungeon);
 let trapDefinitions = trapsFromDungeon(dungeon);
@@ -1920,6 +1921,8 @@ function takeGroundLoot(loot) {
   // What a ghost was guarding is remembered by the bones, not by the floor:
   // the floor's own loot ids are the only ones `collected` may hold.
   if (loot.bones) wakeFloorGhost();
+  // Упавшее с убитого этаж носил сам — и перестаёт, как только его подобрали.
+  else if (loot.drop) run.floor.drops = run.floor.drops.filter(({ instanceId }) => instanceId !== loot.instanceId);
   else run.floor.collected.push(loot.instanceId);
   const displayItem = presentedItem(loot.definition);
   burst(loot.x, loot.y - 8, rarityGlow[displayItem.rarity], 8 + displayItem.rarity * 4);
@@ -2151,6 +2154,20 @@ function createPassiveCreatures(level) {
       visualOffsetY: visual.offsetY,
     };
   });
+}
+
+/**
+ * Всё, что лежит на полу: и положенное генератором, и упавшее с убитых.
+ *
+ * Второе этаж носит сам — в `floor.drops`, — потому что генератор про него
+ * ничего не знает: оно появилось в бою. Записи одинаковые, поэтому дальше
+ * никто не различает, откуда вещь взялась: подбирается она одинаково.
+ */
+function createFloorLoot(level) {
+  return [
+    ...createLootDefinitions(level),
+    ...createLootDefinitions({ loot: run.floor.drops }).map((entry) => ({ ...entry, drop: true })),
+  ];
 }
 
 function createLootDefinitions(level) {
@@ -15434,7 +15451,12 @@ function addInventoryItem(definition, uid) {
       return true;
     }
   }
-  if (backpackItems.length >= 12 || itemInstances.has(uid)) return false;
+  // Рюкзак у героя на тридцать мест и на восемнадцать больше с «Вьючником» —
+  // а здесь стояла двенадцать. Купленное и подаренное входило, поднятое с пола
+  // нет: тот же рюкзак отвечал по-разному, смотря откуда пришла вещь.
+  if (backpackItems.filter(Boolean).length >= currentBackpackCapacity() || itemInstances.has(uid)) {
+    return false;
+  }
   const item = { ...definition, uid, stack: definition.stack };
   itemInstances.set(uid, item);
   backpackItems.push(item);
@@ -15509,6 +15531,42 @@ function reviveNamed(monster) {
   return true;
 }
 
+/**
+ * Что осталось лежать после боя.
+ *
+ * Падает в клетку убитого, а не в рюкзак: вещь видно на полу, и подобрать её
+ * — отдельное решение. Записывается в этаж сразу, поэтому переживает и
+ * перезагрузку, и спуск с возвратом; жребий выводится из сида, поэтому
+ * перезагрузкой его не переиграть.
+ */
+function dropLootFromMonster(monster) {
+  const выпало = dropForMonster({
+    monsterId: monster.id,
+    instanceId: monster.instanceId,
+    seed: run.seed,
+    depth: dungeon.depth,
+  });
+  if (!выпало) return;
+  const запись = {
+    instanceId: `drop-${monster.instanceId}`,
+    id: выпало.id,
+    x: Math.floor(monster.x / TILE),
+    y: Math.floor(monster.y / TILE),
+    affixIds: [],
+    artifactPowerId: выпало.powerId ?? null,
+    artifactCurseId: null,
+  };
+  if (run.floor.drops.some(({ instanceId }) => instanceId === запись.instanceId)) return;
+  run.floor.drops = [...run.floor.drops, запись];
+  const [entry] = createLootDefinitions({ loot: [запись] });
+  if (!entry) return;
+  lootDefinitions = [...lootDefinitions, { ...entry, drop: true }];
+  const вещь = presentedItem(entry.definition);
+  burst(entry.x, entry.y - 8, rarityGlow[вещь.rarity] ?? rarityGlow[1], 10 + вещь.rarity * 4);
+  addImpactWave(entry.x, entry.y - 8, rarityGlow[вещь.rarity] ?? rarityGlow[1], 30 + вещь.rarity * 8, 0);
+  updateInteractionUi();
+}
+
 function defeatMonster(monster) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (monster.dead > 0 || run.floor.defeated.includes(monster.instanceId)) return;
@@ -15520,6 +15578,7 @@ function defeatMonster(monster) {
   else run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
   recoverStolenItem(monster);
+  dropLootFromMonster(monster);
   claimNamedPrize(monster);
   // И сразу же выдать — или, если рюкзак полон, с первым освободившимся местом.
   claimPendingPrize();
@@ -16240,7 +16299,7 @@ function replaceFloor(nextDepth, arrival = null) {
   voidStarLayers = createVoidStars(dungeon);
   monsters = createMonsters(dungeon);
   passiveCreatures = createPassiveCreatures(dungeon);
-  lootDefinitions = createLootDefinitions(dungeon);
+  lootDefinitions = createFloorLoot(dungeon);
   eventDefinitions = createEventDefinitions(dungeon);
   findDefinitions = createFindDefinitions(dungeon);
   visibleSecretIds.clear();

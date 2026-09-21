@@ -48,6 +48,8 @@ const EMPTY_FLOOR = Object.freeze({
   defeated: [],
   // Никто ещё ничего не сказал: разговоры этаж помнит отдельно от убитых.
   spoken: [],
+  // И никто ещё ничего не уронил.
+  drops: [],
   collected: [],
   resolved: [],
   resolvedFindIds: [],

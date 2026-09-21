@@ -152,7 +152,9 @@ test('the runtime places the ghost without writing it into the floor', async () 
   // The floor's id lists are generated; a ghost id in any of them fails the
   // save's own validation, so the bones are spent in meta instead.
   assert.match(runtime, /if \(monster\.ghost\) claimFloorBones\(\);\s*\n\s*else run\.floor\.defeated\.push/);
-  assert.match(runtime, /if \(loot\.bones\) wakeFloorGhost\(\);\s*\n\s*else run\.floor\.collected\.push/);
+  // Между ними встала третья ветка — упавшее с убитых, — и костям от этого
+  // ничего не сделалось: их добыча по-прежнему не попадает в списки этажа.
+  assert.match(runtime, /if \(loot\.bones\) wakeFloorGhost\(\);\s*\n[\s\S]{0,220}?else run\.floor\.collected\.push/);
   assert.match(runtime, /\.filter\(\(monster\) => monster\.dead === 0 && !monster\.ghost\)/);
   // Killing your own ghost is not a crime, and it never joins the city watch.
   assert.match(runtime, /if \(monster\.neutral && !monster\.ghost\) noteCrime\('killed-guard'\);/);

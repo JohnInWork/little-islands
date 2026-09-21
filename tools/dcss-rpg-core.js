@@ -1640,6 +1640,14 @@ function createEmptyFloorState(dungeon = null) {
      * силу и то же золото ещё раз.
      */
     spoken: [],
+    /*
+     * Что упало с убитых и ещё лежит на полу.
+     *
+     * Этажное добро кладёт генератор, и `collected` помнит, что из него уже
+     * забрали. Упавшее с монстра генератор не знает: оно появляется в бою,
+     * поэтому этаж носит его сам — и до тех пор, пока его не подберут.
+     */
+    drops: [],
     collected: [],
     resolved: [],
     resolvedFindIds: [],
@@ -1941,6 +1949,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers what fell from the dead; a migrated floor has dropped none.
+    migrated.floor.drops = migrated.floor.drops ?? [];
     // v51 remembers finished conversations; a migrated floor has had none.
     migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -2078,6 +2088,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers what fell from the dead; a migrated floor has dropped none.
+    migrated.floor.drops = migrated.floor.drops ?? [];
     // v51 remembers finished conversations; a migrated floor has had none.
     migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -2184,6 +2196,7 @@ export function migrateLegacyRun(snapshot) {
             revealed: [],
             defeated: [],
             spoken: [],
+            drops: [],
             collected: [],
             resolved: [],
             resolvedFindIds: [],
@@ -2200,6 +2213,7 @@ export function migrateLegacyRun(snapshot) {
             revealed: [...snapshot.floor.revealed],
             defeated: [...snapshot.floor.defeated],
             spoken: [...(snapshot.floor.spoken ?? [])],
+            drops: [...(snapshot.floor.drops ?? [])],
             collected: [...snapshot.floor.collected],
             resolved: [...snapshot.floor.resolved],
             resolvedFindIds: [],
@@ -2230,6 +2244,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers what fell from the dead; a migrated floor has dropped none.
+    migrated.floor.drops = migrated.floor.drops ?? [];
     // v51 remembers finished conversations; a migrated floor has had none.
     migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -2324,6 +2340,7 @@ export function migrateLegacyRun(snapshot) {
       revealed: [],
       defeated: [],
       spoken: [],
+      drops: [],
       collected: [],
       resolved: [],
       resolvedFindIds: [],
@@ -2353,6 +2370,8 @@ export function migrateLegacyRun(snapshot) {
   migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
   // v48 gives a floor its second wind; a migrated floor has not spent one.
   migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+  // v51 remembers what fell from the dead; a migrated floor has dropped none.
+  migrated.floor.drops = migrated.floor.drops ?? [];
   // v51 remembers finished conversations; a migrated floor has had none.
   migrated.floor.spoken = migrated.floor.spoken ?? [];
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
@@ -2416,6 +2435,26 @@ function validateFloorShape(floor, depth) {
   if (!validateCampState(floor.camp)) return false;
   // Older floors predate second wind and simply have not spent it.
   if (floor.secondWindSpent !== undefined && typeof floor.secondWindSpent !== 'boolean') return false;
+  /*
+   * То, что упало с убитых, — записи, а не строки: вещь, её место и сила.
+   * Проверяется каждая, потому что отсюда она попадает прямо в руки герою.
+   */
+  if (
+    floor.drops !== undefined
+    && (!Array.isArray(floor.drops)
+      || floor.drops.length > 64
+      || !floor.drops.every((drop) => (
+        drop
+        && typeof drop === 'object'
+        && lootById(drop.id)
+        && typeof drop.instanceId === 'string'
+        && drop.instanceId.length > 0
+        && drop.instanceId.length <= 80
+        && isFiniteInteger(drop.x, 0, MAP_WIDTH - 1)
+        && isFiniteInteger(drop.y, 0, MAP_HEIGHT - 1)
+        && validateProceduralArtifactState(lootById(drop.id), drop)
+      )))
+  ) return false;
   // The same for finished conversations: an older floor has had none.
   if (
     floor.spoken !== undefined
