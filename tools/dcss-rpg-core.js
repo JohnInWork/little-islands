@@ -2832,7 +2832,21 @@ export function enterBranchThroughGate(snapshot, branch) {
   if (!validateRunBranch(branch)) throw new Error('Unknown run branch');
   if (snapshot.status !== 'playing') throw new Error('Cannot change roads after the run has ended');
   if (snapshot.branch === branch) return snapshot;
-  const arrived = travelRunToDepth({ ...snapshot, branch, floors: {} }, 1);
+  /*
+   * Врата ведут вниз, а не в начало.
+   *
+   * Новая дорога начиналась со своего первого этажа, и получалось так: герой
+   * час грызёт двенадцатый этаж, входит в самую страшную дверь — и попадает на
+   * пол, который в тридцать с лишним раз легче того, что он только что прошёл
+   * (по сумме «здоровье × урон» монстров этажа), с потолком тира три вместо
+   * семи. Мало того, до конца дороги ему снова идти с первого этажа.
+   *
+   * Поэтому счёт этажей сквозной: за вратами лежит следующий этаж, а не
+   * первый. Тяжелее прежней дороги новая становится сама — у каждой ветки свой
+   * множитель (склепы 1.15, крипта 1.2, ад 1.6).
+   */
+  const depth = Math.min(snapshot.depth + 1, DEEPEST_DEPTH);
+  const arrived = travelRunToDepth({ ...snapshot, branch, floors: {} }, depth);
   // Travelling files the floor it left behind, and the floor it left behind is
   // on the other road: keeping it would mean climbing out of hell onto the
   // eighteenth floor of the descent.

@@ -106,13 +106,29 @@ test('the gate stands on the floor, with that road’s own mouth for a picture',
   }
 });
 
-test('walking through a gate starts the new road at its own first floor', () => {
+/**
+ * Врата ведут вниз, а не в начало.
+ *
+ * Пока новая дорога начиналась со своего первого этажа, самая страшная дверь в
+ * игре вела на самый лёгкий пол: герой час грыз двенадцатый этаж, входил — и
+ * получал монстров вдвое слабее тех, что остались позади, с потолком тира три
+ * вместо семи. Хуже того, до конца дороги ему снова было идти с первого этажа,
+ * потому что финал считается по глубине, а не по ветке.
+ */
+test('за вратами лежит следующий этаж, а не первый', () => {
   let run = createRun(21);
   for (let depth = 2; depth <= 6; depth += 1) run = travelRunToDepth(run, depth);
   assert.equal(run.branch, 'deep');
+  assert.equal(run.depth, 6);
   const moved = enterBranchThroughGate(run, 'hell');
   assert.equal(moved.branch, 'hell');
-  assert.equal(moved.depth, 1, 'hell inherited the descent’s numbering');
+  assert.equal(moved.depth, 7, 'счёт этажей сквозной: ад продолжает спуск, а не начинает заново');
+
+  // Правило держится на любой глубине, в том числе на той, где стоят врата.
+  let глубокий = createRun(22);
+  for (let depth = 2; depth <= 18; depth += 1) глубокий = travelRunToDepth(глубокий, depth);
+  assert.equal(enterBranchThroughGate(глубокий, 'hell').depth, 19);
+  assert.equal(enterBranchThroughGate(глубокий, 'crypt').depth, 19);
   // The descent's floors are gone: a road is a place you are on, not a stack,
   // and keeping them would mean climbing out of hell onto floor eighteen.
   assert.deepEqual(moved.floors, {}, `the descent came along: ${Object.keys(moved.floors).join(',')}`);
