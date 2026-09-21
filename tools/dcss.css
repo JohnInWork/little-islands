@@ -8943,7 +8943,13 @@ body {
 
 .creation-archetype {
   display: grid;
-  gap: 3px;
+  grid-template-columns: 34px 1fr;
+  grid-template-areas:
+    'icon name'
+    'icon stats'
+    'skills skills';
+  gap: 2px 8px;
+  align-items: center;
   padding: 8px;
   text-align: left;
   border: 2px solid #3a4446;
@@ -8959,16 +8965,27 @@ body {
 }
 
 .creation-archetype b {
+  grid-area: name;
+  align-self: end;
   font-size: 13px;
 }
 
-.creation-archetype span {
-  color: #8d9a99;
-  font-size: 10px;
-  line-height: 1.35;
+/*
+ * Картинка вместо описания.
+ *
+ * Иван: «какой-то текст лишний… нужна просто иконка, название и
+ * характеристики». Меч, книга, лук и плащ говорят то же, что говорили четыре
+ * строки прозы, и карточка стала вдвое ниже.
+ */
+.creation-archetype-icon {
+  grid-area: icon;
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
 }
 
 .creation-archetype i {
+  grid-area: skills;
   color: #a8b3a4;
   font-size: 10px;
   font-style: normal;
@@ -9064,7 +9081,9 @@ body {
  * цвета читаются раньше, чем три слова, и карточке не нужна лишняя строка.
  */
 .creation-archetype-stats {
+  grid-area: stats;
   display: flex;
+  align-self: start;
   gap: 6px;
   text-decoration: none;
 }

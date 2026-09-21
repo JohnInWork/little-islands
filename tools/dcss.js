@@ -11490,10 +11490,13 @@ function renderCharacterCreation() {
     card.className = 'creation-archetype';
     card.dataset.archetype = archetype.id;
     card.setAttribute('aria-pressed', String(archetype.chosen));
+    const icon = document.createElement('img');
+    icon.className = 'creation-archetype-icon';
+    icon.src = assetUrl(archetype.icon);
+    icon.alt = '';
+    icon.decoding = 'async';
     const name = document.createElement('b');
     name.textContent = archetype.name;
-    const line = document.createElement('span');
-    line.textContent = archetype.line;
     const skills = document.createElement('i');
     skills.textContent = archetype.skills.join(' · ');
     /*
@@ -11514,7 +11517,7 @@ function renderCharacterCreation() {
       pip.textContent = `+${amount} ${ATTRIBUTE_COPY[ru ? 'ru' : 'en'][id].short}`;
       stats.append(pip);
     }
-    card.append(name, line, stats, skills);
+    card.append(icon, name, stats, skills);
     return card;
   }));
 

@@ -28,10 +28,19 @@ import { SKILL_CREATION_POINTS } from './dcss-rpg-skills.js';
 export const CREATION_ATTRIBUTE_POINTS = 2;
 export const CREATION_SKILL_POINTS = SKILL_CREATION_POINTS;
 
-/** Кем можно выйти, не выбирая ничего вручную. */
+/*
+ * Кем можно выйти, не выбирая ничего вручную.
+ *
+ * У каждого — картинка, имя, два очка и два навыка. Прозы на карточке нет:
+ * Иван про первую версию — «какой-то текст лишний, типа „меч и щит, бьёт в
+ * ближнем бою“; вот это не нужно. Нужна просто иконка, название и
+ * характеристики». Меч на карточке говорит то же самое и не занимает четырёх
+ * строк.
+ */
 export const BUILD_ARCHETYPES = Object.freeze([
   Object.freeze({
     id: 'warrior',
+    icon: 'item/weapon/long_sword1.png',
     attributes: Object.freeze({ strength: 2, agility: 0, intelligence: 0 }),
     skillIds: Object.freeze(['swords', 'shield']),
     spellIds: Object.freeze([]),
@@ -46,6 +55,7 @@ export const BUILD_ARCHETYPES = Object.freeze([
   }),
   Object.freeze({
     id: 'mage',
+    icon: 'item/book/light_brown.png',
     attributes: Object.freeze({ strength: 0, agility: 0, intelligence: 2 }),
     skillIds: Object.freeze(['pyromancy', 'arcana']),
     // Единственный, кто выходит со заклинанием: без него магу нечего делать
@@ -62,6 +72,7 @@ export const BUILD_ARCHETYPES = Object.freeze([
   }),
   Object.freeze({
     id: 'archer',
+    icon: 'item/weapon/ranged/shortbow1.png',
     attributes: Object.freeze({ strength: 0, agility: 2, intelligence: 0 }),
     skillIds: Object.freeze(['marksmanship', 'mobility']),
     spellIds: Object.freeze([]),
@@ -76,6 +87,7 @@ export const BUILD_ARCHETYPES = Object.freeze([
   }),
   Object.freeze({
     id: 'scout',
+    icon: 'item/armour/cloak1_leather.png',
     attributes: Object.freeze({ strength: 0, agility: 1, intelligence: 1 }),
     skillIds: Object.freeze(['stealth', 'secret-search']),
     spellIds: Object.freeze([]),
@@ -207,7 +219,7 @@ export function buildScreenModel({ build = createEmptyBuild(), language = 'ru' }
     archetypes: Object.freeze(BUILD_ARCHETYPES.map((archetype) => Object.freeze({
       id: archetype.id,
       name: archetype[locale].name,
-      line: archetype[locale].line,
+      icon: archetype.icon,
       chosen: build?.archetypeId === archetype.id,
       attributes: Object.freeze({ ...archetype.attributes }),
       skills: Object.freeze(archetype.skillIds.map((id) => skillById(id)?.name?.[locale] ?? id)),
