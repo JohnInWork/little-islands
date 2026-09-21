@@ -49,3 +49,57 @@ test('character sheet is a modal screen with responsive layout and trapped focus
   assert.match(source, /event\.code === 'Tab' && uiScreen === 'character'/);
   assert.match(source, /characterSheetLanguageButton\.addEventListener/);
 });
+
+/**
+ * Карточка листа — не строка из трёх чисел.
+ *
+ * Селекторы стоят списком через запятую, и новый блок, вписанный между
+ * запятой и его собственным селектором, молча усыновляет чужую карточку. Так
+ * лист героя однажды получил `display: flex` от строки состояния в рюкзаке:
+ * шапка, тело и подвал встали в ряд, названия навыков посыпались по одной
+ * букве в строку, и на телефоне читать сделалось нечего. Ошибка не роняет ни
+ * сборку, ни один тест — поэтому её ловит этот.
+ */
+test('лист героя не перенимает раскладку у чужих правил', async () => {
+  const styles = await readFile(cssUrl, 'utf8');
+
+  // Разбор ровно той глубины, что нужна: пары «селекторы { тело }» на любом
+  // уровне вложенности, без разбора самих объявлений.
+  const rules = [];
+  let selector = '';
+  const stack = [];
+  for (let i = 0; i < styles.length; i += 1) {
+    const ch = styles[i];
+    if (ch === '{') {
+      stack.push(selector.trim());
+      selector = '';
+    } else if (ch === '}') {
+      const head = stack.pop() ?? '';
+      if (!head.startsWith('@')) rules.push({ head, body: selector });
+      selector = '';
+    } else {
+      selector += ch;
+    }
+  }
+
+  const свои = rules.filter(({ head }) => head
+    .split(',')
+    .some((part) => part.trim().split(/\s+/).some((token) => token.split(':')[0] === '.character-sheet-card')));
+  assert.ok(свои.length >= 1, 'правил для карточки листа не нашлось вовсе');
+
+  const флекс = свои.filter(({ body }) => /display\s*:\s*flex/.test(body));
+  assert.deepEqual(
+    флекс.map(({ head }) => head.replace(/\s+/g, ' ')),
+    [],
+    'карточка листа не должна раскладываться флексом: её дорожки — шапка, тело, подвал',
+  );
+
+  assert.ok(
+    свои.some(({ body }) => /position\s*:\s*relative/.test(body)),
+    'кнопке закрытия нужна относительная карточка, иначе она уезжает из угла',
+  );
+  assert.ok(
+    свои.some(({ body }) => /grid-template-rows\s*:\s*auto minmax\(0, 1fr\)/.test(body)),
+    'три дорожки карточки — её единственная раскладка',
+  );
+});

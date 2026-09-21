@@ -2830,7 +2830,6 @@ body {
   outline-offset: -4px;
 }
 
-.character-sheet-card,
 /*
  * Состояние героя в рюкзаке: три числа в строку.
  *
@@ -2880,6 +2879,7 @@ body {
   flex: 0 0 auto;
 }
 
+.character-sheet-card,
 .inventory-shell {
   position: relative;
 }
