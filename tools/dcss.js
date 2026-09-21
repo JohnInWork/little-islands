@@ -9242,7 +9242,7 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
   );
   if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
   const rewardCopy = itemDetailLanguage === 'ru'
-    ? `${result.rewardGold} реального золота получено${result.destroyedGold > 0 ? `, ${result.destroyedGold} уничтожено` : ''}`
+    ? `${result.rewardGold} золота получено${result.destroyedGold > 0 ? `, ${result.destroyedGold} уничтожено` : ''}`
     : `${result.rewardGold} gold recovered${result.destroyedGold > 0 ? `, ${result.destroyedGold} destroyed` : ''}`;
   findAnnouncement.textContent = resultPresentation?.message
     ? awakened.length > 0
@@ -10179,7 +10179,7 @@ const CHEST_CONTAINER_COPY = Object.freeze({
     backpack: 'Рюкзак',
     emptyStorage: 'Пусто',
     emptyBackpack: 'В рюкзаке пусто',
-    gold: 'Реальное золото',
+    gold: 'Золото',
     takeGold: 'Забрать всё',
     taken: 'Предмет взят',
     stored: 'Предмет положен',
@@ -10198,7 +10198,7 @@ const CHEST_CONTAINER_COPY = Object.freeze({
     backpack: 'Backpack',
     emptyStorage: 'Empty',
     emptyBackpack: 'Backpack is empty',
-    gold: 'Real gold',
+    gold: 'Gold',
     takeGold: 'Take all',
     taken: 'Item taken',
     stored: 'Item stored',

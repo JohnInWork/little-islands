@@ -286,10 +286,18 @@ const COPY = Object.freeze({
     tavernHire: 'Нанять',
     tavernBed: 'Ночлег',
     cellName: 'Дверь камеры',
-    cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
+    cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} золота.`,
     deedName: 'Маклер',
-    deedDescription: (price) => `Он показывает пустой дом и продаёт его за ${price} золота. Не торгуется: `
-      + 'заплатишь — отдаст ключ и уйдёт своей дорогой.',
+    /*
+     * Факт и одна живая строка — больше ничего.
+     *
+     * Здесь было три предложения про то, как он показывает дом, не торгуется и
+     * уйдёт своей дорогой. Иван: «зачем продолжать вот этот бред? Давай просто
+     * факты. Этот человек продаёт дом за столько-то. Всё, купить или не
+     * купить». И про то, что работает: «у мага классная фраза — маленькая,
+     * которую ты быстро читаешь».
+     */
+    deedDescription: (price) => `Продаёт этот дом. ${price} золота, и ключ твой.`,
     slotName: (piece) => `Место под предмет: ${piece}`,
     slotDescription: (price) => `Цена: ${price} золота.`,
     houseBedName: 'Своя кровать',
@@ -380,10 +388,9 @@ const COPY = Object.freeze({
     tavernHire: 'Hire',
     tavernBed: 'A room',
     cellName: 'Cell door',
-    cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
+    cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} gold.`,
     deedName: 'Broker',
-    deedDescription: (price) => `He is showing the empty house and sells it for ${price} gold. He does not `
-      + 'haggle: pay him and he hands over the key and goes his way.',
+    deedDescription: (price) => `Selling this house. ${price} gold and the key is yours.`,
     slotName: (piece) => `Space for: ${piece}`,
     slotDescription: (price) => `Price: ${price} gold.`,
     houseBedName: 'Your own bed',

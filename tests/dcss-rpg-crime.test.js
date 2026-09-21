@@ -72,7 +72,7 @@ test('the fine buys a clean record, and only gold that is actually there', () =>
   assert.equal(poor.ok, false);
   assert.equal(poor.reason, 'no-gold');
   assert.equal(poor.crime.wanted, crime.wanted, 'a refused payment changes nothing');
-  assert.equal(crimeRefusalText('no-gold'), 'Не хватает реального золота на штраф');
+  assert.equal(crimeRefusalText('no-gold'), 'Не хватает золота на штраф');
 
   const paid = payFine({ crime, gold: fine + 40 });
   assert.equal(paid.ok, true);

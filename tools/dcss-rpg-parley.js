@@ -104,7 +104,7 @@ const COPY = Object.freeze({
     }),
     'crazy-yiuf': Object.freeze({
       name: 'Безумный Юф',
-      line: 'Сыграем. В какой руке камушек? Угадаешь — отдам хорошее.',
+      line: 'В какой руке камушек? Угадаешь — отдам хорошее.',
       left: 'Левая',
       right: 'Правая',
       away: 'Не играть',
@@ -124,7 +124,7 @@ const COPY = Object.freeze({
     }),
     fannar: Object.freeze({
       name: 'Фаннар',
-      line: 'Ты выбрал себя однажды и не знал ещё ничего. Могу вернуть выбор — за плату.',
+      line: 'Могу вернуть тебе твой выбор. За плату.',
       forget: (price) => `Забыть выученное · ${price}{gold}`,
       leave: 'Оставить как есть',
       poor: (price) => `Нужно ${price}{gold}`,
@@ -134,7 +134,7 @@ const COPY = Object.freeze({
     }),
     gastronok: Object.freeze({
       name: 'Гастроном',
-      line: 'Съесть бы чего. Заплачу, у меня есть.',
+      line: 'Съесть бы. Заплачу, у меня есть.',
       feed: (gold) => `Накормить · +${gold}{gold}`,
       deny: 'Не дать',
       empty: 'Нечем кормить',
@@ -171,7 +171,7 @@ const COPY = Object.freeze({
     }),
     'crazy-yiuf': Object.freeze({
       name: 'Crazy Yiuf',
-      line: 'Let us play. Which hand holds the pebble? Guess and I give you something good.',
+      line: 'Which hand holds the pebble? Guess and it is yours.',
       left: 'Left',
       right: 'Right',
       away: 'Do not play',
@@ -191,7 +191,7 @@ const COPY = Object.freeze({
     }),
     fannar: Object.freeze({
       name: 'Fannar',
-      line: 'You chose yourself once, knowing nothing yet. I can give the choice back — for a price.',
+      line: 'I can give your choice back. For a price.',
       forget: (price) => `Unlearn it all · ${price}{gold}`,
       leave: 'Leave it be',
       poor: (price) => `Needs ${price}{gold}`,

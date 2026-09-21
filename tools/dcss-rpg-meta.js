@@ -56,7 +56,7 @@ export const MILESTONES = Object.freeze([
   Object.freeze({
     id: 'rich',
     labels: Object.freeze({ ru: 'Богач', en: 'Rich' }),
-    hints: Object.freeze({ ru: 'Унести пятьсот реального золота', en: 'Carry five hundred real gold' }),
+    hints: Object.freeze({ ru: 'Унести пятьсот золота', en: 'Carry five hundred gold' }),
     reached: (run) => run.gold >= 500,
   }),
   Object.freeze({
@@ -314,7 +314,7 @@ const COPY = Object.freeze({
     milestones: 'Milestones',
     runs: 'Runs',
     kills: 'Kills',
-    gold: 'Real gold',
+    gold: 'Gold',
     deepest: 'Deepest',
     victories: 'Victories',
     time: 'In the dungeon',

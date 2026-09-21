@@ -218,7 +218,7 @@ export function returnFromHouse({ house = EMPTY_HOUSE } = {}) {
 const REFUSAL_TEXT = Object.freeze({
   ru: Object.freeze({
     'already-owned': 'Дом уже куплен',
-    'no-gold': 'Не хватает реального золота',
+    'no-gold': 'Не хватает золота',
     'full-bag': 'Нет места в рюкзаке',
     'no-house': 'Нужен свой дом',
     'already-installed': 'Уже стоит',
