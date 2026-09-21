@@ -737,3 +737,41 @@ test('экран создания героя разделён на два шаг
   assert.match(runtime, /function backFromCreation\(\)/);
   assert.match(runtime, /if \(creationStep !== 'custom'\) return closeCharacterCreation\(\);/);
 });
+
+/**
+ * Колонка действий возвращается после отмены.
+ *
+ * Перерисовка сравнивает новый состав со старым отпечатком и молчит, если он
+ * тот же. Окно чистило разметку, не трогая отпечаток, — и при закрытии игра
+ * честно решала, что перерисовывать нечего: кнопки не возвращались, пока игрок
+ * не отойдёт и не подойдёт снова. Иван: «взаимодействую с одним, отменяю,
+ * иконки пропадают; надо отойти и снова подойти. Иконки всегда должны быть».
+ */
+test('окно, убирая колонку, забывает её состав', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const открытие = runtime.slice(runtime.indexOf('function openContextActions('));
+  const тело = открытие.slice(0, открытие.indexOf('\n}\n'));
+  assert.match(тело, /interactActions\.replaceChildren\(\);\s*\n\s*(?:\/\*[\s\S]*?\*\/\s*\n\s*)?interactSignature = '';/);
+  // И сама перерисовка по-прежнему экономит кадры, когда состав не менялся.
+  assert.match(runtime, /if \(signature === interactSignature\) return targets\.length > 0;/);
+});
+
+/**
+ * Дотянуться можно и наискосок — до всего, включая находки.
+ *
+ * Досягаемость в игре одна и считается по шагам, диагональ в неё входит. У
+ * находок оставалась своя мерка — сумма по осям, — и стоящий углом к фонтану не
+ * мог его тронуть. Иван: «стою наискосок клеточки от фонтана и не могу с ним
+ * взаимодействовать, хотя помню, мы это фиксили».
+ */
+test('находки достаются наискосок, как и всё остальное', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const поиск = runtime.slice(runtime.indexOf('function nearbyFind()'));
+  const тело = поиск.slice(0, поиск.indexOf('\n}\n'));
+  assert.match(тело, /cellStepDistance\(cell, \{/, 'находки снова меряют досягаемость по-своему');
+  assert.equal(
+    /Math\.abs\(cell\.x - [^)]*\) \+/.test(тело),
+    false,
+    'сумма по осям вернулась и снова съела диагонали',
+  );
+});

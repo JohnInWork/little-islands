@@ -9028,12 +9028,19 @@ function nearbyFind() {
         findIsInteractable(find) &&
         revealed.has(`${Math.floor(find.x / TILE)},${Math.floor(find.y / TILE)}`),
     )
-    .filter(
-      (find) =>
-        Math.abs(cell.x - Math.floor(find.x / TILE)) +
-          Math.abs(cell.y - Math.floor(find.y / TILE)) <=
-        1,
-    )
+    /*
+     * Дотянуться можно и наискосок.
+     *
+     * Здесь оставалась старая мерка — сумма по осям, — и она диагональ не
+     * считает соседством: стоящий углом к фонтану не мог его тронуть, хотя до
+     * всего остального в игре дотягивался. Иван: «стою наискосок клеточки от
+     * фонтана и не могу с ним взаимодействовать, хотя помню, мы это фиксили».
+     * Чинили действительно — но одну эту проверку тогда пропустили.
+     */
+    .filter((find) => cellStepDistance(cell, {
+      x: Math.floor(find.x / TILE),
+      y: Math.floor(find.y / TILE),
+    }) <= 1)
     .sort(
       (a, b) =>
         Math.hypot(hero.x - a.x, hero.y - a.y) -
@@ -9963,7 +9970,17 @@ function openContextActions(nextTarget) {
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
+  /*
+   * Колонка убирается под окном — и забывает, что в ней было.
+   *
+   * Перерисовка сравнивает новый состав со старым отпечатком и молчит, если он
+   * тот же. Окно чистило разметку, не трогая отпечаток, — и при закрытии
+   * игра честно решала, что перерисовывать нечего: кнопки не возвращались,
+   * пока игрок не отойдёт и не подойдёт снова. Иван: «взаимодействую с одним,
+   * отменяю, иконки пропадают; надо отойти и снова подойти».
+   */
   interactActions.replaceChildren();
+  interactSignature = '';
   document.body.dataset.interact = 'off';
   renderContextActions();
   requestAnimationFrame(() => contextActionList.querySelector('button:not(:disabled)')?.focus());
