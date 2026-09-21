@@ -68,43 +68,74 @@ export function heroVoiceSound(soundId, voice) {
 }
 
 /** One recorded dungeon loop for every chapter palette; the gain differs a little. */
+/**
+ * Постель этажа: гул, на котором всё стоит.
+ *
+ * Палитр двадцать семь, и до сих пор все они играли один и тот же файл — в
+ * подземелье, в лесу и в городе одинаково. Иван послушал новые записи и
+ * сказал: «прям нравятся, они отличные». Теперь их четыре, и палитры разложены
+ * по ним по смыслу: камень, пещера, холод, зелень. Громкость у каждой своя —
+ * она и раньше была своя, менялся только файл.
+ */
 export const AMBIENT_SAMPLES = Object.freeze({
-  slate: sample('ambience/dungeon-loop.mp3', 0.14),
-  ochre: sample('ambience/dungeon-loop.mp3', 0.12),
-  ice: sample('ambience/dungeon-loop.mp3', 0.1),
-  ember: sample('ambience/dungeon-loop.mp3', 0.16),
-  town: sample('ambience/dungeon-loop.mp3', 0.1),
-  bone: sample('ambience/dungeon-loop.mp3', 0.11),
-  prism: sample('ambience/dungeon-loop.mp3', 0.09),
-  verdigris: sample('ambience/dungeon-loop.mp3', 0.13),
-  mold: sample('ambience/dungeon-loop.mp3', 0.12),
-  viscera: sample('ambience/dungeon-loop.mp3', 0.17),
-  moss: sample('ambience/dungeon-loop.mp3', 0.11),
-  cobalt: sample('ambience/dungeon-loop.mp3', 0.12),
-  magma: sample('ambience/dungeon-loop.mp3', 0.18),
-  loam: sample('ambience/dungeon-loop.mp3', 0.13),
-  iron: sample('ambience/dungeon-loop.mp3', 0.15),
-  sepia: sample('ambience/dungeon-loop.mp3', 0.12),
-  coal: sample('ambience/dungeon-loop.mp3', 0.14),
-  autumn: sample('ambience/dungeon-loop.mp3', 0.09),
-  bog: sample('ambience/dungeon-loop.mp3', 0.13),
-  meadow: sample('ambience/dungeon-loop.mp3', 0.08),
-  dusk: sample('ambience/dungeon-loop.mp3', 0.11),
-  hamlet: sample('ambience/dungeon-loop.mp3', 0.1),
-  bramble: sample('ambience/dungeon-loop.mp3', 0.12),
-  frost: sample('ambience/dungeon-loop.mp3', 0.08),
-  scorch: sample('ambience/dungeon-loop.mp3', 0.1),
-  heath: sample('ambience/dungeon-loop.mp3', 0.09),
-  verdant: sample('ambience/dungeon-loop.mp3', 0.12),
+  slate: sample('ambience/stone-hall.mp3', 0.14),
+  ochre: sample('ambience/stone-hall.mp3', 0.12),
+  ice: sample('ambience/cold-cave.mp3', 0.1),
+  ember: sample('ambience/stone-hall.mp3', 0.16),
+  town: sample('ambience/green-wood.mp3', 0.1),
+  bone: sample('ambience/stone-hall.mp3', 0.11),
+  prism: sample('ambience/deep-cave.mp3', 0.09),
+  verdigris: sample('ambience/deep-cave.mp3', 0.13),
+  mold: sample('ambience/deep-cave.mp3', 0.12),
+  viscera: sample('ambience/stone-hall.mp3', 0.17),
+  moss: sample('ambience/green-wood.mp3', 0.11),
+  cobalt: sample('ambience/deep-cave.mp3', 0.12),
+  magma: sample('ambience/stone-hall.mp3', 0.18),
+  loam: sample('ambience/stone-hall.mp3', 0.13),
+  iron: sample('ambience/stone-hall.mp3', 0.15),
+  sepia: sample('ambience/stone-hall.mp3', 0.12),
+  coal: sample('ambience/stone-hall.mp3', 0.14),
+  autumn: sample('ambience/green-wood.mp3', 0.09),
+  bog: sample('ambience/deep-cave.mp3', 0.13),
+  meadow: sample('ambience/green-wood.mp3', 0.08),
+  dusk: sample('ambience/deep-cave.mp3', 0.11),
+  hamlet: sample('ambience/green-wood.mp3', 0.1),
+  bramble: sample('ambience/green-wood.mp3', 0.12),
+  frost: sample('ambience/cold-cave.mp3', 0.08),
+  scorch: sample('ambience/stone-hall.mp3', 0.1),
+  heath: sample('ambience/green-wood.mp3', 0.09),
+  verdant: sample('ambience/green-wood.mp3', 0.12),
+});
+
+/**
+ * Мелодия поверх гула: по одной на дорогу, а не на палитру.
+ *
+ * Иван: «хотел бы какую-нибудь прям мелодию для каждой темы… простенькую,
+ * чтобы запоминалась, но не сильную музыку». Тем в игре двадцать семь, и
+ * двадцать семь мелодий не запомнит никто; дорог шесть, и каждая звучит
+ * достаточно долго, чтобы её тема успела стать своей.
+ *
+ * Громкость вдвое ниже, чем у гула, и это не осторожность, а расчёт: дрон
+ * можно слушать час и не заметить, а мелодия повторяется слышно. Тише и
+ * длиннее — единственный способ, которым она не надоест к третьему этажу.
+ */
+export const MUSIC_SAMPLES = Object.freeze({
+  // Записи едут; пока каталог пуст, второй слой честно молчит.
 });
 
 export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([
   ...Object.values(SOUND_SAMPLES).flatMap(({ files }) => files),
   ...Object.values(AMBIENT_SAMPLES).flatMap(({ files }) => files),
+  ...Object.values(MUSIC_SAMPLES).flatMap(({ files }) => files),
 ])]);
 
 export function soundSample(id) {
   return SOUND_SAMPLES[id] ?? null;
+}
+
+/** Дорога без своей мелодии молчит: тишина честнее чужой темы. */
+export function musicSample(branchId) {
+  return MUSIC_SAMPLES[branchId] ?? null;
 }
 
 /** Unknown palettes fall back to the slate bed instead of silence. */
@@ -120,7 +151,7 @@ export function pickSampleFile(entry, roll = 0) {
   return files[index];
 }
 
-const SAMPLE_FILE_PATTERN = /^(sfx|ambience)\/[a-z0-9-]+\.mp3$/;
+const SAMPLE_FILE_PATTERN = /^(sfx|ambience|music)\/[a-z0-9-]+\.mp3$/;
 
 /** Catalog invariants for the test suite: paths, gains and unique variations. */
 export function audioSampleProblems() {
@@ -140,6 +171,12 @@ export function audioSampleProblems() {
   for (const [id, entry] of Object.entries(AMBIENT_SAMPLES)) {
     check(`ambient:${id}`, entry);
     if (!entry.files.every((file) => file.startsWith('ambience/'))) problems.push(`ambient:${id}:folder`);
+  }
+  for (const [id, entry] of Object.entries(MUSIC_SAMPLES)) {
+    check(`music:${id}`, entry);
+    if (!entry.files.every((file) => file.startsWith('music/'))) problems.push(`music:${id}:folder`);
+    // Мелодия обязана быть тише гула той же глубины, иначе она начнёт вести.
+    if (entry.gain > 0.1) problems.push(`music:${id}:loud`);
   }
   return problems;
 }

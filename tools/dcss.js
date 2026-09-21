@@ -494,6 +494,7 @@ import {
   AUDIO_VOLUME_STEP,
   adjustAudioVolume,
   ambientSample,
+  musicSample,
   audioMenuModel,
   effectiveVolume,
   parseAudioSettings,
@@ -1353,6 +1354,13 @@ let levelUpAudio = null;
 let audioMasterGain = null;
 let audioAmbient = { paletteId: null, file: null, nodes: [], gain: null, sampleGain: null, level: 1 };
 let audioAmbientRequest = null;
+/*
+ * Второй слой: мелодия дороги. Она живёт отдельно от гула, потому что меняется
+ * по другому поводу — гул следует за палитрой этажа, мелодия за дорогой, — и
+ * при переходе с этажа на этаж внутри одной дороги она не должна обрываться.
+ */
+let audioMusic = { branchId: null, file: null, nodes: [], gain: null, sampleGain: null, level: 1 };
+let audioMusicRequest = null;
 const audioSampleRoot = new URL(AUDIO_SAMPLE_ROOT, document.baseURI);
 /** file -> AudioBuffer once decoded, null once a load failed (never retried). */
 const audioSampleBuffers = new Map();
@@ -7743,7 +7751,12 @@ function unlockLevelUpAudio() {
     levelUpAudio = new AudioContextConstructor();
     preloadAudioSamples(levelUpAudio);
   }
-  const begin = () => startAmbient(biomeThemeFor(dungeon.themeId).palette);
+  const begin = () => {
+    startAmbient(biomeThemeFor(dungeon.themeId).palette);
+    // Мелодия заводится тем же касанием, что и гул: браузер пускает звук
+    // только после жеста, и второго такого жеста может не случиться.
+    startMusic(run.branch);
+  };
   if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
   else begin();
   return levelUpAudio;
@@ -7822,9 +7835,20 @@ function loadAudioSample(audio, file) {
   return audioSamplePromises.get(file);
 }
 
+/**
+ * Вперёд грузятся только короткие звуки.
+ *
+ * Раньше при первом касании игра тянула вообще всё, что есть в каталоге. Пока
+ * там лежали полсотни ударов по сорок килобайт, это было незаметно. Гул и
+ * мелодии — файлы на сотни килобайт каждый, и качать их все разом на телефоне
+ * ради одного, который сейчас зазвучит, незачем: оба проигрывателя умеют
+ * дождаться своего файла и завестись, когда он приедет.
+ */
 function preloadAudioSamples(audio) {
   if (typeof fetch !== 'function') return;
-  for (const file of AUDIO_SAMPLE_FILES) loadAudioSample(audio, file);
+  for (const file of AUDIO_SAMPLE_FILES) {
+    if (file.startsWith('sfx/')) loadAudioSample(audio, file);
+  }
 }
 
 function playSampleBuffer(audio, buffer, gainValue, start) {
@@ -7912,6 +7936,81 @@ function startAmbient(paletteId) {
   sampleGain.connect(gain);
   source.start(now);
   audioAmbient = { paletteId, file, nodes: [source], gain, sampleGain, level: audioAmbient.level };
+}
+
+function stopMusic() {
+  const fading = audioMusic;
+  audioMusicRequest = null;
+  audioMusic = { branchId: null, file: null, nodes: [], gain: null, sampleGain: null, level: fading.level };
+  if (!fading.gain || !levelUpAudio) return;
+  const now = levelUpAudio.currentTime;
+  fading.gain.gain.setTargetAtTime(0.0001, now, 0.6);
+  for (const node of fading.nodes) {
+    try {
+      node.stop(now + 3);
+    } catch {
+      // Узел мог остановиться сам.
+    }
+  }
+}
+
+/**
+ * Мелодия дороги: тише гула и длиннее его.
+ *
+ * Заводится тем же способом, что и гул, но по другому ключу — по ветке. Пока
+ * герой идёт вниз по одной дороге, петля не прерывается ни на одном этаже:
+ * обрыв на каждой лестнице превратил бы тему в назойливый отрывок.
+ */
+function startMusic(branchId) {
+  const audio = levelUpAudio;
+  if (!audio || audio.state !== 'running') return;
+  const sample = musicSample(branchId);
+  if (!sample) {
+    stopMusic();
+    return;
+  }
+  const file = pickSampleFile(sample, 0);
+  audioMusicRequest = branchId;
+  if (audioMusic.gain && audioMusic.file === file) {
+    audioMusic.branchId = branchId;
+    audioMusic.sampleGain.gain.setTargetAtTime(sample.gain, audio.currentTime, 1.2);
+    return;
+  }
+  const buffer = audioSampleBuffers.get(file);
+  if (!buffer) {
+    if (buffer === undefined) {
+      loadAudioSample(audio, file).then((loaded) => {
+        if (loaded && audioMusicRequest === branchId && audioMusic.file !== file) startMusic(branchId);
+      });
+    }
+    return;
+  }
+  stopMusic();
+  audioMusicRequest = branchId;
+  const now = audio.currentTime;
+  const gain = audio.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  // Мелодия входит медленнее гула: она заметнее, и резкое появление слышно.
+  gain.gain.setTargetAtTime(Math.max(0.0001, audioMusic.level), now, 2.4);
+  gain.connect(audioOutput(audio));
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.loopStart = Math.min(0.05, buffer.duration / 4);
+  source.loopEnd = Math.max(source.loopStart + 0.1, buffer.duration - 0.05);
+  const sampleGain = audio.createGain();
+  sampleGain.gain.value = sample.gain;
+  source.connect(sampleGain);
+  sampleGain.connect(gain);
+  source.start(now);
+  audioMusic = { branchId, file, nodes: [source], gain, sampleGain, level: audioMusic.level };
+}
+
+function setMusicLevel(level) {
+  audioMusic.level = level;
+  if (audioMusic.gain && levelUpAudio) {
+    audioMusic.gain.gain.setTargetAtTime(Math.max(0.0001, level), levelUpAudio.currentTime, 0.6);
+  }
 }
 
 function setAmbientLevel(level) {
@@ -10949,6 +11048,7 @@ function openMainMenu() {
   uiScreen = 'menu';
   playSound('ui-close');
   setAmbientLevel(0.35);
+  setMusicLevel(0.35);
   document.body.dataset.screen = uiScreen;
   mainMenu.inert = false;
   mainMenu.setAttribute('aria-hidden', 'false');
@@ -10999,6 +11099,7 @@ function startGameFromMenu() {
   showOmenNote(dungeon.rareEncounter?.omen);
   updateInteractionUi();
   setAmbientLevel(1);
+  setMusicLevel(1);
   startGameButton.blur();
   return true;
 }
@@ -14423,6 +14524,7 @@ function damageHero(amount, {
   run.stats.killerId = typeof source === 'string' ? source : null;
   playSound(heroVoice('death'));
   stopAmbient();
+  stopMusic();
   persistRun();
   return result;
 }
@@ -14604,6 +14706,7 @@ function retireRun() {
   hero.pendingAttack = null;
   playSound('victory');
   stopAmbient();
+  stopMusic();
   persistRun();
   // The stash is paid by `showRunEndScreen`, the same as for any other ending.
   showRunEndScreen('retired');
@@ -14625,6 +14728,7 @@ function completeVictory() {
   burst(hero.x, hero.y - 10, '#d83e82', 42);
   playSound('victory');
   stopAmbient();
+  stopMusic();
   showLootToast({ path: roadPrize().path, rarity: 3 }, 'III');
   persistRun();
   showRunEndScreen('victory');
@@ -15009,6 +15113,8 @@ function replaceFloor(nextDepth, arrival = null) {
   world = dungeon.grid;
   resolveGraveyard();
   startAmbient(biomeThemeFor(dungeon.themeId).palette);
+  // Дорога могла смениться вратами — мелодия спрашивается заново.
+  startMusic(run.branch);
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
   monsters = createMonsters(dungeon);
@@ -15090,6 +15196,14 @@ function replaceFloor(nextDepth, arrival = null) {
   camera.y = hero.y;
   sceneStartedAt = elapsed;
   armAmbientScene();
+  /*
+   * Звук следует за этажом: гул спрашивают у палитры, мелодию — у дороги.
+   *
+   * Слоёв стало два, и просыпаться они обязаны в одних и тех же местах, иначе
+   * один поедет за героем, а второй останется на прежнем этаже.
+   */
+  startAmbient(biomeThemeFor(dungeon.themeId).palette);
+  startMusic(run.branch);
   if (ready) rebuildDungeonWorld3D();
   discoverNearbyTraps({ feedback: false });
   updateHud();

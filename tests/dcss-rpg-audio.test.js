@@ -71,7 +71,15 @@ test('every sample ships on disk, stays small and is listed in the CC0 notice', 
   for (const file of AUDIO_SAMPLE_FILES) {
     const size = (await stat(new URL(file, root))).size;
     assert.ok(size > 500, `${file} is not empty`);
-    assert.ok(size < (file.startsWith('ambience/') ? 1_000_000 : 60_000), `${file} stays small`);
+    /*
+     * Потолки разные, потому что роли разные: удар длится полсекунды, гул —
+     * две минуты, мелодия — дольше всех и всё же обязана оставаться петлёй, а
+     * не саундтреком на десять мегабайт.
+     */
+    const потолок = file.startsWith('ambience/') ? 1_000_000
+      : file.startsWith('music/') ? 2_000_000
+        : 60_000;
+    assert.ok(size < потолок, `${file} stays small`);
     assert.ok(notice.includes(`\`${file}\``), `${file} is listed in the notice`);
   }
   assert.match(notice, /CC0 1\.0/);

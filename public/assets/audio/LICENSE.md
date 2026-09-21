@@ -156,3 +156,23 @@ from the site's public HQ previews.
 - Source: <https://opengameart.org/content/loopable-dungeon-ambience>
 - License: CC0 1.0
 - Files: `ambience/dungeon-loop.mp3` (dungeon_ambient_1, 38 s loop cut from the original with a 2 s crossfade at the seam to keep decoded memory small)
+
+## Постели этажей / Ambience beds
+
+Четыре записи фона вместо одной: раньше все двадцать семь палитр играли
+`dungeon-loop.mp3`, и подземелье, лес и город звучали одинаково. Все четыре —
+CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 кбит/с и выровнены по
+громкости тем же способом, что и остальной звук.
+
+- `ambience/stone-hall.mp3` — «Loopable Dungeon Ambience», низкий ветер и капли воды.
+  <https://opengameart.org/content/loopable-dungeon-ambience> (CC0; автор
+  назван на странице).
+- `ambience/deep-cave.mp3` и `ambience/cold-cave.mp3` — «Dark Cavern Ambient», Paul Wortmann.
+  <https://opengameart.org/content/dark-cavern-ambient> (CC0). Две вариации
+  одной пещеры: первая ушла в глубину, вторая — в холод.
+- `ambience/green-wood.mp3` — «Forest Ambience», птицы и листва.
+  <https://opengameart.org/content/cc0-background-ambience> (CC0; автор назван
+  на странице).
+
+Указание авторства CC0 не требует — авторы названы из уважения, как и всё
+остальное в этом файле.

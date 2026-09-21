@@ -82,6 +82,7 @@ function terminalRuntime({ victory = false } = {}) {
     resolveMarksmanShot: () => ({ aimed: false, bonusPercent: 0, pierceTargets: 0 }),
     selectPiercedTargets: () => [],
     stopAmbient: () => {},
+    stopMusic: () => {},
     startAmbient: () => {},
     setAmbientLevel: () => {},
     hero,

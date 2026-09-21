@@ -122,6 +122,7 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     updateHeroFooting: () => {},
     heroWading: () => false,
     stopAmbient: () => {},
+    stopMusic: () => {},
     startAmbient: () => {},
     setAmbientLevel: () => {},
     CHASM_CELL,

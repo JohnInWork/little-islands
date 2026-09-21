@@ -68,6 +68,7 @@ function fixture({ open = false } = {}) {
     resolveMarksmanShot: () => ({ aimed: false, bonusPercent: 0, pierceTargets: 0 }),
     selectPiercedTargets: () => [],
     stopAmbient: () => {},
+    stopMusic: () => {},
     startAmbient: () => {},
     setAmbientLevel: () => {},
     ready: true, uiScreen: 'game', runStatus: 'playing', reducedMotion: false,
