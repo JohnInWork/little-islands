@@ -20,6 +20,8 @@
  * Снимать оружие, списывать золото и злить монстра — дело адаптера.
  */
 
+import { canRespec } from './dcss-rpg-respec.js';
+
 /** Сколько мытарь просит за проход. Растёт с глубиной: наглость по чину. */
 export function parleyTollPrice(depth) {
   if (!Number.isInteger(depth) || depth < 0) throw new TypeError('Toll needs a floor depth');
@@ -120,6 +122,16 @@ const COPY = Object.freeze({
       bad: 'Под тряпкой пустая книжица. Эустахио уже далеко.',
       passed: 'Эустахио пожимает плечами и заворачивает тряпку обратно.',
     }),
+    fannar: Object.freeze({
+      name: 'Фаннар',
+      line: 'Ты выбрал себя однажды и не знал ещё ничего. Могу вернуть выбор — за плату.',
+      forget: (price) => `Забыть выученное · ${price}{gold}`,
+      leave: 'Оставить как есть',
+      poor: (price) => `Нужно ${price}{gold}`,
+      nothing: 'Забывать пока нечего',
+      done: 'Фаннар кладёт ладонь на лоб, и выученное осыпается. Очки снова твои.',
+      kept: 'Фаннар кивает: значит, всё было выбрано верно.',
+    }),
     gastronok: Object.freeze({
       name: 'Гастроном',
       line: 'Съесть бы чего. Заплачу, у меня есть.',
@@ -177,6 +189,16 @@ const COPY = Object.freeze({
       bad: 'Under the rag, an empty little book. Eustachio is already gone.',
       passed: 'Eustachio shrugs and folds the rag back over it.',
     }),
+    fannar: Object.freeze({
+      name: 'Fannar',
+      line: 'You chose yourself once, knowing nothing yet. I can give the choice back — for a price.',
+      forget: (price) => `Unlearn it all · ${price}{gold}`,
+      leave: 'Leave it be',
+      poor: (price) => `Needs ${price}{gold}`,
+      nothing: 'Nothing to unlearn yet',
+      done: 'Fannar lays a palm on your brow and the learning falls away. The points are yours again.',
+      kept: 'Fannar nods: then it was all chosen well.',
+    }),
     gastronok: Object.freeze({
       name: 'Gastronok',
       line: 'Could eat. I can pay, I have coin.',
@@ -205,6 +227,8 @@ export const PARLEY_ENCOUNTERS = Object.freeze({
   // Юф злится не на отказ, а на то, что его раскусили.
   'crazy-yiuf': Object.freeze({ id: 'crazy-yiuf', kind: 'bet', hostileOnRefusal: false }),
   eustachio: Object.freeze({ id: 'eustachio', kind: 'wares', hostileOnRefusal: false }),
+  // Добрый: отказ его не задевает, и уходить ему тоже некуда — он бродит сам.
+  fannar: Object.freeze({ id: 'fannar', kind: 'respec', hostileOnRefusal: false }),
 });
 
 export const PARLEY_IDS = Object.freeze(Object.keys(PARLEY_ENCOUNTERS));
@@ -228,6 +252,8 @@ export function parleyModel({
   gold = 0,
   weaponName = '',
   foodCount = 0,
+  skills = null,
+  attributes = null,
   language = 'ru',
 } = {}) {
   const encounter = parleyFor(monsterId);
@@ -298,6 +324,26 @@ export function parleyModel({
     });
   }
 
+  if (encounter.kind === 'respec') {
+    const decision = canRespec({ skills, attributes, gold, source: 'sage' });
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: decision.price,
+      options: Object.freeze([
+        Object.freeze({
+          id: 'forget',
+          label: copy.forget(decision.price),
+          enabled: decision.ok,
+          hint: decision.reason === 'nothing-spent' ? copy.nothing
+            : decision.reason === 'no-gold' ? copy.poor(decision.price) : '',
+        }),
+        Object.freeze({ id: 'refuse', label: copy.leave, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
   if (encounter.kind === 'passage') {
     return Object.freeze({
       id: monsterId,
@@ -340,11 +386,13 @@ export function resolveParley({
   gold = 0,
   weaponName = '',
   foodCount = 0,
+  skills = null,
+  attributes = null,
   language = 'ru',
 } = {}) {
   const encounter = parleyFor(monsterId);
   if (!encounter) throw new TypeError(`No parley for ${monsterId}`);
-  const model = parleyModel({ monsterId, depth, gold, weaponName, foodCount, language });
+  const model = parleyModel({ monsterId, depth, gold, weaponName, foodCount, skills, attributes, language });
   const chosen = model.options.find(({ id }) => id === option);
   if (!chosen) throw new TypeError(`Unknown parley option ${option}`);
   const copy = COPY[locale(language)][monsterId];
@@ -364,7 +412,25 @@ export function resolveParley({
       takesWeapon: false,
       takesFood: false,
       grantsItemId: угадал ? PARLEY_BET_PRIZE : null,
+      respec: false,
       message: угадал ? copy.won : copy.lost,
+    });
+  }
+
+  if (option === 'forget') {
+    return Object.freeze({
+      ok: true,
+      hostile: false,
+      damageMultiplier: 1,
+      // Он не торговец и никуда не уходит: побродит и останется на этаже.
+      leaves: false,
+      goldDelta: -model.price,
+      heal: 0,
+      takesWeapon: false,
+      takesFood: false,
+      grantsItemId: null,
+      respec: true,
+      message: copy.done,
     });
   }
 
@@ -387,6 +453,7 @@ export function resolveParley({
       takesWeapon: false,
       takesFood: false,
       grantsItemId: вещь,
+      respec: false,
       message: настоящее ? copy.good : copy.bad,
     });
   }
@@ -402,11 +469,13 @@ export function resolveParley({
       takesFood: false,
       grantsItemId: null,
       damageMultiplier: 1,
+      respec: false,
       message: encounter.kind === 'passage' ? copy.attacked
         : encounter.kind === 'food' ? copy.denied
           : encounter.kind === 'bet' ? copy.walked
             : encounter.kind === 'wares' ? copy.passed
-              : copy.refused,
+              : encounter.kind === 'respec' ? copy.kept
+                : copy.refused,
     });
   }
 
@@ -421,6 +490,7 @@ export function resolveParley({
       takesFood: false,
       grantsItemId: null,
       damageMultiplier: 1,
+      respec: false,
       message: copy.paid,
     });
   }
@@ -438,6 +508,7 @@ export function resolveParley({
       takesFood: false,
       grantsItemId: null,
       damageMultiplier: 1,
+      respec: false,
       message: copy.left(heal),
     });
   }
@@ -453,6 +524,7 @@ export function resolveParley({
       takesFood: false,
       grantsItemId: null,
       damageMultiplier: 1,
+      respec: false,
       message: copy.gave(weaponName),
     });
   }
@@ -468,6 +540,7 @@ export function resolveParley({
     takesFood: true,
     grantsItemId: null,
     damageMultiplier: 1,
+    respec: false,
     message: copy.fed(reward),
   });
 }

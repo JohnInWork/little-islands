@@ -9055,3 +9055,47 @@ body {
   grid-template-columns: auto 1fr;
   gap: 8px;
 }
+
+
+/*
+ * Цвет характеристики — сам себе подпись.
+ *
+ * Иван: «ловкость, очевидно, зелёная, интеллект синий, а сила красная». Три
+ * цвета читаются раньше, чем три слова, и карточке не нужна лишняя строка.
+ */
+.creation-archetype-stats {
+  display: flex;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.creation-archetype-stats em {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.creation-archetype-stats em[data-attribute='strength'] {
+  color: #d9705f;
+}
+
+.creation-archetype-stats em[data-attribute='agility'] {
+  color: #7cc47f;
+}
+
+.creation-archetype-stats em[data-attribute='intelligence'] {
+  color: #6fa8dc;
+}
+
+/* Те же три цвета в строках своего героя: один язык на весь экран. */
+.creation-attribute[data-attribute='strength'] output {
+  color: #d9705f;
+}
+
+.creation-attribute[data-attribute='agility'] output {
+  color: #7cc47f;
+}
+
+.creation-attribute[data-attribute='intelligence'] output {
+  color: #6fa8dc;
+}

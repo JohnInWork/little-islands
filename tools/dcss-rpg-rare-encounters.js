@@ -110,6 +110,8 @@ const ROSTER = [
   named({ id: 'maurice', habitat: 'deep', sprite: 'unique/maurice.png', tier: 4, style: 'skirmisher', neutral: true, ru: 'Морис', en: 'Maurice' }),
   // Гном с веткой вместо оружия: предлагает сыграть, а не драться.
   named({ id: 'crazy-yiuf', habitat: 'deep', sprite: 'unique/crazy_yiuf.png', tier: 3, style: 'skirmisher', neutral: true, ru: 'Безумный Юф', en: 'Crazy Yiuf' }),
+  // Седой маг, который берёт деньги за то, чтобы забыть выученное.
+  named({ id: 'fannar', habitat: 'deep', sprite: 'unique/fannar.png', tier: 5, style: 'caster', neutral: true, ru: 'Фаннар', en: 'Fannar' }),
   named({ id: 'snorg', habitat: 'deep', sprite: 'unique/snorg.png', tier: 6, style: 'brute', large: true, ru: 'Снорг', en: 'Snorg' }),
   named({ id: 'saint-roka', habitat: 'deep', sprite: 'unique/saint_roka.png', tier: 7, style: 'brute', neutral: true, ru: 'Святой Рока', en: 'Saint Roka' }),
   named({ id: 'polyphemus', habitat: 'deep', sprite: 'unique/polyphemus.png', tier: 7, style: 'brute', large: true, ru: 'Полифем', en: 'Polyphemus' }),

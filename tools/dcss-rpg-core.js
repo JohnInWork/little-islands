@@ -120,7 +120,7 @@ import {
 } from './dcss-rpg-attributes.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
-import { buildAttributes } from './dcss-rpg-character-creation.js';
+import { buildAttributes, validateBuild } from './dcss-rpg-character-creation.js';
 import {
   MAX_BACKPACK_CAPACITY,
   createChestContainerStates,
@@ -1588,6 +1588,15 @@ export function createRun(
     items,
     equipment,
     inventory,
+    /*
+     * Кем герой вышел из ворот.
+     *
+     * Нужно не для красоты: сброс очков возвращает героя именно сюда — к
+     * характеристикам и навыкам создания, а не к голым тройкам. Иначе
+     * выбранное при создании сгорало бы вместе с прокачанным, и сброс был бы
+     * не переигровкой, а штрафом.
+     */
+    build: build ? { ...build, attributes: { ...build.attributes }, skillIds: [...build.skillIds], spellIds: [...build.spellIds] } : null,
     camp: { stash: createCampStash() },
     house: createHouseState(),
     // Открыт или нет — это две координаты в сохранении, а не вещь на этаже.
@@ -2596,6 +2605,7 @@ export function validateRun(snapshot) {
   if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateHouseState(snapshot.house)) return false;
   if (!validateThiefState(snapshot.thief)) return false;
+  if (!validateBuild(snapshot.build)) return false;
   // A save written before portals existed simply has none.
   if (!validatePortalState(snapshot.portal ?? null)) return false;
   if (!validateCrimeState(snapshot.crime)) return false;

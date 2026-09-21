@@ -70,6 +70,7 @@ import {
   toggleBuildSkill,
 } from './dcss-rpg-character-creation.js';
 import { parleyFor, parleyModel, parleyRoll, resolveParley } from './dcss-rpg-parley.js';
+import { respecHero } from './dcss-rpg-respec.js';
 import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
@@ -3190,6 +3191,8 @@ function answerParley(target, option) {
       gold,
       weaponName: equippedWeaponName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+      skills: hero.skills,
+      attributes: hero.attributes,
       language: itemDetailLanguage,
     });
   } catch (error) {
@@ -3218,6 +3221,7 @@ function answerParley(target, option) {
   gold = Math.max(0, gold + result.goldDelta);
   if (result.heal > 0) hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + result.heal);
   if (result.grantsItemId) grantItem(result.grantsItemId, `parley-${monster.id}-${run.seed}-${dungeon.depth}`);
+  if (result.respec) applyRespec();
   if (result.damageMultiplier > 1) {
     // Проигранное пари злит по-настоящему: тот же Юф, но бьёт заметно больнее.
     monster.damage = Math.max(1, Math.round(monster.damage * result.damageMultiplier));
@@ -3337,6 +3341,23 @@ function recoverStolenItem(monster) {
     { path: monster.spritePath, rarity: 2 },
     thiefCopy().recovered(вещь ? itemPresentation(presentedItem(вещь), itemDetailLanguage).name : ''),
   );
+}
+
+/**
+ * Забыть выученное.
+ *
+ * Возвращает героя туда, кем он вышел из ворот: те же два очка создания и те
+ * же два навыка, а всё вложенное сверх — обратно в карман. Уровень, опыт и
+ * вещи сделка не трогает.
+ */
+function applyRespec() {
+  const before = respecHero({ level: hero.level, build: run.build ?? null });
+  hero.skills = cloneSkillState(before.skills);
+  hero.attributes = cloneAttributeState(before.attributes);
+  hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
+  renderCharacterAttributes();
+  renderCharacterSkills();
+  return true;
 }
 
 /** Отдать то, что в руке. Рюкзак может быть полон — тогда отдать не выйдет. */
@@ -9264,6 +9285,8 @@ function contextModelTarget(entry = contextTarget) {
       gold,
       weaponName: equippedWeaponName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
+      skills: hero.skills,
+      attributes: hero.attributes,
       language: itemDetailLanguage,
     });
     return {
@@ -11434,13 +11457,32 @@ function renderCharacterCreation() {
     line.textContent = archetype.line;
     const skills = document.createElement('i');
     skills.textContent = archetype.skills.join(' · ');
-    card.append(name, line, skills);
+    /*
+     * Две характеристики — двумя значками, а не строкой текста.
+     *
+     * Иван: «можно ещё только как-нибудь очень минималистично, прикольно
+     * указать, что две ловкости или два интеллекта… ловкость, очевидно,
+     * зелёная, интеллект синий, а сила красная». Цвет здесь и есть подпись:
+     * читается раньше, чем буквы, и не отнимает у карточки высоту.
+     */
+    const stats = document.createElement('u');
+    stats.className = 'creation-archetype-stats';
+    for (const id of ATTRIBUTE_IDS) {
+      const amount = archetype.attributes[id];
+      if (!amount) continue;
+      const pip = document.createElement('em');
+      pip.dataset.attribute = id;
+      pip.textContent = `+${amount} ${ATTRIBUTE_COPY[ru ? 'ru' : 'en'][id].short}`;
+      stats.append(pip);
+    }
+    card.append(name, line, stats, skills);
     return card;
   }));
 
   creationAttributes.replaceChildren(...ATTRIBUTE_IDS.map((id) => {
     const row = document.createElement('div');
     row.className = 'creation-attribute';
+    row.dataset.attribute = id;
     const name = document.createElement('span');
     name.textContent = ATTRIBUTE_COPY[ru ? 'ru' : 'en'][id].name;
     const value = document.createElement('output');
