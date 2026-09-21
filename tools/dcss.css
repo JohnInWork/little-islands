@@ -9058,9 +9058,17 @@ body {
   color: #e8dcb4;
 }
 
-.creation-skill:disabled {
+.creation-skill[data-full='true'] {
   opacity: 0.45;
-  cursor: default;
+}
+
+/* Что делает выбранный навык. Живёт под сеткой и не двигает её. */
+.creation-skill-note {
+  margin: 0;
+  min-height: 2.6em;
+  color: #9fb0ac;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 /*

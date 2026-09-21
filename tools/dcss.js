@@ -723,6 +723,7 @@ const creationArchetypes = document.querySelector('#creation-archetypes');
 const creationAttributes = document.querySelector('#creation-attributes');
 const creationSkills = document.querySelector('#creation-skills');
 const creationSkillsLeft = document.querySelector('#creation-skills-left');
+const creationSkillNote = document.querySelector('#creation-skill-note');
 const creationCard = document.querySelector('.character-creation-card');
 const creationOwnButton = document.querySelector('#creation-open-custom');
 const creationHint = document.querySelector('#character-creation-hint');
@@ -4087,7 +4088,10 @@ function selectSkill(skill) {
     row.setAttribute('aria-pressed', String(row.dataset.skillId === skill.id));
   }
   showSkillCard(skill);
-  requestAnimationFrame(() => (skill.canLearn ? characterSkillLearn : characterSkillCancel).focus());
+  requestAnimationFrame(() => {
+    // Без прокрутки: карточка уже там, куда смотрит игрок.
+    (skill.canLearn ? characterSkillLearn : characterSkillCancel).focus({ preventScroll: true });
+  });
 }
 
 /**
@@ -4121,6 +4125,21 @@ function renderSkillLadder(skill, copy) {
 }
 
 function showSkillCard(skill) {
+  /*
+   * Карточка раскрывается под выбранной строкой, а не внизу списка.
+   *
+   * Она жила отдельным окошком в конце свитка, и нажатие на навык уводило туда
+   * — через сорок строк от того места, куда смотрел игрок. Иван: «нажимаю на
+   * какой-то скилл, и меня перематывает куда-то вниз; должно раскрываться вот
+   * это конкретное поле, которое я нажал; я теряюсь в этом».
+   *
+   * Разметка остаётся одна: то же окошко просто переезжает под строку. Так
+   * ничего не дублируется, и закрыть его — по-прежнему одна кнопка.
+   */
+  const строка = characterSkillGroups.querySelector(`[data-skill-id="${skill.id}"]`);
+  if (строка && characterSkillDetail.previousElementSibling !== строка) {
+    строка.after(characterSkillDetail);
+  }
   characterSkillDetail.hidden = false;
   characterSkillDetailName.textContent = `${skill.name} ${skill.rank}/${skill.maxRank}`;
   renderSkillBranch(characterSkillDetailBranch, skill.branch);
@@ -11614,6 +11633,7 @@ const CREATION_COPY = Object.freeze({
     pickHint: 'Возьми готового героя или собери своего.',
     ownTitle: 'Свой герой',
     ownHint: 'Два очка характеристик и два навыка.',
+    skillHint: 'Нажми на навык, чтобы прочитать, что он делает.',
     own: 'Создать своего',
     back: 'Назад',
     cancel: 'Отмена',
@@ -11623,6 +11643,7 @@ const CREATION_COPY = Object.freeze({
     pickHint: 'Take a ready hero or build your own.',
     ownTitle: 'Your own hero',
     ownHint: 'Two attribute points and two skills.',
+    skillHint: 'Tap a skill to read what it does.',
     own: 'Build your own',
     back: 'Back',
     cancel: 'Cancel',
@@ -11721,11 +11742,21 @@ function renderCharacterCreation() {
     chip.dataset.skill = skill.id;
     chip.textContent = skill.name[ru ? 'ru' : 'en'];
     chip.setAttribute('aria-pressed', String(chosen));
-    // Полный набор не прячет остальные навыки, а гасит их: список из сорока
-    // одного, схлопывающийся до двух, читается как поломка.
-    chip.disabled = !chosen && model.skillPointsLeft <= 0;
+    /*
+     * Занятый набор гасит остальные, но не запирает их.
+     *
+     * Кнопка была `disabled` — и о навыке нельзя было даже прочитать, набрав
+     * два других. Иван: «я вижу кучу навыков, но я в них теряюсь; хотел бы
+     * хотя бы понять, что делает навык, прежде чем вкачивать». Читать можно
+     * всё и всегда; занятость мешает взять, а не узнать.
+     */
+    chip.dataset.full = String(!chosen && model.skillPointsLeft <= 0);
     return chip;
   }));
+  const читаемый = skillById(creationSkillNote.dataset.skill ?? '');
+  creationSkillNote.textContent = читаемый
+    ? `${читаемый.name[ru ? 'ru' : 'en']} — ${читаемый.description[ru ? 'ru' : 'en']}`
+    : copy.skillHint;
 }
 
 function openCharacterCreation() {
@@ -18756,8 +18787,12 @@ creationAttributes.addEventListener('click', (event) => {
 });
 creationSkills.addEventListener('click', (event) => {
   const button = event.target.closest('[data-skill]');
-  if (!button || button.disabled || uiScreen !== 'creation') return;
-  pendingBuild = toggleBuildSkill(pendingBuild, button.dataset.skill);
+  if (!button || uiScreen !== 'creation') return;
+  // Сначала рассказать, потом — если можно — взять.
+  creationSkillNote.dataset.skill = button.dataset.skill;
+  if (button.dataset.full !== 'true') {
+    pendingBuild = toggleBuildSkill(pendingBuild, button.dataset.skill);
+  }
   playSound('ui-tap');
   renderCharacterCreation();
 });

@@ -775,3 +775,42 @@ test('находки достаются наискосок, как и всё о�
     'сумма по осям вернулась и снова съела диагонали',
   );
 });
+
+/**
+ * Навык объясняется до того, как его берут.
+ *
+ * На экране создания сорок один навык и ни слова о том, что каждый делает.
+ * Иван: «я вижу кучу навыков, но я в них теряюсь; хотел бы хотя бы понять, что
+ * делает навык кулинарии, прежде чем вкачивать». Читается касанием, и занятый
+ * набор мешает взять, а не узнать.
+ */
+test('навык на экране создания читается, даже когда взять его нельзя', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const разметка = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
+  assert.match(разметка, /id="creation-skill-note"/);
+  // Кнопка больше не запирается: занятость — это тусклость, а не запрет.
+  assert.match(runtime, /chip\.dataset\.full = String\(!chosen && model\.skillPointsLeft <= 0\);/);
+  assert.equal(runtime.includes('chip.disabled = !chosen'), false, 'навык снова нельзя прочитать');
+  // Сначала рассказать, потом — если можно — взять.
+  const слушатель = runtime.slice(runtime.indexOf("creationSkills.addEventListener('click'"));
+  const тело = слушатель.slice(0, слушатель.indexOf('});'));
+  assert.ok(
+    тело.indexOf('creationSkillNote.dataset.skill') < тело.indexOf('toggleBuildSkill'),
+    'навык берут раньше, чем объясняют',
+  );
+});
+
+/**
+ * Карточка навыка раскрывается под строкой, а не внизу свитка.
+ *
+ * Она жила отдельным окошком в конце списка, и нажатие уводило туда — через
+ * десятки строк от того места, куда смотрел игрок. Иван: «нажимаю на скилл, и
+ * меня перематывает куда-то вниз; должно раскрываться вот это конкретное поле,
+ * которое я нажал».
+ */
+test('карточка навыка переезжает под выбранную строку', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(runtime, /строка\.after\(characterSkillDetail\);/);
+  // И фокус больше не тащит взгляд вниз за собой.
+  assert.match(runtime, /\.focus\(\{ preventScroll: true \}\);/);
+});
