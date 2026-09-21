@@ -9,8 +9,12 @@ import {
   parleyFor,
   parleyModel,
   parleyRewardGold,
+  parleyRoll,
   parleyTollPrice,
+  parleyWaresPrice,
   resolveParley,
+  PARLEY_BET_PRIZE,
+  PARLEY_WARES,
 } from '../tools/dcss-rpg-parley.js';
 import { RARE_MONSTER_IDS, RARE_ENCOUNTER_CHANCE } from '../tools/dcss-rpg-rare-encounters.js';
 import { MONSTER_CATALOG } from '../tools/dcss-rpg-content.js';
@@ -153,4 +157,76 @@ test('адаптер спрашивает разговор раньше драк
   // Договорившийся уходит и записывается ушедшим сразу.
   assert.match(runtime, /function sendNamedAway\(monster\) \{/);
   assert.match(runtime, /run\.floor\.defeated\.push\(monster\.instanceId\)/);
+});
+
+/**
+ * Пари и слепая покупка решаются жребием — и жребий не переигрывается.
+ *
+ * Иначе игрок сохранится, купит, посмотрит и перезагрузится, пока не выпадет
+ * хорошее: выбора не останется, останется процедура. Бросок выводится из сида
+ * забега, глубины и того, кто спрашивает, — и при той же тройке он тот же.
+ */
+test('жребий один и тот же при каждой загрузке', () => {
+  for (const seed of [1, 7, 4242]) {
+    for (const depth of [3, 9]) {
+      const первый = parleyRoll(seed, depth, 'eustachio');
+      assert.equal(первый, parleyRoll(seed, depth, 'eustachio'), 'бросок переигрывается');
+      assert.ok(первый >= 0 && первый < 1, 'бросок вне отрезка');
+      assert.notEqual(первый, parleyRoll(seed, depth, 'crazy-yiuf'), 'у двоих один жребий');
+    }
+  }
+  assert.throws(() => parleyRoll(-1, 3, 'eustachio'), TypeError);
+
+  // И оба ответа в пари ведут к разным исходам при одном и том же жребии.
+  const исходы = ['left', 'right'].map((option) => resolveParley({
+    monsterId: 'crazy-yiuf', option, depth: 5, seed: 7,
+  }));
+  assert.equal(исходы.filter(({ hostile }) => hostile).length, 1, 'угадали оба или ни один');
+  const выигрыш = исходы.find(({ hostile }) => !hostile);
+  assert.equal(выигрыш.grantsItemId, PARLEY_BET_PRIZE);
+  assert.equal(выигрыш.leaves, true);
+  const проигрыш = исходы.find(({ hostile }) => hostile);
+  assert.equal(проигрыш.grantsItemId, null);
+  assert.ok(проигрыш.damageMultiplier > 1, 'проигравшему пари Юф не стал опаснее');
+
+  // Не играть — не проиграть: Юф остаётся стоять и не злится.
+  const мимо = resolveParley({ monsterId: 'crazy-yiuf', option: 'refuse', depth: 5, seed: 7 });
+  assert.equal(мимо.hostile, false);
+  assert.equal(мимо.leaves, false);
+});
+
+test('слепая покупка отдаёт то настоящее, то пустышку — и всегда что-то', () => {
+  const куплено = new Set();
+  for (let seed = 1; seed <= 200; seed += 1) {
+    const итог = resolveParley({ monsterId: 'eustachio', option: 'buy', depth: 5, seed, gold: 9999 });
+    assert.equal(итог.goldDelta, -parleyWaresPrice(5));
+    assert.equal(итог.leaves, true);
+    assert.equal(итог.hostile, false, 'торговец полез драться');
+    assert.ok(итог.grantsItemId, 'золото ушло, а вещи нет');
+    куплено.add(итог.grantsItemId);
+  }
+  assert.ok(куплено.has(PARLEY_WARES.junk), 'пустышка не выпадает никогда');
+  assert.ok(
+    PARLEY_WARES.real.some((id) => куплено.has(id)),
+    'настоящее не выпадает никогда',
+  );
+  // Каждое настоящее — из списка, а не выдумано на месте.
+  for (const id of куплено) {
+    assert.ok(id === PARLEY_WARES.junk || PARLEY_WARES.real.includes(id), id);
+  }
+
+  const бедный = parleyModel({ monsterId: 'eustachio', depth: 5, gold: 0 });
+  assert.equal(бедный.options[0].enabled, false);
+  assert.equal(бедный.options[1].enabled, true, 'пройти мимо нельзя');
+  assert.equal(resolveParley({ monsterId: 'eustachio', option: 'refuse', depth: 5 }).hostile, false);
+});
+
+test('полный рюкзак не съедает золото за вещь, которую некуда положить', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(
+    runtime,
+    /if \(result\.grantsItemId && backpackItems\.filter\(Boolean\)\.length >= currentBackpackCapacity\(\)\)/,
+  );
+  // И жребий адаптер берёт у забега, а не у случайности кадра.
+  assert.match(runtime, /seed: run\.seed,/);
 });

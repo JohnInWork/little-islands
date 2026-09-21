@@ -38,6 +38,40 @@ export function parleyBlessingHeal(depth) {
   return 20 + depth * 4;
 }
 
+/** Сколько просит тот, кто продаёт не глядя. Дороже мытаря: товар всё-таки. */
+export function parleyWaresPrice(depth) {
+  if (!Number.isInteger(depth) || depth < 0) throw new TypeError('Wares need a floor depth');
+  return 120 + depth * 24;
+}
+
+/**
+ * Бросок, который нельзя перебросить.
+ *
+ * Слепая покупка и пари решаются жребием, и жребий обязан быть один и тот же
+ * при каждой загрузке: иначе игрок просто сохранится, купит, посмотрит и
+ * перезагрузится, пока не выпадет хорошее. Тогда выбора нет — есть процедура.
+ * Поэтому бросок выводится из сида забега, глубины и того, кто спрашивает.
+ */
+export function parleyRoll(seed, depth, monsterId) {
+  if (!Number.isInteger(seed) || seed < 0) throw new TypeError('Parley roll needs a run seed');
+  if (!Number.isInteger(depth) || depth < 0) throw new TypeError('Parley roll needs a floor depth');
+  let value = (seed ^ Math.imul(depth + 1, 0x9e3779b1)) >>> 0;
+  for (const code of String(monsterId)) {
+    value = Math.imul(value ^ code.codePointAt(0), 0x85ebca6b) >>> 0;
+  }
+  value = Math.imul(value ^ (value >>> 15), 0xc2b2ae35) >>> 0;
+  return ((value ^ (value >>> 16)) >>> 0) / 0x100000000;
+}
+
+/** Что продаёт Эустахио, когда продаёт настоящее, и что — когда нет. */
+export const PARLEY_WARES = Object.freeze({
+  real: Object.freeze(['regeneration-ring', 'warding-ring', 'might-charm', 'vitality-amulet']),
+  junk: 'blank-codex',
+});
+
+/** Что достаётся выигравшему пари. */
+export const PARLEY_BET_PRIZE = 'mystery-potion';
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     'blork-the-orc': Object.freeze({
@@ -65,6 +99,26 @@ const COPY = Object.freeze({
       attack: 'Напасть',
       left: (heal) => `Рока поднимает руку вслед. Раны затягиваются: +${heal}{heal}`,
       attacked: 'Рока опускает булаву. Больше он не разговаривает.',
+    }),
+    'crazy-yiuf': Object.freeze({
+      name: 'Безумный Юф',
+      line: 'Сыграем. В какой руке камушек? Угадаешь — отдам хорошее.',
+      left: 'Левая',
+      right: 'Правая',
+      away: 'Не играть',
+      won: 'Юф разжимает ладонь и, ворча, отдаёт обещанное.',
+      lost: 'Камушек был в другой. Юф перестаёт улыбаться.',
+      walked: 'Юф пожимает плечами и убирает руки за спину.',
+    }),
+    eustachio: Object.freeze({
+      name: 'Эустахио',
+      line: 'Вещь. Хорошая. Не спрашивай откуда и не проси посмотреть.',
+      buy: (price) => `Купить за ${price}{gold}`,
+      pass: 'Пройти мимо',
+      poor: (price) => `Нужно ${price}{gold}`,
+      good: 'Под тряпкой оказалось настоящее. Эустахио уже далеко.',
+      bad: 'Под тряпкой пустая книжица. Эустахио уже далеко.',
+      passed: 'Эустахио пожимает плечами и заворачивает тряпку обратно.',
     }),
     gastronok: Object.freeze({
       name: 'Гастроном',
@@ -103,6 +157,26 @@ const COPY = Object.freeze({
       left: (heal) => `Roka raises a hand after you. Wounds close: +${heal}{heal}`,
       attacked: 'Roka lowers his mace. He is done talking.',
     }),
+    'crazy-yiuf': Object.freeze({
+      name: 'Crazy Yiuf',
+      line: 'Let us play. Which hand holds the pebble? Guess and I give you something good.',
+      left: 'Left',
+      right: 'Right',
+      away: 'Do not play',
+      won: 'Yiuf opens his hand and grudgingly hands the prize over.',
+      lost: 'The pebble was in the other one. Yiuf stops smiling.',
+      walked: 'Yiuf shrugs and puts both hands behind his back.',
+    }),
+    eustachio: Object.freeze({
+      name: 'Eustachio',
+      line: 'A thing. A good one. Do not ask where from and do not ask to look.',
+      buy: (price) => `Buy for ${price}{gold}`,
+      pass: 'Walk on',
+      poor: (price) => `Needs ${price}{gold}`,
+      good: 'Under the rag it was the real thing. Eustachio is already gone.',
+      bad: 'Under the rag, an empty little book. Eustachio is already gone.',
+      passed: 'Eustachio shrugs and folds the rag back over it.',
+    }),
     gastronok: Object.freeze({
       name: 'Gastronok',
       line: 'Could eat. I can pay, I have coin.',
@@ -127,6 +201,10 @@ export const PARLEY_ENCOUNTERS = Object.freeze({
   urug: Object.freeze({ id: 'urug', kind: 'weapon', hostileOnRefusal: true }),
   'saint-roka': Object.freeze({ id: 'saint-roka', kind: 'passage', hostileOnRefusal: true }),
   gastronok: Object.freeze({ id: 'gastronok', kind: 'food', hostileOnRefusal: false }),
+  // Проигранное пари — единственный случай, когда отказа не было, а драка есть:
+  // Юф злится не на отказ, а на то, что его раскусили.
+  'crazy-yiuf': Object.freeze({ id: 'crazy-yiuf', kind: 'bet', hostileOnRefusal: false }),
+  eustachio: Object.freeze({ id: 'eustachio', kind: 'wares', hostileOnRefusal: false }),
 });
 
 export const PARLEY_IDS = Object.freeze(Object.keys(PARLEY_ENCOUNTERS));
@@ -191,6 +269,35 @@ export function parleyModel({
     });
   }
 
+  if (encounter.kind === 'bet') {
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: 0,
+      options: Object.freeze([
+        Object.freeze({ id: 'left', label: copy.left, enabled: true, hint: '' }),
+        Object.freeze({ id: 'right', label: copy.right, enabled: true, hint: '' }),
+        Object.freeze({ id: 'refuse', label: copy.away, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
+  if (encounter.kind === 'wares') {
+    const price = parleyWaresPrice(depth);
+    const canPay = Number.isFinite(gold) && gold >= price;
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price,
+      options: Object.freeze([
+        Object.freeze({ id: 'buy', label: copy.buy(price), enabled: canPay, hint: canPay ? '' : copy.poor(price) }),
+        Object.freeze({ id: 'refuse', label: copy.pass, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
   if (encounter.kind === 'passage') {
     return Object.freeze({
       id: monsterId,
@@ -229,6 +336,7 @@ export function resolveParley({
   monsterId,
   option,
   depth = 1,
+  seed = 0,
   gold = 0,
   weaponName = '',
   foodCount = 0,
@@ -242,6 +350,47 @@ export function resolveParley({
   const copy = COPY[locale(language)][monsterId];
   if (!chosen.enabled) return Object.freeze({ ok: false, reason: chosen.hint });
 
+  if (encounter.kind === 'bet' && (option === 'left' || option === 'right')) {
+    const выпало = parleyRoll(seed, depth, monsterId) < 0.5 ? 'left' : 'right';
+    const угадал = option === выпало;
+    return Object.freeze({
+      ok: true,
+      // Проигравший пари получает драку, на которую сам согласился, нажимая.
+      hostile: !угадал,
+      damageMultiplier: угадал ? 1 : 1.5,
+      leaves: угадал,
+      goldDelta: 0,
+      heal: 0,
+      takesWeapon: false,
+      takesFood: false,
+      grantsItemId: угадал ? PARLEY_BET_PRIZE : null,
+      message: угадал ? copy.won : copy.lost,
+    });
+  }
+
+  if (option === 'buy') {
+    const бросок = parleyRoll(seed, depth, monsterId);
+    const настоящее = бросок >= 0.5;
+    const вещь = настоящее
+      ? PARLEY_WARES.real[Math.min(
+        PARLEY_WARES.real.length - 1,
+        Math.floor((бросок - 0.5) * 2 * PARLEY_WARES.real.length),
+      )]
+      : PARLEY_WARES.junk;
+    return Object.freeze({
+      ok: true,
+      hostile: false,
+      damageMultiplier: 1,
+      leaves: true,
+      goldDelta: -model.price,
+      heal: 0,
+      takesWeapon: false,
+      takesFood: false,
+      grantsItemId: вещь,
+      message: настоящее ? copy.good : copy.bad,
+    });
+  }
+
   if (option === 'refuse') {
     return Object.freeze({
       ok: true,
@@ -251,9 +400,13 @@ export function resolveParley({
       heal: 0,
       takesWeapon: false,
       takesFood: false,
+      grantsItemId: null,
+      damageMultiplier: 1,
       message: encounter.kind === 'passage' ? copy.attacked
         : encounter.kind === 'food' ? copy.denied
-          : copy.refused,
+          : encounter.kind === 'bet' ? copy.walked
+            : encounter.kind === 'wares' ? copy.passed
+              : copy.refused,
     });
   }
 
@@ -266,6 +419,8 @@ export function resolveParley({
       heal: 0,
       takesWeapon: false,
       takesFood: false,
+      grantsItemId: null,
+      damageMultiplier: 1,
       message: copy.paid,
     });
   }
@@ -281,6 +436,8 @@ export function resolveParley({
       heal,
       takesWeapon: false,
       takesFood: false,
+      grantsItemId: null,
+      damageMultiplier: 1,
       message: copy.left(heal),
     });
   }
@@ -294,6 +451,8 @@ export function resolveParley({
       heal: 0,
       takesWeapon: true,
       takesFood: false,
+      grantsItemId: null,
+      damageMultiplier: 1,
       message: copy.gave(weaponName),
     });
   }
@@ -307,6 +466,8 @@ export function resolveParley({
     heal: 0,
     takesWeapon: false,
     takesFood: true,
+    grantsItemId: null,
+    damageMultiplier: 1,
     message: copy.fed(reward),
   });
 }

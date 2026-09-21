@@ -106,13 +106,15 @@ const ROSTER = [
   named({ id: 'sigmund', habitat: 'deep', sprite: 'unique/sigmund.png', tier: 3, style: 'caster', ru: 'Сигмунд', en: 'Sigmund' }),
   named({ id: 'blork-the-orc', habitat: 'deep', sprite: 'unique/blork_the_orc.png', tier: 3, style: 'brute', neutral: true, ru: 'Блорк Орк', en: 'Blork the orc' }),
   named({ id: 'urug', habitat: 'deep', sprite: 'unique/urug.png', tier: 5, style: 'brute', neutral: true, ru: 'Уруг', en: 'Urug' }),
+  // Гном с веткой вместо оружия: предлагает сыграть, а не драться.
+  named({ id: 'crazy-yiuf', habitat: 'deep', sprite: 'unique/crazy_yiuf.png', tier: 3, style: 'skirmisher', neutral: true, ru: 'Безумный Юф', en: 'Crazy Yiuf' }),
   named({ id: 'snorg', habitat: 'deep', sprite: 'unique/snorg.png', tier: 6, style: 'brute', large: true, ru: 'Снорг', en: 'Snorg' }),
   named({ id: 'saint-roka', habitat: 'deep', sprite: 'unique/saint_roka.png', tier: 7, style: 'brute', neutral: true, ru: 'Святой Рока', en: 'Saint Roka' }),
   named({ id: 'polyphemus', habitat: 'deep', sprite: 'unique/polyphemus.png', tier: 7, style: 'brute', large: true, ru: 'Полифем', en: 'Polyphemus' }),
 
   // ── Именные: хранилища ──────────────────────────────────────────────────
   named({ id: 'frederick', habitat: 'vaults', sprite: 'unique/frederick.png', tier: 3, style: 'brute', ru: 'Фредерик', en: 'Frederick' }),
-  named({ id: 'eustachio', habitat: 'vaults', sprite: 'unique/eustachio.png', tier: 4, style: 'caster', ru: 'Эустахио', en: 'Eustachio' }),
+  named({ id: 'eustachio', habitat: 'vaults', sprite: 'unique/eustachio.png', tier: 4, style: 'caster', neutral: true, ru: 'Эустахио', en: 'Eustachio' }),
   named({ id: 'aizul', habitat: 'vaults', sprite: 'unique/aizul.png', tier: 6, style: 'caster', inflicts: poison(8), ru: 'Айзул', en: 'Aizul' }),
   named({ id: 'vashnia', habitat: 'vaults', sprite: 'unique/vashnia.png', tier: 7, style: 'stalker', ru: 'Вашния', en: 'Vashnia' }),
   named({ id: 'lamia', habitat: 'vaults', sprite: 'unique/lamia.png', tier: 8, style: 'caster', large: true, ru: 'Ламия', en: 'Lamia' }),

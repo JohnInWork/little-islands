@@ -3122,6 +3122,9 @@ function answerParley(target, option) {
       monsterId: monster.id,
       option,
       depth: dungeon.depth,
+      // Жребий выводится из сида забега: слепую покупку нельзя переиграть
+      // перезагрузкой, иначе это не выбор, а процедура.
+      seed: run.seed,
       gold,
       weaponName: equippedWeaponName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
@@ -3136,8 +3139,27 @@ function answerParley(target, option) {
   // ушедший с платой, которой герой не внёс.
   if (result.takesWeapon && !surrenderWeapon()) return false;
   if (result.takesFood && !consumeInteractionResources([{ id: RAW_MEAT_ITEM_ID, amount: 1 }])) return false;
+  /*
+   * Некуда положить — значит и покупать нечего.
+   *
+   * Иначе золото ушло бы, а вещь не пришла: в полном рюкзаке `grantItem`
+   * молча отказывает, и игрок увидел бы только пустой кошелёк.
+   */
+  if (result.grantsItemId && backpackItems.filter(Boolean).length >= currentBackpackCapacity()) {
+    playSound('ui-close');
+    showLootToast(
+      { path: monster.spritePath, rarity: 0 },
+      itemDetailLanguage === 'en' ? 'Your pack is full' : 'Рюкзак полон',
+    );
+    return false;
+  }
   gold = Math.max(0, gold + result.goldDelta);
   if (result.heal > 0) hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + result.heal);
+  if (result.grantsItemId) grantItem(result.grantsItemId, `parley-${monster.id}-${run.seed}-${dungeon.depth}`);
+  if (result.damageMultiplier > 1) {
+    // Проигранное пари злит по-настоящему: тот же Юф, но бьёт заметно больнее.
+    monster.damage = Math.max(1, Math.round(monster.damage * result.damageMultiplier));
+  }
   if (result.hostile) {
     monster.provoked = true;
     monster.alerted = monster.pursuit;
