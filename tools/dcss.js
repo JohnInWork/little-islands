@@ -78,7 +78,11 @@ import {
   resolveParley,
 } from './dcss-rpg-parley.js';
 import { canRespec, respecHero } from './dcss-rpg-respec.js';
-import { REVIVING_MONSTER_ID, THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
+import {
+  DOUBLE_MONSTER_ID,
+  REVIVING_MONSTER_ID,
+  THIEF_MONSTER_ID,
+} from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
   STASH_KEY,
@@ -6165,6 +6169,43 @@ function ghostActor3D() {
   };
 }
 
+/**
+ * Двойник героя.
+ *
+ * Мара не носит своей картинки: она собирается из тех же слоёв снаряжения,
+ * что и герой, и потому едет в кадре отдельно от остальных монстров — ровно
+ * как призрак прошлого забега, и по той же причине.
+ *
+ * Слои берутся каждый кадр: сменил герой оружие — сменила и она, и увидеть
+ * это игрок должен сразу, а не после этажа.
+ */
+function doubleActor3D() {
+  const twin = monsters.find((monster) => (
+    monster.id === DOUBLE_MONSTER_ID && monster.dead <= 0.72
+  ));
+  if (!twin) return null;
+  if (!revealed.has(`${Math.floor(twin.x / TILE)},${Math.floor(twin.y / TILE)}`)) return null;
+  const motion = monsterMotion(twin);
+  const bob = reducedMotion ? 0 : Math.sin(elapsed * 2.4 + twin.phase) * 1.7;
+  const fading = twin.dead > 0 ? Math.max(0, 1 - twin.dead / 0.72) : 1;
+  return {
+    layers: playerLayers(),
+    x: twin.x + motion.dx,
+    y: twin.y + motion.dy,
+    size: ACTOR_SIZE,
+    facing: twin.facing,
+    screenOffsetY: -15 + bob,
+    // Тот же силуэт, но холодный и тёмный: чтобы в бою было видно, где ты, а
+    // где не ты, — и чтобы это читалось на глаз, а не по полоске здоровья.
+    filter: 'saturate(0.45) brightness(0.62) hue-rotate(200deg)',
+    opacity: fading,
+    scaleX: motion.scaleX,
+    scaleY: motion.scaleY,
+    hit: twin.hit > 0,
+    shadowOpacity: 0.3,
+  };
+}
+
 /** The last frame's standing billboards, as the world was told to draw them. */
 let standingBillboards = null;
 
@@ -6190,11 +6231,14 @@ function syncWorldActors3D() {
       shadowOpacity: heroMagic.flight ? 0.18 : heroWading() ? 0.12 : 0.42,
     },
     ghost: ghostActor3D(),
+    double: doubleActor3D(),
     monsters: [
       ...monsters
         .filter(
           (monster) =>
             !monster.ghost &&
+            // Двойник едет своей фигурой, а не картинкой: здесь его нет.
+            monster.id !== DOUBLE_MONSTER_ID &&
             monster.dead <= 0.72 &&
             revealed.has(`${Math.floor(monster.x / TILE)},${Math.floor(monster.y / TILE)}`),
         )

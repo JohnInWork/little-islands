@@ -413,6 +413,9 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
 
   const heroFigure = createLayeredFigure();
   const ghostFigure = createLayeredFigure();
+  // Двойник. Мара показывает герою его самого, и показать это можно только
+  // так же, как рисуется сам герой: из тех же слоёв снаряжения.
+  const doubleFigure = createLayeredFigure();
 
   const textureFor = (path, imageForPath) => {
     if (textureCache.has(path)) return textureCache.get(path);
@@ -690,32 +693,35 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     entry.shadow.visible = actor.opacity > 0.04 && (actor.shadowOpacity ?? 0.42) > 0;
   };
 
-  const syncActors = ({ hero, ghost = null, monsters, decorations = [], imageForPath, spriteFilter }) => {
-    heroFigure.compose(hero.layers, imageForPath, spriteFilter);
-    const activeKeys = new Set(['hero']);
-    let heroEntry = actorEntries.get('hero');
-    if (!heroEntry) {
-      heroEntry = createActorEntry(heroFigure.texture);
-      actorEntries.set('hero', heroEntry);
-    }
-    placeActor(heroEntry, hero);
-
-    // The ghost is built the same way the hero is, because it is the hero — it
-    // only wears the room's light differently, which is what `filter` is for.
-    if (ghost) {
-      ghostFigure.compose(
-        ghost.layers,
+  const syncActors = ({
+    hero, ghost = null, double = null, monsters, decorations = [], imageForPath, spriteFilter,
+  }) => {
+    const activeKeys = new Set();
+    /*
+     * Фигура из слоёв, а не из картинки.
+     *
+     * Таких в кадре трое, и все трое — один и тот же герой: он сам, его
+     * призрак из прошлого забега и его двойник. Различаются они только светом,
+     * который на них лежит, — это и есть `filter`.
+     */
+    const syncFigure = (key, actor, figure) => {
+      if (!actor) return;
+      figure.compose(
+        actor.layers,
         imageForPath,
-        ghost.filter ? `${spriteFilter} ${ghost.filter}` : spriteFilter,
+        actor.filter ? `${spriteFilter} ${actor.filter}` : spriteFilter,
       );
-      activeKeys.add('ghost');
-      let ghostEntry = actorEntries.get('ghost');
-      if (!ghostEntry) {
-        ghostEntry = createActorEntry(ghostFigure.texture);
-        actorEntries.set('ghost', ghostEntry);
+      activeKeys.add(key);
+      let entry = actorEntries.get(key);
+      if (!entry) {
+        entry = createActorEntry(figure.texture);
+        actorEntries.set(key, entry);
       }
-      placeActor(ghostEntry, ghost);
-    }
+      placeActor(entry, actor);
+    };
+    syncFigure('hero', hero, heroFigure);
+    syncFigure('ghost', ghost, ghostFigure);
+    syncFigure('double', double, doubleFigure);
 
     for (const monster of monsters) {
       const key = `monster:${monster.id}`;
@@ -1014,6 +1020,7 @@ export function createDungeonWorld3D({ canvas, tileSize = 64 }) {
     for (const texture of actorTextureCache.values()) texture.dispose();
     heroFigure.texture.dispose();
     ghostFigure.texture.dispose();
+    doubleFigure.texture.dispose();
     materialCache.clear();
     textureCache.clear();
     actorTextureCache.clear();

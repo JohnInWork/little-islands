@@ -76,3 +76,31 @@ test('door leaf and frame do not duplicate the pale arch from the source sprite'
   assert.doesNotMatch(source, /const cacheKey = 'door-frame'/);
   assert.doesNotMatch(source, /const lintel = new THREE\.Mesh/);
 });
+
+/**
+ * Трое в кадре, собранные из одних и тех же слоёв.
+ *
+ * Герой, его призрак из прошлого забега и его двойник рисуются не картинкой,
+ * а сборкой снаряжения — и потому едут отдельно от всех остальных. Пока путь
+ * у них общий, добавить четвёртого стоит одну строчку; разъехавшись, он
+ * начнёт расходиться и с героем, а двойник, не похожий на героя, — это уже
+ * просто ещё один монстр.
+ */
+test('фигуры из слоёв рисуются одним путём, а не тремя', async () => {
+  const source = await readFile(runtimeUrl, 'utf8');
+  assert.match(source, /const syncFigure = \(key, actor, figure\)/);
+  for (const кто of ['hero', 'ghost', 'double']) {
+    assert.match(source, new RegExp(`syncFigure\\('${кто}'`), `${кто} собирается сам по себе`);
+  }
+  assert.match(source, /const doubleFigure = createLayeredFigure\(\);/);
+  // И каждая своя текстура отпускается: фигур три, и утечка тоже была бы третья.
+  assert.match(source, /doubleFigure\.texture\.dispose\(\);/);
+});
+
+test('двойник не едет дважды: своей фигурой и заодно картинкой', async () => {
+  const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(adapter, /double: doubleActor3D\(\),/);
+  assert.match(adapter, /monster\.id !== DOUBLE_MONSTER_ID/);
+  // Слои берутся каждый кадр: сменил герой оружие — сменил и двойник.
+  assert.match(adapter, /layers: playerLayers\(\),/);
+});
