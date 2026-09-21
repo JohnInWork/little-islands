@@ -194,5 +194,12 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
   Спуск.
 - `music/town.mp3` — «Town Theme RPG», cynicmusic (The Cynic Project).
   <https://opengameart.org/content/town-theme-rpg> (CC0). Хранилища.
+- `music/crypt.mp3` — «Oldschool Horror Theme», josepharaoh99.
+  <https://opengameart.org/content/cc0-dark-music> (CC0). Склепы.
+- `music/hell.mp3` — «The Depths of Hell», Joth.
+  <https://opengameart.org/content/ambience-pack-1-sci-fi-horror> (CC0). Ад.
+- `music/boss.mp3` — «Boss Battle Theme», Cleyton Kauffman.
+  <https://opengameart.org/content/boss-battle-theme> (CC0). Бой со стражем главы.
 
-Склепы и ад пока молчат: своей темы у них нет, а чужая хуже тишины.
+Бой со стражем — не дорога, а событие: эта запись громче остальных и сведена на
+два децибела выше, потому что она обязана перебить всё, что звучало до неё.

@@ -8383,7 +8383,28 @@ function stopMusic() {
  * — место, а не ветка, и ключ у него свой.
  */
 function musicRoad() {
+  if (bossMusicOn) return 'boss';
   return isCityDepth(run.depth) ? 'city' : run.branch;
+}
+
+/**
+ * Музыка боя со стражем.
+ *
+ * Начинается, когда полоса стража появляется на экране, — то есть по тому же
+ * условию, по которому игрок понимает, что бой начался. Дальше она держится,
+ * пока страж жив, и не мигает от того, что он зашёл за колонну: событие
+ * кончается смертью, а не потерей из виду.
+ */
+let bossMusicOn = false;
+
+function refreshBossMusic() {
+  const boss = activeBoss();
+  const идёт = bossMusicOn
+    ? Boolean(boss)
+    : Boolean(boss) && runStatus === 'playing' && isCurrentlyVisible(boss.x, boss.y);
+  if (идёт === bossMusicOn) return;
+  bossMusicOn = идёт;
+  startMusic(musicRoad());
 }
 
 function startMusic(branchId) {
@@ -11416,6 +11437,7 @@ function nearbySanctuary() {
 }
 
 function updateBossHud() {
+  refreshBossMusic();
   const boss = activeBoss();
   const visible = boss && isCurrentlyVisible(boss.x, boss.y) && runStatus === 'playing';
   bossHud.hidden = !visible;
@@ -15781,7 +15803,9 @@ function replaceFloor(nextDepth, arrival = null) {
   world = dungeon.grid;
   resolveGraveyard();
   startAmbient(biomeThemeFor(dungeon.themeId).palette);
-  // Дорога могла смениться вратами — мелодия спрашивается заново.
+  // Дорога могла смениться вратами — мелодия спрашивается заново. Бой со
+  // стражем остаётся на том этаже, где шёл: новый начинается без него.
+  bossMusicOn = false;
   startMusic(musicRoad());
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);

@@ -232,7 +232,9 @@ test('the hero is hurt and dies in her own voice', async () => {
 test('у города своя тема, а дорога без темы честно молчит', () => {
   assert.ok(MUSIC_SAMPLES.city, 'город стоит на ветке спуска — без своего ключа он играл бы пещеру');
   assert.notEqual(MUSIC_SAMPLES.city.files[0], MUSIC_SAMPLES.deep.files[0]);
-  assert.equal(musicSample('hell'), null, 'дорога без темы возвращает null, а не чужую музыку');
+  // Все шесть дорог и бой со стражем теперь звучат; молчание осталось правилом
+  // для ключа, которого нет, и это по-прежнему null, а не чужая музыка.
+  assert.equal(musicSample('нет такой дороги'), null, 'неизвестный ключ вернул чужую музыку');
   assert.equal(musicSample('нет такой дороги'), null);
   for (const [road, entry] of Object.entries(MUSIC_SAMPLES)) {
     assert.ok(entry.gain > 0 && entry.gain <= 0.1, `${road}: мелодия громче гула`);
@@ -257,7 +259,8 @@ test('адаптер спрашивает мелодию у места, а не 
   );
   assert.equal(runtime.includes('startMusic(run.branch)'), false, 'где-то мелодию всё ещё просят у ветки');
   // Все три пробуждения звука — одно и то же правило, иначе слои разъедутся.
-  assert.equal(runtime.split('startMusic(musicRoad())').length - 1, 3);
+  // Четвёртое место — начало и конец боя со стражем: он тоже меняет ключ.
+  assert.equal(runtime.split('startMusic(musicRoad())').length - 1, 4);
 });
 
 /** Авторы фона и мелодий названы в титрах, а не только в файле рядом с mp3. */
@@ -266,7 +269,10 @@ test('титры называют авторов фона и мелодий', as
   const audio = CREDITS_SECTIONS.find((entry) => entry.id === 'audio');
   assert.ok(audio, 'в титрах нет раздела звука');
   const notice = await readFile(new URL('../public/assets/audio/LICENSE.md', import.meta.url), 'utf8');
-  for (const author of ['RandomMind', 'cynicmusic', 'Brandon75689', 'pauliuw', 'Paul Wortmann', 'JaggedStone']) {
+  for (const author of [
+    'RandomMind', 'cynicmusic', 'Brandon75689', 'pauliuw', 'Paul Wortmann', 'JaggedStone',
+    'josepharaoh99', 'Joth', 'Cleyton Kauffman',
+  ]) {
     assert.ok(notice.includes(author), `${author}: нет в лицензии рядом с файлами`);
     for (const locale of ['ru', 'en']) {
       assert.ok(
@@ -275,4 +281,32 @@ test('титры называют авторов фона и мелодий', as
       );
     }
   }
+});
+
+/**
+ * Бой со стражем — событие, а не дорога.
+ *
+ * Мелодия боя начинается там же, где появляется полоса стража: игрок видит
+ * полосу и слышит смену — это одно и то же событие, и расходиться им нельзя.
+ * Дальше она держится, пока страж жив, и не мигает от того, что он зашёл за
+ * колонну: бой кончается смертью, а не потерей из виду.
+ */
+test('у боя со стражем своя тема, и она громче дорожных', async () => {
+  assert.ok(MUSIC_SAMPLES.boss, 'боя со стражем нечем озвучить');
+  for (const road of ['city', 'surface', 'deep', 'vaults', 'crypt', 'hell']) {
+    assert.ok(MUSIC_SAMPLES[road], `${road}: дорога осталась без темы`);
+    assert.ok(
+      MUSIC_SAMPLES.boss.gain > MUSIC_SAMPLES[road].gain,
+      `бой не громче дороги ${road}`,
+    );
+  }
+
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Ключ решает одна функция: и дорога, и бой приходят из неё.
+  assert.match(runtime, /if \(bossMusicOn\) return 'boss';/);
+  // Начинается по тому же условию, что полоса стража, и держится, пока он жив.
+  assert.match(runtime, /const идёт = bossMusicOn\s*\n\s*\? Boolean\(boss\)/);
+  assert.match(runtime, /refreshBossMusic\(\);\s*\n\s*const boss = activeBoss\(\);/);
+  // Новый этаж начинается без чужого боя.
+  assert.match(runtime, /bossMusicOn = false;\s*\n\s*startMusic\(musicRoad\(\)\);/);
 });
