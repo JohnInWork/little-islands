@@ -649,11 +649,20 @@ export function effectiveSkillRank(state, skillId, rankAdjustments = {}) {
 
 export function cloneSkillState(state) {
   assertSkillState(state);
-  return {
+  const clone = {
     version: SKILL_STATE_VERSION,
     points: state.points,
     ranks: Object.fromEntries(Object.keys(state.ranks).sort().map((id) => [id, state.ranks[id]])),
   };
+  /*
+   * Выданное при создании переживает копию.
+   *
+   * Без этой строки список терялся на первом же клоне — а клон делается на
+   * каждом кадре, — и состояние переставало сходиться: ступени есть, платить
+   * за них нечем. Меню навыков честно отказывалось открываться.
+   */
+  if (Array.isArray(state.granted) && state.granted.length > 0) clone.granted = [...state.granted];
+  return clone;
 }
 
 /** The caller must supply the actual before/after hero levels. Conservation makes

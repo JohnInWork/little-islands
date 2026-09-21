@@ -61,6 +61,14 @@ import {
   goldRewardForMonster,
   useSanctuary,
 } from './dcss-rpg-run.js';
+import {
+  CREATION_SKILL_POINTS,
+  adjustBuildAttribute,
+  buildScreenModel,
+  createArchetypeBuild,
+  createEmptyBuild,
+  toggleBuildSkill,
+} from './dcss-rpg-character-creation.js';
 import { parleyFor, parleyModel, parleyRoll, resolveParley } from './dcss-rpg-parley.js';
 import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
@@ -135,7 +143,7 @@ import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
 import { characterSheetModel } from './dcss-rpg-character-sheet.js';
 import { cloneSkillState, deriveSkillCapabilities, learnSkill } from './dcss-rpg-skills.js';
-import { skillById } from './dcss-rpg-skill-content.js';
+import { SKILL_CATALOG, skillById } from './dcss-rpg-skill-content.js';
 import { activeDetectedTrapCells, discoverTraps, trapsFromDungeon } from './dcss-rpg-traps.js';
 import {
   DISARMED_TRAP_PATH,
@@ -452,6 +460,8 @@ import {
   summonedCampProfile,
 } from './dcss-rpg-camp.js';
 import {
+  ATTRIBUTE_BASE,
+  ATTRIBUTE_COPY,
   ATTRIBUTE_IDS,
   attributeCopy,
   attributeRefusalText,
@@ -706,6 +716,13 @@ const editAppearanceLabel = document.querySelector('#edit-appearance-label');
 const menuAppearanceIcon = document.querySelector('#menu-appearance-icon');
 const startGameDetail = document.querySelector('#start-game-detail');
 const newRunFromMenuButton = document.querySelector('#restart-from-menu');
+const characterCreation = document.querySelector('#character-creation');
+const creationArchetypes = document.querySelector('#creation-archetypes');
+const creationAttributes = document.querySelector('#creation-attributes');
+const creationSkills = document.querySelector('#creation-skills');
+const creationSkillsLeft = document.querySelector('#creation-skills-left');
+const cancelCreationButton = document.querySelector('#cancel-creation');
+const confirmCreationButton = document.querySelector('#confirm-creation');
 const newRunFromMenuLabel = document.querySelector('#restart-from-menu-label');
 const newRunFromMenuDetail = document.querySelector('#restart-from-menu-detail');
 const appearanceEditor = document.querySelector('#appearance-editor');
@@ -11393,6 +11410,120 @@ function cycleAppearance(kind, step) {
   return true;
 }
 
+/*
+ * Кем выйти из ворот.
+ *
+ * Собираемый герой живёт здесь и нигде больше: экран его показывает, кнопки
+ * правят, а `restartRun` получает готовым. Пока экран закрыт, он пуст.
+ */
+let pendingBuild = null;
+
+function renderCharacterCreation() {
+  const model = buildScreenModel({ build: pendingBuild, language: itemDetailLanguage });
+  const ru = itemDetailLanguage !== 'en';
+
+  creationArchetypes.replaceChildren(...model.archetypes.map((archetype) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'creation-archetype';
+    card.dataset.archetype = archetype.id;
+    card.setAttribute('aria-pressed', String(archetype.chosen));
+    const name = document.createElement('b');
+    name.textContent = archetype.name;
+    const line = document.createElement('span');
+    line.textContent = archetype.line;
+    const skills = document.createElement('i');
+    skills.textContent = archetype.skills.join(' · ');
+    card.append(name, line, skills);
+    return card;
+  }));
+
+  creationAttributes.replaceChildren(...ATTRIBUTE_IDS.map((id) => {
+    const row = document.createElement('div');
+    row.className = 'creation-attribute';
+    const name = document.createElement('span');
+    name.textContent = ATTRIBUTE_COPY[ru ? 'ru' : 'en'][id].name;
+    const value = document.createElement('output');
+    value.textContent = String(model.attributes[id]);
+    const less = document.createElement('button');
+    less.type = 'button';
+    less.textContent = '−';
+    less.dataset.attribute = id;
+    less.dataset.step = '-1';
+    less.disabled = model.attributes[id] <= ATTRIBUTE_BASE;
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.textContent = '+';
+    more.dataset.attribute = id;
+    more.dataset.step = '1';
+    more.disabled = model.attributePointsLeft <= 0;
+    row.append(name, less, value, more);
+    return row;
+  }));
+
+  creationSkillsLeft.textContent = `${model.skillIds.length} / ${CREATION_SKILL_POINTS}`;
+  creationSkills.replaceChildren(...SKILL_CATALOG.map((skill) => {
+    const chosen = model.skillIds.includes(skill.id);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'creation-skill';
+    chip.dataset.skill = skill.id;
+    chip.textContent = skill.name[ru ? 'ru' : 'en'];
+    chip.setAttribute('aria-pressed', String(chosen));
+    // Полный набор не прячет остальные навыки, а гасит их: список из сорока
+    // одного, схлопывающийся до двух, читается как поломка.
+    chip.disabled = !chosen && model.skillPointsLeft <= 0;
+    return chip;
+  }));
+}
+
+function openCharacterCreation() {
+  if (uiScreen !== 'menu' && uiScreen !== 'restart-confirm') return false;
+  if (uiScreen === 'restart-confirm') {
+    newRunConfirm.inert = true;
+    newRunConfirm.setAttribute('aria-hidden', 'true');
+  }
+  unlockLevelUpAudio();
+  pendingBuild = createEmptyBuild();
+  mainMenu.inert = true;
+  mainMenu.setAttribute('aria-hidden', 'true');
+  uiScreen = 'creation';
+  document.body.dataset.screen = uiScreen;
+  characterCreation.inert = false;
+  characterCreation.setAttribute('aria-hidden', 'false');
+  renderCharacterCreation();
+  playSound('ui-tap');
+  requestAnimationFrame(() => confirmCreationButton.focus());
+  return true;
+}
+
+function closeCharacterCreation() {
+  if (uiScreen !== 'creation') return false;
+  characterCreation.inert = true;
+  characterCreation.setAttribute('aria-hidden', 'true');
+  pendingBuild = null;
+  uiScreen = 'menu';
+  document.body.dataset.screen = uiScreen;
+  mainMenu.inert = false;
+  mainMenu.setAttribute('aria-hidden', 'false');
+  playSound('ui-close');
+  requestAnimationFrame(() => startGameButton.focus());
+  return true;
+}
+
+/** Собранный герой уходит в новый забег, и экран закрывается за ним. */
+function startRunFromCreation() {
+  if (uiScreen !== 'creation') return false;
+  const build = pendingBuild;
+  characterCreation.inert = true;
+  characterCreation.setAttribute('aria-hidden', 'true');
+  pendingBuild = null;
+  menuMode = 'pause';
+  restartRun(null, build);
+  pauseGameButton.disabled = false;
+  return true;
+}
+
 function openNewRunConfirm() {
   if (uiScreen !== 'menu' || isTerminalRunStatus(runStatus)) return false;
   modalReturnScreen = 'menu';
@@ -11420,14 +11551,8 @@ function closeNewRunConfirm() {
 
 function confirmNewRun() {
   if (uiScreen !== 'restart-confirm') return false;
-  newRunConfirm.inert = true;
-  newRunConfirm.setAttribute('aria-hidden', 'true');
-  mainMenu.inert = true;
-  mainMenu.setAttribute('aria-hidden', 'true');
-  menuMode = 'pause';
-  restartRun();
-  pauseGameButton.disabled = false;
-  return true;
+  // Согласился потерять прогресс — теперь выбирает, кем идти заново.
+  return openCharacterCreation();
 }
 
 function openMainMenu() {
@@ -11456,13 +11581,16 @@ function openMainMenu() {
 
 function startGameFromMenu() {
   if (!ready || uiScreen !== 'menu') return false;
+  /*
+   * Забег, которого ещё не начинали, начинается с выбора героя.
+   *
+   * Продолжение — нет: герой у него уже есть. Отличает их то же, что и надпись
+   * на кнопке: сделал ли игрок хоть один ход.
+   */
+  if (!playerHasActed || isTerminalRunStatus(runStatus)) return openCharacterCreation();
   unlockLevelUpAudio();
   mainMenu.inert = true;
   mainMenu.setAttribute('aria-hidden', 'true');
-  if (isTerminalRunStatus(runStatus)) {
-    restartRun();
-    return true;
-  }
   uiScreen = 'game';
   menuMode = 'pause';
   document.body.dataset.screen = uiScreen;
@@ -15841,7 +15969,7 @@ function climbFloor() {
   showLootToast({ path: ascentVisual().path, rarity: 2 }, romanDepth(run.depth));
 }
 
-function restartRun(seed = null) {
+function restartRun(seed = null, build = null) {
   clearMoveControl();
   clearLevelUpCelebration();
   onboardingInteracted = false;
@@ -15854,7 +15982,7 @@ function restartRun(seed = null) {
   const outfit = stashOutfit(stashState);
   stashState = outfit.stash;
   persistStash();
-  run = createRun(runSeed, generateDungeon({ seed: runSeed, depth: 1 }), outfit);
+  run = createRun(runSeed, generateDungeon({ seed: runSeed, depth: 1 }), outfit, build);
   motes = createAtmosphereMotes(run.seed);
   gold = run.gold;
   itemInstances = new Map(run.items.map((record) => [record.uid, materializeInventoryItem(record)]));
@@ -18302,6 +18430,36 @@ saveAppearanceButton.addEventListener('click', () => closeAppearanceEditor({ sav
 newRunFromMenuButton.addEventListener('click', openNewRunConfirm);
 cancelNewRunButton.addEventListener('click', closeNewRunConfirm);
 confirmNewRunButton.addEventListener('click', confirmNewRun);
+cancelCreationButton.addEventListener('click', closeCharacterCreation);
+confirmCreationButton.addEventListener('click', startRunFromCreation);
+/*
+ * Один слушатель на все карточки: плитки перерисовываются на каждый выбор, и
+ * вешать обработчик на каждую заново — верный способ однажды забыть снять
+ * старый.
+ */
+creationArchetypes.addEventListener('click', (event) => {
+  const id = event.target.closest('[data-archetype]')?.dataset.archetype;
+  if (!id || uiScreen !== 'creation') return;
+  // Повторное касание снимает выбор: иначе от готового героя нельзя уйти к
+  // своему, не начав забег.
+  pendingBuild = pendingBuild?.archetypeId === id ? createEmptyBuild() : createArchetypeBuild(id);
+  playSound('ui-tap');
+  renderCharacterCreation();
+});
+creationAttributes.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-attribute]');
+  if (!button || button.disabled || uiScreen !== 'creation') return;
+  pendingBuild = adjustBuildAttribute(pendingBuild, button.dataset.attribute, Number(button.dataset.step));
+  playSound('ui-tap');
+  renderCharacterCreation();
+});
+creationSkills.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-skill]');
+  if (!button || button.disabled || uiScreen !== 'creation') return;
+  pendingBuild = toggleBuildSkill(pendingBuild, button.dataset.skill);
+  playSound('ui-tap');
+  renderCharacterCreation();
+});
 characterSheetButton.addEventListener('click', openCharacterSheet);
 closeCharacterSheetButton.addEventListener('click', closeCharacterSheet);
 depthBadge.addEventListener('click', openFloorMap);

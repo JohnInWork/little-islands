@@ -135,6 +135,45 @@
         </article>
       </section>
 
+      <!--
+        Кем выйти из ворот.
+
+        Экран стоит между «Начать забег» и первым этажом. Слева — готовые
+        герои, справа — свой: два очка характеристик и два навыка. Иван: «либо
+        создаёшь персонажа и вкидываешь два очка характеристик и выбираешь два
+        навыка, либо берёшь готовый пресет».
+      -->
+      <section
+        id="character-creation"
+        class="character-creation"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="character-creation-title"
+        aria-hidden="true"
+        inert
+      >
+        <article class="character-creation-card pixel-frame">
+          <header>
+            <h2 id="character-creation-title">Кем выйти</h2>
+            <p id="character-creation-hint">Возьми готового героя или собери своего.</p>
+          </header>
+          <div class="creation-archetypes" id="creation-archetypes"></div>
+          <section class="creation-custom" aria-labelledby="creation-custom-title">
+            <b id="creation-custom-title">Свой герой</b>
+            <div class="creation-attributes" id="creation-attributes"></div>
+            <div class="creation-skills-head">
+              <span id="creation-skills-label">Навыки</span>
+              <output id="creation-skills-left">0 / 2</output>
+            </div>
+            <div class="creation-skills" id="creation-skills"></div>
+          </section>
+          <footer class="creation-actions">
+            <button id="cancel-creation" class="secondary" type="button">Отмена</button>
+            <button id="confirm-creation" type="button">Начать</button>
+          </footer>
+        </article>
+      </section>
+
       <section
         id="new-run-confirm"
         class="new-run-confirm"
