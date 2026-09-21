@@ -1,6 +1,36 @@
 import { ACTOR_EFFECTS, applyActorEffect, createActorEffects } from './dcss-rpg-effects.js';
 
 export const VAMPIRISM_RATIO = 0.2;
+/*
+ * Потолок лечения вампиризмом — на секунду, и он растёт с глубиной.
+ *
+ * Сам по себе вампиризм не складывается: оружие одно, доля с удара одна. Но
+ * лечит он от нанесённого урона, а урон и скорость атаки растут весь забег — и
+ * в какой-то момент лечение в секунду обгоняет входящий урон. Это тот самый
+ * бессмертный билд, которого Иван боялся: «может нарандомиться какой-то просто
+ * максимально имбовый, бесконечный билд».
+ *
+ * Но и запирать силу навсегда нельзя. Иван: «при всём при этом игра должна
+ * давать возможность делать очень крутые билды, просто не на раннем этапе».
+ * Поэтому потолок не постоянный, а раздвигается вниз по дороге: на первых
+ * этажах вампирский клинок — хорошее оружие, к восемнадцатому — та самая
+ * непробиваемая машина, которую игрок собирал.
+ *
+ * Считается он на секунду, а не на удар, потому что ломает именно сочетание:
+ * медленное оружие не теряет ничего, быстрое перестаёт превращать двадцать
+ * процентов в бессмертие. Доля — от максимального здоровья, чтобы правило не
+ * разъезжалось с ростом героя.
+ */
+export const VAMPIRISM_RATE_EARLY = 0.07;
+export const VAMPIRISM_RATE_DEEP = 0.22;
+/** Глубина, на которой потолок раскрывается полностью. */
+export const VAMPIRISM_RATE_FULL_DEPTH = 18;
+
+export function vampiricRate(depth = 1) {
+  const этаж = Number.isFinite(depth) && depth > 0 ? depth : 1;
+  const доля = Math.min(1, (этаж - 1) / Math.max(1, VAMPIRISM_RATE_FULL_DEPTH - 1));
+  return VAMPIRISM_RATE_EARLY + (VAMPIRISM_RATE_DEEP - VAMPIRISM_RATE_EARLY) * доля;
+}
 export const INVISIBILITY_REVEAL_SECONDS = 3;
 
 /**
@@ -144,11 +174,27 @@ export function resolveKillRecovery({ hp, maxHp, magic, newlyDefeated }) {
   return Object.freeze({ hp: hp + healed, healed });
 }
 
-export function resolveVampiricRecovery({ hp, maxHp, damage, magic }) {
-  if (!magic?.vampirism || hp <= 0 || damage <= 0) return Object.freeze({ hp, healed: 0 });
+/** Сколько вампиризм способен вернуть за секунду этому герою на этой глубине. */
+export function vampiricBudget(maxHp, depth = 1) {
+  if (!Number.isFinite(maxHp) || maxHp <= 0) return 0;
+  return Math.max(1, Math.floor(maxHp * vampiricRate(depth)));
+}
+
+/**
+ * Глоток крови.
+ *
+ * `budget` — сколько ещё разрешено вернуть в этой секунде; вызывающий копит его
+ * сам и получает остаток обратно. Без бюджета (по умолчанию) правило работает
+ * как прежде — это нужно тем, кто считает один удар в отрыве от времени.
+ */
+export function resolveVampiricRecovery({ hp, maxHp, damage, magic, budget = Infinity }) {
+  if (!magic?.vampirism || hp <= 0 || damage <= 0) {
+    return Object.freeze({ hp, healed: 0, budget });
+  }
   const requested = Math.max(1, Math.floor(damage * VAMPIRISM_RATIO));
-  const healed = Math.max(0, Math.min(requested, maxHp - hp));
-  return Object.freeze({ hp: hp + healed, healed });
+  const allowed = Math.min(requested, Math.max(0, Math.floor(budget)));
+  const healed = Math.max(0, Math.min(allowed, maxHp - hp));
+  return Object.freeze({ hp: hp + healed, healed, budget: budget - healed });
 }
 
 export function magicItemEffects(item, language = 'ru') {

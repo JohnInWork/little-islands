@@ -165,6 +165,9 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     triggerPlacedTrapForMonster: () => false,
     // Вор обчищает того, кто подошёл вплотную; здесь в песочнице он молчит.
     tickThief: () => false,
+    // Копилка вампиризма живёт во времени; в песочнице времени нет.
+    vampiricBudget: () => 0,
+    vampiricPool: 0,
     burst: () => {}, addImpactWave: () => {}, addCombatGlyph: () => {},
     addBloodImpact: () => {}, beginHitStop: () => {}, updateBossHud: () => {},
     showSwordRhythmImpact: () => {},

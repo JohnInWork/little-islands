@@ -578,6 +578,7 @@ import {
   INVISIBILITY_REVEAL_SECONDS,
   resolveKillRecovery,
   resolveVampiricRecovery,
+  vampiricBudget,
 } from './dcss-rpg-magic.js';
 import {
   attackCrossedContact,
@@ -1410,6 +1411,8 @@ let gold = run.gold;
 let deathTimer = 0;
 let runStatus = run.status;
 let playerHasActed = run.started;
+/** Сколько вампиризм ещё может вернуть в этой секунде. Копится временем. */
+let vampiricPool = 0;
 /** Screens where the world keeps moving; every other screen gets one frame on entry. */
 const LIVE_WORLD_SCREENS = new Set(['game', 'context', 'trap-placement', 'ability-targeting', 'chest', 'merchant']);
 const RENDER_INTERVAL_MS = 15.5;
@@ -14136,8 +14139,10 @@ function damageWildlife(
       maxHp: currentHeroStats().maxHp,
       damage: dealt,
       magic: { vampirism: true },
+      budget: vampiricPool,
     });
     hero.hp = recovery.hp;
+    vampiricPool = recovery.budget;
     if (recovery.healed > 0) addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#d97873');
   }
   if (lethal) {
@@ -14241,8 +14246,10 @@ function damageMonster(
       maxHp: currentHeroStats().maxHp,
       damage: dealt,
       magic: { vampirism: true },
+      budget: vampiricPool,
     });
     hero.hp = recovery.hp;
+    vampiricPool = recovery.budget;
     if (recovery.healed > 0) {
       burst(hero.x, hero.y - 12, '#b94d55', 6);
       addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#d97873');
@@ -16319,6 +16326,17 @@ function updateHero(delta) {
   const previousAttack = hero.attack;
   hero.attack = Math.max(0, hero.attack - delta);
   hero.attackCooldown = Math.max(0, hero.attackCooldown - delta);
+  /*
+   * Копилка вампиризма.
+   *
+   * Наполняется временем и тратится ударами, и больше секундного запаса в ней
+   * не лежит: иначе герой копил бы лечение, стоя без дела, и выливал его одним
+   * залпом — ровно то бессмертие, от которого потолок и ставился.
+   */
+  {
+    const запас = vampiricBudget(currentHeroStats().maxHp, dungeon.depth);
+    vampiricPool = Math.min(запас, vampiricPool + запас * delta);
+  }
   hero.hurt = Math.max(0, hero.hurt - delta);
   hero.guardFlash = Math.max(0, hero.guardFlash - delta);
   hero.invisibilityReveal = Math.max(0, hero.invisibilityReveal - delta);

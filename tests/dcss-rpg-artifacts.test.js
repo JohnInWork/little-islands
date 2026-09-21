@@ -211,17 +211,19 @@ test('equipped artifact powers derive once and vampirism heals only real dealt d
   assert.equal(magic.vampirism, true);
   assert.equal(VAMPIRISM_RATIO, 0.2);
   assert.equal(INVISIBILITY_REVEAL_SECONDS, 3);
+  // Ответ несёт и остаток секундной копилки; без неё он бесконечен, и правило
+  // работает как прежде — это нужно тем, кто считает один удар вне времени.
   assert.deepEqual(
     resolveVampiricRecovery({ hp: 40, maxHp: 100, damage: 27, magic }),
-    { hp: 45, healed: 5 },
+    { hp: 45, healed: 5, budget: Infinity },
   );
   assert.deepEqual(
     resolveVampiricRecovery({ hp: 99, maxHp: 100, damage: 27, magic }),
-    { hp: 100, healed: 1 },
+    { hp: 100, healed: 1, budget: Infinity },
   );
   assert.deepEqual(
     resolveVampiricRecovery({ hp: 40, maxHp: 100, damage: 27, magic: { vampirism: false } }),
-    { hp: 40, healed: 0 },
+    { hp: 40, healed: 0, budget: Infinity },
   );
 });
 
@@ -278,7 +280,12 @@ test('runtime connects every artefact power to movement, AI and combat', () => {
   // thrown, instead of a row of booleans that grows with every new power.
   assert.match(runtime, /weaponMagic: pending\.weaponMagic/);
   assert.match(runtime, /weaponMagic: projectile\.weaponMagic/);
-  assert.doesNotMatch(runtime, /vampiric/, 'the old single-purpose flag is gone');
+  /*
+   * Запрещён именно прежний булев флаг на герое, а не слово целиком: копилка
+   * вампиризма — `vampiricPool` — как раз и живёт в адаптере, потому что она
+   * про время, а не про предмет.
+   */
+  assert.doesNotMatch(runtime, /hero\.vampiric|heroVampiric|isVampiric/, 'the old single-purpose flag is gone');
   // And the powers are read where damage actually lands.
   assert.match(runtime, /function applyWeaponPowers\(/);
   assert.match(runtime, /applyWeaponPowers\(monster, \{ dealt, weaponMagic/);

@@ -34,6 +34,9 @@ function terminalRuntime({ victory = false } = {}) {
   };
   const context = vm.createContext({
     playSound: () => false,
+    // Копилка вампиризма живёт во времени; в песочнице времени нет.
+    vampiricBudget: () => 0,
+    vampiricPool: 0,
     // Путь к монете интерфейса — модульная константа адаптера.
     GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
