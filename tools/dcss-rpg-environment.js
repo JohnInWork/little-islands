@@ -21,6 +21,26 @@ const prop = (path, options = {}) =>
     interactionId: options.interactionId ?? null,
   });
 
+/*
+ * Два огня, и это нарочно.
+ *
+ * `emberBrazier` — столб пламени на каменном постаменте из Dungeon Crawl. Он
+ * к месту у святилищ, рун и идолов, и там остаётся. А привал странника —
+ * место, где сидят и готовят, и каменный алтарь посреди него читался
+ * храмом. Иван: «надо их поменять на нормальные деревянные костры, а
+ * каменные оставить там, где они будут нормально смотреться, — в храмах».
+ * Дрова берём из деревенского пакета, те же, что горят в лагере героя.
+ */
+const campfireFrames = numberedPaths('licensed/lpc-village/cut/campfire-', [1, 2, 3, 4, 5]);
+
+const campfire = prop(campfireFrames[0], {
+  frames: campfireFrames,
+  size: 66,
+  screenOffsetY: -10,
+  light: { color: '#e0a44f', radius: 2.35, beam: false, flame: true },
+  interactionId: 'campfire',
+});
+
 const emberBrazier = prop(flameFrames[0], {
   frames: flameFrames,
   size: 66,
@@ -336,7 +356,7 @@ export const ENVIRONMENT_ROOM_THEMES = Object.freeze([
 
 const START_ROOM_THEME = roomTheme({
   id: 'wayfarer-refuge',
-  features: [emberBrazier, prop('dngn/dry_fountain.png', { size: 70 })],
+  features: [campfire, prop('dngn/dry_fountain.png', { size: 70 })],
   details: [
     prop('dngn/statues/crumbled_column_1.png', { size: 66 }),
     prop('dngn/statues/crumbled_column_5.png', { size: 66 }),
@@ -640,7 +660,7 @@ export function createDungeonEnvironment(level, { graveyardRoom = null } = {}) {
     // The refuge always exposes one deterministic cooking site. It remains an
     // ordinary environment prop, so it cannot perturb dungeon geometry/RNG.
     const blueprints = [
-      roomIndex === 0 ? emberBrazier : rng.pick(theme.features),
+      roomIndex === 0 ? campfire : rng.pick(theme.features),
       ...shuffle(rng, [...theme.details]),
     ];
     for (let index = 0; index < Math.min(desiredProps, candidates.length); index += 1) {
@@ -722,12 +742,12 @@ export function createDungeonEnvironment(level, { graveyardRoom = null } = {}) {
       gridY: cell.y,
       x: position.x,
       y: position.y,
-      path: emberBrazier.path,
-      frames: emberBrazier.frames,
-      size: emberBrazier.size,
-      screenOffsetY: emberBrazier.screenOffsetY,
-      light: emberBrazier.light,
-      interactionId: emberBrazier.interactionId,
+      path: campfire.path,
+      frames: campfire.frames,
+      size: campfire.size,
+      screenOffsetY: campfire.screenOffsetY,
+      light: campfire.light,
+      interactionId: campfire.interactionId,
       phase: rng.next() * 8,
     }));
   }

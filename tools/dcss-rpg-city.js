@@ -17,6 +17,9 @@ import {
   tavernSeatedMercenaries,
 } from './dcss-rpg-tavern.js';
 
+/** Дрова из деревенского пакета: тот же костёр, что в лагере героя. */
+const CAMP_FIRE = 'licensed/lpc-village/cut/campfire-';
+
 /** Which floors of the run are a city. One for now, easy to move. */
 /**
  * The city is not a floor of the dungeon: it is the surface above it. Depth
@@ -757,9 +760,18 @@ const CITY_PROPS = Object.freeze({
     light: null,
     interactionId: null,
   }),
+  /*
+   * Очаг на площади — деревянный костёр, а не алтарь.
+   *
+   * Здесь горел `makhleb_flame` — столб огня на каменном постаменте из
+   * Dungeon Crawl. Лагерь героя от него уже избавили («костёр каменный, а
+   * нужен обычный деревянный с дровами»), а город остался с алтарём посреди
+   * улицы. Каменный огонь при этом никуда не делся: он по-прежнему горит там,
+   * где к месту, — у святилищ, рун и идолов.
+   */
   hearth: Object.freeze({
-    path: 'dngn/altars/makhleb_flame1.png',
-    frames: Object.freeze(Array.from({ length: 8 }, (_, index) => `dngn/altars/makhleb_flame${index + 1}.png`)),
+    path: `${CAMP_FIRE}1.png`,
+    frames: Object.freeze(Array.from({ length: 5 }, (_, index) => `${CAMP_FIRE}${index + 1}.png`)),
     size: 64,
     screenOffsetY: -10,
     light: Object.freeze({ color: '#e0a44f', radius: 2.6, beam: false, flame: true }),

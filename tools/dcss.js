@@ -3080,7 +3080,7 @@ function purchaseHouse() {
   grantItem(HOME_STONE_ITEM_ID, `home-stone-${run.seed}`);
   applyCampProps();
   playerHasActed = true;
-  playSound('coins');
+  playSound('gold');
   burst(hero.x, hero.y - 10, '#d8bf68', 22);
   updateHud();
   updateGearUi();
@@ -3095,7 +3095,7 @@ function installHouseFurniture(furnitureId) {
   run.house = result.house;
   applyCampProps();
   playerHasActed = true;
-  playSound('coins');
+  playSound('gold');
   burst(hero.x, hero.y - 10, '#c8b184', 18);
   updateHud();
   persistRun();
@@ -4142,7 +4142,8 @@ function fallIntoChasm(cell) {
   const target = Math.min(DEEPEST_DEPTH, dungeon.depth + floors);
   addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).fell, '#9aa4ad', -64);
   burst(hero.x, hero.y, '#6f6a63', 18);
-  playSound('hurt');
+  // `hurt` в каталоге нет — герой стонет голосом своего пола.
+  playSound(heroVoice('hero-hurt'));
   damageHero(damage, { direct: true, source: 'chasm', impactColor: '#6f6a63' });
   // Dying in the shaft ends the run where the run was: nobody lands dead on a
   // floor they never saw.
@@ -9210,7 +9211,7 @@ function runLoneAction(nextTarget) {
    * хуже лишнего экрана.
    */
   if (!only?.enabled) {
-    if (!only?.hint) return false;
+    if (!model.terse || !only?.hint) return false;
     clearMoveControl();
     hero.path = [];
     onboardingInteracted = true;
@@ -13245,6 +13246,17 @@ function damageWildlife(
   const dealt = hit?.payload.damage ?? 0;
   const lethal = result.state.creature.defeated;
   const profile = combatImpactProfile(style, { projectile, boss: false });
+  /*
+   * Охота звучала как немое кино.
+   *
+   * Удар по монстру давно играет сталью, стрелой или тяжестью, а тот же удар
+   * по зверю проходил молча: здесь были и вспышка, и волна, и число урона, и
+   * кровь — всё, кроме звука. Иван: «когда я охотился, звука не было, атаки,
+   * урона, там нету звуков». Строка та же, что у монстров, — и звук должен
+   * быть тот же: бьют одним и тем же оружием.
+   */
+  playSound(projectile ? 'hit-projectile' : style === 'heavy' ? 'hit-heavy' : 'hit-blade');
+  if (lethal) playSound('kill');
   Object.assign(creature, result.state.creature, {
     hit: 0.19,
     wanderTarget: null,
@@ -14641,7 +14653,7 @@ function buyKeeperFood(itemId) {
   gold = result.gold;
   run.commandSequence += 1;
   playerHasActed = true;
-  playSound('coins');
+  playSound('gold');
   updateHud();
   persistRun();
   return true;

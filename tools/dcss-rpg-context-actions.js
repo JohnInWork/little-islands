@@ -415,6 +415,14 @@ const commandAction = ({ id, enabled = true, hint = '', label = null, glyph = nu
  * `confirm` — исключение из правила: касание не должно бить живое и не должно
  * ронять героя в яму. Стражник назван Иваном прямо («это важная механика»),
  * зверь и провал — та же природа: удар и прыжок вниз.
+ *
+ * `terse` — обратное исключение: единственное недоступное действие отвечает
+ * всплывающей строкой, а окно не открывается. Ставится по одному, а не всем
+ * подряд, и вот почему. Костру сказать нечего, кроме «нужно сырое мясо», —
+ * окно ради этой строки лишнее. А участок под дом на такой же отказ отвечает
+ * «не хватает золота», и игрок остаётся без главного: что здесь продаётся и
+ * почём. Иван: «я не понимаю, что я покупаю… модалку надо оставить». Поэтому
+ * по умолчанию окно, и только помеченные молчат.
  */
 const defineInteraction = (definition) => Object.freeze(definition);
 
@@ -427,6 +435,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'campfire',
     command: 'cook-meat',
+    terse: true,
     matches: (target) => target?.kind === 'campfire' && Number.isInteger(target.rawMeatCount),
     present: ({ target, copy }) => ({
       name: copy.campfireName,
@@ -1058,6 +1067,8 @@ export function contextActionModel({ target, actor = {}, language = 'ru' } = {})
     interactionId: definition.id,
     // Спрашивать ли, даже когда действие всего одно.
     confirm: definition.confirm === true,
+    // Отвечать ли отказ строкой вместо окна.
+    terse: definition.terse === true,
     name: view.name,
     description: view.description,
     icon: view.icon,

@@ -95,8 +95,28 @@ test('недоступное одиночное действие отвечае�
   const сМясом = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 2 }, language: 'ru' });
   assert.equal(сМясом.actions[0].enabled, true);
 
-  // И то же правило в переходнике: подсказка вместо окна, но не вместо тишины.
-  assert.match(adapter, /if \(!only\?\.enabled\) \{\s*\n\s*if \(!only\?\.hint\) return false;/);
+  assert.equal(пустойКостёр.terse, true, 'костру окно ни к чему');
+
+  /*
+   * А вот участок под дом на такой же отказ отвечает «не хватает золота» — и
+   * без окна игрок не узнает ни что продаётся, ни за сколько. Иван: «я не
+   * понимаю, что я покупаю… модалку надо оставить». Поэтому короткий ответ —
+   * не правило, а пометка, и по умолчанию её нет.
+   */
+  const участок = contextActionModel({
+    target: { kind: 'house-deed', price: 400, reason: 'poor', hint: 'Не хватает золота', icon: 'deed.png' },
+    language: 'ru',
+  });
+  assert.equal(участок.actions.length, 1);
+  assert.equal(участок.actions[0].enabled, false);
+  assert.equal(участок.terse, false, 'дом обязан объясниться окном');
+  assert.match(участок.description, /400/, 'цена должна быть в описании');
+
+  const помеченные = INTERACTION_REGISTRY.filter(({ terse }) => terse === true).map(({ id }) => id);
+  assert.deepEqual(помеченные, ['campfire'], 'короткий ответ ставится по одному, а не всем подряд');
+
+  // И то же правило в переходнике: подсказка вместо окна — только помеченным.
+  assert.match(adapter, /if \(!model\.terse \|\| !only\?\.hint\) return false;/);
   assert.match(adapter, /showLootToast\(\{ path: model\.icon, rarity: 0 \}, only\.hint\);/);
 });
 
