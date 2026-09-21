@@ -8,6 +8,7 @@ import {
   AUDIO_SAMPLE_FILES,
   AUDIO_SAMPLE_ROOT,
   AUDIO_SETTINGS_KEY,
+  MUSIC_SAMPLES,
   SOUND_IDS,
   SOUND_SAMPLES,
   adjustAudioVolume,
@@ -16,6 +17,7 @@ import {
   audioSampleProblems,
   createAudioSettings,
   effectiveVolume,
+  musicSample,
   parseAudioSettings,
   pickSampleFile,
   serializeAudioSettings,
@@ -217,4 +219,60 @@ test('the hero is hurt and dies in her own voice', async () => {
   // And the runtime asks the appearance, not a constant.
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /heroVoiceSound\(soundId, playerVoice\(playerAppearance\)\)/);
+});
+
+/**
+ * Мелодия — второй слой, и он обязан оставаться вторым.
+ *
+ * Гул можно слушать час и не заметить; мелодия повторяется слышно, и если она
+ * окажется громче постели того же места, дорога начнёт звучать как заставка.
+ * Поэтому у каждой темы потолок вдвое ниже, чем у гула, и это проверяется, а
+ * не остаётся в комментарии.
+ */
+test('у города своя тема, а дорога без темы честно молчит', () => {
+  assert.ok(MUSIC_SAMPLES.city, 'город стоит на ветке спуска — без своего ключа он играл бы пещеру');
+  assert.notEqual(MUSIC_SAMPLES.city.files[0], MUSIC_SAMPLES.deep.files[0]);
+  assert.equal(musicSample('hell'), null, 'дорога без темы возвращает null, а не чужую музыку');
+  assert.equal(musicSample('нет такой дороги'), null);
+  for (const [road, entry] of Object.entries(MUSIC_SAMPLES)) {
+    assert.ok(entry.gain > 0 && entry.gain <= 0.1, `${road}: мелодия громче гула`);
+    assert.ok(entry.files.every((file) => file.startsWith('music/')), `${road}: файл не из music/`);
+  }
+  assert.deepEqual(audioSampleProblems(), []);
+});
+
+/**
+ * Город — место, а не ветка.
+ *
+ * `run.branch` на площади — та же `deep`, что и в пещере под ней: город лежит
+ * в начале спуска и своей ветки не имеет. Пока мелодию просили по ветке, город
+ * и подземелье звучали одинаково. Ключ спрашивается по глубине, и проверяется
+ * это на самом адаптере: правило живёт там, где им пользуются.
+ */
+test('адаптер спрашивает мелодию у места, а не только у ветки', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.ok(
+    runtime.includes("return isCityDepth(run.depth) ? 'city' : run.branch;"),
+    'адаптер больше не различает город и ветку под ним',
+  );
+  assert.equal(runtime.includes('startMusic(run.branch)'), false, 'где-то мелодию всё ещё просят у ветки');
+  // Все три пробуждения звука — одно и то же правило, иначе слои разъедутся.
+  assert.equal(runtime.split('startMusic(musicRoad())').length - 1, 3);
+});
+
+/** Авторы фона и мелодий названы в титрах, а не только в файле рядом с mp3. */
+test('титры называют авторов фона и мелодий', async () => {
+  const { CREDITS_SECTIONS } = await import('../tools/dcss-rpg-credits.js');
+  const audio = CREDITS_SECTIONS.find((entry) => entry.id === 'audio');
+  assert.ok(audio, 'в титрах нет раздела звука');
+  const notice = await readFile(new URL('../public/assets/audio/LICENSE.md', import.meta.url), 'utf8');
+  for (const author of ['RandomMind', 'cynicmusic', 'Brandon75689', 'Paul Wortmann', 'JaggedStone']) {
+    assert.ok(notice.includes(author), `${author}: нет в лицензии рядом с файлами`);
+    for (const locale of ['ru', 'en']) {
+      assert.ok(
+        audio[locale].lines.join(' ').includes(author),
+        `${author}: не назван в титрах (${locale})`,
+      );
+    }
+  }
 });

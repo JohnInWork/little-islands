@@ -7755,7 +7755,7 @@ function unlockLevelUpAudio() {
     startAmbient(biomeThemeFor(dungeon.themeId).palette);
     // Мелодия заводится тем же касанием, что и гул: браузер пускает звук
     // только после жеста, и второго такого жеста может не случиться.
-    startMusic(run.branch);
+    startMusic(musicRoad());
   };
   if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
   else begin();
@@ -7961,6 +7961,17 @@ function stopMusic() {
  * герой идёт вниз по одной дороге, петля не прерывается ни на одном этаже:
  * обрыв на каждой лестнице превратил бы тему в назойливый отрывок.
  */
+/**
+ * Чью мелодию заводить.
+ *
+ * Мелодия спрашивается у дороги, но у города своей дороги нет: он стоит на той
+ * же ветке, что и спуск под ним, и в подземелье играла бы городская тема. Город
+ * — место, а не ветка, и ключ у него свой.
+ */
+function musicRoad() {
+  return isCityDepth(run.depth) ? 'city' : run.branch;
+}
+
 function startMusic(branchId) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running') return;
@@ -15114,7 +15125,7 @@ function replaceFloor(nextDepth, arrival = null) {
   resolveGraveyard();
   startAmbient(biomeThemeFor(dungeon.themeId).palette);
   // Дорога могла смениться вратами — мелодия спрашивается заново.
-  startMusic(run.branch);
+  startMusic(musicRoad());
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
   monsters = createMonsters(dungeon);
@@ -15203,7 +15214,7 @@ function replaceFloor(nextDepth, arrival = null) {
    * один поедет за героем, а второй останется на прежнем этаже.
    */
   startAmbient(biomeThemeFor(dungeon.themeId).palette);
-  startMusic(run.branch);
+  startMusic(musicRoad());
   if (ready) rebuildDungeonWorld3D();
   discoverNearbyTraps({ feedback: false });
   updateHud();

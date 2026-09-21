@@ -548,11 +548,25 @@ export const BIOME_THEMES = Object.freeze([
   Object.freeze({
     id: 'gate-town',
     palette: 'town',
-    // Trodden earth with grass pushing through it. The town used to stand on
-    // brown cobbles, so its trees and bushes looked planted in stone — Ivan saw
-    // that at once. A town above ground has ground under it.
-    floors: numberedPaths('dngn/floor/dirt', [0, 1, 2]),
-    walls: numberedPaths('dngn/wall/brick_brown', [0, 1, 2, 3, 4, 5, 6, 7]),
+    /*
+     * Город зелёный, и дома у него деревянные.
+     *
+     * Сперва город стоял на буром булыжнике, потом на утоптанной земле — и всё
+     * равно оставался бурым пятном между зелёной поверхностью и серым
+     * подземельем. Иван, послушав городскую мелодию: «хочется под музыку из
+     * города видеть город всё-таки в зелёном цвете, чтобы трава зелёная,
+     * деревья зелёные, кустики… и не кирпичи у домов, возможно, лучше всего
+     * сделать деревом».
+     *
+     * Три травы, а не три травы вперемешку со светлыми: `grass0-dirt-mix`
+     * заметно желтее, и на одном экране с обычной травой они складываются в
+     * шахматную доску — ту самую, на которую Иван уже жаловался в сквере.
+     * Взяты только оттенки одного зелёного.
+     */
+    floors: numberedPaths('dngn/floor/grass/grass', [0, 1, 2]),
+    // Доски: единственное дерево в наборе, и оно ложится стеной не хуже, чем
+    // полом, — дом из бруса, а не кирпичная лавка посреди луга.
+    walls: numberedPaths('licensed/lpc-floors/planks', [1, 2, 3, 4]),
     /*
      * Дом сложен из одного кирпича.
      *
@@ -566,13 +580,16 @@ export const BIOME_THEMES = Object.freeze([
     accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
-      floorTint: '#fff4e4',
+      // Тёплый кремовый тинт пола желтил траву до соломы: под ним зелёный
+      // переставал быть зелёным. Пол берёт почти чистый свет, дерево стен —
+      // прежнее тепло, иначе доски посереют.
+      floorTint: '#f6fbf2',
       wallTint: '#fff1de',
       actorTint: '#f4ece0',
-      background: '#0f141d',
-      fog: '#141b26',
+      background: '#0d1512',
+      fog: '#16211b',
       fogDensity: 0.008,
-      ambient: '#9aa6b4',
+      ambient: '#a3b2a4',
       // A town is the one place that is not a cave: it is lit before the hero
       // gets there, and everything people left on its streets can be seen.
       ambientIntensity: 1.05,

@@ -333,3 +333,41 @@ test('the map knows the house, and the city hint points at it', async () => {
   assert.match(runtime, /\.\.\.houseMapMarker\(\),/);
   assert.match(runtime, /inCity: isCityDepth\(dungeon\.depth\),\s+houseOwned: run\.house\.owned,/);
 });
+
+/**
+ * Город зелёный, и зелень в нём разная.
+ *
+ * Крона была одна на весь город — жёлтая, осенняя, — и стояла она на площади
+ * дважды подряд. Куст был один. Иван, послушав городскую мелодию: «хочется
+ * видеть город всё-таки в зелёном цвете… деревья прикольные, клёвые зелёные,
+ * кустики, вот это всё красиво оформим». Жёлтая крона посреди травы читается
+ * как осень в июне, а один силуэт, повторённый шесть раз, — как декорация,
+ * расставленная по линейке.
+ *
+ * Проверяется не «есть дерево», а «деревьев несколько и все зелёные»: именно
+ * это ломается молча, когда кто-нибудь добавит седьмой квартал и возьмёт
+ * первую попавшуюся картинку.
+ */
+test('в городе растут зелёные деревья и разные кусты', async () => {
+  const environment = createDungeonEnvironment(generateDungeon({ seed: 7, depth: cityDepth }));
+  const картинки = new Set(environment.props.map(({ path }) => path));
+
+  const деревья = [...картинки].filter((path) => path.startsWith('dngn/trees/'));
+  assert.ok(деревья.length >= 2, 'город обходится одним деревом на всё');
+  for (const path of деревья) {
+    assert.ok(
+      /mangrove/.test(path),
+      `${path}: в зелёном городе выросла не зелёная крона`,
+    );
+  }
+
+  const кусты = [...картинки].filter((path) => path.includes('fungi_plants/bush'));
+  assert.ok(кусты.length >= 1, 'кусты из города пропали');
+
+  // И все они доезжают до сборки, а не только до экрана разработчика.
+  const required = requiredAssetPaths();
+  for (const path of [...деревья, ...кусты]) {
+    assert.ok(required.includes(path), `${path} не попадает в сборку`);
+    await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
+  }
+});

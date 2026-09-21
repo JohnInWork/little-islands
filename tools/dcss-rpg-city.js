@@ -736,10 +736,35 @@ const CITY_PROPS = Object.freeze({
     light: null,
     interactionId: null,
   }),
+  /*
+   * Деревья в городе зелёные, и их три.
+   *
+   * Стояла одна осенняя жёлтая крона, и стояла она везде: на площади дважды,
+   * на каждом третьем углу — один и тот же силуэт, да ещё жёлтый посреди
+   * города, который Иван захотел зелёным. Зелёных крон в наборе ровно три —
+   * мангры, — и город берёт все три: сквер перестаёт быть двумя копиями
+   * одного дерева.
+   */
   tree: Object.freeze({
-    path: 'dngn/trees/tree1_yellow.png',
-    frames: Object.freeze(['dngn/trees/tree1_yellow.png']),
+    path: 'dngn/trees/mangrove1.png',
+    frames: Object.freeze(['dngn/trees/mangrove1.png']),
     size: 78,
+    screenOffsetY: -16,
+    light: null,
+    interactionId: null,
+  }),
+  treeBroad: Object.freeze({
+    path: 'dngn/trees/mangrove2.png',
+    frames: Object.freeze(['dngn/trees/mangrove2.png']),
+    size: 80,
+    screenOffsetY: -18,
+    light: null,
+    interactionId: null,
+  }),
+  treeOld: Object.freeze({
+    path: 'dngn/trees/mangrove3.png',
+    frames: Object.freeze(['dngn/trees/mangrove3.png']),
+    size: 76,
     screenOffsetY: -16,
     light: null,
     interactionId: null,
@@ -749,6 +774,24 @@ const CITY_PROPS = Object.freeze({
     frames: Object.freeze(['mon/fungi_plants/bush2.png']),
     size: 58,
     screenOffsetY: -4,
+    light: null,
+    interactionId: null,
+  }),
+  // Кустов тоже три вида: один куст на весь город читается как декорация,
+  // расставленная по линейке, а не как то, что вокруг домов растёт само.
+  bushBroad: Object.freeze({
+    path: 'mon/fungi_plants/bush3.png',
+    frames: Object.freeze(['mon/fungi_plants/bush3.png']),
+    size: 60,
+    screenOffsetY: -4,
+    light: null,
+    interactionId: null,
+  }),
+  bushLow: Object.freeze({
+    path: 'mon/fungi_plants/bush4.png',
+    frames: Object.freeze(['mon/fungi_plants/bush4.png']),
+    size: 54,
+    screenOffsetY: -2,
     light: null,
     interactionId: null,
   }),
@@ -838,10 +881,14 @@ const CITY_STREET_PROPS = Object.freeze([
   TAVERN_PROPS.barrels,
   CITY_PROPS.bush,
   TAVERN_PROPS.woodpile,
+  CITY_PROPS.treeBroad,
   TAVERN_PROPS.casks,
+  CITY_PROPS.bushLow,
   CITY_PROPS.tree,
   TAVERN_PROPS.logs,
+  CITY_PROPS.bushBroad,
   TAVERN_PROPS.basket,
+  CITY_PROPS.treeOld,
   TAVERN_PROPS.keg,
 ]);
 
@@ -1074,7 +1121,8 @@ export function createCityEnvironment(level) {
       place(CITY_PROPS.fountain, { x: rect.x + 1, y: rect.y + 1 }, roomIndex);
       place(CITY_PROPS.statue, { x: rect.x + rect.w - 2, y: rect.y + rect.h - 2 }, roomIndex);
       place(CITY_PROPS.tree, corners[1], roomIndex);
-      place(CITY_PROPS.tree, corners[2], roomIndex);
+      place(CITY_PROPS.treeBroad, corners[2], roomIndex);
+      place(CITY_PROPS.bushBroad, corners[3], roomIndex);
       continue;
     }
     if (kind === 'market') {
@@ -1083,7 +1131,7 @@ export function createCityEnvironment(level) {
       // and not the same awning twice.
       place(stallVisual(CITY_STALL_PATHS[0]), corners[0], roomIndex);
       place(stallVisual(CITY_STALL_PATHS[1]), corners[3], roomIndex);
-      place(CITY_PROPS.bush, corners[1], roomIndex);
+      place(CITY_PROPS.treeOld, corners[1], roomIndex);
       placeAlongStreet(place, rect, roomIndex, lamp);
       continue;
     }

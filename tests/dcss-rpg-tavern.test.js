@@ -415,15 +415,27 @@ test('nothing else in the game gets a wooden floor by accident', async () => {
  * like every other block, so the middle of the town came out floored in planks.
  * Ivan found it on his phone: «это центр города, деревянного пола там быть не
  * должно… сделай зелёную землю, чтобы деревья росли, центральный парк».
+ *
+ * Потом земля под улицами тоже стала травой: «хочется под музыку из города
+ * видеть город всё-таки в зелёном цвете». Разделение осталось прежним —
+ * внутри доски, снаружи земля, — просто земля теперь зелёная, а стены домов
+ * деревянные, и проверяются они здесь же: бурый кирпич посреди луга и был тем,
+ * от чего уходили.
  */
-test('the town has boards indoors, earth on the streets and grass on the square', async () => {
+test('the town has boards indoors, grass on the streets and wood on the walls', async () => {
   const city = await import('../tools/dcss-rpg-city.js');
   const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
   const { biomeThemeFor } = await import('../tools/dcss-rpg-visuals.js');
 
   const ground = biomeThemeFor('gate-town').floors;
-  assert.ok(ground.every((path) => path.includes('dirt')), 'the town is paved again');
+  assert.ok(ground.every((path) => path.includes('grass')), 'the town is paved again');
   assert.ok(ground.length >= 3, 'one tile repeated is a chequerboard');
+  // Одна трава, а не зелёная вперемешку со светлой: смесь читается как
+  // шахматная доска, и на неё уже жаловались в сквере.
+  assert.ok(ground.every((path) => !path.includes('mix')), 'the lawn is a chequerboard again');
+  const walls = biomeThemeFor('gate-town').walls;
+  assert.ok(walls.every((path) => path.includes('planks')), 'the houses are brick again');
+  assert.ok(walls.length >= 3, 'one wall tile repeated is a fence, not a town');
 
   for (const seed of [1, 7, 91]) {
     const town = generateDungeon({ seed, depth: 0 });

@@ -176,3 +176,21 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
 
 Указание авторства CC0 не требует — авторы названы из уважения, как и всё
 остальное в этом файле.
+
+## Мелодии дорог / Road themes
+
+Второй слой поверх гула: у каждой дороги своя короткая тема. Иван: «хотел бы
+какую-нибудь прям мелодию для каждой темы… простенькую, чтобы запоминалась, но
+не сильную музыку». Все записи — CC0 с OpenGameArt, сведены в моно 44,1 кГц MP3
+56 кбит/с, подрезаны до петли около 1:45 и выровнены по громкости (−22 LUFS):
+мелодия обязана лежать под гулом, а не спорить с ним.
+
+- `music/inn.mp3` — «Medieval: The Old Tower Inn», RandomMind.
+  <https://opengameart.org/content/medieval-the-old-tower-inn> (CC0). Город.
+- `music/town.mp3` — «Town Theme RPG», cynicmusic (The Cynic Project).
+  <https://opengameart.org/content/town-theme-rpg> (CC0). Открытая местность.
+- `music/cave.mp3` — «Cave Theme», Brandon75689.
+  <https://opengameart.org/content/cave-theme> (CC0 / OGA-BY 3.0; взято по CC0).
+  Спуск.
+
+Хранилища, склепы и ад пока молчат: своей темы у них нет, а чужая хуже тишины.
