@@ -553,8 +553,17 @@ export const BIOME_THEMES = Object.freeze([
     // that at once. A town above ground has ground under it.
     floors: numberedPaths('dngn/floor/dirt', [0, 1, 2]),
     walls: numberedPaths('dngn/wall/brick_brown', [0, 1, 2, 3, 4, 5, 6, 7]),
-    accentWalls: numberedPaths('dngn/wall/church', [0, 1, 2, 3, 4]),
-    accentModulo: 13,
+    /*
+     * Дом сложен из одного кирпича.
+     *
+     * Каждая тринадцатая плита стены была светлым церковным камнем — и по
+     * бурой кладке лавки расползались белые кубики, будто кто-то заложил дыры
+     * чем попало. Иван: «мне у домов не нравятся вот эти белые кубики, пускай
+     * дома будут из одной и той же текстуры состоять». Церковный камень не
+     * выброшен: ему место у храма, а не в стене хлебной лавки.
+     */
+    accentWalls: Object.freeze([]),
+    accentModulo: 0,
     bloodModulo: 0,
     world3d: Object.freeze({
       floorTint: '#fff4e4',

@@ -6,6 +6,7 @@ import { lootById } from '../tools/dcss-rpg-content.js';
 import { materializeItemAffixes } from '../tools/dcss-rpg-affixes.js';
 import {
   MERCHANT_COMMANDS,
+  MERCHANT_VARIANTS,
   MERCHANT_STOCK_MAX,
   MERCHANT_STOCK_MIN,
   buybackMerchantItem,
@@ -13,6 +14,7 @@ import {
   createMerchantStates,
   createMerchantStock,
   merchantBuybackPrice,
+  merchantActorPath,
   merchantBuyPrice,
   merchantPresentation,
   merchantSellPrice,
@@ -225,4 +227,27 @@ test('the shop shows the thing in the big window before it takes the money', asy
   // The forge and the alternative belong to the backpack, not to a counter.
   assert.match(runtime, /const secondary = !itemDetailOffer &&/);
   assert.match(runtime, /const craft = !itemDetailOffer &&/);
+});
+
+/**
+ * На кнопке взаимодействия — лицо, а не вывеска.
+ *
+ * У всех торговцев стоял один значок лавки, и, подойдя к человеку, игрок
+ * видел картинку магазина: непонятно, с кем он говорит. Иван: «поставим
+ * иконку того персонажа, с кем ты взаимодействуешь; и для всех торговцев
+ * так же». Лицо у каждого своё и давно есть — им торговец нарисован на этаже.
+ */
+test('у каждого торговца на кнопке своё лицо, а не общая вывеска', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const начало = runtime.indexOf("if (entry.kind === 'merchant') {");
+  assert.ok(начало > 0, 'цель торговца не найдена');
+  const ветка = runtime.slice(начало, начало + 900);
+  assert.match(ветка, /iconPath: merchantActorPath\(entry\.value\.variantId\)/, 'на кнопке снова вывеска');
+  assert.ok(!ветка.includes('iconPath: entry.value.iconPath'), 'старый значок лавки остался');
+
+  // Лица действительно разные: одна картинка на троих — это та же вывеска.
+  const лица = Object.keys(MERCHANT_VARIANTS).map((id) => merchantActorPath(id));
+  assert.equal(new Set(лица).size, лица.length, `лица повторяются: ${лица.join(', ')}`);
+  for (const лицо of лица) assert.ok(лицо.endsWith('.png'), `странный путь лица: ${лицо}`);
 });

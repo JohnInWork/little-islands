@@ -506,6 +506,7 @@ import {
   MERCHANT_COMMANDS,
   buybackMerchantItem,
   buyMerchantItem,
+  merchantActorPath,
   merchantPresentation,
   merchantSellPrice,
   merchantStateFor,
@@ -8688,7 +8689,16 @@ function contextModelTarget(entry = contextTarget) {
       kind: 'merchant',
       variantId: entry.value.variantId,
       name: merchantPresentation(entry.value.variantId, itemDetailLanguage).name,
-      iconPath: entry.value.iconPath,
+      /*
+       * На кнопке — лицо, а не вывеска.
+       *
+       * У всех торговцев стоял один и тот же значок лавки `shop_gadgets`, и
+       * подойдя к человеку, игрок видел картинку магазина: непонятно, с кем
+       * он вообще говорит. Иван: «поставим иконку того персонажа, с кем ты
+       * взаимодействуешь; и для всех торговцев так же». Лицо у каждого своё и
+       * давно есть — им он и нарисован на этаже.
+       */
+      iconPath: merchantActorPath(entry.value.variantId),
     };
   }
   if (entry.kind === 'door') {
