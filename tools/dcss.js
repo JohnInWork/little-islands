@@ -331,6 +331,7 @@ import {
   CITY_DEPTH,
   CITY_DEPTHS,
   CITY_LIGHT_MULTIPLIER,
+  CITY_BROKER_ID,
   CITY_PRIEST_ID,
   cityInteriorAt,
   CITY_GATE_PATHS,
@@ -340,6 +341,7 @@ import {
   cityPortalCell,
   CITY_RECRUITER_ID,
   CITY_REVEAL_RADIUS,
+  cityDepartureCell,
   isCityDepth,
 } from './dcss-rpg-city.js';
 import {
@@ -1984,7 +1986,10 @@ function createMonsters(level) {
   const spawned = createRuntimeMonsters(
     level,
     level.monsters.filter(
-      (spawn) => !spawn.activationFindId || resolvedFindIds.has(spawn.activationFindId),
+      (spawn) => (!spawn.activationFindId || resolvedFindIds.has(spawn.activationFindId))
+        // Дом продан — маклер уехал. Возвращаться в город и снова заставать его
+        // у той же двери, торгующим тем, что уже твоё, игрок не должен.
+        && !(spawn.id === CITY_BROKER_ID && run.house.owned),
     ),
   );
   // A wanted hero is met by the watch instead of ignored by it. The captain is
@@ -2875,44 +2880,13 @@ const HOUSE_PROP_VISUALS = Object.freeze({
     light: null,
     interactionId: 'house-slot',
   }),
-  deed: Object.freeze({
-    path: 'dngn/shops/shop_gadgets.png',
-    frames: Object.freeze(['dngn/shops/shop_gadgets.png']),
-    size: 62,
-    screenOffsetY: -10,
-    light: null,
-    interactionId: 'house-deed',
-  }),
 });
-
-function deedSignCell(plot) {
-  if (!plot?.door) return null;
-  const candidates = [
-    { x: plot.door.x + 2, y: plot.door.y },
-    { x: plot.door.x - 2, y: plot.door.y },
-    { x: plot.door.x, y: plot.door.y + 2 },
-    { x: plot.door.x, y: plot.door.y - 2 },
-  ];
-  return candidates.find(({ x, y }) => world[y]?.[x] === '.') ?? null;
-}
 
 function housePropsFor() {
   const plot = cityHousePlot();
   if (!plot) return [];
-  if (!run.house.owned) {
-    const cell = deedSignCell(plot);
-    if (!cell) return [];
-    return [Object.freeze({
-      id: 'house-deed',
-      furnitureId: null,
-      ...HOUSE_PROP_VISUALS.deed,
-      gridX: cell.x,
-      gridY: cell.y,
-      x: cell.x + 0.5,
-      y: cell.y + 0.5,
-      phase: 0,
-    })];
-  }
+  // Пустой дом пуст: в нём только маклер, и он не реквизит, а горожанин.
+  if (!run.house.owned) return [];
   return houseSlots(plot).map(({ furnitureId, x, y }) => {
     const installed = run.house.furniture.includes(furnitureId);
     const visual = HOUSE_PROP_VISUALS[installed ? furnitureId : 'slot'];
@@ -3093,6 +3067,7 @@ function purchaseHouse() {
   run.house = result.house;
   grantItem(HOME_STONE_ITEM_ID, `home-stone-${run.seed}`);
   applyCampProps();
+  sendBrokerAway();
   playerHasActed = true;
   playSound('gold');
   burst(hero.x, hero.y - 10, '#d8bf68', 22);
@@ -3100,6 +3075,59 @@ function purchaseHouse() {
   updateGearUi();
   persistRun();
   return true;
+}
+
+/**
+ * Дом продан — маклеру здесь больше нечего делать.
+ *
+ * Уходит он к ближайшим воротам; если города вокруг него почему-то нет —
+ * плана без ворот не бывает, но код не должен на это рассчитывать — он просто
+ * уходит из виду. В сохранении его уже нет: `createMonsters` не ставит
+ * маклера, когда дом куплен, так что перезагрузка посреди его дороги не
+ * вернёт его обратно к двери.
+ */
+function sendBrokerAway() {
+  const broker = monsters.find((monster) => monster.id === CITY_BROKER_ID && monster.dead === 0);
+  if (!broker) return false;
+  const from = { x: Math.floor(broker.x / TILE), y: Math.floor(broker.y / TILE) };
+  const достижимо = (cell) => Boolean(cell) && findPath(cell.x + 0.5, cell.y + 0.5, {
+    allowHidden: true,
+    start: from,
+    terrain: broker.terrain,
+  }).length > 0;
+  /*
+   * Ворота — если до них есть дорога. Закрытую дверь собственного дома он не
+   * откроет: двери в игре открывает только герой, и человек, запертый в
+   * комнате, растворился бы прямо посреди неё — ровно то, чего Иван просил не
+   * делать. Тогда он доходит до порога и выходит за него; дверь за ним
+   * закрыта, но ушёл он в неё, а не в воздух.
+   */
+  for (const цель of [cityDepartureCell(dungeon.gates, from), houseDoorstepCell(cityHousePlot())]) {
+    if (!достижимо(цель)) continue;
+    broker.leaving = цель;
+    broker.route = [];
+    broker.patrolPause = 0;
+    broker.leavingPatience = 0;
+    return true;
+  }
+  broker.dead = 0.01;
+  return true;
+}
+
+/** Клетка внутри дома, примыкающая к его двери: порог, с которого выходят. */
+function houseDoorstepCell(plot) {
+  const door = plot?.door;
+  const interior = plot?.interior;
+  if (!door || !interior) return null;
+  const candidates = [
+    { x: door.x, y: door.y - 1 },
+    { x: door.x, y: door.y + 1 },
+    { x: door.x - 1, y: door.y },
+    { x: door.x + 1, y: door.y },
+  ];
+  return candidates.find(({ x, y }) => isWalkable(x, y)
+    && x >= interior.x && x < interior.x + interior.w
+    && y >= interior.y && y < interior.y + interior.h) ?? null;
 }
 
 function installHouseFurniture(furnitureId) {
@@ -4357,7 +4385,50 @@ function patrolTargetCell(monster) {
  * Gives an unalerted guard somewhere to walk. Returns true when it has a route,
  * so the ordinary movement code below carries it there.
  */
+/**
+ * Горожанин, которому здесь больше нечего делать, уходит своими ногами.
+ *
+ * Маклер, продавший дом, исчезал бы прямо посреди комнаты. Иван: «желательно,
+ * чтобы он уходил куда-нибудь просто, а не просто исчезал». Он идёт к
+ * ближайшим воротам обычным шагом и пропадает там, где из города выходят все.
+ *
+ * Дорогу может перекрыть чужое тело, и тогда он не растворяется на месте, а
+ * ждёт и пробует снова; терпение конечно, иначе запертый в углу человек стоял
+ * бы там до конца забега.
+ */
+function walkAwayMonster(monster, delta, blockedCells) {
+  const cell = { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) };
+  if (cellStepDistance(cell, monster.leaving) === 0) {
+    monster.leaving = null;
+    monster.route = [];
+    monster.dead = 0.01;
+    return false;
+  }
+  if (monster.route.length > 0) return true;
+  monster.route = findPath(monster.leaving.x + 0.5, monster.leaving.y + 0.5, {
+    allowHidden: true,
+    start: cell,
+    blockedCells,
+    terrain: monster.terrain,
+  });
+  if (monster.route.length > 0) {
+    monster.leavingPatience = 0;
+    return true;
+  }
+  monster.leavingPatience = (monster.leavingPatience ?? 0) + delta;
+  if (monster.leavingPatience < 12) return false;
+  monster.leaving = null;
+  monster.dead = 0.01;
+  return false;
+}
+
 function patrolMonster(monster, delta, blockedCells) {
+  if (monster.leaving) return walkAwayMonster(monster, delta, blockedCells);
+  // Маклер ждёт покупателя и с места не сходит. Он ходил по своему дому, как
+  // все горожане, — и покупателю приходилось за ним гоняться: подошёл, кнопка
+  // появилась, он шагнул — кнопка исчезла. Человек, пришедший продать дом,
+  // стоит там, где его видно с порога.
+  if (monster.id === CITY_BROKER_ID) return false;
   if (!monster.neutral || monster.provoked || !monster.post) return false;
   if (monster.route.length > 0) return true;
   monster.patrolPause = Math.max(0, (monster.patrolPause ?? 0) - delta);
@@ -8899,7 +8970,7 @@ function contextModelTarget(entry = contextTarget) {
       price: HOUSE_PRICE,
       reason: decision.reason,
       hint: houseRefusalText(decision.reason, itemDetailLanguage),
-      icon: entry.value.path,
+      icon: entry.value.spritePath ?? entry.value.path,
     };
   }
   if (entry.kind === 'house-slot') {
@@ -9128,7 +9199,7 @@ function contextModelTarget(entry = contextTarget) {
 
 /** Props sit on a grid cell of their own; actors and finds carry pixel positions. */
 const PROP_INTERACTION_KINDS = new Set([
-  'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest',
+  'campfire', 'camp-rest', 'camp-stash', 'house-slot', 'house-rest',
 ]);
 
 function contextTargetIsAdjacent(entry) {
@@ -9145,6 +9216,7 @@ function contextTargetIsAdjacent(entry) {
     || entry.kind === 'guard'
     || entry.kind === 'graveyard-ghost'
     || entry.kind === 'priest'
+    || entry.kind === 'house-deed'
     || entry.kind === 'recruiter'
     || entry.kind === 'tavern-hire'
     || entry.kind === 'companion';
@@ -10425,7 +10497,7 @@ function nearbyCityGate() {
  * themselves and once as a nameless guard. The people who have their own
  * card are named here and skipped.
  */
-const CITY_OWN_CARD_IDS = new Set([CITY_PRIEST_ID, CITY_RECRUITER_ID]);
+const CITY_OWN_CARD_IDS = new Set([CITY_PRIEST_ID, CITY_RECRUITER_ID, CITY_BROKER_ID]);
 
 /** Призрак кладбища, если герой стоит рядом с ним. */
 function nearbyGraveyardGhost() {
@@ -10477,7 +10549,7 @@ function nearbyContextTargets() {
   const campfire = nearbyCampfire();
   const canCook = campfire && interactionResourceCount(RAW_MEAT_ITEM_ID) > 0;
   if (canCook) add('campfire', campfire);
-  add('house-deed', nearbyCampProp('house-deed'));
+  add('house-deed', monsters.find((monster) => monster.id === CITY_BROKER_ID && withinReach(monster)));
   add('house-slot', nearbyCampProp('house-slot'));
   add('house-rest', nearbyCampProp('house-rest'));
   add('camp-rest', nearbyCampProp('camp-rest'));
@@ -10655,6 +10727,7 @@ function contextTargetAtCell(cellX, cellY) {
   if (creature) return { kind: 'wildlife', value: creature };
   const person = monsters.find((monster) => monster.dead === 0 && onCell(monster));
   if (!person) return null;
+  if (person.id === CITY_BROKER_ID) return { kind: 'house-deed', value: person };
   if (person.id === CITY_PRIEST_ID) return { kind: 'priest', value: person };
   if (person.id === CITY_RECRUITER_ID) return { kind: 'recruiter', value: person };
   if (mercenaryIdForHireMonster(person.id)) return { kind: 'tavern-hire', value: person };
@@ -11138,15 +11211,17 @@ const FLOOR_MAP_FIND_KINDS = Object.freeze({
 });
 
 /**
- * The house on the map: the sign while the plot is for sale, the door once it
- * belongs to the hero. Without it a player can walk past their own house and
- * never learn the city sells one.
+ * Дом на карте — всегда его дверь.
+ *
+ * Пока участок продавался, метка стояла на вывеске у стены: вывески больше
+ * нет, дом показывает маклер внутри, и войти к нему можно только в дверь. Без
+ * метки игрок пройдёт мимо собственного дома и не узнает, что город его
+ * продаёт.
  */
 function houseMapMarker() {
   const plot = cityHousePlot();
   if (!plot?.door) return [];
-  const cell = run.house.owned ? plot.door : deedSignCell(plot) ?? plot.door;
-  return [{ kind: 'house', x: cell.x, y: cell.y }];
+  return [{ kind: 'house', x: plot.door.x, y: plot.door.y }];
 }
 
 function currentFloorMapMarkers() {

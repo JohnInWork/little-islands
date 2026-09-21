@@ -10,8 +10,11 @@ import {
   CITY_PRIEST_ID,
   CITY_RECRUITER_ID,
   CITY_DEPTHS,
+  CITY_BROKER_ID,
   CITY_GUARD_ID,
   cityBlockRects,
+  cityDepartureCell,
+  cityHousePlotSpot,
   cityGuardPosts,
   cityMerchantSpots,
   createCityEnvironment,
@@ -138,7 +141,7 @@ test('traders keep a stall each, and the watch keeps the streets', () => {
   for (const spawn of level.monsters) {
     assert.match(spawn.instanceId, new RegExp(`^monster-${cityDepth}-\\d+$`));
     assert.ok([
-      CITY_GUARD_ID, CITY_CAPTAIN_ID, CITY_PRIEST_ID, CITY_RECRUITER_ID,
+      CITY_GUARD_ID, CITY_CAPTAIN_ID, CITY_PRIEST_ID, CITY_RECRUITER_ID, CITY_BROKER_ID,
       ...TAVERN_HIRE_MONSTER_IDS,
     ].includes(spawn.id), spawn.id);
     assert.deepEqual(spawn.post, { x: spawn.x, y: spawn.y });
@@ -329,7 +332,9 @@ test('the map knows the house, and the city hint points at it', async () => {
   assert.equal(model.markers.some(({ kind }) => kind === 'house'), true);
 
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
-  assert.match(runtime, /function houseMapMarker\(\)[\s\S]*run\.house\.owned \? plot\.door : deedSignCell\(plot\)/);
+  // Метка стоит на двери и до покупки, и после: вывеску у стены заменил маклер
+  // внутри, а войти к нему можно только в дверь.
+  assert.match(runtime, /function houseMapMarker\(\)[\s\S]*kind: 'house', x: plot\.door\.x, y: plot\.door\.y/);
   assert.match(runtime, /\.\.\.houseMapMarker\(\),/);
   assert.match(runtime, /inCity: isCityDepth\(dungeon\.depth\),\s+houseOwned: run\.house\.owned,/);
 });
@@ -370,4 +375,68 @@ test('в городе растут зелёные деревья и разные
     assert.ok(required.includes(path), `${path} не попадает в сборку`);
     await access(new URL(`../public/assets/dcss-preview/${path}`, import.meta.url));
   }
+});
+
+
+/**
+ * Дом продаёт человек, а не вывеска.
+ *
+ * Участок помечала серая табличка «Shop» с непонятным предметом: игрок подходил
+ * к ней и получал отказ «не хватает золота», так и не поняв, что ему
+ * предлагали. Иван: «пусть будет какой-нибудь NPC в доме в этом стоять, ты к
+ * нему подходишь, говоришь, и он тебе как бы продаёт этот дом. После того как
+ * купил — он уходит куда-нибудь, а не просто исчезает».
+ *
+ * Три вещи, которые ломаются по отдельности и каждая молча: маклер стоит
+ * внутри дома, а не у чужой стены; купленный дом его больше не держит; и
+ * уходит он на своих ногах, к ближайшему выходу из города.
+ */
+test('пустой дом продаёт маклер, и он стоит внутри', () => {
+  for (const seed of [1, 7, 91, 12345]) {
+    const town = generateDungeon({ seed, depth: cityDepth });
+    const plot = town.city.blocks.find(({ kind }) => kind === 'plot');
+    const брокеры = town.monsters.filter(({ id }) => id === CITY_BROKER_ID);
+    if (!plot?.interior) {
+      assert.equal(брокеры.length, 0, `seed ${seed}: маклер без дома`);
+      continue;
+    }
+    assert.equal(брокеры.length, 1, `seed ${seed}: маклеров должно быть ровно один`);
+    const [маклер] = брокеры;
+    const { x, y, w, h } = plot.interior;
+    assert.ok(
+      маклер.x >= x && маклер.x < x + w && маклер.y >= y && маклер.y < y + h,
+      `seed ${seed}: маклер стоит не в том доме, который продаёт`,
+    );
+    assert.equal(town.grid[маклер.y][маклер.x], '.', `seed ${seed}: маклер стоит в стене`);
+    assert.deepEqual(cityHousePlotSpot(town.city), { x: маклер.x, y: маклер.y });
+  }
+});
+
+test('маклер уходит к ближайшему выходу, а не растворяется', () => {
+  const gates = {
+    deep: { x: 1, y: 13 },
+    surface: { x: 34, y: 13 },
+    vaults: { x: 13, y: 24 },
+  };
+  assert.deepEqual(cityDepartureCell(gates, { x: 5, y: 13 }), { x: 1, y: 13 });
+  assert.deepEqual(cityDepartureCell(gates, { x: 30, y: 12 }), { x: 34, y: 13 });
+  assert.deepEqual(cityDepartureCell(gates, { x: 13, y: 22 }), { x: 13, y: 24 });
+  // Города без ворот не бывает, но код на это не рассчитывает.
+  assert.equal(cityDepartureCell({}, { x: 1, y: 1 }), null);
+  assert.equal(cityDepartureCell(gates, null), null);
+});
+
+test('купленный дом маклера больше не держит, и уходит он своими ногами', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  // Этаж строится из плана и про забег не знает: вычёркивает маклера адаптер.
+  assert.match(runtime, /!\(spawn\.id === CITY_BROKER_ID && run\.house\.owned\)/);
+  // Покупка провожает его, а не стирает.
+  assert.match(runtime, /run\.house = result\.house;[\s\S]{0,200}sendBrokerAway\(\);/);
+  assert.match(runtime, /function walkAwayMonster\(monster, delta, blockedCells\)/);
+  assert.match(runtime, /if \(monster\.leaving\) return walkAwayMonster\(monster, delta, blockedCells\);/);
+  // Вывеска участка убрана вместе с реквизитом: продаёт человек.
+  assert.equal(runtime.includes("interactionId: 'house-deed'"), false, 'вывеска участка вернулась');
+  assert.equal(runtime.includes('deedSignCell'), false, 'клетка под вывеску осталась в коде');
+  // И он стоит на месте, пока не продал: за бродящим продавцом пришлось бы бегать.
+  assert.match(runtime, /if \(monster\.id === CITY_BROKER_ID\) return false;/);
 });

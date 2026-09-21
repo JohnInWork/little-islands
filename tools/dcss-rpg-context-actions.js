@@ -284,8 +284,9 @@ const COPY = Object.freeze({
     tavernBed: 'Ночлег',
     cellName: 'Дверь камеры',
     cellDescription: (fine) => `За этой дверью отсиживаются те, кому нечем платить. Выкуп — ${fine} реального золота.`,
-    deedName: 'Участок на продажу',
-    deedDescription: (price) => `Пустой участок за оградой. Хозяин просит ${price} реального золота и не торгуется.`,
+    deedName: 'Маклер',
+    deedDescription: (price) => `Он показывает пустой дом и продаёт его за ${price} золота. Не торгуется: `
+      + 'заплатишь — отдаст ключ и уйдёт своей дорогой.',
     slotName: (piece) => `Место под предмет: ${piece}`,
     slotDescription: (price) => `Цена: ${price} золота.`,
     houseBedName: 'Своя кровать',
@@ -377,8 +378,9 @@ const COPY = Object.freeze({
     tavernBed: 'A room',
     cellName: 'Cell door',
     cellDescription: (fine) => `Behind this door sit the ones who could not pay. Buying out costs ${fine} real gold.`,
-    deedName: 'Plot for sale',
-    deedDescription: (price) => `An empty plot behind the fence. The owner asks ${price} real gold and will not haggle.`,
+    deedName: 'Broker',
+    deedDescription: (price) => `He is showing the empty house and sells it for ${price} gold. He does not `
+      + 'haggle: pay him and he hands over the key and goes his way.',
     slotName: (piece) => `Space for: ${piece}`,
     slotDescription: (price) => `Price: ${price} gold.`,
     houseBedName: 'Your own bed',
@@ -490,7 +492,17 @@ export const INTERACTION_REGISTRY = Object.freeze([
     }),
   }),
   defineInteraction({
+    /*
+     * Дом покупают в окне, а не касанием.
+     *
+     * Единственное доступное действие игра выполняет сразу, без окна, — и
+     * триста пятьдесят золота уходили от одного нажатия на кнопку действия.
+     * Иван на первой версии: «я не понимаю, что я покупаю… модалку надо
+     * оставить». Тем более теперь, когда напротив стоит человек: разговор
+     * должен быть виден.
+     */
     id: 'house-deed',
+    confirm: true,
     command: 'buy-house',
     matches: (target) => target?.kind === 'house-deed'
       && Number.isInteger(target.price)

@@ -563,6 +563,8 @@ export const CITY_CAPTAIN_ID = 'city-captain';
 export const CITY_PRIEST_ID = 'city-priest';
 /** And the one who does not live here at all: the recruiter on the market. */
 export const CITY_RECRUITER_ID = 'city-recruiter';
+/** And the one who is selling the empty house and leaves once he has. */
+export const CITY_BROKER_ID = 'city-broker';
 
 /** The tavern block, when the plan had room for one. */
 export function cityTavernBlock(plan) {
@@ -596,6 +598,41 @@ export function cityTavernHires(plan) {
 export function cityTempleSpot(plan) {
   const block = plan.blocks.find(({ kind, interior }) => kind === 'temple' && interior);
   return block ? centreOf(block.interior) : null;
+}
+
+/**
+ * Где стоит маклер: внутри пустого дома, а не у его двери.
+ *
+ * Иван: «пусть будет какой-нибудь NPC в доме в этом стоять, ты к нему
+ * подходишь, говоришь, и он тебе как бы продаёт этот дом». Внутри — это и есть
+ * показ дома: чтобы поговорить о покупке, надо зайти и увидеть, что покупаешь.
+ * У маленького плана дома может не быть вовсе, и тогда маклера тоже нет.
+ */
+export function cityHousePlotSpot(plan) {
+  const block = plan.blocks.find(({ kind, interior }) => kind === 'plot' && interior);
+  return block ? centreOf(block.interior) : null;
+}
+
+/**
+ * Куда маклер уходит, продав дом.
+ *
+ * Не исчезает на месте: человек, растворившийся в воздухе посреди комнаты, —
+ * это сбой, а не сделка. Ближайшие к дому ворота — то место, откуда он в этот
+ * город пришёл и куда уйдёт с деньгами.
+ */
+export function cityDepartureCell(gates, from) {
+  const выходы = Object.values(gates ?? {}).filter(Boolean);
+  if (выходы.length === 0 || !from) return null;
+  let ближайшие = null;
+  let лучшее = Infinity;
+  for (const gate of выходы) {
+    const цена = Math.abs(gate.x - from.x) + Math.abs(gate.y - from.y);
+    if (цена < лучшее) {
+      лучшее = цена;
+      ближайшие = gate;
+    }
+  }
+  return ближайшие ? { x: ближайшие.x, y: ближайшие.y } : null;
 }
 
 const MERCHANT_VARIANT_ORDER = Object.freeze(['provisioner', 'armourer', 'relic-dealer']);
@@ -664,6 +701,19 @@ export function buildCityFloor({ plan, depth, seed, width, height, scaling, rng 
       x: temple.x,
       y: temple.y,
       post: Object.freeze({ ...temple }),
+    }));
+  }
+  // Маклер стоит в пустом доме, пока дом пустой. Этаж не знает, куплен ли он —
+  // это состояние забега, — поэтому маклер в плане есть всегда, а вычёркивает
+  // его `run.floor.defeated`, тот же список, которым таверна убирает нанятого.
+  const plot = cityHousePlotSpot(plan);
+  if (plot && roomIndexAt(rooms, plot) >= 0) {
+    monsters.push(Object.freeze({
+      instanceId: `monster-${depth}-${monsters.length}`,
+      id: CITY_BROKER_ID,
+      x: plot.x,
+      y: plot.y,
+      post: Object.freeze({ ...plot }),
     }));
   }
   // The common room. Four hires sit at the tables until somebody buys one, and

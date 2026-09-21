@@ -187,10 +187,12 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
 
 - `music/inn.mp3` — «Medieval: The Old Tower Inn», RandomMind.
   <https://opengameart.org/content/medieval-the-old-tower-inn> (CC0). Город.
-- `music/town.mp3` — «Town Theme RPG», cynicmusic (The Cynic Project).
-  <https://opengameart.org/content/town-theme-rpg> (CC0). Открытая местность.
+- `music/field.mp3` — «The Field Of Dreams», pauliuw.
+  <https://opengameart.org/content/the-field-of-dreams> (CC0). Открытая местность.
 - `music/cave.mp3` — «Cave Theme», Brandon75689.
   <https://opengameart.org/content/cave-theme> (CC0 / OGA-BY 3.0; взято по CC0).
   Спуск.
+- `music/town.mp3` — «Town Theme RPG», cynicmusic (The Cynic Project).
+  <https://opengameart.org/content/town-theme-rpg> (CC0). Хранилища.
 
-Хранилища, склепы и ад пока молчат: своей темы у них нет, а чужая хуже тишины.
+Склепы и ад пока молчат: своей темы у них нет, а чужая хуже тишины.

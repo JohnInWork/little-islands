@@ -285,7 +285,9 @@ test('the bedroll and the camp chest count as adjacent the way the fire does', a
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(
     runtime,
-    /const PROP_INTERACTION_KINDS = new Set\(\[\s+'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest',\s+\]\);/,
+    /const PROP_INTERACTION_KINDS = new Set\(\[\s+'campfire', 'camp-rest', 'camp-stash', 'house-slot', 'house-rest',\s+\]\);/,
+    // `house-deed` ушёл отсюда вместе с вывеской: дом теперь продаёт человек, а
+    // человек хранит своё место в пикселях, как и всё живое.
     'every camp prop lives on a grid cell, not on pixel coordinates',
   );
   assert.match(runtime, /const propTarget = PROP_INTERACTION_KINDS\.has\(entry\.kind\);/);

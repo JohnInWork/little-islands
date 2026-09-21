@@ -33,6 +33,7 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'orc-warrior': pair('Орк-воин', 'Orc warrior'),
   'city-guard': pair('Городской стражник', 'City guard'),
   'city-priest': pair('Жрец', 'Priest'),
+  'city-broker': pair('Маклер', 'Broker'),
   'city-recruiter': pair('Трактирщик', 'Innkeeper'),
   'tavern-drifter': pair('Бродяга', 'Drifter'),
   'tavern-sellsword': pair('Наёмный меч', 'Sellsword'),

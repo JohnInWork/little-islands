@@ -518,7 +518,7 @@ test('tapping a creature talks to it instead of walking through it', async () =>
   const kinds = [...finder.matchAll(/kind: '([a-z-]+)'/g)].map(([, kind]) => kind);
   assert.deepEqual(
     kinds.sort(),
-    ['companion', 'guard', 'priest', 'recruiter', 'tavern-hire', 'wildlife'],
+    ['companion', 'guard', 'house-deed', 'priest', 'recruiter', 'tavern-hire', 'wildlife'],
     'everything on the map that can be spoken to should answer a tap',
   );
 

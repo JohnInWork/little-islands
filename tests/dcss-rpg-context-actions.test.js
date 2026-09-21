@@ -250,3 +250,33 @@ test('у каждой команды реестра есть обработчи�
     assert.match(table, pattern, `команда «${command}» некому исполнять`);
   }
 });
+
+/**
+ * Дом покупают в окне, а не касанием.
+ *
+ * Единственное доступное действие игра выполняет сразу, и триста пятьдесят
+ * золота уходили от одного нажатия на кнопку действия — игрок успевал только
+ * увидеть, что стало меньше. Иван: «я не понимаю, что я покупаю… модалку надо
+ * оставить». Теперь напротив стоит маклер, и окно — это и есть разговор с ним.
+ */
+test('маклер продаёт дом через окно, и в окне написано что и почём', () => {
+  const модель = contextActionModel({
+    target: { kind: 'house-deed', price: 350, reason: 'ready', hint: '', icon: 'mon/halfling.png' },
+    language: 'ru',
+  });
+  assert.equal(модель.confirm, true, 'дом уходит от одного касания');
+  assert.equal(модель.name, 'Маклер');
+  assert.match(модель.description, /350/, 'в окне не названа цена');
+  assert.equal(модель.actions.length, 1);
+  assert.equal(модель.actions[0].enabled, true);
+  assert.equal(модель.icon, 'mon/halfling.png', 'в окне чужое лицо');
+
+  // Не хватает золота — окно всё равно открывается и объясняет, почему нельзя.
+  const бедный = contextActionModel({
+    target: { kind: 'house-deed', price: 350, reason: 'gold', hint: 'Не хватает золота', icon: 'mon/halfling.png' },
+    language: 'ru',
+  });
+  assert.equal(бедный.confirm, true);
+  assert.equal(бедный.actions[0].enabled, false);
+  assert.equal(бедный.actions[0].hint, 'Не хватает золота');
+});

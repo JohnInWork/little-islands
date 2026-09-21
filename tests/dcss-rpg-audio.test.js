@@ -266,7 +266,7 @@ test('титры называют авторов фона и мелодий', as
   const audio = CREDITS_SECTIONS.find((entry) => entry.id === 'audio');
   assert.ok(audio, 'в титрах нет раздела звука');
   const notice = await readFile(new URL('../public/assets/audio/LICENSE.md', import.meta.url), 'utf8');
-  for (const author of ['RandomMind', 'cynicmusic', 'Brandon75689', 'Paul Wortmann', 'JaggedStone']) {
+  for (const author of ['RandomMind', 'cynicmusic', 'Brandon75689', 'pauliuw', 'Paul Wortmann', 'JaggedStone']) {
     assert.ok(notice.includes(author), `${author}: нет в лицензии рядом с файлами`);
     for (const locale of ['ru', 'en']) {
       assert.ok(

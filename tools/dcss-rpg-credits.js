@@ -236,7 +236,7 @@ export const CREDITS_SECTIONS = Object.freeze([
           + 'Galacti-Chron, голос — Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP.',
         'Фон этажей и мелодии дорог — OpenGameArt: JaggedStone, Paul Wortmann, '
-          + 'RandomMind, cynicmusic, Brandon75689.',
+          + 'RandomMind, cynicmusic, Brandon75689, pauliuw.',
         'Всё — общественное достояние (CC0 1.0); авторы названы из уважения.',
       ]),
     },
@@ -247,7 +247,7 @@ export const CREDITS_SECTIONS = Object.freeze([
           + 'Galacti-Chron, voice by Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP.',
         'Floor ambience and road themes from OpenGameArt: JaggedStone, '
-          + 'Paul Wortmann, RandomMind, cynicmusic, Brandon75689.',
+          + 'Paul Wortmann, RandomMind, cynicmusic, Brandon75689, pauliuw.',
         'All public domain (CC0 1.0); the authors are named out of courtesy.',
       ]),
     },
