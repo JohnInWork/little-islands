@@ -133,7 +133,8 @@ export const FIND_CATALOG = Object.freeze([
     path: 'dngn/blue_fountain.png',
     skins: {
       'ashen-vault': 'dngn/blue_fountain.png',
-      'buried-sanctum': 'dngn/sparkling_fountain.png',
+      // Светлая вода закреплена за исцелением, поэтому здесь синяя.
+      'buried-sanctum': 'dngn/blue_fountain.png',
       'frozen-depths': 'dngn/blue_fountain2.png',
       'infernal-core': 'dngn/blood_fountain.png',
     },

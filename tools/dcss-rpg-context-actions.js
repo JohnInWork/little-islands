@@ -197,13 +197,13 @@ const COPY = Object.freeze({
     doorOpen: 'Открыта.',
     crystalName: 'Живая кристальная жила',
     crystalClosed: '',
-    crystalInspected: 'В камне мерцает кристалл.',
+    crystalInspected: 'В камне мерцает кристалл. Даст золото и силу, и ничем не грозит.',
     stashName: 'Тайник под плитой',
     stashClosed: '',
-    stashInspected: 'Плита лежит неровно: под ней пустота.',
+    stashInspected: 'Плита лежит неровно: под ней пустота. Под ней золото, и она не кусается.',
     graveName: 'Древняя гробница',
     graveClosed: '',
-    graveInspected: 'На плите видна тёмная печать.',
+    graveInspected: 'На плите видна тёмная печать. Внутри золото мёртвых, но печать ранит того, кто вскроет.',
     trapName: 'Механическая ловушка',
     trapClosed: 'Механизм взведён. Шагнёшь — сработает.',
     trapInspected: (tier, status) => `Сложность ${tier}. ${status}`,
@@ -298,13 +298,13 @@ const COPY = Object.freeze({
     doorOpen: 'Open.',
     crystalName: 'Living crystal vein',
     crystalClosed: '',
-    crystalInspected: 'A crystal glimmers within the stone.',
+    crystalInspected: 'A crystal glimmers within the stone. It yields gold and power, and costs nothing.',
     stashName: 'Stash under the flagstone',
     stashClosed: '',
-    stashInspected: 'The flagstone sits crooked: there is a hollow beneath.',
+    stashInspected: 'The flagstone sits crooked: there is a hollow beneath. Gold under it, and no teeth.',
     graveName: 'Ancient tomb',
     graveClosed: '',
-    graveInspected: 'A dark seal marks the slab.',
+    graveInspected: 'A dark seal marks the slab. The dead keep gold; the seal wounds whoever breaks it.',
     trapName: 'Mechanical trap',
     trapClosed: 'A detected mechanism blocks the safe route.',
     trapInspected: (tier, status) => `Difficulty ${tier}. ${status}`,
@@ -981,6 +981,16 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'crystal-vein',
     command: 'find-interact',
+    /*
+     * Сначала объяснить, потом сделать.
+     *
+     * Единственное действие исполнялось от касания, и окно игрок не видел
+     * вовсе: подошёл к саркофагу, нажал — и получил золото пополам с раной,
+     * не поняв, за что. Иван: «когда мы с ним взаимодействуем, нам не сразу
+     * что-то даётся, а мы видим модалку, которая объясняет, что это и что оно
+     * даёт». Дверь и сундук остаются мгновенными — там нечего объяснять.
+     */
+    confirm: true,
     matches: (target) => validFind(target, 'crystal-vein'),
     present: ({ copy }) => ({
       name: copy.crystalName,
@@ -993,6 +1003,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'buried-stash',
     command: 'find-interact',
+    confirm: true,
     matches: (target) => validFind(target, 'buried-stash'),
     present: ({ copy }) => ({
       name: copy.stashName,
@@ -1005,6 +1016,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'forgotten-grave',
     command: 'find-interact',
+    confirm: true,
     matches: (target) => validFind(target, 'forgotten-grave'),
     present: ({ copy }) => ({
       name: copy.graveName,

@@ -252,3 +252,36 @@ test('runtime keeps finds diegetic, tappable and free of persistent HUD highligh
   assert.match(html, /id="find-announcement"/);
   assert.doesNotMatch(css, /\.find-action/);
 });
+
+/**
+ * Одна картинка — одна вещь.
+ *
+ * Саркофаг означал два разных правила: находка «Древняя гробница» — золото
+ * ценой раны, событие — просто добыча под ногами. Фонтан того хуже: целебный
+ * и фонтан-выбор были одной синей чашей, а водой в игре ничего не отличишь.
+ * Иван: «пускай они не повторяются, чтобы у всех были разные ассеты»,
+ * «фонтаны у нас ещё одинаковые». Спрайт — единственное, по чему игрок
+ * заранее понимает, с чем имеет дело.
+ */
+test('у каждой находки и каждого события своя картинка', async () => {
+  const { FIND_CATALOG } = await import('../tools/dcss-rpg-finds.js');
+  const content = await import('../tools/dcss-rpg-content.js');
+  const events = Object.values(content).find((value) => Array.isArray(value) && value[0]?.effect);
+  assert.ok(events?.length >= 4, 'каталог событий не найден');
+
+  const пути = new Map();
+  for (const entry of [...FIND_CATALOG, ...events]) {
+    const прежний = пути.get(entry.path);
+    assert.equal(прежний, undefined, `«${entry.id}» и «${прежний}» нарисованы одним и тем же: ${entry.path}`);
+    пути.set(entry.path, entry.id);
+  }
+
+  // Светлая вода закреплена за исцелением и больше нигде не встречается.
+  const целебный = events.find(({ effect }) => effect === 'heal');
+  assert.match(целебный.path, /sparkling_fountain/, 'исцеление перестало быть светлым');
+  const фонтан = FIND_CATALOG.find(({ id }) => id === 'sunken-fountain');
+  const шкуры = Object.values(фонтан.skins ?? {});
+  for (const шкура of [фонтан.path, ...шкуры]) {
+    assert.ok(!/sparkling/.test(шкура), `фонтан-выбор надел светлую воду исцеления: ${шкура}`);
+  }
+});

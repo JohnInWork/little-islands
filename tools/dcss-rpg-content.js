@@ -3360,7 +3360,15 @@ export const LOOT_CATALOG = Object.freeze([
 export const EVENT_CATALOG = Object.freeze([
   {
     id: 'fountain',
-    path: 'dngn/blue_fountain2.png',
+    /*
+     * Белая вода лечит, синяя предлагает выбор.
+     *
+     * Целебный фонтан и фонтан-загадка были одной и той же синей чашей: в
+     * игре их не различить, а правила у них разные. Иван: «фонтаны у нас ещё
+     * одинаковые». Теперь исцеление всегда светлое, а выбор — синий, в аду
+     * кровавый.
+     */
+    path: 'dngn/sparkling_fountain.png',
     effect: 'heal',
     value: 24,
     status: { id: 'wet', duration: 9 },
@@ -3376,8 +3384,17 @@ export const EVENT_CATALOG = Object.freeze([
   },
   { id: 'blade-trap', path: 'dngn/traps/blade.png', effect: 'damage', value: 14, weight: 7 },
   {
+    /*
+     * Вскрытый гроб, а не запечатанный.
+     *
+     * Картинка была та же, что у находки «Древняя гробница», и одна и та же
+     * вещь означала два разных правила: там золото ценой раны, здесь просто
+     * добыча под ногами. Иван просил, чтобы предметы не повторялись. Открытый
+     * саркофаг на постаменте и выглядит тем, чем является: сокровище, до
+     * которого уже добрались.
+     */
     id: 'sarcophagus',
-    path: 'dngn/vaults/sarcophagus_sealed.png',
+    path: 'dngn/vaults/sarcophagus_pedestal_left.png',
     effect: 'loot',
     value: 2,
     weight: 6,
