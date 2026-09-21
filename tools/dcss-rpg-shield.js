@@ -29,8 +29,11 @@ export function shieldBlockRoll({ seed, depth, attackerId, attackSequence }) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError('Shield block roll requires a uint32 run seed');
   }
-  if (!Number.isInteger(depth) || depth < 1 || depth > 999) {
-    throw new RangeError('Shield block roll requires a positive floor depth');
+  // Город — такой же этаж, только нулевой. Пока нижней границей была единица,
+  // любой удар по герою в городе бросал исключение, кадр мира пропускался
+  // целиком, и игра замирала на глазах у игрока, продолжая считать бой.
+  if (!Number.isInteger(depth) || depth < 0 || depth > 999) {
+    throw new RangeError('Shield block roll requires a floor depth from the city down');
   }
   if (typeof attackerId !== 'string' || attackerId.length < 1 || attackerId.length > 80) {
     throw new TypeError('Shield block roll requires a stable attacker ID');

@@ -51,6 +51,18 @@ test('block chance requires an active shield and uses an exact inclusive boundar
 
 test('block rolls are deterministic per attack command without mutable or visual RNG', () => {
   const command = { seed: 7319, depth: 2, attackerId: 'monster-2-4', attackSequence: 7 };
+
+  /*
+   * Город — нулевой этаж, и бьют в нём по-настоящему: стража, зверьё,
+   * разбуженный капитан. Пока бросок требовал глубины от единицы, каждый
+   * такой удар ронял кадр мира — в консоли «frame failed in world and was
+   * skipped», на экране замершая картинка при живом бое.
+   */
+  assert.doesNotThrow(() => shieldBlockRoll({ ...command, depth: 0 }));
+  assert.equal(Number.isInteger(shieldBlockRoll({ ...command, depth: 0 })), true);
+  assert.notEqual(shieldBlockRoll({ ...command, depth: 0 }), shieldBlockRoll({ ...command, depth: 1 }));
+  assert.throws(() => shieldBlockRoll({ ...command, depth: -1 }), RangeError);
+  assert.throws(() => shieldBlockRoll({ ...command, depth: 1000 }), RangeError);
   const first = shieldBlockRoll(command);
   assert.equal(first, shieldBlockRoll(command));
   assert.ok(first >= 0 && first < 100);
