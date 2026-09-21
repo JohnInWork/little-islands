@@ -9063,10 +9063,77 @@ body {
   cursor: default;
 }
 
+/*
+ * Кнопки экрана говорят тем же языком, что и главное меню.
+ *
+ * Они были голым браузерным дефолтом — серые прямоугольники без рамки, тени и
+ * заглавных букв, — и посреди пиксельной игры выглядели чужими. Иван: «что за
+ * кнопки у нас какие-то дурацкие?». Золотая — главное действие, тёмная —
+ * второстепенное: ровно так же, как «Начать забег» и «Начать заново» в меню.
+ */
 .creation-actions {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 8px;
+}
+
+.creation-start {
+  min-height: 58px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #0a0e0f;
+  background: #c4a956;
+  border: 4px solid #e1cd86;
+  box-shadow: 0 6px 0 #66572e;
+  font-size: 14px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.creation-start .ui-icon {
+  background: #0a0e0f;
+}
+
+/* Запертая кнопка не притворяется доступной: цвет уходит, тень садится. */
+.creation-start:disabled {
+  color: #6b6a5c;
+  background: #4a452f;
+  border-color: #5f5a3f;
+  box-shadow: 0 4px 0 #24220f;
+  cursor: default;
+}
+
+.creation-start:disabled .ui-icon {
+  background: #6b6a5c;
+}
+
+.creation-back,
+.creation-own {
+  min-height: 52px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #c9cfca;
+  background: #11191b;
+  border: 4px solid #596668;
+  box-shadow: 0 4px 0 #020405;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+
+.creation-own .ui-icon {
+  background: #c9cfca;
 }
 
 
@@ -9129,8 +9196,4 @@ body {
 .character-creation-card[data-step='custom'] .creation-archetypes,
 .character-creation-card[data-step='custom'] .creation-own {
   display: none;
-}
-
-.creation-own {
-  width: 100%;
 }

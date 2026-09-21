@@ -11521,7 +11521,9 @@ function renderCharacterCreation() {
   creationCard.dataset.step = creationStep;
   creationCard.querySelector('#character-creation-title').textContent = свой ? copy.ownTitle : copy.pickTitle;
   creationHint.textContent = свой ? copy.ownHint : copy.pickHint;
-  creationOwnButton.textContent = copy.own;
+  // Подпись ставится в свою вставку, а не в кнопку целиком: `textContent`
+  // на кнопке стирает вместе с прежним текстом и значок внутри неё.
+  creationOwnButton.querySelector('b').textContent = copy.own;
   cancelCreationButton.textContent = свой ? copy.back : copy.cancel;
   /*
    * На первом шаге «Начать» ждёт выбора.
