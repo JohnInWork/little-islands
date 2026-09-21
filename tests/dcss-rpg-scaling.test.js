@@ -57,6 +57,11 @@ test('one versioned floor profile owns every progression axis', () => {
 
 test('the curve is monotonic and bounded across future floors', () => {
   let previous = floorScaling(1);
+  // Ordinary floors are compared with ordinary floors. A floor that ends a
+  // chapter now hands one of its places to the guardian standing on it — the
+  // guardian's own piece is what the player came down for — so the plain
+  // «never fewer than the floor above» стало неправдой ровно на одно место.
+  let previousPlain = floorScaling(1);
   for (let depth = 2; depth <= 100; depth += 1) {
     const current = floorScaling(depth);
     assert.ok(current.dangerRating > previous.dangerRating);
@@ -65,7 +70,14 @@ test('the curve is monotonic and bounded across future floors', () => {
     assert.ok(current.encounters.maxMonsterTier >= previous.encounters.maxMonsterTier);
     assert.ok(current.monsters.hpMultiplier > previous.monsters.hpMultiplier);
     assert.ok(current.monsters.damageMultiplier > previous.monsters.damageMultiplier);
-    assert.ok(current.rewards.lootCount >= previous.rewards.lootCount);
+    assert.ok(current.rewards.lootCount >= previous.rewards.lootCount - 1);
+    if (!current.rewards.chapterBonus) {
+      assert.ok(
+        current.rewards.lootCount >= previousPlain.rewards.lootCount - 1,
+        `этаж ${depth}: обычный этаж обеднел больше, чем на одно место`,
+      );
+      previousPlain = current;
+    }
     assert.ok(current.encounters.monsterCount <= 24);
     assert.ok(current.encounters.maxMonsterTier <= 9);
     assert.ok(current.rewards.lootCount <= 9);

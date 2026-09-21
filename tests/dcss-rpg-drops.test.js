@@ -14,6 +14,8 @@ import {
 import { MONSTER_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { RARE_MONSTERS } from '../tools/dcss-rpg-rare-encounters.js';
 import { eligibleArtifactPowers } from '../tools/dcss-rpg-artifacts.js';
+import { floorScaling } from '../tools/dcss-rpg-scaling.js';
+import { DEFAULT_LOOT_ABUNDANCE, floorLootEconomy } from '../tools/dcss-rpg-loot-economy.js';
 
 const все = [...MONSTER_CATALOG, ...RARE_MONSTERS];
 const существо = (id) => все.find((monster) => monster.id === id) ?? null;
@@ -116,4 +118,37 @@ test('добыча кладётся на пол и записывается в �
   // Этаж собирается из обоих источников, иначе упавшее исчезло бы при входе.
   assert.match(runtime, /function createFloorLoot\(level\)/);
   assert.doesNotMatch(runtime, /lootDefinitions = createLootDefinitions\(dungeon\)/);
+});
+
+/**
+ * Столько же добра, но часть его надо отбить.
+ *
+ * Добыча с убитых — прибавка, и если пол оставить прежним, к середине дороги
+ * станет жирно. Поэтому этаж отдаёт одно место бою с той глубины, где у
+ * монстров вообще есть что ронять. Первые четыре этажа не трогаются: там
+ * ронять некому, а голый старт Иван уже ловил однажды.
+ */
+test('этаж отдаёт одно место бою, и только там, где бою есть что дать', () => {
+  for (const depth of [1, 2, 3, 4]) {
+    assert.equal(
+      floorScaling(depth).rewards.lootCount,
+      floorLootEconomy({
+        baseCount: Math.min(9, 4 + Math.floor(depth / 2)),
+        baseQualityBudget: 10,
+        abundance: DEFAULT_LOOT_ABUNDANCE,
+      }).count,
+      `этаж ${depth}: начало дороги обеднело`,
+    );
+  }
+  // Глубже — ровно одно место, и на этаже стража тоже одно: его вещь
+  // заменяет надбавку за главу, а не половину этажа.
+  for (const depth of [5, 9, 12, 15, 18]) {
+    const прежде = floorLootEconomy({
+      baseCount: Math.min(9, 4 + Math.floor(depth / 2)),
+      baseQualityBudget: 10,
+      abundance: DEFAULT_LOOT_ABUNDANCE,
+    }).count;
+    const теперь = floorScaling(depth).rewards.lootCount;
+    assert.equal(теперь, прежде - 1, `этаж ${depth}: отдано не одно место`);
+  }
 });
