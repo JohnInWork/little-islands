@@ -14,10 +14,17 @@ import {
   parleyWaresPrice,
   resolveParley,
   PARLEY_BET_PRIZE,
+  PARLEY_BLOOD_PRIZE,
+  PARLEY_BLOOD_SHARE,
+  PARLEY_SOUL_GOLD,
+  PARLEY_SOUL_POWER,
+  PARLEY_SOUL_PRIZE,
   PARLEY_WARES,
+  parleyBloodCost,
 } from '../tools/dcss-rpg-parley.js';
 import { RARE_MONSTER_IDS, RARE_ENCOUNTER_CHANCE } from '../tools/dcss-rpg-rare-encounters.js';
-import { MONSTER_CATALOG } from '../tools/dcss-rpg-content.js';
+import { LOOT_CATALOG, MONSTER_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
+import { eligibleArtifactPowers, validateProceduralArtifactState } from '../tools/dcss-rpg-artifacts.js';
 
 const runtimeUrl = new URL('../tools/dcss.js', import.meta.url);
 
@@ -148,8 +155,13 @@ test('адаптер спрашивает разговор раньше драк
     column.indexOf("add('parley'") < column.indexOf("add('guard'"),
     'драка предлагается раньше разговора',
   );
-  // Уже ответивший из списка пропадает: карточка не открывается дважды.
-  assert.match(runtime, /parleyFor\(monster\.id\)\s*\n\s*&& monster\.dead === 0\s*\n\s*&& !monster\.provoked/);
+  // Уже ответивший из списка пропадает: карточка не открывается дважды — ни
+  // сразу, ни после перезагрузки, ради которой этаж и помнит `spoken`.
+  assert.match(
+    runtime,
+    /parleyFor\(monster\.id\)\s*\n\s*&& parleyStillOpen\(monster\)\s*\n\s*&& monster\.dead === 0\s*\n\s*&& !monster\.provoked/,
+  );
+  assert.match(runtime, /run\.floor\.spoken\?\.includes\(monster\.instanceId\)/);
   // Исход применяется целиком, а не наполовину.
   for (const кусок of ['result.takesWeapon', 'result.takesFood', 'result.goldDelta', 'result.heal', 'result.hostile', 'result.leaves']) {
     assert.ok(runtime.includes(кусок), `${кусок} не применяется`);
@@ -312,4 +324,114 @@ test('вор идёт следом, пока держит чужое', async () 
   assert.equal(кража.slice(0, кража.indexOf('\n}\n')).includes("equippedItem("), false, 'вор снимает надетое');
   // И смерть возвращает: вызов стоит там же, где записывается победа.
   assert.match(runtime, /run\.stats\.kills \+= 1;\s*\n\s*recoverStolenItem\(monster\);/);
+});
+
+/**
+ * Демон, покупающий душу.
+ *
+ * Иван: «она будет предлагать тебе очень много денег <...> в обмен на твою
+ * душу. И если игрок соглашается, то эта штука просто становится злой и
+ * убивает игрока». И, отдельно, про текст разговора: «Он просто предлагает
+ * тебе деньги взамен на душу. И ответ согласится или нет. И не пишем, что
+ * случится».
+ *
+ * Поэтому здесь проверяется не только арифметика, но и молчание: в карточке
+ * ровно два ответа и ни одного предупреждения. Цена не названа нигде — ни
+ * подсказкой у кнопки, ни намёком в реплике, — и это её условие, а не
+ * недоработка. Единственное, что игра обязана сделать честно, — не соврать
+ * про сумму и не спрятать то, что происходит после «да».
+ */
+test('за душу дают деньги и не говорят, чем это кончится', () => {
+  for (const language of ['ru', 'en']) {
+    const карточка = parleyModel({ monsterId: 'gloorx-vloq', depth: 14, language });
+    assert.equal(карточка.options.length, 2, 'у сделки появился третий ответ');
+    assert.ok(карточка.options.every(({ enabled, hint }) => enabled && hint === ''),
+      'у ответа есть подсказка — значит, что-то объяснено заранее');
+    assert.ok(карточка.options[0].label.includes(String(PARLEY_SOUL_GOLD)), 'сумма не названа');
+  }
+  const продал = resolveParley({ monsterId: 'gloorx-vloq', option: 'sell', depth: 14 });
+  assert.equal(продал.goldDelta, PARLEY_SOUL_GOLD);
+  assert.equal(продал.soldSoul, true, 'сделка не записана, и её можно повторить');
+  assert.equal(продал.hostile, true);
+  assert.ok(продал.damageMultiplier >= 3 && продал.hpMultiplier >= 3, 'согласие ничего не изменило');
+  assert.equal(продал.leaves, false, 'получивший согласие уходит с этажа');
+
+  // Отказ ничего не стоит и ничем не грозит: предложение без названной цены
+  // обязано иметь выход, иначе это не предложение.
+  const отказал = resolveParley({ monsterId: 'gloorx-vloq', option: 'refuse', depth: 14 });
+  assert.equal(отказал.hostile, false, 'отказ карается дракой');
+  assert.equal(отказал.goldDelta, 0);
+  assert.equal(отказал.soldSoul, false);
+  assert.equal(отказал.leaves, true, 'отказавшему демон остаётся стоять над душой');
+});
+
+/**
+ * Кровь за нож.
+ *
+ * Вампир берёт настоящую цену — почти половину полосы — и отдаёт то, чем сам
+ * эту цену берёт. Разговор при этом не убивает: тому, у кого крови меньше,
+ * чем просят, кнопка не даётся и объясняет почему.
+ */
+test('вампир берёт кровь, но не жизнь', () => {
+  assert.equal(parleyBloodCost(200), Math.round(200 * PARLEY_BLOOD_SHARE));
+  const слабый = parleyModel({ monsterId: 'jory', depth: 10, hp: 40, maxHp: 200 });
+  const [дать] = слабый.options;
+  assert.equal(дать.enabled, false, 'разговор даёт истечь кровью насмерть');
+  assert.ok(дать.hint.length > 0, 'кнопка погасла молча');
+
+  const крепкий = parleyModel({ monsterId: 'jory', depth: 10, hp: 190, maxHp: 200 });
+  assert.equal(крепкий.options[0].enabled, true);
+  const дал = resolveParley({ monsterId: 'jory', option: 'bleed', depth: 10, hp: 190, maxHp: 200 });
+  assert.equal(дал.hpCost, parleyBloodCost(200));
+  assert.ok(дал.hpCost < 190, 'плата больше, чем есть крови');
+  assert.equal(дал.grantsItemId, PARLEY_BLOOD_PRIZE.id);
+  assert.equal(дал.grantsPowerId, PARLEY_BLOOD_PRIZE.powerId);
+  assert.equal(дал.leaves, true, 'сытый вампир остаётся на этаже');
+  // Отказавшему он всё-таки берёт своё: он за этим и пришёл.
+  assert.equal(resolveParley({ monsterId: 'jory', option: 'refuse', depth: 10, hp: 190, maxHp: 200 }).hostile, true);
+});
+
+/**
+ * Обещанное должно существовать и надеваться.
+ *
+ * И нож вампира, и то, что остаётся от демона, выдаются как артефакты — вещь
+ * каталога плюс сила. Сила, не подходящая этой вещи, не наденется и уронит
+ * сохранение на проверке, а заметить это иначе было бы негде: обе выдачи
+ * редкие, и до них доживает не каждый забег.
+ */
+test('награды именных — настоящие вещи с подходящей силой', () => {
+  for (const приз of [PARLEY_BLOOD_PRIZE, PARLEY_SOUL_PRIZE]) {
+    const вещь = lootById(приз.id);
+    assert.ok(вещь, `${приз.id}: такой вещи в игре нет`);
+    assert.ok(
+      eligibleArtifactPowers(вещь).some(({ id }) => id === приз.powerId),
+      `${приз.id}: сила ${приз.powerId} на эту вещь не ложится`,
+    );
+    assert.ok(validateProceduralArtifactState(вещь, {
+      artifactPowerId: приз.powerId,
+      artifactCurseId: null,
+    }), `${приз.id}: сохранение не примет такую вещь`);
+  }
+  // Приз демона — из лучшего, что есть: по урону выше него в каталоге никого.
+  const меч = lootById(PARLEY_SOUL_PRIZE.id);
+  const сильнее = LOOT_CATALOG.filter((item) => (item.stats?.attack ?? 0) > (меч.stats?.attack ?? 0));
+  assert.deepEqual(сильнее.map((item) => item.id), [], 'демон роняет не лучшее оружие в игре');
+});
+
+/**
+ * Сделка переживает перезагрузку, а разговор — не повторяется.
+ *
+ * Всё остальное в разговорах обратимо только дракой, но у этих двоих на кону
+ * пять тысяч и характеристика, и сохраниться перед ответом было бы способом
+ * получать их сколько угодно. Поэтому сделка лежит на забеге, а состоявшийся
+ * разговор — на этаже, и оба переживают загрузку.
+ */
+test('проданную душу и выпитую кровь нельзя получить дважды', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(runtime, /if \(result\.soldSoul\) run\.soulSold = true;/);
+  assert.match(runtime, /run\.floor\.spoken\.push\(monster\.instanceId\)/);
+  // А встреченный после сделки демон уже не разговаривает и бьёт втрое.
+  assert.match(runtime, /if \(run\.soulSold\) \{/);
+  assert.match(runtime, /PARLEY_SOUL_POWER/);
+  assert.ok(PARLEY_SOUL_POWER >= 3, 'согласившемуся достался обычный демон');
 });

@@ -1603,6 +1603,24 @@ export function createRun(
     portal: null,
     crime: createCrimeState(),
     companions: [],
+    /*
+     * Продана ли душа.
+     *
+     * Единственная сделка в игре, у которой нет отката. Она лежит на забеге, а
+     * не на этаже, потому что переживает и спуск, и подъём, и перезагрузку:
+     * получив согласие, демон больше не предлагает — он уже получил, — и любой
+     * следующий такой же встречает героя не разговором.
+     */
+    soulSold: false,
+    /*
+     * Обещанное, которому не хватило места в рюкзаке.
+     *
+     * Иван про вора: «если он у тебя какой-нибудь важный предмет навсегда
+     * заберёт, это не круто по отношению к игроку». Потерять лучшую вещь в
+     * игре из-за полного рюкзака — ровно то же самое, поэтому она ждёт здесь
+     * и приходит с первым освободившимся местом.
+     */
+    prize: null,
     floors: {},
     floor: createEmptyFloorState(dungeon),
   };
@@ -1612,6 +1630,16 @@ function createEmptyFloorState(dungeon = null) {
   return {
     revealed: [],
     defeated: [],
+    /*
+     * С кем на этом этаже разговор уже был.
+     *
+     * Ушедший именной попадает в `defeated` и назад не приходит, но
+     * разговорчивый может и остаться стоять — Рока благословляет и не уходит,
+     * Джори берёт кровь, демон ждёт ответа. Без этого списка перезагрузка
+     * открывала бы тот же разговор заново, а с ним — то же лечение, ту же
+     * силу и то же золото ещё раз.
+     */
+    spoken: [],
     collected: [],
     resolved: [],
     resolvedFindIds: [],
@@ -1913,6 +1941,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers finished conversations; a migrated floor has had none.
+    migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -2048,6 +2078,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers finished conversations; a migrated floor has had none.
+    migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -2151,6 +2183,7 @@ export function migrateLegacyRun(snapshot) {
         ? {
             revealed: [],
             defeated: [],
+            spoken: [],
             collected: [],
             resolved: [],
             resolvedFindIds: [],
@@ -2166,6 +2199,7 @@ export function migrateLegacyRun(snapshot) {
         : {
             revealed: [...snapshot.floor.revealed],
             defeated: [...snapshot.floor.defeated],
+            spoken: [...(snapshot.floor.spoken ?? [])],
             collected: [...snapshot.floor.collected],
             resolved: [...snapshot.floor.resolved],
             resolvedFindIds: [],
@@ -2196,6 +2230,8 @@ export function migrateLegacyRun(snapshot) {
     migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
     // v48 gives a floor its second wind; a migrated floor has not spent one.
     migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+    // v51 remembers finished conversations; a migrated floor has had none.
+    migrated.floor.spoken = migrated.floor.spoken ?? [];
     migrated.camp = migrated.camp ?? { stash: createCampStash() };
     // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
     migrated.house = createHouseState(migrated.house);
@@ -2287,6 +2323,7 @@ export function migrateLegacyRun(snapshot) {
     floor: {
       revealed: [],
       defeated: [],
+      spoken: [],
       collected: [],
       resolved: [],
       resolvedFindIds: [],
@@ -2316,6 +2353,8 @@ export function migrateLegacyRun(snapshot) {
   migrated.floor.camp = withCampFire(migrated.floor.camp ?? null);
   // v48 gives a floor its second wind; a migrated floor has not spent one.
   migrated.floor.secondWindSpent = migrated.floor.secondWindSpent ?? false;
+  // v51 remembers finished conversations; a migrated floor has had none.
+  migrated.floor.spoken = migrated.floor.spoken ?? [];
   migrated.camp = migrated.camp ?? { stash: createCampStash() };
   // v41 gives the hero a house to buy; a migrated run simply has no deed yet.
   migrated.house = createHouseState(migrated.house);
@@ -2377,6 +2416,13 @@ function validateFloorShape(floor, depth) {
   if (!validateCampState(floor.camp)) return false;
   // Older floors predate second wind and simply have not spent it.
   if (floor.secondWindSpent !== undefined && typeof floor.secondWindSpent !== 'boolean') return false;
+  // The same for finished conversations: an older floor has had none.
+  if (
+    floor.spoken !== undefined
+    && (!Array.isArray(floor.spoken)
+      || floor.spoken.length > 64
+      || !floor.spoken.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 70))
+  ) return false;
   if (!validateChestContainerStates(floor.chests, { depth: depth })) return false;
   if (!validateMerchantStateShape(floor.merchants, depth)) return false;
   if (
@@ -2557,6 +2603,17 @@ export function validateRun(snapshot) {
   if (!isFiniteInteger(snapshot.gold, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (!['playing', 'dead', 'victory', 'retired'].includes(snapshot.status)) return false;
   if (typeof snapshot.started !== 'boolean') return false;
+  // Saves written before the demon showed up simply have a soul.
+  if (snapshot.soulSold !== undefined && typeof snapshot.soulSold !== 'boolean') return false;
+  if (
+    snapshot.prize !== undefined && snapshot.prize !== null
+    && (typeof snapshot.prize !== 'object'
+      || !lootById(snapshot.prize.id)
+      || typeof snapshot.prize.uid !== 'string'
+      || snapshot.prize.uid.length < 1
+      || snapshot.prize.uid.length > 80
+      || (snapshot.prize.powerId !== null && typeof snapshot.prize.powerId !== 'string'))
+  ) return false;
   if (!isFiniteInteger(snapshot.commandSequence, 0, 1_000_000_000)) return false;
   if (!validateRunStats(snapshot.stats)) return false;
   if (!validateItemKnowledge(snapshot.knowledge, IDENTIFIABLE_ITEM_IDS)) return false;

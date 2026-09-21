@@ -59,7 +59,7 @@ test('v9 migration grants earned skill points and preserves difficulty across th
   assert.deepEqual(floorWithoutChests, {
     revealed: [], defeated: [], collected: [], resolved: [], resolvedFindIds: [],
     detectedTrapIds: [], disarmedTrapIds: [], placedTraps: [], opened: [],
-    triggered: [], monsters: [], passives: [], camp: null, secondWindSpent: false, merchants: [],
+    triggered: [], monsters: [], passives: [], camp: null, secondWindSpent: false, spoken: [], merchants: [],
   });
   assert.ok(chests.length > 0);
   assert.equal(next.started, false);

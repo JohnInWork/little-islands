@@ -46,6 +46,8 @@ import { createSpellState } from '../tools/dcss-rpg-spells.js';
 const EMPTY_FLOOR = Object.freeze({
   revealed: [],
   defeated: [],
+  // Никто ещё ничего не сказал: разговоры этаж помнит отдельно от убитых.
+  spoken: [],
   collected: [],
   resolved: [],
   resolvedFindIds: [],

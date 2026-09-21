@@ -19,6 +19,7 @@ import {
   monsterSuitsBranch,
 } from '../tools/dcss-rpg-content.js';
 import { DUNGEON_THEME_CATALOG, OPENING_THEME_IDS } from '../tools/dcss-rpg-room-plans.js';
+import { RARE_ENCOUNTERS } from '../tools/dcss-rpg-rare-encounters.js';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import { STORY_DEPTH } from '../tools/dcss-rpg-run.js';
 import { SUPPLY_POOL_SHARE, balanceSupplyWeights } from '../tools/dcss-rpg-loot-economy.js';
@@ -104,6 +105,11 @@ test('an item is sorted by what it is for', () => {
   assert.ok(LOOT_CATALOG.every((item) => LOOT_CATEGORIES.includes(lootCategory(item))));
 });
 
+/** Rare encounters that are not available from the first floor down. */
+const LATE_RARE_IDS = new Set(RARE_ENCOUNTERS
+  .filter((entry) => entry.minDepth > 1)
+  .map((entry) => entry.monsterId));
+
 test('the place decides who lives there', () => {
   // The numbers are shares of spawned monsters over the sweep above.
   assert.ok(
@@ -133,13 +139,24 @@ test('the place decides who lives there', () => {
     const hosted = new Set(MONSTER_CATALOG
       .filter((monster) => !monster.spawn && monsterSuitsBranch(monster, branch))
       .map((monster) => monster.kin));
+    // Required is narrower than allowed, and by one thing: a rare encounter
+    // that waits for its depth. Those do not come from the biome table at all
+    // — they are their own roll on their own schedule — so a named who first
+    // appears on the twelfth floor cannot be demanded of a place the road only
+    // passes early. It is the same exemption the opening themes have, for the
+    // same reason. A dragon still counts: it comes from the first floor on.
+    const expected = new Set(MONSTER_CATALOG
+      .filter((monster) => (
+        !monster.spawn && !LATE_RARE_IDS.has(monster.id) && monsterSuitsBranch(monster, branch)
+      ))
+      .map((monster) => monster.kin));
     for (const kin of MONSTER_KINS) {
       const seen = survey.get(themeId).kin.get(kin) ?? 0;
       // The two places the descent always opens with are always shallow, so the
       // deep tiers never meet them inside the written road. That is the depth
       // schedule talking, not the biome table — the table is checked not to
       // silence anything by `a biome weighs, it never gates`.
-      if (hosted.has(kin) && !OPENING_THEME_IDS.includes(themeId)) {
+      if (expected.has(kin) && !OPENING_THEME_IDS.includes(themeId)) {
         assert.ok(seen > 0, `${kin} never appears in ${themeId}`);
       }
       if (!hosted.has(kin)) assert.equal(seen, 0, `${kin} has no business in ${themeId}`);

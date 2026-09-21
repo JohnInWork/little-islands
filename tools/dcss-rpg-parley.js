@@ -74,6 +74,42 @@ export const PARLEY_WARES = Object.freeze({
 /** Что достаётся выигравшему пари. */
 export const PARLEY_BET_PRIZE = 'mystery-potion';
 
+/**
+ * Цена души.
+ *
+ * Иван: «она будет предлагать тебе очень много денег <...> в обмен на твою
+ * душу. И если игрок соглашается, то эта штука просто становится злой и
+ * убивает игрока. <...> Давай где-то 5000». И отдельно, про текст: «Он просто
+ * предлагает тебе деньги взамен на душу. И ответ согласится или нет. И не
+ * пишем, что случится».
+ *
+ * Поэтому здесь нет ни предупреждения, ни намёка в цифрах: пять тысяч — это
+ * примерно четырнадцать домов, и весь разговор состоит из суммы и двух кнопок.
+ * Что будет дальше, игра говорит не словами.
+ */
+export const PARLEY_SOUL_GOLD = 5000;
+
+/** Во сколько раз согласившийся тяжелее того, кто предлагал. */
+export const PARLEY_SOUL_POWER = 3;
+
+/**
+ * Что остаётся от демона, если его всё-таки убить. Роняет он это всегда, а не
+ * только за проданную душу: тир девять, «очень тихо, даже крысы ушли», — тот,
+ * кто такое свалил, заслужил лучшее, что есть в игре, и без сделки тоже.
+ */
+export const PARLEY_SOUL_PRIZE = Object.freeze({ id: 'blood-axe', powerId: 'executioner' });
+
+/** Сколько крови берёт вампир — доля полной полосы, а не текущей. */
+export const PARLEY_BLOOD_SHARE = 0.4;
+
+/** И что отдаёт взамен: то, чем берёт кровь сам. */
+export const PARLEY_BLOOD_PRIZE = Object.freeze({ id: 'spriggan-knife', powerId: 'vampirism' });
+
+export function parleyBloodCost(maxHp) {
+  if (!Number.isFinite(maxHp) || maxHp < 1) throw new TypeError('Blood needs a health bar');
+  return Math.max(1, Math.round(maxHp * PARLEY_BLOOD_SHARE));
+}
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     'blork-the-orc': Object.freeze({
@@ -131,6 +167,23 @@ const COPY = Object.freeze({
       nothing: 'Забывать пока нечего',
       done: 'Фаннар кладёт ладонь на лоб, и выученное осыпается. Очки снова твои.',
       kept: 'Фаннар кивает: значит, всё было выбрано верно.',
+    }),
+    'gloorx-vloq': Object.freeze({
+      name: 'Глоркс Влок',
+      line: 'Твоя душа. Пять тысяч золотом, здесь и сейчас.',
+      sell: (gold) => `Продать · +${gold}{gold}`,
+      refuse: 'Отказаться',
+      sold: 'Золото ложится в ладонь. Глоркс больше не отводит взгляд.',
+      refused: 'Глоркс кивает и уходит обратно в темноту.',
+    }),
+    jory: Object.freeze({
+      name: 'Джори',
+      line: 'Дай мне крови. Взамен отдам то, чем беру её сам.',
+      bleed: (cost) => `Дать крови · −${cost}{heal}`,
+      fight: 'Отказать',
+      weak: 'Крови слишком мало',
+      gave: 'Джори пьёт, вытирает рот и отдаёт свой нож.',
+      refused: 'Джори решает взять своё сам.',
     }),
     gastronok: Object.freeze({
       name: 'Гастроном',
@@ -199,6 +252,23 @@ const COPY = Object.freeze({
       done: 'Fannar lays a palm on your brow and the learning falls away. The points are yours again.',
       kept: 'Fannar nods: then it was all chosen well.',
     }),
+    'gloorx-vloq': Object.freeze({
+      name: 'Gloorx Vloq',
+      line: 'Your soul. Five thousand in gold, here and now.',
+      sell: (gold) => `Sell · +${gold}{gold}`,
+      refuse: 'Refuse',
+      sold: 'The gold settles in your palm. Gloorx stops looking past you.',
+      refused: 'Gloorx nods and walks back into the dark.',
+    }),
+    jory: Object.freeze({
+      name: 'Jory',
+      line: 'Give me blood. I will give you what I take it with.',
+      bleed: (cost) => `Give blood · −${cost}{heal}`,
+      fight: 'Refuse',
+      weak: 'Too little blood left',
+      gave: 'Jory drinks, wipes his mouth and hands over his knife.',
+      refused: 'Jory decides to take his own.',
+    }),
     gastronok: Object.freeze({
       name: 'Gastronok',
       line: 'Could eat. I can pay, I have coin.',
@@ -229,6 +299,18 @@ export const PARLEY_ENCOUNTERS = Object.freeze({
   eustachio: Object.freeze({ id: 'eustachio', kind: 'wares', hostileOnRefusal: false }),
   // Добрый: отказ его не задевает, и уходить ему тоже некуда — он бродит сам.
   fannar: Object.freeze({ id: 'fannar', kind: 'respec', hostileOnRefusal: false }),
+  /*
+   * Единственный, кого отказ не злит и кто при этом опасен.
+   *
+   * Он пришёл за согласием, а не за дракой: отказавшему он ничего не делает и
+   * уходит — в этом и смысл предложения, у которого не написана цена. Драка
+   * начинается только с «да».
+   */
+  'gloorx-vloq': Object.freeze({
+    id: 'gloorx-vloq', kind: 'soul', hostileOnRefusal: false, leavesOnRefusal: true,
+  }),
+  // Вампир: пришёл за кровью и без неё не уйдёт.
+  jory: Object.freeze({ id: 'jory', kind: 'blood', hostileOnRefusal: true }),
 });
 
 export const PARLEY_IDS = Object.freeze(Object.keys(PARLEY_ENCOUNTERS));
@@ -250,6 +332,8 @@ export function parleyModel({
   monsterId,
   depth = 1,
   gold = 0,
+  hp = 0,
+  maxHp = 1,
   weaponName = '',
   foodCount = 0,
   skills = null,
@@ -344,6 +428,36 @@ export function parleyModel({
     });
   }
 
+  if (encounter.kind === 'soul') {
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: 0,
+      options: Object.freeze([
+        Object.freeze({ id: 'sell', label: copy.sell(PARLEY_SOUL_GOLD), enabled: true, hint: '' }),
+        Object.freeze({ id: 'refuse', label: copy.refuse, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
+  if (encounter.kind === 'blood') {
+    const цена = parleyBloodCost(maxHp);
+    // Разговор не должен убивать. Тому, у кого крови меньше, чем просят,
+    // кнопка не даётся — и объясняет почему, как везде здесь.
+    const хватает = Number.isFinite(hp) && hp > цена;
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: 0,
+      options: Object.freeze([
+        Object.freeze({ id: 'bleed', label: copy.bleed(цена), enabled: хватает, hint: хватает ? '' : copy.weak }),
+        Object.freeze({ id: 'refuse', label: copy.fight, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
   if (encounter.kind === 'passage') {
     return Object.freeze({
       id: monsterId,
@@ -377,13 +491,37 @@ export function parleyModel({
  * Возвращает только то, что меняется, — адаптер применяет. `leaves` значит,
  * что именной уходит с этажа: договорившись, он свою добычу получил, и стоять
  * у героя на пути ему больше незачем.
+ *
+ * Поля итога всегда все на месте, даже нулевые: переходник читает их без
+ * проверок, и новый разговор не заставляет дописывать нули в старые.
  */
+const outcome = (changes) => Object.freeze({
+  ok: true,
+  hostile: false,
+  damageMultiplier: 1,
+  hpMultiplier: 1,
+  leaves: false,
+  goldDelta: 0,
+  heal: 0,
+  hpCost: 0,
+  takesWeapon: false,
+  takesFood: false,
+  grantsItemId: null,
+  grantsPowerId: null,
+  soldSoul: false,
+  respec: false,
+  message: '',
+  ...changes,
+});
+
 export function resolveParley({
   monsterId,
   option,
   depth = 1,
   seed = 0,
   gold = 0,
+  hp = 0,
+  maxHp = 1,
   weaponName = '',
   foodCount = 0,
   skills = null,
@@ -392,7 +530,9 @@ export function resolveParley({
 } = {}) {
   const encounter = parleyFor(monsterId);
   if (!encounter) throw new TypeError(`No parley for ${monsterId}`);
-  const model = parleyModel({ monsterId, depth, gold, weaponName, foodCount, skills, attributes, language });
+  const model = parleyModel({
+    monsterId, depth, gold, hp, maxHp, weaponName, foodCount, skills, attributes, language,
+  });
   const chosen = model.options.find(({ id }) => id === option);
   if (!chosen) throw new TypeError(`Unknown parley option ${option}`);
   const copy = COPY[locale(language)][monsterId];
@@ -401,37 +541,19 @@ export function resolveParley({
   if (encounter.kind === 'bet' && (option === 'left' || option === 'right')) {
     const выпало = parleyRoll(seed, depth, monsterId) < 0.5 ? 'left' : 'right';
     const угадал = option === выпало;
-    return Object.freeze({
-      ok: true,
+    return outcome({
       // Проигравший пари получает драку, на которую сам согласился, нажимая.
       hostile: !угадал,
       damageMultiplier: угадал ? 1 : 1.5,
       leaves: угадал,
-      goldDelta: 0,
-      heal: 0,
-      takesWeapon: false,
-      takesFood: false,
       grantsItemId: угадал ? PARLEY_BET_PRIZE : null,
-      respec: false,
       message: угадал ? copy.won : copy.lost,
     });
   }
 
   if (option === 'forget') {
-    return Object.freeze({
-      ok: true,
-      hostile: false,
-      damageMultiplier: 1,
-      // Он не торговец и никуда не уходит: побродит и останется на этаже.
-      leaves: false,
-      goldDelta: -model.price,
-      heal: 0,
-      takesWeapon: false,
-      takesFood: false,
-      grantsItemId: null,
-      respec: true,
-      message: copy.done,
-    });
+    // Он не торговец и никуда не уходит: побродит и останется на этаже.
+    return outcome({ goldDelta: -model.price, respec: true, message: copy.done });
   }
 
   if (option === 'buy') {
@@ -443,33 +565,54 @@ export function resolveParley({
         Math.floor((бросок - 0.5) * 2 * PARLEY_WARES.real.length),
       )]
       : PARLEY_WARES.junk;
-    return Object.freeze({
-      ok: true,
-      hostile: false,
-      damageMultiplier: 1,
+    return outcome({
       leaves: true,
       goldDelta: -model.price,
-      heal: 0,
-      takesWeapon: false,
-      takesFood: false,
       grantsItemId: вещь,
-      respec: false,
       message: настоящее ? copy.good : copy.bad,
     });
   }
 
+  /*
+   * Согласие.
+   *
+   * Деньги приходят сразу и остаются: сделка состоялась, и отменить её нельзя
+   * ни смертью, ни перезагрузкой — `soldSoul` переживает и то и другое. Всё
+   * остальное здесь — множители: тот же демон, только втрое.
+   */
+  if (option === 'sell') {
+    return outcome({
+      hostile: true,
+      damageMultiplier: PARLEY_SOUL_POWER,
+      hpMultiplier: PARLEY_SOUL_POWER,
+      goldDelta: PARLEY_SOUL_GOLD,
+      soldSoul: true,
+      message: copy.sold,
+    });
+  }
+
+  /*
+   * Кровь за нож.
+   *
+   * Плата берётся из полосы сразу и не лечится обратно: вампир уходит сытым,
+   * а герой остаётся на этаже с тем, что осталось. Нож быстрый и с Алой
+   * Жаждой — ровно тот «очень крутой билд», который потолок вампиризма
+   * держит в рамках, а не запрещает.
+   */
+  if (option === 'bleed') {
+    return outcome({
+      leaves: true,
+      hpCost: parleyBloodCost(maxHp),
+      grantsItemId: PARLEY_BLOOD_PRIZE.id,
+      grantsPowerId: PARLEY_BLOOD_PRIZE.powerId,
+      message: copy.gave,
+    });
+  }
+
   if (option === 'refuse') {
-    return Object.freeze({
-      ok: true,
+    return outcome({
       hostile: encounter.hostileOnRefusal,
-      leaves: false,
-      goldDelta: 0,
-      heal: 0,
-      takesWeapon: false,
-      takesFood: false,
-      grantsItemId: null,
-      damageMultiplier: 1,
-      respec: false,
+      leaves: Boolean(encounter.leavesOnRefusal),
       message: encounter.kind === 'passage' ? copy.attacked
         : encounter.kind === 'food' ? copy.denied
           : encounter.kind === 'bet' ? copy.walked
@@ -480,67 +623,19 @@ export function resolveParley({
   }
 
   if (option === 'pay') {
-    return Object.freeze({
-      ok: true,
-      hostile: false,
-      leaves: true,
-      goldDelta: -model.price,
-      heal: 0,
-      takesWeapon: false,
-      takesFood: false,
-      grantsItemId: null,
-      damageMultiplier: 1,
-      respec: false,
-      message: copy.paid,
-    });
+    return outcome({ leaves: true, goldDelta: -model.price, message: copy.paid });
   }
 
   if (option === 'leave') {
     const heal = parleyBlessingHeal(depth);
-    return Object.freeze({
-      ok: true,
-      hostile: false,
-      // Рока никуда не уходит: он и не мешал. Просто разговор окончен.
-      leaves: false,
-      goldDelta: 0,
-      heal,
-      takesWeapon: false,
-      takesFood: false,
-      grantsItemId: null,
-      damageMultiplier: 1,
-      respec: false,
-      message: copy.left(heal),
-    });
+    // Рока никуда не уходит: он и не мешал. Просто разговор окончен.
+    return outcome({ heal, message: copy.left(heal) });
   }
 
   if (encounter.kind === 'weapon') {
-    return Object.freeze({
-      ok: true,
-      hostile: false,
-      leaves: true,
-      goldDelta: 0,
-      heal: 0,
-      takesWeapon: true,
-      takesFood: false,
-      grantsItemId: null,
-      damageMultiplier: 1,
-      respec: false,
-      message: copy.gave(weaponName),
-    });
+    return outcome({ leaves: true, takesWeapon: true, message: copy.gave(weaponName) });
   }
 
   const reward = parleyRewardGold(depth);
-  return Object.freeze({
-    ok: true,
-    hostile: false,
-    leaves: true,
-    goldDelta: reward,
-    heal: 0,
-    takesWeapon: false,
-    takesFood: true,
-    grantsItemId: null,
-    damageMultiplier: 1,
-    respec: false,
-    message: copy.fed(reward),
-  });
+  return outcome({ leaves: true, goldDelta: reward, takesFood: true, message: copy.fed(reward) });
 }

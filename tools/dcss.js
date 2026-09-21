@@ -69,7 +69,14 @@ import {
   createEmptyBuild,
   toggleBuildSkill,
 } from './dcss-rpg-character-creation.js';
-import { parleyFor, parleyModel, parleyRoll, resolveParley } from './dcss-rpg-parley.js';
+import {
+  PARLEY_SOUL_POWER,
+  PARLEY_SOUL_PRIZE,
+  parleyFor,
+  parleyModel,
+  parleyRoll,
+  resolveParley,
+} from './dcss-rpg-parley.js';
 import { canRespec, respecHero } from './dcss-rpg-respec.js';
 import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
@@ -2028,6 +2035,24 @@ function createMonsters(level) {
       if (monster.neutral && monster.id !== CITY_CAPTAIN_ID) monster.provoked = true;
     }
   }
+  /*
+   * Проданную душу забирают везде.
+   *
+   * Сделка лежит на забеге, а не на этаже, поэтому демон, встреченный после
+   * неё — хоть тот же после перезагрузки, хоть другой тремя этажами ниже, —
+   * уже не предлагает и не ждёт ответа. Перезагрузка отменяет драку ровно на
+   * столько, сколько нужно, чтобы она началась заново.
+   */
+  if (run.soulSold) {
+    for (const monster of spawned) {
+      if (parleyFor(monster.id)?.kind !== 'soul') continue;
+      monster.provoked = true;
+      monster.neutral = false;
+      monster.damage = Math.max(1, Math.round(monster.damage * PARLEY_SOUL_POWER));
+      monster.hp = Math.round(monster.hp * PARLEY_SOUL_POWER);
+      monster.maxHp = Math.round(monster.maxHp * PARLEY_SOUL_POWER);
+    }
+  }
   return [...spawned, ...thiefOnFloor(level, spawned)];
 }
 
@@ -3062,10 +3087,24 @@ function nearbyParley() {
   const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   return monsters.find((monster) => (
     parleyFor(monster.id)
+    && parleyStillOpen(monster)
     && monster.dead === 0
     && !monster.provoked
     && cellStepDistance(cell, { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) }) <= 1
   )) ?? null;
+}
+
+/**
+ * Осталось ли о чём говорить.
+ *
+ * Разговор бывает один. Уже отвеченный этаж помнит в `spoken`, и перезагрузка
+ * не открывает его заново — иначе благословение Роки, нож Джори и пять тысяч
+ * демона брались бы столько раз, сколько игрок готов перезагружаться. Душа же
+ * продаётся один раз на забег: предлагать второй раз нечего.
+ */
+function parleyStillOpen(monster) {
+  if (run.floor.spoken?.includes(monster.instanceId)) return false;
+  return !(run.soulSold && parleyFor(monster.id)?.kind === 'soul');
 }
 
 function nearbyCampProp(interactionId) {
@@ -3135,13 +3174,13 @@ function grantEssence(amount) {
 }
 
 /** Puts one authored item straight into the backpack, if there is room for it. */
-function grantItem(id, uid) {
+function grantItem(id, uid, powerId = null) {
   if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) return false;
   const state = currentItemState();
   // Only gear carries affixes; a tool's record is the item and its uid.
   const definition = lootById(id);
   const record = definition?.slot
-    ? { id, uid, affixIds: [], artifactPowerId: null, artifactCurseId: null }
+    ? { id, uid, affixIds: [], artifactPowerId: powerId, artifactCurseId: null }
     : { id, uid };
   applyItemState({
     ...state,
@@ -3198,6 +3237,8 @@ function answerParley(target, option) {
       // перезагрузкой, иначе это не выбор, а процедура.
       seed: run.seed,
       gold,
+      hp: hero.hp,
+      maxHp: currentHeroStats().maxHp,
       weaponName: equippedWeaponName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
       skills: hero.skills,
@@ -3229,11 +3270,28 @@ function answerParley(target, option) {
   }
   gold = Math.max(0, gold + result.goldDelta);
   if (result.heal > 0) hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + result.heal);
-  if (result.grantsItemId) grantItem(result.grantsItemId, `parley-${monster.id}-${run.seed}-${dungeon.depth}`);
+  // Плата кровью берётся сразу и никогда не убивает: разговор — не ловушка.
+  if (result.hpCost > 0) {
+    hero.hp = Math.max(1, hero.hp - result.hpCost);
+    addCombatGlyph(hero.x, hero.y, `−${result.hpCost}`, '#c2453c', -60);
+  }
+  if (result.grantsItemId) {
+    grantItem(
+      result.grantsItemId,
+      `parley-${monster.id}-${run.seed}-${dungeon.depth}`,
+      result.grantsPowerId,
+    );
+  }
   if (result.respec) applyRespec();
+  // Сделка есть сделка: она переживает и этаж, и смерть, и перезагрузку.
+  if (result.soldSoul) run.soulSold = true;
   if (result.damageMultiplier > 1) {
     // Проигранное пари злит по-настоящему: тот же Юф, но бьёт заметно больнее.
     monster.damage = Math.max(1, Math.round(monster.damage * result.damageMultiplier));
+  }
+  if (result.hpMultiplier > 1) {
+    monster.hp = Math.round(monster.hp * result.hpMultiplier);
+    monster.maxHp = Math.round(monster.maxHp * result.hpMultiplier);
   }
   if (result.hostile) {
     monster.provoked = true;
@@ -3242,6 +3300,7 @@ function answerParley(target, option) {
     addCombatGlyph(monster.x, monster.y, '!', '#e0603f', -68);
   }
   if (result.leaves) sendNamedAway(monster);
+  else if (!run.floor.spoken.includes(monster.instanceId)) run.floor.spoken.push(monster.instanceId);
   playerHasActed = true;
   playSound(result.goldDelta !== 0 ? 'gold' : result.heal > 0 ? 'spell-heal' : 'ui-tap');
   showLootToast({ path: monster.spritePath, rarity: result.hostile ? 0 : 2 }, result.message);
@@ -3249,6 +3308,39 @@ function answerParley(target, option) {
   renderPack();
   persistRun();
   return true;
+}
+
+const PRIZE_COPY = Object.freeze({
+  ru: 'Из того, что осталось от Глоркса, забрать можно ровно одно.',
+  en: 'One thing can be taken from what is left of Gloorx.',
+});
+
+/**
+ * Что остаётся от того, кто приходил за душой.
+ *
+ * Роняет он это всегда, а не только за сделку: тир девять и примета «здесь
+ * очень тихо» — тот, кто такое свалил, заслужил лучшее в игре и без «да».
+ * Места в рюкзаке может не быть, и тогда вещь ждёт на забеге, а не пропадает.
+ */
+function claimNamedPrize(monster) {
+  if (parleyFor(monster.id)?.kind !== 'soul') return;
+  run.prize = {
+    id: PARLEY_SOUL_PRIZE.id,
+    powerId: PARLEY_SOUL_PRIZE.powerId,
+    uid: `prize-${monster.instanceId}`,
+  };
+}
+
+/** Выдать обещанное, как только в рюкзаке появилось место. */
+function claimPendingPrize() {
+  const prize = run.prize;
+  if (!prize) return;
+  if (!grantItem(prize.id, prize.uid, prize.powerId)) {
+    showLootToast({ id: prize.id }, 'full');
+    return;
+  }
+  run.prize = null;
+  showLootToast({ id: prize.id, rarity: 3 }, PRIZE_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru']);
 }
 
 const THIEF_COPY = Object.freeze({
@@ -9437,6 +9529,8 @@ function contextModelTarget(entry = contextTarget) {
       monsterId: entry.value.id,
       depth: dungeon.depth,
       gold,
+      hp: hero.hp,
+      maxHp: currentHeroStats().maxHp,
       weaponName: equippedWeaponName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
       skills: hero.skills,
@@ -15234,6 +15328,9 @@ function defeatMonster(monster) {
   else run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
   recoverStolenItem(monster);
+  claimNamedPrize(monster);
+  // И сразу же выдать — или, если рюкзак полон, с первым освободившимся местом.
+  claimPendingPrize();
   if (monster.neutral && !monster.ghost) noteCrime('killed-guard');
   playSound('kill');
   if (monster.burst) burstEffectAround(monster);

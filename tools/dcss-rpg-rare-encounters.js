@@ -112,6 +112,14 @@ const ROSTER = [
   named({ id: 'crazy-yiuf', habitat: 'deep', sprite: 'unique/crazy_yiuf.png', tier: 3, style: 'skirmisher', neutral: true, ru: 'Безумный Юф', en: 'Crazy Yiuf' }),
   // Седой маг, который берёт деньги за то, чтобы забыть выученное.
   named({ id: 'fannar', habitat: 'deep', sprite: 'unique/fannar.png', tier: 5, style: 'caster', neutral: true, ru: 'Фаннар', en: 'Fannar' }),
+  /*
+   * Тот, кто покупает души.
+   *
+   * Дорога ему безразлична — он встречается на любой и очень редко. Иван:
+   * «какой-нибудь демон или смерть, очень сильная, предлагает тебе очень
+   * много денег в обмен на душу; условий мы не говорим».
+   */
+  named({ id: 'gloorx-vloq', habitat: 'any', kin: 'demon', sprite: 'unique/gloorx_vloq.png', tier: 9, style: 'caster', large: true, neutral: true, ru: 'Глоркс Влок', en: 'Gloorx Vloq' }),
   named({ id: 'snorg', habitat: 'deep', sprite: 'unique/snorg.png', tier: 6, style: 'brute', large: true, ru: 'Снорг', en: 'Snorg' }),
   named({ id: 'saint-roka', habitat: 'deep', sprite: 'unique/saint_roka.png', tier: 7, style: 'brute', neutral: true, ru: 'Святой Рока', en: 'Saint Roka' }),
   named({ id: 'polyphemus', habitat: 'deep', sprite: 'unique/polyphemus.png', tier: 7, style: 'brute', large: true, ru: 'Полифем', en: 'Polyphemus' }),
@@ -128,7 +136,8 @@ const ROSTER = [
   named({ id: 'mara', habitat: 'crypt', kin: 'undead', sprite: 'unique/mara.png', tier: 4, style: 'caster', ru: 'Мара', en: 'Mara' }),
   named({ id: 'josephine', habitat: 'crypt', kin: 'undead', sprite: 'unique/josephine.png', tier: 5, style: 'caster', ru: 'Джозефина', en: 'Josephine' }),
   named({ id: 'murray', habitat: 'crypt', kin: 'undead', sprite: 'unique/murray.png', tier: 6, style: 'caster', ru: 'Мюррей', en: 'Murray' }),
-  named({ id: 'jory', habitat: 'crypt', kin: 'undead', sprite: 'unique/jory.png', tier: 7, style: 'skirmisher', ru: 'Джори', en: 'Jory' }),
+  // Вампир, который меняет чужую кровь на силу, а не пьёт её молча.
+  named({ id: 'jory', habitat: 'crypt', kin: 'undead', sprite: 'unique/jory.png', tier: 7, style: 'skirmisher', neutral: true, ru: 'Джори', en: 'Jory' }),
   named({ id: 'boris', habitat: 'crypt', kin: 'undead', sprite: 'unique/boris.png', tier: 8, style: 'caster', ru: 'Борис', en: 'Boris' }),
   named({ id: 'ereshkigal', habitat: 'crypt', kin: 'undead', sprite: 'unique/ereshkigal.png', tier: 9, style: 'caster', large: true, ru: 'Эрешкигаль', en: 'Ereshkigal' }),
 

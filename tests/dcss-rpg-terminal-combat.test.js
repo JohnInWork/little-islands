@@ -34,6 +34,9 @@ function combatRuntime() {
     playSound: () => false,
     // Убитый вор возвращает украденное; в песочнице красть некому.
     recoverStolenItem: () => {},
+    // Как и ронять лучшую вещь в игре: именных здесь тоже нет.
+    claimNamedPrize: () => {},
+    claimPendingPrize: () => {},
     // Путь к монете интерфейса — модульная константа адаптера.
     GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
