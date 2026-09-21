@@ -61,7 +61,8 @@ import {
   goldRewardForMonster,
   useSanctuary,
 } from './dcss-rpg-run.js';
-import { parleyFor, parleyModel, resolveParley } from './dcss-rpg-parley.js';
+import { parleyFor, parleyModel, parleyRoll, resolveParley } from './dcss-rpg-parley.js';
+import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
   STASH_KEY,
@@ -213,7 +214,7 @@ import {
   panFloorMapView,
   zoomFloorMapView,
 } from './dcss-rpg-floor-map.js';
-import { runSummaryModel } from './dcss-rpg-run-summary.js';
+import { runEndSourceName, runSummaryModel } from './dcss-rpg-run-summary.js';
 import {
   META_KEY,
   createMetaState,
@@ -2000,7 +2001,51 @@ function createMonsters(level) {
       if (monster.neutral && monster.id !== CITY_CAPTAIN_ID) monster.provoked = true;
     }
   }
-  return spawned;
+  return [...spawned, ...thiefOnFloor(level, spawned)];
+}
+
+/**
+ * Вор, унёсший чужое, идёт следом.
+ *
+ * Иван: «нужно сделать так, чтобы ты мог его и на следующем этаже догнать; а
+ * то, что если он у тебя какой-нибудь важный предмет навсегда заберёт, это не
+ * круто по отношению к игроку». Поэтому пока украденное при нём, он ставится
+ * на каждый следующий этаж — не жребием, а наверняка. Догнать можно всегда;
+ * вопрос только в том, пойдёт ли герой за ним.
+ */
+function thiefOnFloor(level, spawned) {
+  if (!run.thief || isCityDepth(level.depth)) return [];
+  const instanceId = `monster-${level.depth}-thief`;
+  if (run.floor.defeated.includes(instanceId)) return [];
+  if (spawned.some((monster) => monster.id === THIEF_MONSTER_ID)) return [];
+  const cell = thiefCellFor(level);
+  if (!cell) return [];
+  return createRuntimeMonsters(level, [{
+    instanceId,
+    id: THIEF_MONSTER_ID,
+    x: cell.x,
+    y: cell.y,
+  }]).map((monster) => {
+    // Он уже с добычей: красть ему больше нечего, и подходить к герою незачем.
+    monster.stole = true;
+    return monster;
+  });
+}
+
+/** Где он стоит на новом этаже: подальше от входа, чтобы не наткнуться сразу. */
+function thiefCellFor(level) {
+  const spawn = level.spawn;
+  const свободные = [];
+  for (let y = 0; y < level.grid.length; y += 1) {
+    for (let x = 0; x < level.grid[y].length; x += 1) {
+      if (level.grid[y][x] !== '.') continue;
+      if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) < 8) continue;
+      свободные.push({ x, y });
+    }
+  }
+  if (свободные.length === 0) return null;
+  const бросок = parleyRoll(run.seed, level.depth, THIEF_MONSTER_ID);
+  return свободные[Math.min(свободные.length - 1, Math.floor(бросок * свободные.length))];
 }
 
 function createPassiveCreatures(level) {
@@ -3174,6 +3219,107 @@ function answerParley(target, option) {
   renderPack();
   persistRun();
   return true;
+}
+
+const THIEF_COPY = Object.freeze({
+  ru: Object.freeze({
+    robbed: (item) => `Морис срезает ${item} с твоего пояса и бросается прочь.`,
+    nothing: 'Морис заглядывает в пустой рюкзак и уходит разочарованный.',
+    recovered: (item) => `Морис падает, и ${item} возвращается тебе.`,
+    full: 'Морис падает, но рюкзак полон — освободи место и подбери.',
+  }),
+  en: Object.freeze({
+    robbed: (item) => `Maurice cuts the ${item} off your belt and bolts.`,
+    nothing: 'Maurice looks into an empty pack and leaves, disappointed.',
+    recovered: (item) => `Maurice goes down, and the ${item} is yours again.`,
+    full: 'Maurice goes down, but your pack is full — make room and pick it up.',
+  }),
+});
+
+const thiefCopy = () => THIEF_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru'];
+
+/**
+ * Вор обчищает того, кто подошёл вплотную.
+ *
+ * Берёт из рюкзака и только из рюкзака: оружие в руке и надетая броня его не
+ * интересуют. Иван: «самое ценное — то, что в руках и на теле — он не трогает».
+ * Что именно он возьмёт, решает тот же несменяемый жребий: перезагрузкой
+ * выбрать себе потерю полегче не выйдет.
+ */
+function robHero(monster) {
+  monster.stole = true;
+  const pack = backpackItems.filter(Boolean);
+  if (pack.length === 0) {
+    playSound('ui-close');
+    showLootToast({ path: monster.spritePath, rarity: 0 }, thiefCopy().nothing);
+    sendNamedAway(monster);
+    return true;
+  }
+  const бросок = parleyRoll(run.seed, dungeon.depth, THIEF_MONSTER_ID);
+  const добыча = pack[Math.min(pack.length - 1, Math.floor(бросок * pack.length))];
+  const record = itemInstances.get(добыча.uid);
+  if (!record) return false;
+  const state = currentItemState();
+  applyItemState({
+    ...state,
+    items: state.items.filter((item) => item.uid !== record.uid),
+    inventory: state.inventory.filter((uid) => uid !== record.uid),
+  });
+  run.thief = {
+    record: {
+      id: record.id,
+      uid: record.uid,
+      affixIds: [...(record.affixIds ?? [])],
+      artifactPowerId: record.artifactPowerId ?? null,
+      artifactCurseId: record.artifactCurseId ?? null,
+      ...(record.stack !== undefined ? { stack: record.stack } : {}),
+    },
+    floors: 0,
+  };
+  playSound('ui-close');
+  showLootToast(
+    { path: monster.spritePath, rarity: 0 },
+    thiefCopy().robbed(itemPresentation(presentedItem(record), itemDetailLanguage).name),
+  );
+  // Уходит он не «своей дорогой», а с добычей: в `floor.defeated` его пишет
+  // тот же `sendNamedAway`, а `run.thief` переносит его на следующий этаж.
+  sendNamedAway(monster);
+  updateHud();
+  persistRun();
+  return true;
+}
+
+/** Подошёл ли герой вплотную к тому, кто ещё не обчистил его. */
+function tickThief(monster) {
+  if (monster.id !== THIEF_MONSTER_ID || monster.stole || monster.provoked) return false;
+  if (runStatus !== 'playing' || !playerHasActed) return false;
+  const рядом = cellStepDistance(
+    { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
+    { x: Math.floor(monster.x / TILE), y: Math.floor(monster.y / TILE) },
+  ) <= 1;
+  return рядом ? robHero(monster) : false;
+}
+
+/** Догнал — вернул. Украденное отдаётся целиком, со всеми своими свойствами. */
+function recoverStolenItem(monster) {
+  if (monster.id !== THIEF_MONSTER_ID || !run.thief) return;
+  const record = run.thief.record;
+  if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) {
+    showLootToast({ path: monster.spritePath, rarity: 1 }, thiefCopy().full);
+    return;
+  }
+  const state = currentItemState();
+  applyItemState({
+    ...state,
+    items: [...state.items, { ...record }],
+    inventory: [...state.inventory, record.uid],
+  });
+  run.thief = null;
+  const вещь = itemInstances.get(record.uid);
+  showLootToast(
+    { path: monster.spritePath, rarity: 2 },
+    thiefCopy().recovered(вещь ? itemPresentation(presentedItem(вещь), itemDetailLanguage).name : ''),
+  );
 }
 
 /** Отдать то, что в руке. Рюкзак может быть полон — тогда отдать не выйдет. */
@@ -9254,6 +9400,10 @@ function contextModelTarget(entry = contextTarget) {
     return {
       kind: 'guard',
       id: entry.value.id,
+      // Имя существа, а не его идентификатор. Карточка знала по имени только
+      // двух городских стражников, и всякий другой нейтральный — тот же вор
+      // Морис — представлялся игроку строкой «maurice».
+      name: runEndSourceName(entry.value.id, itemDetailLanguage) ?? '',
       icon: entry.value.spritePath,
       wantedLabel: isWanted(run.crime) ? wantedLabel(run.crime, itemDetailLanguage) : '',
       fine,
@@ -14626,6 +14776,7 @@ function defeatMonster(monster) {
   if (monster.ghost) claimFloorBones();
   else run.floor.defeated.push(monster.instanceId);
   run.stats.kills += 1;
+  recoverStolenItem(monster);
   if (monster.neutral && !monster.ghost) noteCrime('killed-guard');
   playSound('kill');
   if (monster.burst) burstEffectAround(monster);
@@ -16865,6 +17016,7 @@ function updateWorld(delta) {
       }
       monster.alerted = monster.pursuit;
     }
+    if (tickThief(monster)) continue;
     const patrolling = monster.alerted === 0;
     if (patrolling) {
       const patrolBlocked = new Set([...occupiedCells, ...reservedCells]);

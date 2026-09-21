@@ -230,3 +230,86 @@ test('полный рюкзак не съедает золото за вещь, 
   // И жребий адаптер берёт у забега, а не у случайности кадра.
   assert.match(runtime, /seed: run\.seed,/);
 });
+
+/**
+ * Догнал — вернул.
+ *
+ * Иван: «если он у тебя какой-нибудь важный предмет навсегда заберёт, это не
+ * круто по отношению к игроку». Значит убитый вор обязан отдать унесённое
+ * целиком — со своими свойствами, а не как новую копию предмета того же вида.
+ * Проверяется настоящая функция адаптера, вырезанная из него и запущенная в
+ * песочнице: правило живёт там, где им пользуются.
+ */
+test('убитый вор возвращает украденное со всеми свойствами', async () => {
+  const vm = await import('node:vm');
+  const источник = await readFile(runtimeUrl, 'utf8');
+  const вырезать = (имя) => {
+    const начало = источник.indexOf(`function ${имя}(`);
+    assert.ok(начало >= 0, `нет функции ${имя}`);
+    return источник.slice(начало, источник.indexOf('\n}\n', начало) + 3);
+  };
+  const записи = [];
+  const record = {
+    id: 'flame-blade',
+    uid: 'stolen-7',
+    affixIds: ['keen'],
+    artifactPowerId: 'ember',
+    artifactCurseId: null,
+  };
+  const context = vm.createContext({
+    THIEF_MONSTER_ID: 'maurice',
+    run: { thief: { record, floors: 2 } },
+    backpackItems: [null, null],
+    currentBackpackCapacity: () => 6,
+    currentItemState: () => ({ items: [], inventory: [], equipment: {} }),
+    applyItemState: (state) => { context.применено = state; },
+    itemInstances: new Map(),
+    itemPresentation: () => ({ name: 'Пламенный клинок' }),
+    presentedItem: (item) => item,
+    itemDetailLanguage: 'ru',
+    showLootToast: (_icon, text) => записи.push(text),
+  });
+  vm.runInContext(`${вырезать('recoverStolenItem')}\nconst THIEF_COPY = ${JSON.stringify({
+    ru: { recovered: null, full: null },
+  })};`, context);
+  // Копия реплик: в песочнице функции из объекта не переживают JSON.
+  vm.runInContext(`
+    const thiefCopy = () => ({
+      recovered: (item) => 'вернулось: ' + item,
+      full: 'рюкзак полон',
+    });
+    recoverStolenItem({ id: 'maurice', spritePath: 'x.png' });
+  `, context);
+
+  assert.equal(context.run.thief, null, 'вор всё ещё держит добычу');
+  // Через realm песочницы прототипы разные, поэтому сравниваем по содержимому.
+  assert.equal(JSON.stringify(context.применено.items), JSON.stringify([record]), 'вернулась не та вещь');
+  assert.equal(JSON.stringify(context.применено.inventory), JSON.stringify(['stolen-7']));
+  assert.equal(записи.length, 1);
+
+  // Полный рюкзак — вещь не пропадает, а ждёт: `run.thief` остаётся.
+  const тесный = vm.createContext({ ...context, применено: null });
+  тесный.run = { thief: { record, floors: 2 } };
+  тесный.backpackItems = new Array(6).fill({ uid: 'x' });
+  vm.runInContext(`
+    const thiefCopy = () => ({ recovered: (item) => 'вернулось: ' + item, full: 'рюкзак полон' });
+    ${вырезать('recoverStolenItem')}
+    recoverStolenItem({ id: 'maurice', spritePath: 'x.png' });
+  `, тесный);
+  assert.ok(тесный.run.thief, 'добыча пропала вместе с местом в рюкзаке');
+  assert.equal(тесный.применено, null, 'вещь всё-таки положили в полный рюкзак');
+});
+
+test('вор идёт следом, пока держит чужое', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  // Его ставит адаптер, а не жребий: иначе догнать было бы делом удачи.
+  assert.match(runtime, /function thiefOnFloor\(level, spawned\)/);
+  assert.match(runtime, /if \(!run\.thief \|\| isCityDepth\(level\.depth\)\) return \[\];/);
+  assert.match(runtime, /`monster-\$\{level\.depth\}-thief`/);
+  // Крадёт только из рюкзака: оружие в руке и надетое он не трогает.
+  const кража = runtime.slice(runtime.indexOf('function robHero('));
+  assert.ok(кража.includes('backpackItems.filter(Boolean)'), 'вор полез не в рюкзак');
+  assert.equal(кража.slice(0, кража.indexOf('\n}\n')).includes("equippedItem("), false, 'вор снимает надетое');
+  // И смерть возвращает: вызов стоит там же, где записывается победа.
+  assert.match(runtime, /run\.stats\.kills \+= 1;\s*\n\s*recoverStolenItem\(monster\);/);
+});

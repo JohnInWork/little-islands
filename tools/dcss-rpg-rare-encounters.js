@@ -106,6 +106,8 @@ const ROSTER = [
   named({ id: 'sigmund', habitat: 'deep', sprite: 'unique/sigmund.png', tier: 3, style: 'caster', ru: 'Сигмунд', en: 'Sigmund' }),
   named({ id: 'blork-the-orc', habitat: 'deep', sprite: 'unique/blork_the_orc.png', tier: 3, style: 'brute', neutral: true, ru: 'Блорк Орк', en: 'Blork the orc' }),
   named({ id: 'urug', habitat: 'deep', sprite: 'unique/urug.png', tier: 5, style: 'brute', neutral: true, ru: 'Уруг', en: 'Urug' }),
+  // Вор: он не дерётся за добычу, он с ней убегает — и его можно догнать.
+  named({ id: 'maurice', habitat: 'deep', sprite: 'unique/maurice.png', tier: 4, style: 'skirmisher', neutral: true, ru: 'Морис', en: 'Maurice' }),
   // Гном с веткой вместо оружия: предлагает сыграть, а не драться.
   named({ id: 'crazy-yiuf', habitat: 'deep', sprite: 'unique/crazy_yiuf.png', tier: 3, style: 'skirmisher', neutral: true, ru: 'Безумный Юф', en: 'Crazy Yiuf' }),
   named({ id: 'snorg', habitat: 'deep', sprite: 'unique/snorg.png', tier: 6, style: 'brute', large: true, ru: 'Снорг', en: 'Snorg' }),
@@ -157,6 +159,17 @@ export const RARE_MONSTER_NAMES = Object.freeze(Object.fromEntries(
 ));
 
 export const RARE_MONSTER_IDS = Object.freeze(ROSTER.map(({ id }) => id));
+
+/**
+ * Вор — единственный именной, который не решается на месте.
+ *
+ * Иван: «нужно сделать так, чтобы ты мог его и на следующем этаже догнать; а
+ * то, что если он у тебя какой-нибудь важный предмет навсегда заберёт, это не
+ * круто по отношению к игроку». Поэтому его id известен и адаптеру: пока
+ * украденное при нём, игра ставит его на следующий этаж сама, не спрашивая
+ * жребий.
+ */
+export const THIEF_MONSTER_ID = 'maurice';
 
 /**
  * Когда именной враг становится честным противником. Тир говорит, какой он

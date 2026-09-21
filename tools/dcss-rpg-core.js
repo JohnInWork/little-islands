@@ -2304,7 +2304,7 @@ function isFiniteInteger(value, min, max) {
  * save standing on a floor that had one alive.
  */
 const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
-  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+|rare)$`)
+  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+|rare|thief)$`)
 );
 
 /**
@@ -2443,6 +2443,23 @@ export function adoptRun(snapshot) {
   return { ...snapshot, hero: { ...snapshot.hero, skills } };
 }
 
+/**
+ * Что унёс вор.
+ *
+ * Поле необязательное: у забега, в котором вора не встречали, его просто нет,
+ * и старые сохранения от этого не портятся. Иван: «если он у тебя какой-нибудь
+ * важный предмет навсегда заберёт, это не круто по отношению к игроку» — так
+ * что украденное хранится целиком, вместе со своими свойствами, и ждёт, когда
+ * вора догонят.
+ */
+export function validateThiefState(thief) {
+  if (thief === undefined || thief === null) return true;
+  if (typeof thief !== 'object' || Array.isArray(thief)) return false;
+  if (typeof thief.record !== 'object' || !thief.record || typeof thief.record.id !== 'string') return false;
+  if (typeof thief.record.uid !== 'string' || thief.record.uid.length === 0) return false;
+  return isFiniteInteger(thief.floors, 0, DEEPEST_DEPTH);
+}
+
 export function validateRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== SAVE_VERSION) return false;
   if (
@@ -2551,6 +2568,7 @@ export function validateRun(snapshot) {
   const floor = snapshot.floor;
   if (!validateCampRunState(snapshot.camp)) return false;
   if (!validateHouseState(snapshot.house)) return false;
+  if (!validateThiefState(snapshot.thief)) return false;
   // A save written before portals existed simply has none.
   if (!validatePortalState(snapshot.portal ?? null)) return false;
   if (!validateCrimeState(snapshot.crime)) return false;

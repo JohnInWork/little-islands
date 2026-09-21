@@ -626,7 +626,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.id === 'string'
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
-      name: copy.guards[target.id] ?? target.id,
+      name: copy.guards[target.id] ?? target.name ?? target.id,
       // A wanted hero is told the price before being told they can swing.
       description: target.wantedLabel
         ? copy.guardWanted(target.wantedLabel, target.fine)

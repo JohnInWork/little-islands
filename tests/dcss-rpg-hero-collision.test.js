@@ -163,6 +163,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
     warnTrapStep: () => {}, updateDoorOpening: () => {}, monsterSeesHero: () => true,
     damageHero: () => null, monsterInfliction: () => null,
     triggerPlacedTrapForMonster: () => false,
+    // Вор обчищает того, кто подошёл вплотную; здесь в песочнице он молчит.
+    tickThief: () => false,
     burst: () => {}, addImpactWave: () => {}, addCombatGlyph: () => {},
     addBloodImpact: () => {}, beginHitStop: () => {}, updateBossHud: () => {},
     showSwordRhythmImpact: () => {},
