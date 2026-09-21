@@ -63,6 +63,7 @@ const ACTION_COPY = Object.freeze({
     claim: 'Забрать артефакт',
     descend: 'Идти глубже',
     unbind: 'Снять оковы',
+    forget: 'Забыть выученное',
     hire: 'Нанять',
   }),
   en: Object.freeze({
@@ -121,6 +122,7 @@ const ACTION_COPY = Object.freeze({
     claim: 'Take the artefact',
     descend: 'Go deeper',
     unbind: 'Lift the binding',
+    forget: 'Unlearn it all',
     hire: 'Hire',
     retire: 'End the run',
     enterPortal: 'Step through',
@@ -187,6 +189,7 @@ const GLYPHS = Object.freeze({
   claim: '◆',
   descend: '▼',
   unbind: '⛓',
+  forget: '✦',
   hire: '⚔',
 });
 
@@ -769,6 +772,18 @@ export const INTERACTION_REGISTRY = Object.freeze([
           id: 'unbind',
           enabled: target.canUnbind === true,
           hint: target.canUnbind === true ? `${target.price} {gold}` : '',
+        },
+        /*
+         * Вторая служба того же жреца: он снимает не только оковы с вещей, но
+         * и выученное с головы. Иван: «добавить эту функцию в город у того же
+         * мага, у которого ты сбрасываешь проклятие с вещей, но у него дороже
+         * будет намного». Дороже — за то, что он всегда на месте, а на
+         * бродячего Фаннара надо ещё наткнуться.
+         */
+        {
+          id: 'forget',
+          enabled: target.canForget === true,
+          hint: target.forgetHint ?? '',
         },
       ],
     }),

@@ -70,7 +70,7 @@ import {
   toggleBuildSkill,
 } from './dcss-rpg-character-creation.js';
 import { parleyFor, parleyModel, parleyRoll, resolveParley } from './dcss-rpg-parley.js';
-import { respecHero } from './dcss-rpg-respec.js';
+import { canRespec, respecHero } from './dcss-rpg-respec.js';
 import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
@@ -3341,6 +3341,31 @@ function recoverStolenItem(monster) {
     { path: monster.spritePath, rarity: 2 },
     thiefCopy().recovered(вещь ? itemPresentation(presentedItem(вещь), itemDetailLanguage).name : ''),
   );
+}
+
+/** Та же служба, но в городе и дороже: жрец всегда на месте, и это удобство. */
+function payPriestForForgetting() {
+  const decision = canRespec({
+    skills: hero.skills,
+    attributes: hero.attributes,
+    gold,
+    source: 'priest',
+  });
+  if (!decision.ok) return false;
+  gold -= decision.price;
+  applyRespec();
+  playerHasActed = true;
+  playSound('spell-heal');
+  burst(hero.x, hero.y - 8, '#9ab6d8', 20);
+  showLootToast(
+    { path: 'mon/deep_elf_high_priest.png', rarity: 2 },
+    itemDetailLanguage === 'en'
+      ? 'The priest lays a palm on your brow. The points are yours again.'
+      : 'Жрец кладёт ладонь на лоб. Очки снова твои.',
+  );
+  updateHud();
+  persistRun();
+  return true;
 }
 
 /**
@@ -9412,7 +9437,20 @@ function contextModelTarget(entry = contextTarget) {
       level: hero.level,
       language: itemDetailLanguage,
     });
-    return { kind: 'priest', canUnbind: offer.ok, price: offer.price, text: offer.text };
+    const forget = canRespec({ skills: hero.skills, attributes: hero.attributes, gold, source: 'priest' });
+    const ru = itemDetailLanguage !== 'en';
+    return {
+      kind: 'priest',
+      canUnbind: offer.ok,
+      price: offer.price,
+      text: offer.text,
+      canForget: forget.ok,
+      forgetHint: forget.ok
+        ? `${forget.price} {gold}`
+        : forget.reason === 'nothing-spent'
+          ? (ru ? 'Забывать пока нечего' : 'Nothing to unlearn yet')
+          : (ru ? `Нужно ${forget.price} {gold}` : `Needs ${forget.price} {gold}`),
+    };
   }
   if (entry.kind === 'city-gate') {
     return {
@@ -11143,6 +11181,7 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   },
   priest({ action }) {
     closeContextActions();
+    if (action.id === 'forget') return payPriestForForgetting();
     if (action.id !== 'unbind') return false;
     return payPriestForUnbinding();
   },

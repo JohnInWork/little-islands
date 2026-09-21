@@ -116,3 +116,42 @@ test('адаптер применяет сброс и берёт билд заб
   // Карточка Фаннара должна знать, сколько вложено, иначе цена будет нулевой.
   assert.match(runtime, /skills: hero\.skills,\s*\n\s*attributes: hero\.attributes,/);
 });
+
+/**
+ * Две службы одного жреца.
+ *
+ * Иван: «добавить эту функцию в город у того же мага, у которого ты сбрасываешь
+ * проклятие с вещей, но у него дороже будет намного». Дороже — за то, что он
+ * всегда на месте: на бродячего Фаннара надо ещё наткнуться.
+ */
+test('жрец снимает и оковы, и выученное, и второе дороже', async () => {
+  const { contextActionModel } = await import('../tools/dcss-rpg-context-actions.js');
+  const модель = contextActionModel({
+    target: {
+      kind: 'priest',
+      canUnbind: true,
+      price: 40,
+      text: 'Оковы снимаются за плату.',
+      canForget: true,
+      forgetHint: '400 {gold}',
+    },
+    language: 'ru',
+  });
+  assert.deepEqual(модель.actions.map(({ id }) => id), ['unbind', 'forget']);
+  assert.equal(модель.actions[1].enabled, true);
+  assert.match(модель.actions[1].hint, /400/);
+
+  const нечего = contextActionModel({
+    target: {
+      kind: 'priest', canUnbind: false, price: 0, text: '',
+      canForget: false, forgetHint: 'Забывать пока нечего',
+    },
+    language: 'ru',
+  });
+  assert.equal(нечего.actions[1].enabled, false);
+  assert.equal(нечего.actions[1].hint, 'Забывать пока нечего');
+
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /if \(action\.id === 'forget'\) return payPriestForForgetting\(\);/);
+  assert.match(runtime, /source: 'priest',/);
+});
