@@ -72,7 +72,7 @@ const HINT_COPY = Object.freeze({
     }),
     enemy: Object.freeze({
       title: 'Враг рядом',
-      text: 'Подойди вплотную: удары идут сами. Отступай, когда полоска здоровья наверху тает.',
+      text: 'Вплотную удары идут сами. Герой вдвое быстрее врага: отходи и бей снова. Еда лечит прямо в бою.',
     }),
     loot: Object.freeze({
       title: 'Добыча',
@@ -80,7 +80,7 @@ const HINT_COPY = Object.freeze({
     }),
     interact: Object.freeze({
       title: 'Взаимодействие',
-      text: 'Кнопка над рюкзаком открывает двери, сундуки и алтари рядом с героем.',
+      text: 'Кнопка над рюкзаком берётся за то, что рядом: дверь, сундук, лестница. Одно дело — сразу, без окна.',
     }),
     exit: Object.freeze({
       title: 'Лестница найдена',
@@ -101,7 +101,7 @@ const HINT_COPY = Object.freeze({
     }),
     enemy: Object.freeze({
       title: 'Enemy ahead',
-      text: 'Step right next to it and the blows come on their own. Back off when the health bar up top runs low.',
+      text: 'Up close the blows come on their own. You are twice as fast: back off, strike again. Food heals in a fight.',
     }),
     loot: Object.freeze({
       title: 'Loot',
@@ -109,7 +109,7 @@ const HINT_COPY = Object.freeze({
     }),
     interact: Object.freeze({
       title: 'Interaction',
-      text: 'The button above the bag opens doors, chests and altars next to the hero.',
+      text: 'The button above the bag takes what is near: a door, a chest, a stair. A lone action happens at once.',
     }),
     exit: Object.freeze({
       title: 'Stairs found',

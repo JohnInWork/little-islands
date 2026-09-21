@@ -1005,7 +1005,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       actions: [{ id: 'defile' }],
     }),
   }),
-  // One generic entry serves every landmark (altar now, fountain/rune later):
+  // One generic entry serves every landmark (the fountain now, a rune later):
   // names, availability and hints come from the find catalog and its rolled
   // outcomes, so a new landmark is a catalog entry plus action vocabulary.
   defineInteraction({
