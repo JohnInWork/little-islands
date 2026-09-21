@@ -2768,7 +2768,9 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'coin-cache',
-    icon: 'item/gold/16.png',
+    // Та же монета, что в кошельке и в строках обещаний: золото в игре
+    // выглядит одинаково везде, где о нём говорит интерфейс.
+    icon: 'licensed/7soul-icons/coin-gold.png',
     slot: null,
     kind: 'currency',
     rarity: 2,

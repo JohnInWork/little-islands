@@ -34,6 +34,8 @@ function terminalRuntime({ victory = false } = {}) {
   };
   const context = vm.createContext({
     playSound: () => false,
+    // Путь к монете интерфейса — модульная константа адаптера.
+    GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
     heroVoice: (soundId) => soundId,
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.

@@ -58,6 +58,8 @@ export const HUD_METER_PATHS = Object.freeze([
   'derived/hud/home.png',
   // Сердце в строках обещаний: «+7 ♥» рисунком, а не типографским значком.
   'derived/hud/heart.png',
+  // Монета интерфейса: в строке и в кошельке — одна и та же.
+  'licensed/7soul-icons/coin-gold.png',
 ]);
 
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */

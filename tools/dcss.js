@@ -9074,8 +9074,10 @@ function contextTargetIsAdjacent(entry) {
  * Правила остаются текстом: они ставят метки `{gold}` и `{heal}`, а картинки
  * подставляет переходник — он один имеет право трогать DOM.
  */
+const GOLD_ICON_PATH = 'licensed/7soul-icons/coin-gold.png';
+
 const TEXT_ICONS = Object.freeze({
-  gold: Object.freeze({ path: 'item/gold/16.png', ru: 'золота', en: 'gold' }),
+  gold: Object.freeze({ path: GOLD_ICON_PATH, ru: 'золота', en: 'gold' }),
   heal: Object.freeze({ path: 'derived/hud/heart.png', ru: 'здоровья', en: 'health' }),
 });
 
@@ -9652,7 +9654,7 @@ function renderChestContainer() {
     goldButton.dataset.transfer = 'take';
     goldButton.setAttribute('aria-label', `${copy.takeGold}: ${container.gold} ${copy.gold}`);
     const icon = document.createElement('img');
-    icon.src = assetUrl('item/gold/16.png');
+    icon.src = assetUrl(GOLD_ICON_PATH);
     icon.alt = '';
     const label = document.createElement('span');
     label.className = 'chest-transfer-copy';
@@ -10711,9 +10713,9 @@ function triggerDoorSurprise(door) {
     const monster = monsters.find((candidate) => surprise.monsterIds.includes(candidate.instanceId));
     showLootToast({ path: monster?.spritePath ?? 'dngn/doors/closed_door.png', rarity: 0 }, '!');
   } else if (surprise.type === 'treasure') {
-    showLootToast({ icon: 'item/gold/16.png', rarity: 2 }, '●●●');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, '●●●');
   } else {
-    showLootToast({ icon: 'item/gold/16.png', rarity: 3 }, '!?');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 3 }, '!?');
   }
 }
 
@@ -12389,7 +12391,7 @@ function closeOutfitDetail() {
 function toggleOutfitGood(id, wantsReturn) {
   const result = wantsReturn ? stashReturn(stashState, id) : stashBuy(stashState, id);
   if (!result.ok) {
-    showLootToast({ icon: 'item/gold/16.png', rarity: 0 }, stashCopy(itemDetailLanguage).refusal[result.reason] ?? '');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 0 }, stashCopy(itemDetailLanguage).refusal[result.reason] ?? '');
     playSound('ui-close');
     return false;
   }
@@ -14234,7 +14236,7 @@ function gainExperience(monster) {
     burst(hero.x, hero.y - 10, '#d4c27e', 18);
   }
   showLevelUpCelebration(progression);
-  showLootToast({ icon: 'item/gold/16.png', rarity: Math.min(3, monster.tier >> 1) }, goldReward);
+  showLootToast({ icon: GOLD_ICON_PATH, rarity: Math.min(3, monster.tier >> 1) }, goldReward);
   updateHud();
 }
 
@@ -14252,7 +14254,7 @@ function claimGuardianTrophy(monster) {
   persistStash();
   renderRecords();
   showLootToast(
-    { icon: 'item/gold/16.png', rarity: 3 },
+    { icon: GOLD_ICON_PATH, rarity: 3 },
     trophyCopy(itemDetailLanguage).claimed(result.bounty),
   );
 }
@@ -17905,7 +17907,7 @@ salvageConfirm.addEventListener('click', () => {
   updateSalvageUi();
   renderPack();
   showLootToast(
-    { icon: 'item/gold/16.png', rarity: 1 },
+    { icon: GOLD_ICON_PATH, rarity: 1 },
     craftingCopy(itemDetailLanguage).salvage(yielded.gold, essence),
   );
   persistRun();

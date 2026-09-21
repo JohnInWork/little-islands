@@ -67,6 +67,8 @@ function runtime({ rows = ['#######', '#.....#', '#######'], monsters = [] } = {
   };
   const context = vm.createContext({
     playSound: () => false,
+    // Путь к монете интерфейса — модульная константа адаптера.
+    GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,

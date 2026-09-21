@@ -32,15 +32,26 @@ test('правила ставят метки, а не типографские �
 test('переходник знает обе картинки, и обе лежат на диске', async () => {
   const runtime = await readFile(adapterUrl, 'utf8');
   const блок = runtime.slice(runtime.indexOf('const TEXT_ICONS = Object.freeze({'));
-  const пути = [...блок.slice(0, 400).matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(пути, ['item/gold/16.png', 'derived/hud/heart.png']);
+  assert.match(блок.slice(0, 400), /gold: Object\.freeze\(\{ path: GOLD_ICON_PATH/);
+  const пути = ['licensed/7soul-icons/coin-gold.png', 'derived/hud/heart.png'];
+  assert.match(runtime, /const GOLD_ICON_PATH = 'licensed\/7soul-icons\/coin-gold\.png';/);
+  assert.match(блок.slice(0, 400), /heal: Object\.freeze\(\{ path: 'derived\/hud\/heart\.png'/);
   for (const путь of пути) {
     await access(new URL(`../public/assets/dcss-preview/${путь}`, import.meta.url));
   }
   // Монета — та же, что в кошельке наверху: два разных золота сбивают сильнее,
   // чем одно непонятное.
   const html = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
-  assert.match(html, /purse-coin" src="[^"]*item\/gold\/16\.png"/);
+  assert.match(html, /purse-coin" src="[^"]*licensed\/7soul-icons\/coin-gold\.png"/);
+
+  /*
+   * Кучки золота из `item/gold/` рисуют добычу на полу — под углом, крупинками.
+   * В строке ростом в восемнадцать точек такая кучка расплывается в пятно.
+   * Иван: «что у нас за какая-то некрасивая иконка золота». Монета анфас из
+   * CC0-набора 7Soul1 читается в любом размере, и теперь она одна на всём
+   * интерфейсе: строка обещаний, кошелёк, сундук, всплывающие подписи.
+   */
+  assert.ok(!runtime.includes('item/gold/16.png'), 'в интерфейсе осталась кучка золота с пола');
 });
 
 test('подписи кнопок проходят через подстановку, а не через голый текст', async () => {

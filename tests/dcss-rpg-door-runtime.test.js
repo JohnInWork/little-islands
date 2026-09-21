@@ -22,6 +22,8 @@ function fixture({ open = false } = {}) {
     // Reach is one shared rule now; the sandbox borrows the real one.
     cellStepDistance,
     playSound: () => false,
+    // Путь к монете интерфейса — модульная константа адаптера.
+    GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // Weapon techniques are pure modules; the sandbox only needs them to be quiet.
     heroSteadySeconds: 0,
     findIsVisible: () => true,

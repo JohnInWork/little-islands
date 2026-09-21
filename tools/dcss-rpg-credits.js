@@ -186,6 +186,26 @@ export const CREDITS_SECTIONS = Object.freeze([
     },
   }),
   section({
+    id: '7soul-icons',
+    packDir: '7soul-icons',
+    license: 'CC0 1.0',
+    source: 'https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg',
+    ru: {
+      title: 'Монета интерфейса',
+      lines: Object.freeze([
+        'Henrique Lazarini (7Soul1), «496 pixel art icons for medieval/fantasy RPG».',
+        'Общественное достояние (CC0 1.0). Взята одна иконка — золотая монета.',
+      ]),
+    },
+    en: {
+      title: 'The interface coin',
+      lines: Object.freeze([
+        'Henrique Lazarini (7Soul1), “496 pixel art icons for medieval/fantasy RPG”.',
+        'Public domain (CC0 1.0). One icon taken: the gold coin.',
+      ]),
+    },
+  }),
+  section({
     id: 'audio',
     license: 'CC0 1.0',
     ru: {
