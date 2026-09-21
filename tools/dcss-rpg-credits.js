@@ -206,6 +206,27 @@ export const CREDITS_SECTIONS = Object.freeze([
     },
   }),
   section({
+    id: 'game-icons',
+    license: 'CC BY 3.0',
+    source: 'https://game-icons.net',
+    ru: {
+      title: 'Значки интерфейса',
+      lines: Object.freeze([
+        'game-icons.net — сплошные силуэты, нарисованные для инвентарей и панелей.',
+        'Delapouite: рюкзак, снаряжение, внешность, звук, прицел, лестница, «i», очки навыков.',
+        'Lorc: настройки, начать заново, записи, разум. sbed: череп. guard13007: пауза.',
+      ]),
+    },
+    en: {
+      title: 'Interface icons',
+      lines: Object.freeze([
+        'game-icons.net — solid silhouettes drawn for inventories and HUDs.',
+        'Delapouite: backpack, gear, appearance, sound, crosshair, stairs, info, upgrade.',
+        'Lorc: settings, restart, records, brain. sbed: skull. guard13007: pause.',
+      ]),
+    },
+  }),
+  section({
     id: 'audio',
     license: 'CC0 1.0',
     ru: {

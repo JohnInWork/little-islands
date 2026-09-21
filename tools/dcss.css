@@ -8754,3 +8754,146 @@ body {
   vertical-align: -0.2em;
   image-rendering: pixelated;
 }
+
+/*
+ * Значки интерфейса: маска, а не картинка.
+ *
+ * Кнопки были подписаны типографскими символами — ▶ ↻ ◆ ✦ ⚙ ♥ ♪ ◎ ☠ ✧, — и
+ * рядом с пиксельным миром они читались как случайный шрифт. Иван выбрал
+ * сплошные силуэты game-icons.net: набор нарисован ровно для инвентарей и
+ * панелей, поэтому узнаётся и в сорока пикселях, и в восемнадцати.
+ *
+ * Значок работает маской, а не изображением: цвет берётся из `currentColor`
+ * кнопки, и потому он сам гаснет вместе с выключенной кнопкой, желтеет на
+ * выбранной и светлеет на наведённой — без единого второго файла.
+ */
+.ui-icon {
+  display: block;
+  width: 1.5em;
+  height: 1.5em;
+  background: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+}
+
+.ui-icon[data-icon='speaker'] {
+  mask-image: url('../assets/icons/speaker.svg');
+  -webkit-mask-image: url('../assets/icons/speaker.svg');
+}
+
+.ui-icon[data-icon='speaker-off'] {
+  mask-image: url('../assets/icons/speaker-off.svg');
+  -webkit-mask-image: url('../assets/icons/speaker-off.svg');
+}
+
+.ui-icon[data-icon='cog'] {
+  mask-image: url('../assets/icons/cog.svg');
+  -webkit-mask-image: url('../assets/icons/cog.svg');
+}
+
+.ui-icon[data-icon='pause-button'] {
+  mask-image: url('../assets/icons/pause-button.svg');
+  -webkit-mask-image: url('../assets/icons/pause-button.svg');
+}
+
+.ui-icon[data-icon='stairs'] {
+  mask-image: url('../assets/icons/stairs.svg');
+  -webkit-mask-image: url('../assets/icons/stairs.svg');
+}
+
+.ui-icon[data-icon='cycle'] {
+  mask-image: url('../assets/icons/cycle.svg');
+  -webkit-mask-image: url('../assets/icons/cycle.svg');
+}
+
+.ui-icon[data-icon='trophy'] {
+  mask-image: url('../assets/icons/trophy.svg');
+  -webkit-mask-image: url('../assets/icons/trophy.svg');
+}
+
+.ui-icon[data-icon='person'] {
+  mask-image: url('../assets/icons/person.svg');
+  -webkit-mask-image: url('../assets/icons/person.svg');
+}
+
+.ui-icon[data-icon='shoulder-armor'] {
+  mask-image: url('../assets/icons/shoulder-armor.svg');
+  -webkit-mask-image: url('../assets/icons/shoulder-armor.svg');
+}
+
+.ui-icon[data-icon='crosshair'] {
+  mask-image: url('../assets/icons/crosshair.svg');
+  -webkit-mask-image: url('../assets/icons/crosshair.svg');
+}
+
+.ui-icon[data-icon='info'] {
+  mask-image: url('../assets/icons/info.svg');
+  -webkit-mask-image: url('../assets/icons/info.svg');
+}
+
+.ui-icon[data-icon='backpack'] {
+  mask-image: url('../assets/icons/backpack.svg');
+  -webkit-mask-image: url('../assets/icons/backpack.svg');
+}
+
+.ui-icon[data-icon='death-skull'] {
+  mask-image: url('../assets/icons/death-skull.svg');
+  -webkit-mask-image: url('../assets/icons/death-skull.svg');
+}
+
+.ui-icon[data-icon='brain'] {
+  mask-image: url('../assets/icons/brain.svg');
+  -webkit-mask-image: url('../assets/icons/brain.svg');
+}
+
+/* Звук: видно тот значок, который отвечает состоянию кнопки. */
+#audio-mute[aria-pressed='false'] .audio-off,
+#audio-mute[aria-pressed='true'] .audio-on {
+  display: none;
+}
+
+/* Рюкзак — главная кнопка на экране, и значок в ней крупнее прочих. */
+.bag-button .ui-icon {
+  width: 34px;
+  height: 34px;
+}
+
+/* Череп на экране конца забега: он здесь вместо заглавной буквы. */
+.death-rune .ui-icon {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto;
+}
+
+/* Мозг стоит в строке с числом, поэтому садится на базовую линию. */
+#character-spells-intelligence .ui-icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+}
+
+/* Кнопка «начать заново» и подтверждение нового забега: значок крупный. */
+.restart-run .ui-icon,
+.new-run-confirm-card > .ui-icon {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto;
+}
+
+.ui-icon[data-icon='upgrade'] {
+  mask-image: url('../assets/icons/upgrade.svg');
+  -webkit-mask-image: url('../assets/icons/upgrade.svg');
+}
+
+/* Очки навыков в баннере уровня: значок ростом со строку. */
+.level-up-mark .ui-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+}

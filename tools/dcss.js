@@ -7775,7 +7775,15 @@ function renderAudioMenu() {
   audioMuteButton.setAttribute('aria-pressed', String(model.muted));
   audioMuteButton.setAttribute('aria-label', model.muteLabel);
   audioMuteButton.title = model.muteLabel;
-  audioMuteButton.textContent = model.muteGlyph;
+  /*
+   * Значок звука — рисунок, а не буква.
+   *
+   * Сюда писалась нота или крестик текстом. Иван: «мне вот эта нота не
+   * нравится — тонкая, не подходит по стилю», и она вдобавок обещала музыку,
+   * которой в игре нет: кнопка глушит весь звук разом. Теперь в кнопке два
+   * значка из набора, а видно тот, что отвечает состоянию `aria-pressed`;
+   * текст сюда писать нельзя — он сотрёт разметку.
+   */
   audioVolumeValue.textContent = model.volumeText;
   audioVolumeDownButton.setAttribute('aria-label', model.quieterLabel);
   audioVolumeUpButton.setAttribute('aria-label', model.louderLabel);

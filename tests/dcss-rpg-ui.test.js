@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import test from 'node:test';
 
@@ -187,16 +187,51 @@ test('the dungeon background uses a real WebGL layer instead of painted wall ext
   assert.doesNotMatch(runtime, /function drawWallDepth|WALL_RISE/);
 });
 
-test('the backpack control uses a coarse pixel sprite instead of a smooth CSS silhouette', async () => {
+/**
+ * Кнопки подписаны значками, а не символами шрифта.
+ *
+ * Было ▶ ↻ ◆ ✦ ⚙ ♥ ♪ ◎ ☠ ✧ — типографские знаки, которые рядом с пиксельным
+ * миром читались как случайный шрифт. Рюкзак был нарисован клетками вручную, и
+ * Иван сказал прямо: «он у нас сейчас не очень». Выбран набор game-icons.net:
+ * сплошные силуэты, нарисованные ровно для инвентарей и панелей.
+ *
+ * Значок работает маской, а не картинкой: цвет берётся из `currentColor`, и
+ * потому он гаснет вместе с выключенной кнопкой и желтеет на выбранной — без
+ * второго файла на каждое состояние.
+ */
+test('значки интерфейса — маски из набора, а не символы шрифта', async () => {
   const [html, css] = await Promise.all([readFile(htmlUrl, 'utf8'), readFile(cssUrl, 'utf8')]);
-  const glyph = css.match(/\.bag-glyph\s*{(?<body>[^}]*)}/)?.groups?.body ?? '';
 
-  assert.match(html, /<svg[\s\S]*class="bag-glyph"[\s\S]*viewBox="0 0 10 10"/);
-  assert.match(html, /shape-rendering="crispEdges"/);
-  assert.match(html, /class="bag-pixel-buckle"/);
-  assert.match(glyph, /width:\s*40px/);
-  assert.match(glyph, /image-rendering:\s*pixelated/);
-  assert.doesNotMatch(glyph, /clip-path|border-radius/);
+  // Рюкзак — та же общая механика, что у остальных кнопок.
+  assert.match(html, /<i class="ui-icon bag-glyph" data-icon="backpack"/);
+  assert.ok(!html.includes('bag-pixel-buckle'), 'нарисованный вручную рюкзак остался в разметке');
+
+  const общее = css.match(/\.ui-icon\s*{(?<body>[^}]*)}/)?.groups?.body ?? '';
+  assert.match(общее, /background:\s*currentColor/, 'значок перестал краситься цветом кнопки');
+  assert.match(общее, /mask-size:\s*contain/);
+
+  // Каждый значок в разметке обязан иметь и файл, и правило маски.
+  const имена = [...new Set([...html.matchAll(/data-icon="([a-z-]+)"/g)].map((m) => m[1]))];
+  assert.ok(имена.length >= 12, `значков всего ${имена.length} — подмена не доехала`);
+  for (const имя of имена) {
+    assert.ok(css.includes(`.ui-icon[data-icon='${имя}']`), `${имя}: нет правила маски`);
+    assert.ok(css.includes(`../assets/icons/${имя}.svg`), `${имя}: маска не указывает на файл`);
+    await access(new URL(`../public/assets/icons/${имя}.svg`, import.meta.url));
+  }
+
+  /*
+   * Ни одного шрифтового значка на кнопках. Ромб `◆` из списка исключён
+   * намеренно: он остался разделителем между «Уровень 1» и «Этаж I», а это
+   * типографика, а не иконка. Золото в шапке лавки ромбом быть перестало.
+   */
+  for (const знак of ['▶', '↻', '✦', '⚙', '♥', '♪', '◎', '☠', '✧']) {
+    assert.ok(!html.includes(знак), `в разметке остался символ ${знак}`);
+  }
+  assert.match(
+    html,
+    /id="merchant-shop-gold"[^>]*>\s*<img class="text-icon" src="[^"]*coin-gold\.png"/,
+    'в лавке золото снова обозначено ромбом',
+  );
 });
 
 test('inventory items expose a nested detail dialog through one tap', async () => {

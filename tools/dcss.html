@@ -48,12 +48,12 @@
           <div class="main-menu-actions">
             <p id="main-menu-state" class="main-menu-state" hidden>ПАУЗА</p>
             <button id="start-game" class="start-game" type="button" disabled>
-              <span aria-hidden="true">▶</span>
+              <i class="ui-icon" data-icon="stairs" aria-hidden="true"></i>
               <b id="start-game-label">Начать забег</b>
               <small id="start-game-detail"></small>
             </button>
             <button id="restart-from-menu" class="start-game start-game-second" type="button" hidden>
-              <span aria-hidden="true">↻</span>
+              <i class="ui-icon" data-icon="cycle" aria-hidden="true"></i>
               <b id="restart-from-menu-label">Начать заново</b>
               <small id="restart-from-menu-detail"></small>
             </button>
@@ -63,16 +63,16 @@
                 <b id="edit-appearance-label">Внешность</b>
               </button>
               <button id="open-outfit" type="button">
-                <span aria-hidden="true">◆</span><b id="open-outfit-label">Снаряжение</b>
+                <i class="ui-icon" data-icon="shoulder-armor" aria-hidden="true"></i><b id="open-outfit-label">Снаряжение</b>
               </button>
               <button id="open-records" type="button">
-                <span aria-hidden="true">✦</span><b id="open-records-label">Записи</b>
+                <i class="ui-icon" data-icon="trophy" aria-hidden="true"></i><b id="open-records-label">Записи</b>
               </button>
               <button id="open-settings" type="button">
-                <span aria-hidden="true">⚙</span><b id="open-settings-label">Настройки</b>
+                <i class="ui-icon" data-icon="cog" aria-hidden="true"></i><b id="open-settings-label">Настройки</b>
               </button>
               <button id="open-credits" type="button">
-                <span aria-hidden="true">♥</span><b id="open-credits-label">Авторы</b>
+                <i class="ui-icon" data-icon="info" aria-hidden="true"></i><b id="open-credits-label">Авторы</b>
               </button>
             </div>
             <ul id="main-menu-conditions" class="main-menu-conditions" aria-label="Условия забега" hidden></ul>
@@ -138,7 +138,7 @@
         inert
       >
         <article class="new-run-confirm-card pixel-frame">
-          <span aria-hidden="true">↻</span>
+          <i class="ui-icon" data-icon="cycle" aria-hidden="true"></i>
           <h2 id="new-run-confirm-title">Новый забег?</h2>
           <p id="new-run-confirm-copy">Текущий прогресс будет потерян.</p>
           <div>
@@ -198,9 +198,7 @@
       </button>
 
       <button id="pause-game" class="pause-game pixel-frame tappable" type="button" aria-label="Пауза" disabled>
-        <svg viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
-          <path d="M1 1h2v5H1zM4 1h2v5H4z" />
-        </svg>
+        <i class="ui-icon" data-icon="pause-button" aria-hidden="true"></i>
       </button>
 
       <div
@@ -285,35 +283,12 @@
           <small id="level-up-label">НОВЫЙ УРОВЕНЬ</small>
           <i>↑</i>
           <strong id="level-up-value">2</strong>
-          <b><span id="level-up-points">+1</span><em>✦</em></b>
+          <b><span id="level-up-points">+1</span><i class="ui-icon" data-icon="upgrade" aria-hidden="true"></i></b>
         </span>
       </output>
 
       <button id="bag" class="bag-button pixel-frame tappable" type="button" aria-label="Открыть рюкзак" disabled>
-        <svg
-          class="bag-glyph"
-          aria-hidden="true"
-          viewBox="0 0 10 10"
-          shape-rendering="crispEdges"
-        >
-          <g class="bag-pixel-outline">
-            <rect x="3" y="0" width="4" height="1" />
-            <rect x="2" y="1" width="1" height="2" />
-            <rect x="7" y="1" width="1" height="2" />
-            <rect x="1" y="2" width="8" height="1" />
-            <rect x="0" y="3" width="10" height="6" />
-            <rect x="1" y="9" width="8" height="1" />
-          </g>
-          <rect class="bag-pixel-handle" x="3" y="1" width="4" height="1" />
-          <path class="bag-pixel-body" d="M2 3h6v1h1v4H8v1H2V8H1V4h1V3Z" />
-          <rect class="bag-pixel-shadow" x="1" y="4" width="2" height="4" />
-          <rect class="bag-pixel-light" x="3" y="3" width="4" height="1" />
-          <rect class="bag-pixel-highlight" x="2" y="4" width="1" height="1" />
-          <rect class="bag-pixel-pocket" x="3" y="5" width="4" height="3" />
-          <rect class="bag-pixel-pocket-face" x="4" y="6" width="2" height="1" />
-          <rect class="bag-pixel-buckle" x="4" y="5" width="2" height="1" />
-          <rect class="bag-pixel-base" x="3" y="8" width="4" height="1" />
-        </svg>
+        <i class="ui-icon bag-glyph" data-icon="backpack" aria-hidden="true"></i>
         <b>12</b>
       </button>
 
@@ -385,7 +360,7 @@
             <div>
               <h2 id="merchant-shop-title">Торговец</h2>
               <div class="merchant-shop-wallets">
-                <output id="merchant-shop-gold" aria-label="Твоё золото: 0"><span>◆</span><b>0</b></output>
+                <output id="merchant-shop-gold" aria-label="Твоё золото: 0"><img class="text-icon" src="../assets/dcss-preview/licensed/7soul-icons/coin-gold.png" alt="" /><b>0</b></output>
                 <output id="merchant-shop-funds" aria-label="Золото торговца: 0"><span>●</span><b>0</b></output>
               </div>
             </div>
@@ -495,7 +470,7 @@
           <footer class="floor-map-actions">
             <button id="close-floor-map" type="button" aria-label="Закрыть карту">×</button>
             <button id="floor-map-legend-toggle" type="button" aria-label="Что значат значки" aria-pressed="false">?</button>
-            <button id="floor-map-center" type="button" aria-label="К герою">◎</button>
+            <button id="floor-map-center" type="button" aria-label="К герою"><i class="ui-icon" data-icon="crosshair" aria-hidden="true"></i></button>
             <button id="floor-map-zoom-out" type="button" aria-label="Отдалить">−</button>
             <button id="floor-map-zoom-in" type="button" aria-label="Приблизить">+</button>
           </footer>
@@ -538,7 +513,7 @@
                     <h3 id="character-spells-title">Заклинания</h3>
                     <p id="character-spells-hint">Выбери слот, затем заклинание</p>
                   </div>
-                  <output id="character-spells-intelligence">✧ 4</output>
+                  <output id="character-spells-intelligence"><i class="ui-icon" data-icon="brain" aria-hidden="true"></i> 4</output>
                 </header>
                 <div id="character-spell-slots" class="character-spell-slots" role="group"></div>
                 <div id="character-known-spells" class="character-known-spells" role="list"></div>
@@ -807,7 +782,7 @@
         inert
       >
         <div class="run-end-card pixel-frame">
-          <span class="death-rune" aria-hidden="true">☠</span>
+          <span class="death-rune" aria-hidden="true"><i class="ui-icon" data-icon="death-skull" aria-hidden="true"></i></span>
           <span class="retired-rune" aria-hidden="true">◆</span>
           <img
             class="victory-rune"
@@ -817,7 +792,7 @@
           <h2 id="run-end-title" class="run-end-title">Забег окончен</h2>
           <dl id="run-summary" class="run-summary"></dl>
           <button id="restart-run" class="restart-run pixel-frame tappable" type="button" aria-label="Начать новый забег">
-            <span aria-hidden="true">↻</span>
+            <i class="ui-icon" data-icon="cycle" aria-hidden="true"></i>
           </button>
         </div>
       </section>
@@ -896,7 +871,11 @@
             <section class="settings-block" aria-labelledby="settings-audio-title">
               <h3 id="settings-audio-title">Звук</h3>
               <div id="main-menu-audio" class="main-menu-audio" role="group" aria-label="Звук">
-                <button id="audio-mute" type="button" aria-pressed="false" aria-label="Выключить звук">♪</button>
+                <button id="audio-mute" type="button" aria-pressed="false" aria-label="Выключить звук">
+                  <!-- Два значка, видно всегда один: состояние решает `aria-pressed`. -->
+                  <i class="ui-icon audio-on" data-icon="speaker" aria-hidden="true"></i>
+                  <i class="ui-icon audio-off" data-icon="speaker-off" aria-hidden="true"></i>
+                </button>
                 <button id="audio-volume-down" type="button" aria-label="Тише">−</button>
                 <output id="audio-volume-value" aria-live="polite">70%</output>
                 <button id="audio-volume-up" type="button" aria-label="Громче">+</button>
