@@ -694,16 +694,26 @@ export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = f
   if (!outcome || typeof outcome !== 'object') return '';
   const locale = language === 'en' ? 'en' : 'ru';
   const copy = OUTCOME_COPY[locale];
+  /*
+   * Золото и здоровье — рисунками, остальное словами.
+   *
+   * Строка обещаний писалась типографскими значками: «+26● · −10 ❤ · шум на
+   * весь этаж». Иван: «тут максимально непонятно, что эти кнопки означают,
+   * какая-то иконка… если даёт золото, то нарисуем наше золото, если хилит —
+   * сердечко наше, красное; всякие „снимает эффекты“ можно оставить текстом».
+   * Правила остаются текстом: здесь ставятся метки `{gold}` и `{heal}`, а
+   * настоящие картинки подставляет переходник, который один умеет в DOM.
+   */
   const parts = [];
   const cost = outcome.costGold ?? 0;
-  if (cost > 0 && !onlyGains) parts.push(`\u2212${cost}\u25cf`);
-  if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold}\u25cf`);
+  if (cost > 0 && !onlyGains) parts.push(`\u2212${cost}{gold}`);
+  if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold}{gold}`);
   if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} ${copy.power}`);
   if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} ${copy.limit}`);
   // A share of the cap reads as a share; a flat number reads as a number.
-  if ((outcome.healRatio ?? 0) > 0) parts.push(`+${Math.round(outcome.healRatio * 100)}% \u2764`);
-  if ((outcome.heal ?? 0) > 0) parts.push(`+${outcome.heal} \u2764`);
-  if ((outcome.damage ?? 0) > 0 && !onlyGains) parts.push(`\u2212${outcome.damage} \u2764`);
+  if ((outcome.healRatio ?? 0) > 0) parts.push(`+${Math.round(outcome.healRatio * 100)}% {heal}`);
+  if ((outcome.heal ?? 0) > 0) parts.push(`+${outcome.heal} {heal}`);
+  if ((outcome.damage ?? 0) > 0 && !onlyGains) parts.push(`\u2212${outcome.damage} {heal}`);
   if (outcome.cleanse) parts.push(copy.cleanse);
   const status = outcome.status?.id;
   if (status && ACTOR_EFFECTS[status] && !onlyGains) {
@@ -740,7 +750,7 @@ export function landmarkActionRules({ find, actor, language = 'ru' } = {}) {
     const gains = landmarkOutcomeSummary(outcome, locale, { onlyGains: true });
     const refused = (reason) => landmarkAction(id, false, gains ? `${reason} · ${gains}` : reason);
     if (costGold > 0 && access.gold !== null && access.gold < costGold) {
-      return refused(`${copy.goldRequired} ${costGold}●`);
+      return refused(`${copy.goldRequired} ${costGold}{gold}`);
     }
     if (damage > 0 && access.hp !== null && access.hp <= damage) {
       return refused(copy.unsafe);

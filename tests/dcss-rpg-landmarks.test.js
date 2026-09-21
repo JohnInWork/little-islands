@@ -305,15 +305,17 @@ test('a landmark choice states its price and its payoff before it is taken', () 
       const en = landmarkOutcomeSummary(outcome, 'en');
       assert.ok(ru.length > 0, `${id}/${key} says nothing in Russian`);
       // Words have to be translated; a summary that is only figures and hearts
-      // — «+35% ❤» — reads the same in both languages and should.
-      if (/\p{L}/u.test(ru)) assert.notEqual(ru, en, `${id}/${key} was never translated`);
+      // — «+35% {heal}» — reads the same in both languages and should. Метки
+      // значков состоят из латиницы, но словами не являются: их снимаем.
+      const безМеток = (text) => text.replace(/\{(gold|heal)\}/g, '');
+      if (/\p{L}/u.test(безМеток(ru))) assert.notEqual(ru, en, `${id}/${key} was never translated`);
       // Every number the outcome carries has to reach the button. A cost that
       // is not shown is the whole reason the altar felt like a lottery.
       for (const [field, needle] of [
-        ['costGold', `\u2212${outcome.costGold}\u25cf`],
-        ['rewardGold', `+${outcome.rewardGold}\u25cf`],
-        ['damage', `\u2212${outcome.damage} \u2764`],
-        ['heal', `+${outcome.heal} \u2764`],
+        ['costGold', `\u2212${outcome.costGold}{gold}`],
+        ['rewardGold', `+${outcome.rewardGold}{gold}`],
+        ['damage', `\u2212${outcome.damage} {heal}`],
+        ['heal', `+${outcome.heal} {heal}`],
         ['rewardMaxHp', `+${outcome.rewardMaxHp} `],
         ['rewardPower', `+${outcome.rewardPower} `],
       ]) {

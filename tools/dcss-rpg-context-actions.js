@@ -270,9 +270,9 @@ const COPY = Object.freeze({
     beyondEndClaim: 'Забег закончен победой',
     sanctuaryName: 'Святилище',
     sanctuaryDescription: 'Камень, у которого останавливаются перед спуском. Берёт монеты, отдаёт силы.',
-    sanctuaryOffer: (heal, price) => `+${heal} ❤ · −${price}●`,
+    sanctuaryOffer: (heal, price) => `+${heal} {heal} · −${price}{gold}`,
     sanctuaryFull: 'Нечего лечить',
-    sanctuaryPoor: (price) => `Нужно ${price}●`,
+    sanctuaryPoor: (price) => `Нужно ${price}{gold}`,
     priestName: 'Жрец',
     chasmName: 'Провал',
     chasmDescription: (floors, cost) => floors === 1
@@ -363,9 +363,9 @@ const COPY = Object.freeze({
     roadEndDeeper: 'This stair does not carry anyone back up',
     sanctuaryName: 'Sanctuary',
     sanctuaryDescription: 'A stone people stop at before going down. It takes coins and gives strength back.',
-    sanctuaryOffer: (heal, price) => `+${heal} ❤ · −${price}●`,
+    sanctuaryOffer: (heal, price) => `+${heal} {heal} · −${price}{gold}`,
     sanctuaryFull: 'Nothing to heal',
-    sanctuaryPoor: (price) => `Needs ${price}●`,
+    sanctuaryPoor: (price) => `Needs ${price}{gold}`,
     priestName: 'Priest',
     chasmName: 'Chasm',
     chasmDescription: (floors, cost) => floors === 1
@@ -565,7 +565,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
         id: 'heal',
         enabled: target.heal > 0 && target.canPay === true,
         // Доступное действие обещает, отказанное объясняет — и то, и другое
-        // цифрами: «+28 ❤ · −3●» или «Нужно 3●».
+        // цифрами: «+28 {heal} · −3{gold}» или «Нужно 3{gold}».
         hint: target.heal <= 0
           ? copy.sanctuaryFull
           : target.canPay === true
@@ -724,7 +724,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
         {
           id: 'unbind',
           enabled: target.canUnbind === true,
-          hint: target.canUnbind === true ? `${target.price}●` : '',
+          hint: target.canUnbind === true ? `${target.price}{gold}` : '',
         },
       ],
     }),
@@ -750,7 +750,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       actions: [
         ...target.menu.map((row) => ({
           id: `buy:${row.itemId}`,
-          label: `${row.name} · ${row.price}●`,
+          label: `${row.name} · ${row.price}{gold}`,
           glyph: '🍲',
           enabled: row.affordable === true,
           hint: row.affordable ? row.hint ?? '' : row.reasonText,
@@ -759,7 +759,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
         // hero's own nor a bedroll on a stone floor.
         ...(target.bed ? [{
           id: 'bed',
-          label: `${copy.tavernBed} · ${target.bed.price}●`,
+          label: `${copy.tavernBed} · ${target.bed.price}{gold}`,
           glyph: '☾',
           enabled: target.bed.ok === true,
           hint: target.bed.ok ? '' : target.bed.text,
@@ -783,7 +783,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
       accent: '#c9a45f',
       actions: [{
         id: `hire:${target.mercenaryId}`,
-        label: `${copy.tavernHire} · ${target.row.price}●`,
+        label: `${copy.tavernHire} · ${target.row.price}{gold}`,
         glyph: '⚔',
         enabled: target.row.ok === true,
         hint: target.row.ok ? `${target.row.maxHp} ♥ · ${target.row.damage} ⚔` : target.row.reason,

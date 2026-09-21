@@ -199,9 +199,9 @@ test('доступность действий следует за золотом
   assert.equal(poor.actions[1].enabled, false);
   // Отказ всё равно говорит, что дал бы: «зачем оно нужно» — вопрос, который
   // остаётся без ответа, когда напечатан один отказ.
-  assert.match(poor.actions[1].hint, new RegExp(`Нужно ${toss.costGold}●`));
+  assert.match(poor.actions[1].hint, new RegExp(`Нужно ${toss.costGold}\\{gold\\}`));
   assert.equal(poor.actions[2].enabled, false);
-  assert.equal(poor.actions[2].hint, `Слишком опасно при таком здоровье · +${dive.rewardGold}●`);
+  assert.equal(poor.actions[2].hint, `Слишком опасно при таком здоровье · +${dive.rewardGold}{gold}`);
 
   const healthy = landmarkActionRules({
     find,
@@ -212,7 +212,7 @@ test('доступность действий следует за золотом
   assert.equal(healthy.actions[0].hint, 'Nothing to heal');
   assert.equal(healthy.actions[1].enabled, true);
   // Доступное действие тратит подпись на обещание, а не на отказ.
-  assert.match(healthy.actions[1].hint, new RegExp(`−${toss.costGold}●`));
+  assert.match(healthy.actions[1].hint, new RegExp(`−${toss.costGold}\\{gold\\}`));
   assert.equal(healthy.actions[2].enabled, true);
 
   assert.ok(Object.isFrozen(healthy.actions));
@@ -372,7 +372,7 @@ test('общий реестр показывает фонтан на двух я
   // Осмотра больше нет: окно и есть осмотр, текст в нём полный сразу.
   assert.deepEqual(ru.actions.map(({ id }) => id), ['drink', 'toss', 'dive']);
   assert.ok(ru.actions.every(({ command }) => command === 'find-interact'));
-  assert.match(ru.actions[1].hint, new RegExp(`−${costGold}●`));
+  assert.match(ru.actions[1].hint, new RegExp(`−${costGold}\\{gold\\}`));
   assert.equal(ru.actions[1].enabled, true);
 
   const english = findById('sunken-fountain').copy.en;
@@ -388,9 +388,9 @@ test('общий реестр показывает фонтан на двух я
     language: 'en',
   });
   assert.equal(broke.actions[1].enabled, false);
-  assert.match(broke.actions[1].hint, new RegExp(`Needs ${costGold}●`));
+  assert.match(broke.actions[1].hint, new RegExp(`Needs ${costGold}\\{gold\\}`));
   assert.equal(broke.actions[2].enabled, false);
-  assert.equal(broke.actions[2].hint, `Too dangerous at this health · +${find.outcomes.dive.rewardGold}●`);
+  assert.equal(broke.actions[2].hint, `Too dangerous at this health · +${find.outcomes.dive.rewardGold}{gold}`);
   assert.throws(() => contextActionModel({ target: { kind: 'find', id: 'sunken-fountain', outcomes: {} } }), TypeError);
 
   const presentation = findPresentation(find, 'en');

@@ -56,6 +56,8 @@ export const HUD_METER_PATHS = Object.freeze([
   'item/food/bread_ration.png',
   'derived/hud/moon.png',
   'derived/hud/home.png',
+  // Сердце в строках обещаний: «+7 ♥» рисунком, а не типографским значком.
+  'derived/hud/heart.png',
 ]);
 
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */

@@ -3500,7 +3500,7 @@ function renderItemDetail(item) {
   }
 
   const action = itemDetailOffer ?? selectedActionModel(selection);
-  itemDetailAction.textContent = handChoice ? menuLabels.mainHand : action.label;
+  fillTextWithIcons(itemDetailAction, handChoice ? menuLabels.mainHand : action.label);
   // У выбора руки своя подпись для чтения вслух: общая говорит «Надеть», а
   // кнопок здесь две, и надо знать, в какую именно.
   itemDetailAction.setAttribute(
@@ -9062,6 +9062,51 @@ function contextTargetIsAdjacent(entry) {
   return open ? distance <= 1 : distance === 1;
 }
 
+/**
+ * Золото и здоровье в строках обещаний — рисунками.
+ *
+ * Карточка писала «+26● · −10 ❤ · шум на весь этаж», и Иван читал это так:
+ * «максимально непонятно, что эти кнопки означают, какая-то иконка». Значки
+ * были типографские — кружок и сердце из шрифта, — и рядом с пиксельной
+ * игрой они не значили ничего. Теперь монета та же, что в кошельке наверху, а
+ * сердце нарисовано цветом полоски здоровья.
+ *
+ * Правила остаются текстом: они ставят метки `{gold}` и `{heal}`, а картинки
+ * подставляет переходник — он один имеет право трогать DOM.
+ */
+const TEXT_ICONS = Object.freeze({
+  gold: Object.freeze({ path: 'item/gold/16.png', ru: 'золота', en: 'gold' }),
+  heal: Object.freeze({ path: 'derived/hud/heart.png', ru: 'здоровья', en: 'health' }),
+});
+
+const TEXT_ICON_PATTERN = /\{(gold|heal)\}/g;
+
+/** Та же строка словами: для чтения вслух и всплывающей подписи. */
+function textIconsToWords(text) {
+  if (typeof text !== 'string') return '';
+  return text.replace(TEXT_ICON_PATTERN, (_, id) => TEXT_ICONS[id][itemDetailLanguage === 'en' ? 'en' : 'ru']);
+}
+
+/** Разложить строку с метками в узел: куски текста и картинки между ними. */
+function fillTextWithIcons(node, text) {
+  const source = typeof text === 'string' ? text : '';
+  const parts = [];
+  let last = 0;
+  for (const match of source.matchAll(TEXT_ICON_PATTERN)) {
+    if (match.index > last) parts.push(document.createTextNode(source.slice(last, match.index)));
+    const icon = document.createElement('img');
+    icon.className = 'text-icon';
+    icon.src = assetUrl(TEXT_ICONS[match[1]].path);
+    icon.alt = '';
+    icon.setAttribute('aria-hidden', 'true');
+    parts.push(icon);
+    last = match.index + match[0].length;
+  }
+  if (last < source.length) parts.push(document.createTextNode(source.slice(last)));
+  node.replaceChildren(...parts);
+  return node;
+}
+
 function renderContextActions() {
   if (!contextTarget) return;
   const model = contextActionModel({
@@ -9073,7 +9118,7 @@ function renderContextActions() {
   contextActionList.style.setProperty('--action-count', String(model.actions.length));
   contextActionIcon.src = assetUrl(model.icon);
   contextActionTitle.textContent = model.name;
-  contextActionDescription.textContent = model.description;
+  fillTextWithIcons(contextActionDescription, model.description);
   closeContextActionsButton.setAttribute('aria-label', model.closeLabel);
   contextActionBackdrop.setAttribute('aria-label', model.closeLabel);
   contextActionList.replaceChildren(...model.actions.map((action) => {
@@ -9084,15 +9129,15 @@ function renderContextActions() {
     button.className = 'context-action-button';
     button.dataset.action = action.id;
     button.disabled = !action.enabled;
-    button.title = action.hint || action.label;
-    button.setAttribute('aria-label', action.hint ? `${action.label}. ${action.hint}` : action.label);
+    button.title = textIconsToWords(action.hint || action.label);
+    button.setAttribute('aria-label', textIconsToWords(action.hint ? `${action.label}. ${action.hint}` : action.label));
     glyph.textContent = action.glyph;
     glyph.setAttribute('aria-hidden', 'true');
-    label.textContent = action.label;
+    fillTextWithIcons(label, action.label);
     button.append(glyph, label);
     if (action.hint) {
       const hint = document.createElement('small');
-      hint.textContent = action.hint;
+      fillTextWithIcons(hint, action.hint);
       button.classList.add('has-hint');
       button.append(hint);
     }
@@ -9345,7 +9390,7 @@ function replaceMerchantState(nextState) {
  */
 function selectMerchantItem(selection) {
   openItemDetail(selection.item, null, {
-    label: `${selection.verb} · ${selection.price}●`,
+    label: `${selection.verb} · ${selection.price}{gold}`,
     ariaLabel: `${selection.verb}: ${itemPresentation(presentedItem(selection.item), itemDetailLanguage).name}, ${selection.price}`,
     act: selection.act,
   });
