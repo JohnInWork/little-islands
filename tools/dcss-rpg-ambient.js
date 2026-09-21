@@ -43,6 +43,7 @@ const scene = (definition) => Object.freeze({
   ...definition,
   phases: Object.freeze(definition.phases.map((phase) => Object.freeze({ ...phase }))),
   sprites: Object.freeze([...(definition.sprites ?? [])]),
+  quarry: Object.freeze([...(definition.quarry ?? [])]),
   line: Object.freeze({ ...definition.line }),
 });
 
@@ -82,16 +83,31 @@ export const AMBIENT_SCENES = Object.freeze([
     phases: [{ id: 'flight', seconds: 3.6 }],
     line: { ru: 'Стая мышей прошивает комнату', en: 'Bats rip across the room' },
   }),
+/*
+ * Кто с кем дерётся.
+ *
+ * Стороны были одной кучей спрайтов, из которой брались двое подряд, — и в
+ * дуэли уникальный торговец Джозеф добивал кобольда. Иван: «я бы хотел
+ * заложить правило, что какой-то гуманоид, мыслящий — огр, орк, наёмник —
+ * против какого-то животного: против волка, против вепря и так далее».
+ *
+ * Правило теперь в самой форме сцены: `sprites` — это те, кто побеждает, а
+ * `quarry` — те, кого добивают. Смешаться они не могут, потому что берутся из
+ * разных списков.
+ *
+ * Разница между дуэлью и потасовкой — размер участников: в первой сходятся
+ * крупные, во второй мелочь. Иначе это была бы одна сцена с двумя таймингами.
+ */
   scene({
     id: 'duel',
     kind: 'sight',
     needs: 'room',
     colour: '#c9a35e',
     sound: 'hit-blade',
-    sprites: [
-      'mon/unique/joseph.png', 'mon/unique/sonja.png',
-      'mon/goblin.png', 'mon/gnoll.png', 'mon/kobold.png',
-    ],
+    // Мыслящие: наёмник, орк-воин, огр.
+    sprites: ['mon/unique/edmund.png', 'mon/orc_warrior.png', 'mon/ogre.png'],
+    // Звери, которые им попались.
+    quarry: ['mon/animals/wolf.png', 'derived/mon/boar.png', 'mon/animals/black_bear.png'],
     // He is already winning when you see him, and he leaves at once. A fight you
     // could join and cannot reach is a promise the game has no way to keep.
     phases: [
@@ -107,7 +123,9 @@ export const AMBIENT_SCENES = Object.freeze([
     needs: 'room',
     colour: '#b0714d',
     sound: 'hit-blade',
+    // Та же пара, только мельче: гоблин, гнолл, кобольд против мелкой живности.
     sprites: ['mon/goblin.png', 'mon/gnoll.png', 'mon/kobold.png'],
+    quarry: ['mon/animals/jackal.png', 'mon/animals/wolf_spider.png', 'mon/animals/giant_newt.png'],
     phases: [
       { id: 'fight', seconds: 3.8 },
       { id: 'kill', seconds: 1.1 },
@@ -371,12 +389,17 @@ export function ambientActors(id, elapsed, variant = 0) {
   }
 
   if (id === 'duel' || id === 'brawl') {
-    const winnerSprites = id === 'duel'
-      ? entry.sprites.slice(0, 2)
-      : entry.sprites;
-    const loserSprites = id === 'duel' ? entry.sprites.slice(2) : entry.sprites;
-    const winner = pick(winnerSprites);
-    const loser = pick(loserSprites, 1);
+    /*
+     * Победитель — всегда из мыслящих, проигравший — всегда зверь.
+     *
+     * Второй берётся не соседним числом, а через длину первого списка: иначе
+     * пары ходили бы парами — первый с первым, второй со вторым, — и из девяти
+     * сочетаний игрок увидел бы три.
+     */
+    const winner = entry.sprites[variant % entry.sprites.length];
+    const loser = entry.quarry[
+      Math.floor(variant / entry.sprites.length) % entry.quarry.length
+    ];
     // They trade blows on a beat rather than sliding: a fight is a rhythm.
     const beat = Math.sin(elapsed * 9.5);
     let winnerU = 0.42 + beat * 0.03;
@@ -394,7 +417,16 @@ export function ambientActors(id, elapsed, variant = 0) {
     } else if (phase.id === 'flee') {
       loserOpacity = 0;
       winnerU = 0.44 + ease(phase.progress) * 0.62;
-      winnerOpacity = 1 - ease(Math.max(0, (phase.progress - 0.6) / 0.4));
+      /*
+       * Уходит он в темноту, а не в воздух.
+       *
+       * Раньше победитель начинал таять на шестой десятой пути — посреди
+       * освещённого пятна, — и это читалось не как уход, а как поломка. Иван:
+       * «мне не нравится анимация, как уходит монстр, она не такая, как
+       * обычно у NPC, это даже кажется каким-то багом». Теперь он гаснет на
+       * последней четверти, когда уже у края света.
+       */
+      winnerOpacity = 1 - ease(Math.max(0, (phase.progress - 0.76) / 0.24));
     }
     const actors = [Object.freeze({
       key: 'winner',
@@ -402,11 +434,16 @@ export function ambientActors(id, elapsed, variant = 0) {
       u: winnerU,
       v: 0.5,
       opacity: winnerOpacity,
-      facing: phase.id === 'flee' ? 1 : 1,
+      facing: 1,
       size: id === 'duel' ? 78 : 72,
-      lift: -10,
-      // Limping away: the one who won did not win for free.
-      hurt: phase.id === 'flee',
+      /*
+       * Уходящий шагает, а не скользит.
+       *
+       * Высота была постоянной, и победитель уезжал вбок, как картинка по
+       * стеклу: всё живое в игре при ходьбе подпрыгивает шагом, а он один —
+       * нет. Тот же шаг, той же формы, что у героя и монстров.
+       */
+      lift: -10 + (phase.id === 'flee' ? -Math.abs(Math.sin(phase.progress * Math.PI * 6)) * 3 : 0),
     })];
     if (loserOpacity > 0) {
       actors.push(Object.freeze({

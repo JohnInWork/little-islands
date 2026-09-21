@@ -183,3 +183,67 @@ test('what the player has seen is kept in catalogue order and shown as a collect
   assert.ok(ambientSeenModel([], 'en').empty.length > 0);
   assert.equal(ambientSeenModel(seen, 'en').empty, '');
 });
+
+/**
+ * Мыслящий против зверя — и никак иначе.
+ *
+ * Стороны были одной кучей спрайтов, из которой брались двое подряд, и в дуэли
+ * уникальный торговец добивал кобольда. Иван: «я бы хотел заложить правило, что
+ * какой-то гуманоид, мыслящий — огр, орк, наёмник — против какого-то животного:
+ * против волка, против вепря и так далее».
+ *
+ * Правило проверяется по спискам, а не по картинкам: победитель обязан приходить
+ * из `sprites`, проигравший — из `quarry`, и перепутать их нельзя, потому что
+ * пересечения у списков нет.
+ */
+test('в драке побеждает мыслящий, а падает зверь', async () => {
+  const { AMBIENT_SCENES, ambientActors } = await import('../tools/dcss-rpg-ambient.js');
+  for (const id of ['duel', 'brawl']) {
+    const сцена = AMBIENT_SCENES.find((entry) => entry.id === id);
+    assert.ok(сцена.sprites.length >= 3, `${id}: мыслящих меньше трёх`);
+    assert.ok(сцена.quarry.length >= 3, `${id}: зверей меньше трёх`);
+    const пересечение = сцена.sprites.filter((path) => сцена.quarry.includes(path));
+    assert.deepEqual(пересечение, [], `${id}: кто-то и мыслящий, и зверь`);
+
+    const пары = new Set();
+    for (let variant = 0; variant < 24; variant += 1) {
+      const actors = ambientActors(id, 1, variant);
+      const winner = actors.find(({ key }) => key === 'winner');
+      const loser = actors.find(({ key }) => key === 'loser');
+      assert.ok(сцена.sprites.includes(winner.sprite), `${id}: победил не мыслящий`);
+      assert.ok(сцена.quarry.includes(loser.sprite), `${id}: пал не зверь`);
+      пары.add(`${winner.sprite}|${loser.sprite}`);
+    }
+    // Все сочетания, а не три: иначе игрок увидит одну и ту же драку.
+    assert.equal(пары.size, сцена.sprites.length * сцена.quarry.length, `${id}: пары ходят парами`);
+  }
+});
+
+/**
+ * Уходящий шагает, а не скользит.
+ *
+ * Высота была постоянной, и победитель уезжал вбок, как картинка по стеклу.
+ * Иван: «мне не нравится анимация, как уходит монстр, она не такая, как обычно
+ * у NPC в игре, это даже кажется каким-то багом».
+ */
+test('победитель уходит шагом и гаснет у края света', async () => {
+  const { AMBIENT_SCENES, ambientActors } = await import('../tools/dcss-rpg-ambient.js');
+  const сцена = AMBIENT_SCENES.find(({ id }) => id === 'duel');
+  const начало = сцена.phases[0].seconds + сцена.phases[1].seconds;
+  const высоты = [];
+  const прозрачность = [];
+  // Семнадцать точек, а не двенадцать: ровное число попадает ровно на гребни
+  // шага, и высота выглядит постоянной там, где она качается.
+  const шаг = сцена.phases[2].seconds / 17;
+  for (let i = 0; i < 17; i += 1) {
+    const winner = ambientActors('duel', начало + i * шаг, 0).find(({ key }) => key === 'winner');
+    высоты.push(Number(winner.lift.toFixed(3)));
+    прозрачность.push(winner.opacity);
+  }
+  assert.ok(new Set(высоты).size > 4, 'уходящий скользит на постоянной высоте');
+  assert.ok(Math.max(...высоты) > Math.min(...высоты) + 1.5, 'шаг не заметен');
+  // Гаснет он в конце, а не посреди комнаты.
+  assert.equal(прозрачность[0], 1, 'начал таять сразу же');
+  assert.ok(прозрачность[11] > 0.9, 'растаял посреди освещённого пятна');
+  assert.ok(прозрачность.at(-1) < 0.35, 'так и не ушёл');
+});
