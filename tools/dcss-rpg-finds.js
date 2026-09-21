@@ -171,7 +171,7 @@ export const FIND_CATALOG = Object.freeze([
         name: 'Затопленный фонтан',
         summary: 'Чаша тёмной воды, и на дне её поблёскивают монеты.',
         action: 'Подойти к фонтану',
-        inspected: 'Чаша полна тёмной воды. На дне поблёскивают монеты.',
+        inspected: 'Вода стоячая и холодная. Монеты на дне бросил кто-то до тебя.',
         unsafe: 'Слишком опасно при таком здоровье',
         nothingToHeal: 'Нечего лечить',
         goldRequired: 'Нужно',
@@ -239,7 +239,7 @@ export const FIND_CATALOG = Object.freeze([
         name: 'Запечатанная руна',
         summary: 'Камень в цепях, исписанный знаками. Золота он не берёт.',
         action: 'Подойти к руне',
-        inspected: 'Камень в цепях. Знаки на нём ещё держат тепло.',
+        inspected: 'Знаки ещё держат тепло: их читали совсем недавно.',
         unsafe: 'Слишком опасно при таком здоровье',
         nothingToHeal: 'Нечего лечить',
         goldRequired: 'Нужно',
@@ -706,8 +706,8 @@ export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = f
    */
   const parts = [];
   const cost = outcome.costGold ?? 0;
-  if (cost > 0 && !onlyGains) parts.push(`\u2212${cost}{gold}`);
-  if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold}{gold}`);
+  if (cost > 0 && !onlyGains) parts.push(`\u2212${cost} {gold}`);
+  if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold} {gold}`);
   if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} ${copy.power}`);
   if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} ${copy.limit}`);
   // A share of the cap reads as a share; a flat number reads as a number.
@@ -750,7 +750,7 @@ export function landmarkActionRules({ find, actor, language = 'ru' } = {}) {
     const gains = landmarkOutcomeSummary(outcome, locale, { onlyGains: true });
     const refused = (reason) => landmarkAction(id, false, gains ? `${reason} · ${gains}` : reason);
     if (costGold > 0 && access.gold !== null && access.gold < costGold) {
-      return refused(`${copy.goldRequired} ${costGold}{gold}`);
+      return refused(`${copy.goldRequired} ${costGold} {gold}`);
     }
     if (damage > 0 && access.hp !== null && access.hp <= damage) {
       return refused(copy.unsafe);

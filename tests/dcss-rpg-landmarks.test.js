@@ -312,8 +312,8 @@ test('a landmark choice states its price and its payoff before it is taken', () 
       // Every number the outcome carries has to reach the button. A cost that
       // is not shown is the whole reason the altar felt like a lottery.
       for (const [field, needle] of [
-        ['costGold', `\u2212${outcome.costGold}{gold}`],
-        ['rewardGold', `+${outcome.rewardGold}{gold}`],
+        ['costGold', `\u2212${outcome.costGold} {gold}`],
+        ['rewardGold', `+${outcome.rewardGold} {gold}`],
         ['damage', `\u2212${outcome.damage} {heal}`],
         ['heal', `+${outcome.heal} {heal}`],
         ['rewardMaxHp', `+${outcome.rewardMaxHp} `],

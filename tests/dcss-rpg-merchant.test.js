@@ -221,7 +221,7 @@ test('the shop shows the thing in the big window before it takes the money', asy
   }
   // The row opens the one window that describes a thing, and hands it the offer.
   assert.match(runtime, /function selectMerchantItem\(selection\) \{\s*openItemDetail\(selection\.item, null, \{/);
-  assert.match(runtime, /label: `\$\{selection\.verb\} · \$\{selection\.price\}\{gold\}`/);
+  assert.match(runtime, /label: `\$\{selection\.verb\} · \$\{selection\.price\} \{gold\}`/);
   // Nothing is bought until that window's button is pressed.
   assert.match(runtime, /if \(itemDetailOffer\) \{\s*const \{ act \} = itemDetailOffer;/);
   // The forge and the alternative belong to the backpack, not to a counter.

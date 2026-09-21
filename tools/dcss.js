@@ -9390,7 +9390,7 @@ function replaceMerchantState(nextState) {
  */
 function selectMerchantItem(selection) {
   openItemDetail(selection.item, null, {
-    label: `${selection.verb} · ${selection.price}{gold}`,
+    label: `${selection.verb} · ${selection.price} {gold}`,
     ariaLabel: `${selection.verb}: ${itemPresentation(presentedItem(selection.item), itemDetailLanguage).name}, ${selection.price}`,
     act: selection.act,
   });
