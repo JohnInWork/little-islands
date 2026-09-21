@@ -78,7 +78,7 @@ import {
   resolveParley,
 } from './dcss-rpg-parley.js';
 import { canRespec, respecHero } from './dcss-rpg-respec.js';
-import { THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
+import { REVIVING_MONSTER_ID, THIEF_MONSTER_ID } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
 import {
   STASH_KEY,
@@ -3094,6 +3094,26 @@ function nearbyParley() {
   )) ?? null;
 }
 
+/** Кого ведьма может купить: первый зверь в отряде, если он есть. */
+function firstCompanionName() {
+  const record = run.companions[0];
+  return record ? companionName(record.id, itemDetailLanguage) : '';
+}
+
+/**
+ * Зверь уходит за ведьмой.
+ *
+ * Отряд пересобирается целиком: место в нём — это индекс, и оставшиеся должны
+ * встать заново, иначе второй зверь остался бы стоять на месте первого.
+ */
+function surrenderCompanion() {
+  if (run.companions.length === 0) return false;
+  run.companions = run.companions.slice(1);
+  allies = allies.filter((ally) => !ally.companion);
+  updateAllySlots();
+  return true;
+}
+
 /**
  * Осталось ли о чём говорить.
  *
@@ -3240,6 +3260,7 @@ function answerParley(target, option) {
       hp: hero.hp,
       maxHp: currentHeroStats().maxHp,
       weaponName: equippedWeaponName(),
+      companionName: firstCompanionName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
       skills: hero.skills,
       attributes: hero.attributes,
@@ -3253,6 +3274,7 @@ function answerParley(target, option) {
   // Отдать нечего — значит и разговор не состоялся: лучше ничего, чем монстр,
   // ушедший с платой, которой герой не внёс.
   if (result.takesWeapon && !surrenderWeapon()) return false;
+  if (result.takesCompanion && !surrenderCompanion()) return false;
   if (result.takesFood && !consumeInteractionResources([{ id: RAW_MEAT_ITEM_ID, amount: 1 }])) return false;
   /*
    * Некуда положить — значит и покупать нечего.
@@ -3283,6 +3305,24 @@ function answerParley(target, option) {
     );
   }
   if (result.respec) applyRespec();
+  if (result.revealsFloor) {
+    revealFromScroll({ whole: true });
+    refreshVisibleSecrets();
+  }
+  /*
+   * Услышали все.
+   *
+   * Череп говорит правду бесплатно, и в этом вся цена: этаж открывается
+   * целиком, но встаёт тоже целиком. Нейтральных это не касается — им нечего
+   * будить, они и так не спят.
+   */
+  if (result.wakesFloor) {
+    for (const other of monsters) {
+      if (other.dead > 0 || other.neutral) continue;
+      other.alerted = other.pursuit;
+      other.alertFlash = 0.5;
+    }
+  }
   // Сделка есть сделка: она переживает и этаж, и смерть, и перезагрузку.
   if (result.soldSoul) run.soulSold = true;
   if (result.damageMultiplier > 1) {
@@ -9532,6 +9572,7 @@ function contextModelTarget(entry = contextTarget) {
       hp: hero.hp,
       maxHp: currentHeroStats().maxHp,
       weaponName: equippedWeaponName(),
+      companionName: firstCompanionName(),
       foodCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
       skills: hero.skills,
       attributes: hero.attributes,
@@ -15318,9 +15359,38 @@ function claimGuardianTrophy(monster) {
   );
 }
 
+const REVIVE_COPY = Object.freeze({
+  ru: 'Наташа поднимается и облизывает лапу. Это была не последняя жизнь.',
+  en: 'Natasha gets up and licks a paw. That was not the last life.',
+});
+
+/**
+ * Удар, который должен был закончить драку.
+ *
+ * Полоса дошла до нуля, и вместо смерти кошка встаёт целой. Один раз за
+ * встречу: `revived` живёт на существе, а не в сохранении, — перезагрузка
+ * возвращает её живой в любом случае, и отнимать этим нечего.
+ */
+function reviveNamed(monster) {
+  if (monster.id !== REVIVING_MONSTER_ID || monster.revived) return false;
+  monster.revived = true;
+  monster.hp = monster.maxHp;
+  monster.alerted = monster.pursuit;
+  monster.alertFlash = 0.6;
+  burst(monster.x, monster.y - 8, '#d8d0a8', 18);
+  addCombatGlyph(monster.x, monster.y, '↑', '#d8d0a8', -64);
+  playSound('spell-heal');
+  showLootToast(
+    { path: monster.spritePath, rarity: 1 },
+    REVIVE_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru'],
+  );
+  return true;
+}
+
 function defeatMonster(monster) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return;
   if (monster.dead > 0 || run.floor.defeated.includes(monster.instanceId)) return;
+  if (reviveNamed(monster)) return;
   monster.dead = 0.01;
   // The ghost is not one of the floor's monsters, and `floor.defeated` may only
   // ever hold ids the floor itself generated.

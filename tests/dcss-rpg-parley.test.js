@@ -20,6 +20,7 @@ import {
   PARLEY_SOUL_POWER,
   PARLEY_SOUL_PRIZE,
   PARLEY_WARES,
+  parleyBeastPrice,
   parleyBloodCost,
 } from '../tools/dcss-rpg-parley.js';
 import { RARE_MONSTER_IDS, RARE_ENCOUNTER_CHANCE } from '../tools/dcss-rpg-rare-encounters.js';
@@ -163,7 +164,11 @@ test('адаптер спрашивает разговор раньше драк
   );
   assert.match(runtime, /run\.floor\.spoken\?\.includes\(monster\.instanceId\)/);
   // Исход применяется целиком, а не наполовину.
-  for (const кусок of ['result.takesWeapon', 'result.takesFood', 'result.goldDelta', 'result.heal', 'result.hostile', 'result.leaves']) {
+  for (const кусок of [
+    'result.takesWeapon', 'result.takesFood', 'result.goldDelta', 'result.heal',
+    'result.hostile', 'result.leaves', 'result.takesCompanion', 'result.revealsFloor',
+    'result.wakesFloor', 'result.hpCost',
+  ]) {
     assert.ok(runtime.includes(кусок), `${кусок} не применяется`);
   }
   // Договорившийся уходит и записывается ушедшим сразу.
@@ -434,4 +439,42 @@ test('проданную душу и выпитую кровь нельзя по
   assert.match(runtime, /if \(run\.soulSold\) \{/);
   assert.match(runtime, /PARLEY_SOUL_POWER/);
   assert.ok(PARLEY_SOUL_POWER >= 3, 'согласившемуся достался обычный демон');
+});
+
+/**
+ * Ведьма и череп: две сделки без золота у героя в кармане.
+ *
+ * Обе редкие для разговоров тем, что предмет торга — не монета. Кирке платит
+ * за живого товарища, и потому платит много: дешёвая цена сделала бы выбор
+ * очевидным. Мюррей не берёт ничего — его цена в том, что этаж, который он
+ * открывает, он же и будит.
+ */
+test('ведьма покупает зверя, а череп рассказывает даром', () => {
+  const пусто = parleyModel({ monsterId: 'kirke', depth: 10 });
+  assert.equal(пусто.options[0].enabled, false, 'ведьме продают несуществующего зверя');
+  assert.ok(пусто.options[0].hint.length > 0, 'кнопка погасла молча');
+
+  const сзверем = parleyModel({ monsterId: 'kirke', depth: 10, companionName: 'Як' });
+  assert.equal(сзверем.options[0].enabled, true);
+  assert.ok(сзверем.options[0].label.includes('Як'), 'в кнопке не написано, кого отдают');
+  assert.equal(сзверем.price, parleyBeastPrice(10));
+  // Зверь стоит заметно дороже всего остального, что предлагают в разговоре.
+  assert.ok(parleyBeastPrice(10) > parleyRewardGold(10) * 2, 'товарища отдают за бесценок');
+
+  const отдал = resolveParley({ monsterId: 'kirke', option: 'give', depth: 10, companionName: 'Як' });
+  assert.equal(отдал.takesCompanion, true);
+  assert.equal(отдал.goldDelta, parleyBeastPrice(10));
+  assert.equal(отдал.leaves, true);
+  const оставил = resolveParley({ monsterId: 'kirke', option: 'refuse', depth: 10, companionName: 'Як' });
+  assert.equal(оставил.takesCompanion, false);
+  assert.equal(оставил.hostile, false, 'ведьма дерётся за отказ продать');
+
+  const сказал = resolveParley({ monsterId: 'murray', option: 'listen', depth: 10 });
+  assert.equal(сказал.revealsFloor, true);
+  assert.equal(сказал.wakesFloor, true, 'череп открыл этаж и никого не разбудил');
+  assert.equal(сказал.goldDelta, 0, 'бесплатное перестало быть бесплатным');
+  const промолчал = resolveParley({ monsterId: 'murray', option: 'refuse', depth: 10 });
+  assert.equal(промолчал.revealsFloor, false);
+  assert.equal(промолчал.wakesFloor, false);
+  assert.equal(промолчал.hostile, false);
 });

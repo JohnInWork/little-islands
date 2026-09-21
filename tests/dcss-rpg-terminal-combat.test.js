@@ -37,6 +37,10 @@ function combatRuntime() {
     // Как и ронять лучшую вещь в игре: именных здесь тоже нет.
     claimNamedPrize: () => {},
     claimPendingPrize: () => {},
+    // А вот встающая кошка проверяется по-настоящему: нужны её id и реплика.
+    REVIVING_MONSTER_ID: 'natasha',
+    REVIVE_COPY: { ru: 'встала', en: 'up' },
+    itemDetailLanguage: 'ru',
     // Путь к монете интерфейса — модульная константа адаптера.
     GOLD_ICON_PATH: 'licensed/7soul-icons/coin-gold.png',
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
@@ -146,7 +150,7 @@ function combatRuntime() {
   });
   const entryPoints = [
     'damageMonster', 'executionDamage', 'applyWeaponPowers',
-    'defeatMonster', 'damageHero', 'surviveOnSecondWind', 'heroConditionalDamage',
+    'reviveNamed', 'defeatMonster', 'damageHero', 'surviveOnSecondWind', 'heroConditionalDamage',
     'gainExperience', 'completeVictory',
   ];
   vm.runInContext(entryPoints.map(runtimeFunction).join('\n'), context, { timeout: 1000 });
@@ -221,4 +225,34 @@ test('the same runtime entry points still defeat a monster and award XP once dur
   context.defeatMonster(monster);
   assert.equal(metrics.experienceAwards, 1);
   assert.equal(context.hero.xp, 6);
+});
+
+/**
+ * Удар, который должен был закончить драку.
+ *
+ * Первый именной, который отличается не именем над головой, а тем, что
+ * происходит в бою. Проверяется обе половины: что первый раз не считается —
+ * и что второй считается. Бесконечная кошка была бы уже не сюрпризом, а
+ * стеной, и заметить такую подмену иначе можно было бы только в живом бою.
+ */
+test('кошка встаёт после первой смерти и только после первой', () => {
+  const { context, metrics } = combatRuntime();
+  const наташа = {
+    ...targetMonster(), id: 'natasha', instanceId: 'monster-1-rare', hp: 3, maxHp: 30, pursuit: 4,
+  };
+  context.damageMonster(наташа, 50, '#ffffff', { projectile: true });
+  assert.equal(наташа.dead, 0, 'смерть засчитана с первого удара');
+  assert.equal(наташа.hp, наташа.maxHp, 'встала не целой');
+  assert.deepEqual(context.run.floor.defeated, [], 'этаж уже записал её убитой');
+  assert.equal(metrics.experienceAwards, 0, 'опыт выдан за неоконченную драку');
+
+  context.damageMonster(наташа, 50, '#ffffff', { projectile: true });
+  assert.ok(наташа.dead > 0, 'второй раз добить нельзя');
+  assert.deepEqual(context.run.floor.defeated, [наташа.instanceId]);
+  assert.equal(metrics.experienceAwards, 1, 'опыт за неё так и не выдан');
+
+  // Обычный монстр умирает с первого раза, как умирал.
+  const обычный = targetMonster();
+  context.damageMonster(обычный, 50, '#ffffff', { projectile: true });
+  assert.ok(обычный.dead > 0, 'вставать начали все');
 });

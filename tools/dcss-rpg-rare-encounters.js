@@ -96,12 +96,16 @@ const ROSTER = [
   named({ id: 'agnes', habitat: 'surface', sprite: 'unique/agnes.png', tier: 4, style: 'skirmisher', ru: 'Агнес', en: 'Agnes' }),
   // Улитка в короне: единственная встреча, которая не может кончиться боем.
   named({ id: 'gastronok', habitat: 'surface', kin: 'oddity', sprite: 'unique/gastronok.png', tier: 3, style: 'brute', neutral: true, ru: 'Гастроном', en: 'Gastronok' }),
+  // Ведьма, которой нужен чужой зверь, а не чужая жизнь.
+  named({ id: 'kirke', habitat: 'surface', sprite: 'unique/kirke.png', tier: 5, style: 'caster', neutral: true, ru: 'Кирке', en: 'Kirke' }),
   named({ id: 'sonja', habitat: 'surface', sprite: 'unique/sonja.png', tier: 5, style: 'skirmisher', ru: 'Соня', en: 'Sonja' }),
   named({ id: 'erica', habitat: 'surface', sprite: 'unique/erica.png', tier: 5, style: 'caster', element: 'fire', ru: 'Эрика', en: 'Erica' }),
   named({ id: 'rupert', habitat: 'surface', sprite: 'unique/rupert.png', tier: 6, style: 'brute', ru: 'Руперт', en: 'Rupert' }),
 
   // ── Именные: спуск ──────────────────────────────────────────────────────
   named({ id: 'robin', habitat: 'deep', sprite: 'unique/robin.png', tier: 2, style: 'brute', ru: 'Робин', en: 'Robin' }),
+  // Кошка, которая встаёт обратно. Один раз.
+  named({ id: 'natasha', habitat: 'deep', kin: 'beast', sprite: 'unique/natasha.png', tier: 3, style: 'skirmisher', ru: 'Наташа', en: 'Natasha' }),
   named({ id: 'ijyb', habitat: 'deep', sprite: 'unique/ijyb.png', tier: 2, style: 'skirmisher', ru: 'Ийиб', en: 'Ijyb' }),
   named({ id: 'sigmund', habitat: 'deep', sprite: 'unique/sigmund.png', tier: 3, style: 'caster', ru: 'Сигмунд', en: 'Sigmund' }),
   named({ id: 'blork-the-orc', habitat: 'deep', sprite: 'unique/blork_the_orc.png', tier: 3, style: 'brute', neutral: true, ru: 'Блорк Орк', en: 'Blork the orc' }),
@@ -135,7 +139,8 @@ const ROSTER = [
   named({ id: 'nergalle', habitat: 'crypt', sprite: 'unique/nergalle.png', tier: 3, style: 'caster', ru: 'Нергалль', en: 'Nergalle' }),
   named({ id: 'mara', habitat: 'crypt', kin: 'undead', sprite: 'unique/mara.png', tier: 4, style: 'caster', ru: 'Мара', en: 'Mara' }),
   named({ id: 'josephine', habitat: 'crypt', kin: 'undead', sprite: 'unique/josephine.png', tier: 5, style: 'caster', ru: 'Джозефина', en: 'Josephine' }),
-  named({ id: 'murray', habitat: 'crypt', kin: 'undead', sprite: 'unique/murray.png', tier: 6, style: 'caster', ru: 'Мюррей', en: 'Murray' }),
+  // Череп, который знает про этаж всё и молчать не умеет.
+  named({ id: 'murray', habitat: 'crypt', kin: 'undead', sprite: 'unique/murray.png', tier: 6, style: 'caster', neutral: true, ru: 'Мюррей', en: 'Murray' }),
   // Вампир, который меняет чужую кровь на силу, а не пьёт её молча.
   named({ id: 'jory', habitat: 'crypt', kin: 'undead', sprite: 'unique/jory.png', tier: 7, style: 'skirmisher', neutral: true, ru: 'Джори', en: 'Jory' }),
   named({ id: 'boris', habitat: 'crypt', kin: 'undead', sprite: 'unique/boris.png', tier: 8, style: 'caster', ru: 'Борис', en: 'Boris' }),
@@ -181,6 +186,19 @@ export const RARE_MONSTER_IDS = Object.freeze(ROSTER.map(({ id }) => id));
  * жребий.
  */
 export const THIEF_MONSTER_ID = 'maurice';
+
+/**
+ * Кто встаёт после первой смерти.
+ *
+ * Именные до сих пор отличались от обычных только именем над головой и тем,
+ * что с частью из них можно поговорить. Это — первый, кто отличается прямо в
+ * бою: удар, который должен был закончить драку, её не заканчивает.
+ *
+ * Ровно один раз и только в бою. Она не лечится по ходу, не встаёт второй раз
+ * и не возвращается на этаж, с которого ушла: сюрприз работает, пока он
+ * случается впервые, а бесконечный враг — это уже не сюрприз, а стена.
+ */
+export const REVIVING_MONSTER_ID = 'natasha';
 
 /**
  * Когда именной враг становится честным противником. Тир говорит, какой он

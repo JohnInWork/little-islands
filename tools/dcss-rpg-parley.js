@@ -99,6 +99,18 @@ export const PARLEY_SOUL_POWER = 3;
  */
 export const PARLEY_SOUL_PRIZE = Object.freeze({ id: 'blood-axe', powerId: 'executioner' });
 
+/**
+ * Сколько платит ведьма за чужого зверя.
+ *
+ * Заметно больше всего остального, что предлагают в разговоре: отдают живого
+ * товарища, а не монету и не еду. Дешёвая цена сделала бы выбор очевидным, а
+ * очевидный выбор — это не выбор.
+ */
+export function parleyBeastPrice(depth) {
+  if (!Number.isInteger(depth) || depth < 0) throw new TypeError('A beast needs a floor depth');
+  return 180 + depth * 45;
+}
+
 /** Сколько крови берёт вампир — доля полной полосы, а не текущей. */
 export const PARLEY_BLOOD_SHARE = 0.4;
 
@@ -167,6 +179,23 @@ const COPY = Object.freeze({
       nothing: 'Забывать пока нечего',
       done: 'Фаннар кладёт ладонь на лоб, и выученное осыпается. Очки снова твои.',
       kept: 'Фаннар кивает: значит, всё было выбрано верно.',
+    }),
+    kirke: Object.freeze({
+      name: 'Кирке',
+      line: 'Хороший у тебя зверь. Я дам за него больше, чем он стоит.',
+      give: (beast, gold) => `Отдать: ${beast} · +${gold}{gold}`,
+      keep: 'Не отдавать',
+      empty: 'Зверя с тобой нет',
+      gave: (beast, gold) => `${beast} уходит за ведьмой. +${gold}{gold}`,
+      kept: 'Кирке пожимает плечами и идёт своей дорогой.',
+    }),
+    murray: Object.freeze({
+      name: 'Мюррей',
+      line: 'Я знаю про этот этаж всё. И скажу. Громко.',
+      listen: 'Слушать',
+      away: 'Не слушать',
+      told: 'Этаж открыт весь — и услышали это все, кто на нём.',
+      kept: 'Мюррей замолкает и укатывается в темноту.',
     }),
     'gloorx-vloq': Object.freeze({
       name: 'Глоркс Влок',
@@ -252,6 +281,23 @@ const COPY = Object.freeze({
       done: 'Fannar lays a palm on your brow and the learning falls away. The points are yours again.',
       kept: 'Fannar nods: then it was all chosen well.',
     }),
+    kirke: Object.freeze({
+      name: 'Kirke',
+      line: 'A fine beast you have. I will pay more than it is worth.',
+      give: (beast, gold) => `Hand over: ${beast} · +${gold}{gold}`,
+      keep: 'Keep it',
+      empty: 'No beast with you',
+      gave: (beast, gold) => `${beast} follows the witch away. +${gold}{gold}`,
+      kept: 'Kirke shrugs and goes her own way.',
+    }),
+    murray: Object.freeze({
+      name: 'Murray',
+      line: 'I know everything about this floor. And I will say it. Loudly.',
+      listen: 'Listen',
+      away: 'Walk on',
+      told: 'The whole floor is open — and everyone on it heard how.',
+      kept: 'Murray falls silent and rolls off into the dark.',
+    }),
     'gloorx-vloq': Object.freeze({
       name: 'Gloorx Vloq',
       line: 'Your soul. Five thousand in gold, here and now.',
@@ -311,6 +357,10 @@ export const PARLEY_ENCOUNTERS = Object.freeze({
   }),
   // Вампир: пришёл за кровью и без неё не уйдёт.
   jory: Object.freeze({ id: 'jory', kind: 'blood', hostileOnRefusal: true }),
+  // Ведьма покупает, а не отнимает: отказавшему она просто не нужна.
+  kirke: Object.freeze({ id: 'kirke', kind: 'beast', hostileOnRefusal: false, leavesOnRefusal: true }),
+  // Череп ничего не просит взамен. Цена у него не в золоте.
+  murray: Object.freeze({ id: 'murray', kind: 'secrets', hostileOnRefusal: false, leavesOnRefusal: true }),
 });
 
 export const PARLEY_IDS = Object.freeze(Object.keys(PARLEY_ENCOUNTERS));
@@ -335,6 +385,7 @@ export function parleyModel({
   hp = 0,
   maxHp = 1,
   weaponName = '',
+  companionName = '',
   foodCount = 0,
   skills = null,
   attributes = null,
@@ -428,6 +479,39 @@ export function parleyModel({
     });
   }
 
+  if (encounter.kind === 'beast') {
+    const цена = parleyBeastPrice(depth);
+    const есть = typeof companionName === 'string' && companionName.length > 0;
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: цена,
+      options: Object.freeze([
+        Object.freeze({
+          id: 'give',
+          label: copy.give(есть ? companionName : '—', цена),
+          enabled: есть,
+          hint: есть ? '' : copy.empty,
+        }),
+        Object.freeze({ id: 'refuse', label: copy.keep, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
+  if (encounter.kind === 'secrets') {
+    return Object.freeze({
+      id: monsterId,
+      name: copy.name,
+      line: copy.line,
+      price: 0,
+      options: Object.freeze([
+        Object.freeze({ id: 'listen', label: copy.listen, enabled: true, hint: '' }),
+        Object.freeze({ id: 'refuse', label: copy.away, enabled: true, hint: '' }),
+      ]),
+    });
+  }
+
   if (encounter.kind === 'soul') {
     return Object.freeze({
       id: monsterId,
@@ -508,6 +592,9 @@ const outcome = (changes) => Object.freeze({
   takesFood: false,
   grantsItemId: null,
   grantsPowerId: null,
+  takesCompanion: false,
+  revealsFloor: false,
+  wakesFloor: false,
   soldSoul: false,
   respec: false,
   message: '',
@@ -523,6 +610,7 @@ export function resolveParley({
   hp = 0,
   maxHp = 1,
   weaponName = '',
+  companionName = '',
   foodCount = 0,
   skills = null,
   attributes = null,
@@ -531,7 +619,7 @@ export function resolveParley({
   const encounter = parleyFor(monsterId);
   if (!encounter) throw new TypeError(`No parley for ${monsterId}`);
   const model = parleyModel({
-    monsterId, depth, gold, hp, maxHp, weaponName, foodCount, skills, attributes, language,
+    monsterId, depth, gold, hp, maxHp, weaponName, companionName, foodCount, skills, attributes, language,
   });
   const chosen = model.options.find(({ id }) => id === option);
   if (!chosen) throw new TypeError(`Unknown parley option ${option}`);
@@ -609,6 +697,26 @@ export function resolveParley({
     });
   }
 
+  if (option === 'give' && encounter.kind === 'beast') {
+    return outcome({
+      leaves: true,
+      goldDelta: model.price,
+      takesCompanion: true,
+      message: copy.gave(companionName, model.price),
+    });
+  }
+
+  /*
+   * Череп говорит правду и говорит её громко.
+   *
+   * Платы он не берёт: цена в том, что вместе с героем этаж слышат все, кто
+   * на нём стоит. Это единственный разговор, где «да» не стоит ничего и всё
+   * равно может стоить забега.
+   */
+  if (option === 'listen') {
+    return outcome({ leaves: true, revealsFloor: true, wakesFloor: true, message: copy.told });
+  }
+
   if (option === 'refuse') {
     return outcome({
       hostile: encounter.hostileOnRefusal,
@@ -617,7 +725,8 @@ export function resolveParley({
         : encounter.kind === 'food' ? copy.denied
           : encounter.kind === 'bet' ? copy.walked
             : encounter.kind === 'wares' ? copy.passed
-              : encounter.kind === 'respec' ? copy.kept
+              : encounter.kind === 'respec' || encounter.kind === 'beast' || encounter.kind === 'secrets'
+                ? copy.kept
                 : copy.refused,
     });
   }
