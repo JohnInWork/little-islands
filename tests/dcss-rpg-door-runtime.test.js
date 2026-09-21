@@ -156,3 +156,32 @@ test('diegetic door command is range-checked and pause-safe without a HUD action
   c.hero.x = 32;
   assert.equal(c.beginDoorTransition(door, false), false, 'remote forged command rejected');
 });
+
+/**
+ * Открытая дверь — проём, а не кнопка.
+ *
+ * Касание двери было переключателем: нажал — открыл, нажал ещё раз — закрыл.
+ * Пока дверь открыта, палец по ней означает ровно одно — «иду туда», — а игра
+ * захлопывала её перед героем. Иван: «надо, чтобы если дверь открыта и туда
+ * пальцем нажали, персонаж пошёл в открытую дверь, а не открывал-закрывал её».
+ * Закрыть дверь остаётся возможным кнопкой действия: там это выбор, а не
+ * промах пальцем.
+ */
+test('касание открытой двери ведёт героя сквозь неё, а не закрывает', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const начало = runtime.indexOf('function moveFromPointer(event)');
+  assert.ok(начало > 0, 'обработчик касания не найден');
+  const тело = runtime.slice(начало, runtime.indexOf('\n}\n', начало));
+
+  // Ветка двери срабатывает только для закрытой.
+  assert.match(
+    тело,
+    /if \(door && revealed\.has\(`\$\{door\.x\},\$\{door\.y\}`\) && !run\.floor\.opened\.includes\(door\.instanceId\)\)/,
+    'касание двери снова не смотрит, открыта ли она',
+  );
+  // И прежнего переключателя «открыта — тоже жмём» больше нет.
+  assert.ok(!тело.includes('isOpen && distance <= 1'), 'открытая дверь всё ещё перехватывает касание');
+  // Кнопка действия при этом остаётся: закрывать дверь по-прежнему можно.
+  assert.match(runtime, /add\('door', nearbyDoor\(\)\)|kind: 'door'/, 'дверь пропала из кнопки действий');
+});

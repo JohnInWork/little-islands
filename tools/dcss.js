@@ -17305,11 +17305,19 @@ function moveFromPointer(event) {
     routeHeroBesideCell(cellX, cellY);
     return;
   }
-  if (door && revealed.has(`${door.x},${door.y}`)) {
+  /*
+   * Открытая дверь — проём, а не кнопка.
+   *
+   * Касание двери было переключателем: нажал — открыл, нажал ещё раз — закрыл.
+   * И пока дверь открыта, палец по ней означал ровно одно: «иду туда», — а
+   * игра захлопывала её перед героем. Иван: «надо, чтобы если дверь открыта и
+   * туда пальцем нажали, персонаж пошёл в открытую дверь, а не открывал-
+   * закрывал её; это неудобно». Закрыть дверь по-прежнему можно кнопкой
+   * действия слева внизу — там это осознанный выбор, а не промах пальцем.
+   */
+  if (door && revealed.has(`${door.x},${door.y}`) && !run.floor.opened.includes(door.instanceId)) {
     const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-    const distance = cellStepDistance(heroCell, door);
-    const isOpen = run.floor.opened.includes(door.instanceId);
-    if ((!isOpen && distance === 1) || (isOpen && distance <= 1)) {
+    if (cellStepDistance(heroCell, door) === 1) {
       openContextActions({ kind: 'door', value: door });
       return;
     }
