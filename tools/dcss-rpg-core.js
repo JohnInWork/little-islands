@@ -120,6 +120,7 @@ import {
 } from './dcss-rpg-attributes.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
 import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
+import { buildAttributes } from './dcss-rpg-character-creation.js';
 import {
   MAX_BACKPACK_CAPACITY,
   createChestContainerStates,
@@ -1490,7 +1491,19 @@ const STARTER_KNOWN_ITEM_IDS = Object.freeze(
   STARTER_SUPPLIES.map(({ id }) => id).filter((id) => isIdentifiableItem(lootById(id))),
 );
 
-export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), outfit = null) {
+/**
+ * Новый забег.
+ *
+ * `build` — то, кем игрок решил выйти: два очка характеристик и два навыка,
+ * своими руками или готовым набором. Его может не быть вовсе: забег, начатый
+ * без создания героя, выходит ровно таким, каким выходил всегда.
+ */
+export function createRun(
+  seed,
+  dungeon = generateDungeon({ seed, depth: 1 }),
+  outfit = null,
+  build = null,
+) {
   const startingMagic = createStartingMagic();
   const items = [
     { id: 'rusty-sword', uid: 'starter-sword', affixIds: [], artifactPowerId: null, artifactCurseId: null },
@@ -1545,12 +1558,26 @@ export function createRun(seed, dungeon = generateDungeon({ seed, depth: 1 }), o
       meal: null,
       coating: null,
       effects: createActorEffects(),
-      skills: createSkillState(),
+      skills: createSkillState(1, build ? [...build.skillIds] : []),
       skillStudy: createBookStudy(),
-      // Three numbers replace the single Intelligence the magic build used to
-      // carry alone; the preset still decides how clever the hero starts.
-      attributes: createAttributeState({ intelligence: startingMagic.intelligence }),
-      spells: startingMagic.spells,
+      /*
+       * Характеристики создания поднимают базу, а не «потрачено».
+       *
+       * Так это уже работало у магического пресета, который выдавал больше
+       * интеллекта, — и так оно честно: очко, вложенное при создании, не из
+       * уровневого бюджета, и возвращать его некуда.
+       */
+      attributes: createAttributeState(
+        build
+          ? buildAttributes(build)
+          : { intelligence: startingMagic.intelligence },
+      ),
+      spells: build && build.spellIds.length > 0
+        ? createSpellState({
+          knownSpellIds: [...build.spellIds],
+          preparedSpellIds: [build.spellIds[0] ?? null, build.spellIds[1] ?? null, null],
+        })
+        : startingMagic.spells,
     },
     gold: 0,
     status: 'playing',

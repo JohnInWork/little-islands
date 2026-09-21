@@ -531,9 +531,35 @@ function validPoints(points) {
   return Number.isInteger(points) && points >= 0 && points <= 998;
 }
 
-export function createSkillState(level = 1) {
+/**
+ * Навыки, выданные при создании героя.
+ *
+ * Они не из уровня и не из кармана: их дало создание, и уровневый бюджет о них
+ * ничего не знает. Иван: «либо создаёшь персонажа и вкидываешь два очка
+ * характеристик и выбираешь два навыка, либо берёшь готовый пресет».
+ *
+ * Поле необязательное. У забега, начатого до создания героев, его нет, и весь
+ * прежний счёт — очко за уровень, и ни одним больше — работает как работал.
+ * Это и решило вопрос: сначала я подняла бюджет всем уровням сразу, и от этого
+ * поехала половина тестов экономики. Новое правило должно жить в новом месте,
+ * а не менять цену каждого уровня в игре.
+ */
+export const SKILL_CREATION_POINTS = 2;
+
+export function createSkillState(level = 1, granted = []) {
   if (!validLevel(level)) throw new RangeError('Skill state requires hero level 1..999');
-  return { version: SKILL_STATE_VERSION, points: level - 1, ranks: {} };
+  if (!Array.isArray(granted)) throw new TypeError('Granted skills must be a list');
+  const state = { version: SKILL_STATE_VERSION, points: level - 1, ranks: {} };
+  if (granted.length === 0) return state;
+  if (granted.length > SKILL_CREATION_POINTS) throw new TypeError('Too many granted skills');
+  if (new Set(granted).size !== granted.length) throw new TypeError('A skill cannot be granted twice');
+  for (const id of granted) {
+    const definition = skillById(id);
+    if (!definition) throw new TypeError(`Unknown granted skill: ${id}`);
+    state.ranks[id] = 1;
+  }
+  state.granted = [...granted];
+  return state;
 }
 
 /** Readiness is intentionally NOT a save validation rule: disabling an unfinished
@@ -544,7 +570,18 @@ export function createSkillState(level = 1) {
  * pocket, a skill, or an attribute — and this is where that is checked.
  */
 export function validateSkillState(state, level, investedElsewhere = 0) {
-  if (!validLevel(level) || !hasExactKeys(state, ['version', 'points', 'ranks'])) return false;
+  if (!validLevel(level)) return false;
+  const выдано = state && Object.hasOwn(state, 'granted') ? state.granted : null;
+  const ключи = выдано === null ? ['version', 'points', 'ranks'] : ['version', 'points', 'ranks', 'granted'];
+  if (!hasExactKeys(state, ключи)) return false;
+  if (выдано !== null) {
+    if (!Array.isArray(выдано) || выдано.length > SKILL_CREATION_POINTS) return false;
+    if (new Set(выдано).size !== выдано.length) return false;
+    // Выданное обязано лежать в рангах: список сам по себе ничего не даёт.
+    if (выдано.some((id) => !skillById(id) || !Number.isInteger(state.ranks?.[id]) || state.ranks[id] < 1)) {
+      return false;
+    }
+  }
   if (state.version !== SKILL_STATE_VERSION || !validPoints(state.points) || !isRecord(state.ranks)) {
     return false;
   }
@@ -556,7 +593,8 @@ export function validateSkillState(state, level, investedElsewhere = 0) {
     if (level < definition.rankLevels[rank - 1]) return false;
     spent += rank;
   }
-  return state.points + spent + investedElsewhere === level - 1;
+  // Первые ступени, выданные при создании, уровень не оплачивал.
+  return state.points + spent + investedElsewhere === level - 1 + (выдано?.length ?? 0);
 }
 
 /**
@@ -570,7 +608,10 @@ export function validateSkillState(state, level, investedElsewhere = 0) {
  * real level and the real number of points spent elsewhere.
  */
 function assertSkillState(state) {
-  if (!hasExactKeys(state, ['version', 'points', 'ranks']) || !validPoints(state.points)
+  const ключи = state && Object.hasOwn(state, 'granted')
+    ? ['version', 'points', 'ranks', 'granted']
+    : ['version', 'points', 'ranks'];
+  if (!hasExactKeys(state, ключи) || !validPoints(state.points)
     || !isRecord(state.ranks)) throw new TypeError('Invalid skill state');
   if (state.version !== SKILL_STATE_VERSION) throw new TypeError('Invalid skill state');
   for (const [skillId, rank] of Object.entries(state.ranks)) {

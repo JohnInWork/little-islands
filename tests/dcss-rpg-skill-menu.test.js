@@ -230,7 +230,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
     // The straight branch Ivan asked to see: three nodes, the first reachable
     // now and the other two waiting for their level.
     branch: [
-      { rank: 1, state: 'open', requiredLevel: 2 },
+      { rank: 1, state: 'open', requiredLevel: 1 },
       { rank: 2, state: 'locked', requiredLevel: 4 },
       { rank: 3, state: 'locked', requiredLevel: 6 },
     ],
@@ -244,7 +244,7 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
    * разбирался, какая цифра к какому рангу.
    */
   assert.deepEqual(ladder, [
-    { rank: 1, heroLevel: 2, attribute: null, attributeValue: 0, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '2 кл' }] },
+    { rank: 1, heroLevel: 1, attribute: null, attributeValue: 0, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '2 кл' }] },
     { rank: 2, heroLevel: 4, attribute: 'intelligence', attributeValue: 5, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '3 кл' }] },
     { rank: 3, heroLevel: 6, attribute: 'intelligence', attributeValue: 7, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '4 кл' }] },
   ]);

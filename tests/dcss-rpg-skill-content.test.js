@@ -35,9 +35,11 @@ test('every specialization has RU/EN explanations and three level-gated ranks', 
     }
     assert.ok(['passive', 'contextual'].includes(skill.mode));
     assert.equal(skill.maxRank, 3);
-    assert.deepEqual(skill.rankLevels, [2, 4, 6]);
+    // Первая ступень открыта сразу: её выбирают при создании героя, и
+    // класть выбранное было бы некуда, начинайся лестница со второго уровня.
+    assert.deepEqual(skill.rankLevels, [1, 4, 6]);
     assert.ok(skill.rankLevels.every((level, i, levels) =>
-      Number.isInteger(level) && level >= 2 && (i === 0 || level > levels[i - 1])));
+      Number.isInteger(level) && level >= 1 && (i === 0 || level > levels[i - 1])));
   }
 });
 
