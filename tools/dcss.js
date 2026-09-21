@@ -1456,7 +1456,6 @@ let abilityTargetingState = null;
 let placedTraps = run.floor.placedTraps.map((trap) => ({ ...trap }));
 let lastHeroCell = `${Math.floor(hero.x / TILE)},${Math.floor(hero.y / TILE)}`;
 const markedForSalvage = new Set();
-const fullInventoryWarnings = new Set();
 const moveControlState = {
   pointerId: null,
   startX: 0,
@@ -1899,6 +1898,44 @@ function fetchTargetFor(ally) {
     .sort((left, right) => (
       Math.hypot(left.x - ally.x, left.y - ally.y) - Math.hypot(right.x - ally.x, right.y - ally.y)
     ))[0] ?? null;
+}
+
+/**
+ * Взять вещь с пола.
+ *
+ * Иван: «может быть такое, что игроку что-то выпало, и он сразу это поднял, и
+ * он даже не успел понять, что случилось». Поэтому это отдельное действие с
+ * отдельной кнопкой, на которой нарисована сама вещь, — а не то, что
+ * случается само, пока ты бежишь мимо.
+ */
+function takeGroundLoot(loot) {
+  const index = lootDefinitions.indexOf(loot);
+  if (index < 0 || runStatus !== 'playing' || hero.dead) return false;
+  if (!addInventoryItem(loot.definition, loot.instanceId)) {
+    showLootToast(loot.definition, 'full');
+    return false;
+  }
+  lootDefinitions.splice(index, 1);
+  playSound('pickup');
+  // What a ghost was guarding is remembered by the bones, not by the floor:
+  // the floor's own loot ids are the only ones `collected` may hold.
+  if (loot.bones) wakeFloorGhost();
+  else run.floor.collected.push(loot.instanceId);
+  const displayItem = presentedItem(loot.definition);
+  burst(loot.x, loot.y - 8, rarityGlow[displayItem.rarity], 8 + displayItem.rarity * 4);
+  addImpactWave(
+    loot.x,
+    loot.y - 8,
+    rarityGlow[displayItem.rarity],
+    34 + displayItem.rarity * 10,
+    displayItem.rarity >= 3 ? 2 : 0,
+  );
+  showLootToast(loot.definition, 1);
+  playerHasActed = true;
+  updateInteractionUi();
+  renderPack();
+  persistRun();
+  return true;
 }
 
 /** The beast brings what it stood on straight into the hero's bag. */
@@ -3129,6 +3166,25 @@ function surrenderCompanion() {
 function parleyStillOpen(monster) {
   if (run.floor.spoken?.includes(monster.instanceId)) return false;
   return !(run.soulSold && parleyFor(monster.id)?.kind === 'soul');
+}
+
+/**
+ * Что лежит под ногами и рядом.
+ *
+ * Монеты сюда не попадают: их не с чем перепутать и не на что посмотреть, а
+ * кнопка на каждой горсти превратила бы дорогу в перечисление. Всё остальное
+ * — вещь, у которой есть имя, редкость и картинка, и она ждёт нажатия.
+ */
+function nearbyGroundLoot() {
+  if (runStatus !== 'playing') return [];
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return lootDefinitions.filter((loot) => (
+    !loot.definition.gold
+    && cellStepDistance(cell, {
+      x: Math.floor(loot.x / TILE),
+      y: Math.floor(loot.y / TILE),
+    }) <= 1
+  ));
 }
 
 function nearbyCampProp(interactionId) {
@@ -9541,6 +9597,20 @@ function contextModelTarget(entry = contextTarget) {
       iconPath: merchantActorPath(entry.value.variantId),
     };
   }
+  if (entry.kind === 'loot') {
+    const вещь = presentedItem(entry.value.definition);
+    const карточка = itemPresentation(вещь, itemDetailLanguage);
+    const место = backpackItems.filter(Boolean).length < currentBackpackCapacity();
+    return {
+      kind: 'loot',
+      name: карточка.name,
+      description: `${карточка.rarity} · ${карточка.slot}`,
+      icon: itemSpriteFor(вещь),
+      accent: rarityGlow[вещь.rarity ?? 1] ?? rarityGlow[1],
+      roomInPack: место,
+      fullHint: место ? '' : currentMainMenuModel().labels.inventoryFullShort,
+    };
+  }
   if (entry.kind === 'door') {
     return { kind: 'door', open: run.floor.opened.includes(entry.value.instanceId) };
   }
@@ -9897,6 +9967,9 @@ function contextTargetIsAdjacent(entry) {
   // новое существо значит получить кнопку, которая появляется и не нажимается:
   // расстояние до него посчитается в пикселях и выйдет в сотни клеток.
   const pixelActor = entry.kind === 'find'
+    // Вещь на полу тоже хранит своё место в пикселях: она сделана из той же
+    // записи этажа, что и всё остальное живое в этом списке.
+    || entry.kind === 'loot'
     || entry.kind === 'wildlife'
     || entry.kind === 'guard'
     || entry.kind === 'graveyard-ghost'
@@ -11259,6 +11332,7 @@ function nearbyContextTargets() {
     y: Math.floor(monster.y / TILE),
   }) <= 1;
 
+  for (const loot of nearbyGroundLoot()) add('loot', loot);
   add('parley', nearbyParley());
   add('merchant', nearbyMerchant());
   add('find', nearbyFind());
@@ -11464,6 +11538,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'door-transition'({ target, action }) {
     closeContextActions();
     return beginDoorTransition(target.value, action.id === 'open');
+  },
+  'pick-up'({ target }) {
+    closeContextActions();
+    return takeGroundLoot(target.value);
   },
   'trap-disarm'({ target }) {
     closeContextActions();
@@ -15627,46 +15705,26 @@ function resolveWorldInteractions() {
     updateBossHud();
   }
 
+  /*
+   * Монеты подбираются сами, вещи — руками.
+   *
+   * Горсть золота — это число, которое некуда рассматривать: кнопка на каждой
+   * превратила бы дорогу в перечисление. Всё остальное ждёт нажатия, и ждёт
+   * на полу, — за это отвечает `takeGroundLoot`.
+   */
   for (let index = lootDefinitions.length - 1; index >= 0; index -= 1) {
     const loot = lootDefinitions[index];
+    if (!loot.definition.gold) continue;
     if (Math.hypot(loot.x - hero.x, loot.y - hero.y) > TILE * 0.54) continue;
-    if (loot.definition.gold) {
-      const reward = Math.max(1, loot.amount ?? 1);
-      lootDefinitions.splice(index, 1);
-      run.floor.collected.push(loot.instanceId);
-      gold += reward;
-      playSound('gold');
-      burst(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 16);
-      addImpactWave(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 52, 1);
-      showLootToast(loot.definition, reward);
-      updateHud();
-      persistRun();
-      continue;
-    }
-    if (!addInventoryItem(loot.definition, loot.instanceId)) {
-      if (!fullInventoryWarnings.has(loot.instanceId)) {
-        fullInventoryWarnings.add(loot.instanceId);
-        showLootToast(loot.definition, 'full');
-      }
-      continue;
-    }
-    fullInventoryWarnings.delete(loot.instanceId);
+    const reward = Math.max(1, loot.amount ?? 1);
     lootDefinitions.splice(index, 1);
-    playSound('pickup');
-    // What a ghost was guarding is remembered by the bones, not by the floor:
-    // the floor's own loot ids are the only ones `collected` may hold.
-    if (loot.bones) wakeFloorGhost();
-    else run.floor.collected.push(loot.instanceId);
-    const displayItem = presentedItem(loot.definition);
-    burst(loot.x, loot.y - 8, rarityGlow[displayItem.rarity], 8 + displayItem.rarity * 4);
-    addImpactWave(
-      loot.x,
-      loot.y - 8,
-      rarityGlow[displayItem.rarity],
-      34 + displayItem.rarity * 10,
-      displayItem.rarity >= 3 ? 2 : 0,
-    );
-    showLootToast(loot.definition, 1);
+    run.floor.collected.push(loot.instanceId);
+    gold += reward;
+    playSound('gold');
+    burst(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 16);
+    addImpactWave(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 52, 1);
+    showLootToast(loot.definition, reward);
+    updateHud();
     persistRun();
   }
 

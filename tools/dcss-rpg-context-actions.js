@@ -65,6 +65,7 @@ const ACTION_COPY = Object.freeze({
     unbind: 'Снять оковы',
     forget: 'Забыть выученное',
     hire: 'Нанять',
+    take: 'Подобрать',
   }),
   en: Object.freeze({
     open: 'Open',
@@ -124,6 +125,7 @@ const ACTION_COPY = Object.freeze({
     unbind: 'Lift the binding',
     forget: 'Unlearn it all',
     hire: 'Hire',
+    take: 'Take',
     retire: 'End the run',
     enterPortal: 'Step through',
   }),
@@ -191,6 +193,7 @@ const GLYPHS = Object.freeze({
   unbind: '⛓',
   forget: '✦',
   hire: '⚔',
+  take: '◆',
 });
 
 const COPY = Object.freeze({
@@ -920,6 +923,32 @@ export const INTERACTION_REGISTRY = Object.freeze([
           : []),
         { id: 'hunt' },
       ],
+    }),
+  }),
+  /*
+   * Вещь на полу.
+   *
+   * До сих пор она подбиралась сама: герой проходил по клетке, и добыча
+   * оказывалась в рюкзаке. Иван: «может быть такое, что игроку что-то выпало,
+   * и он сразу это поднял, и он даже не успел понять, что случилось».
+   *
+   * Теперь это такое же взаимодействие, как открыть сундук или заговорить:
+   * на кнопке — картинка самой вещи и её название, и подбирается она только
+   * нажатием. Заодно это делает осмысленным отряд: зверь в режиме «носить»
+   * по-прежнему таскает всё сам, и вот за это ему и платят едой.
+   */
+  defineInteraction({
+    id: 'ground-loot',
+    command: 'pick-up',
+    matches: (target) => target?.kind === 'loot'
+      && typeof target.icon === 'string'
+      && typeof target.name === 'string',
+    present: ({ target }) => ({
+      name: target.name,
+      description: target.description ?? '',
+      icon: target.icon,
+      accent: target.accent ?? '#c8b273',
+      actions: [{ id: 'take', enabled: target.roomInPack !== false, hint: target.fullHint ?? '' }],
     }),
   }),
   defineInteraction({
