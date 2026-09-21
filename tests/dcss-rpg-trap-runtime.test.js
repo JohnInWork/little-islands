@@ -144,6 +144,11 @@ function terminalRuntime({ victory = false } = {}) {
     beginHitStop: () => {},
     showLootToast: () => {},
     updateHud: () => {},
+    // Столбик кнопок пересобирается после всего, что меняет пол; рисовать его
+    // в песочнице нечем и незачем.
+    updateInteractionUi: () => {},
+    playerHasActed: false,
+    eventGold: () => 0,
     showRunEndScreen: () => {},
     // Past the stair block the frame carries on through the rest of the world;
     // these keep it quiet without dragging the whole dungeon in.
@@ -153,7 +158,9 @@ function terminalRuntime({ victory = false } = {}) {
     isCityDepth: () => false,
   });
   installFunctions(context, [
-    'updateHero', 'resolveWorldInteractions', 'damageHero',
+    // Ловушка срабатывает сама, и срабатывает тем же ходом, что и всё
+    // остальное на полу, — поэтому сюда же едет и он.
+    'updateHero', 'resolveWorldInteractions', 'triggerFloorEvent', 'damageHero',
     'surviveOnSecondWind', 'completeVictory',
   ]);
   return context;

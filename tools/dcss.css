@@ -1619,7 +1619,8 @@ body {
   height: 40px;
   display: block;
   overflow: visible;
-  transform: translate(-4px, -4px);
+  /* Сдвиг остался от прежнего значка, у которого внутри был свой отступ. У
+     нынешнего его нет, и сдвиг просто уводил рюкзак из центра кнопки. */
   image-rendering: pixelated;
 }
 
@@ -8072,6 +8073,10 @@ body {
 }
 
 .main-menu-audio button {
+  /* Значок внутри — блок, и без сетки он ложился в левый верхний угол кнопки:
+     динамик стоял не по центру, а рядом с ним. */
+  display: grid;
+  place-items: center;
   min-height: 48px;
   padding: 0;
   color: #d8d0ba;

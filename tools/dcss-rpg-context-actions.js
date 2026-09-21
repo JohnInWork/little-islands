@@ -214,6 +214,20 @@ const COPY = Object.freeze({
     trapClosed: 'Механизм взведён. Шагнёшь — сработает.',
     trapInspected: (tier, status) => `Сложность ${tier}. ${status}`,
     trapReady: 'Можно обезвредить.',
+    events: Object.freeze({
+      fountain: Object.freeze({
+        name: 'Светлый источник',
+        line: (value) => `Чистая вода. Напиться — ${value} здоровья, и промокнешь.`,
+      }),
+      'blood-altar': Object.freeze({
+        name: 'Алтарь крови',
+        line: (value) => `Дар за ожог: +${value} к силе, и пламя оставит след.`,
+      }),
+      sarcophagus: Object.freeze({
+        name: 'Вскрытый саркофаг',
+        line: (value) => `До него добрались раньше, но не всё унесли: ${value} золота.`,
+      }),
+    }),
     merchantName: 'Странствующий торговец',
     merchantDescription: '',
     portalName: 'Портал в город',
@@ -324,6 +338,20 @@ const COPY = Object.freeze({
     trapClosed: 'A detected mechanism blocks the safe route.',
     trapInspected: (tier, status) => `Difficulty ${tier}. ${status}`,
     trapReady: 'It can be disarmed.',
+    events: Object.freeze({
+      fountain: Object.freeze({
+        name: 'Clear spring',
+        line: (value) => `Clean water. A drink is ${value} health, and a soaking.`,
+      }),
+      'blood-altar': Object.freeze({
+        name: 'Altar of blood',
+        line: (value) => `A gift for a burn: +${value} power, and the flame leaves its mark.`,
+      }),
+      sarcophagus: Object.freeze({
+        name: 'Opened sarcophagus',
+        line: (value) => `Someone got here first, but not everything left with them: ${value} gold.`,
+      }),
+    }),
     merchantName: 'Wandering merchant',
     merchantDescription: '',
     portalName: 'Town portal',
@@ -950,6 +978,47 @@ export const INTERACTION_REGISTRY = Object.freeze([
       accent: target.accent ?? '#c8b273',
       actions: [{ id: 'take', enabled: target.roomInPack !== false, hint: target.fullHint ?? '' }],
     }),
+  }),
+  /*
+   * То, что стоит на этаже и что-то даёт.
+   *
+   * Фонтан, алтарь и вскрытый саркофаг срабатывали от того, что герой прошёл
+   * по клетке: вещь исчезала, всплывала подпись «+11» с её же картинкой — и
+   * Иван читал это как «одиннадцать гробниц». «Я вообще не понимаю, что это
+   * значит. <...> Надо это исправлять, это прям плохо, то что я не понимаю,
+   * что происходит в игре».
+   *
+   * Теперь у каждого своя карточка: что это, что будет и чем заплатишь.
+   * Ловушка исключение — она на то и ловушка, что срабатывает сама.
+   */
+  defineInteraction({
+    id: 'floor-event',
+    /*
+     * Окно показывается всегда, даже когда действие одно.
+     *
+     * Обычно единственное действие выполняется сразу — окно над одной кнопкой
+     * лишний экран. Здесь наоборот: весь смысл в том, чтобы игрок прочитал,
+     * что это и чем кончится, прежде чем трогать. Иван: «почему мы не можем
+     * нормальную модалку сделать для всех таких случаев, чтобы игра объясняла,
+     * что происходит».
+     */
+    confirm: true,
+    command: 'floor-event',
+    matches: (target) => target?.kind === 'event'
+      && typeof target.id === 'string'
+      && typeof target.icon === 'string'
+      && typeof target.action === 'string',
+    present: ({ target, copy }) => {
+      const запись = copy.events[target.id];
+      if (!запись) throw new TypeError(`No card for event ${target.id}`);
+      return {
+        name: запись.name,
+        description: запись.line(target.value),
+        icon: target.icon,
+        accent: target.accent ?? '#8fb0c2',
+        actions: [{ id: target.action, enabled: target.enabled !== false, hint: target.hint ?? '' }],
+      };
+    },
   }),
   defineInteraction({
     id: 'merchant',

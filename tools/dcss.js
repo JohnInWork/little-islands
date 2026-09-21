@@ -3172,6 +3172,88 @@ function nearbyParley() {
   )) ?? null;
 }
 
+/**
+ * Что на этаже ждёт нажатия, а что срабатывает само.
+ *
+ * Ловушка — на то и ловушка: на неё наступают, и она бьёт. Всё остальное на
+ * полу — источник, алтарь, вскрытый саркофаг — вещи, к которым подходят, и
+ * подошедший должен сперва прочитать, что это.
+ */
+const EVENT_ACTIONS = Object.freeze({
+  fountain: 'drink',
+  'blood-altar': 'attune',
+  sarcophagus: 'plunder',
+});
+
+/** Столько золота лежит во вскрытом саркофаге на этой глубине. */
+const eventGold = (event) => event.definition.value * 5 + dungeon.depth;
+
+function eventCardValue(event) {
+  if (event.definition.effect === 'heal') {
+    return Math.min(event.definition.value, currentHeroStats().maxHp - hero.hp);
+  }
+  if (event.definition.effect === 'power') return event.definition.value;
+  return eventGold(event);
+}
+
+function nearbyFloorEvent() {
+  if (runStatus !== 'playing') return null;
+  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
+  return eventDefinitions.find((event) => (
+    EVENT_ACTIONS[event.id]
+    && cellStepDistance(cell, { x: Math.floor(event.x / TILE), y: Math.floor(event.y / TILE) }) <= 1
+  )) ?? null;
+}
+
+/**
+ * Что стоящее на этаже делает, когда его трогают.
+ *
+ * Один и тот же ход и для ловушки, наступившей сама, и для источника, из
+ * которого решили напиться: событие исчезает с пола, записывается в этаж и
+ * оставляет после себя то, ради чего оно там стояло.
+ */
+function triggerFloorEvent(event) {
+  const index = eventDefinitions.indexOf(event);
+  if (index < 0 || runStatus !== 'playing' || hero.dead) return false;
+  const { effect, value, path } = event.definition;
+  eventDefinitions.splice(index, 1);
+  run.floor.resolved.push(event.instanceId);
+  if (effect === 'heal') {
+    const healed = Math.min(value, currentHeroStats().maxHp - hero.hp);
+    if (healed > 0) hero.hp += healed;
+    playSound('spell-heal');
+    showLootToast({ icon: 'derived/hud/heart.png', rarity: 1 }, `+${healed}`);
+  } else if (effect === 'power') {
+    hero.power += value;
+    playSound('spell-toggle');
+    showLootToast({ path, rarity: 3 }, `+${value}`);
+  } else if (effect === 'damage') {
+    if (event.id === 'blade-trap') {
+      detectedTrapIds.add(event.instanceId);
+      burst(event.x, event.y - 4, '#b4a597', 12);
+      addImpactWave(event.x, event.y, '#aa6954', 38, 1);
+    }
+    showLootToast({ path, rarity: 0 }, -value);
+    playSound('trap');
+    damageHero(value, { source: `trap:${event.id}` });
+  } else {
+    // Монета в подписи, а не картинка саркофага: «+11» рядом с гробницей
+    // читается как одиннадцать гробниц, и ровно так его и прочитали.
+    const reward = eventGold(event);
+    gold += reward;
+    playSound('gold');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, reward);
+  }
+  if (event.definition.status && !hero.dead) {
+    applyHeroStatus(event.definition.status.id, event.definition.status.duration);
+  }
+  playerHasActed = true;
+  updateInteractionUi();
+  updateHud();
+  persistRun();
+  return true;
+}
+
 /** Кого ведьма может купить: первый зверь в отряде, если он есть. */
 function firstCompanionName() {
   const record = run.companions[0];
@@ -9634,6 +9716,20 @@ function contextModelTarget(entry = contextTarget) {
       iconPath: merchantActorPath(entry.value.variantId),
     };
   }
+  if (entry.kind === 'event') {
+    const событие = entry.value;
+    const лечение = событие.definition.effect === 'heal';
+    const есть = !лечение || hero.hp < currentHeroStats().maxHp;
+    return {
+      kind: 'event',
+      id: событие.id,
+      icon: событие.definition.path,
+      value: eventCardValue(событие),
+      action: EVENT_ACTIONS[событие.id],
+      enabled: есть,
+      hint: есть ? '' : (itemDetailLanguage === 'en' ? 'Not wounded' : 'Раны нет'),
+    };
+  }
   if (entry.kind === 'loot') {
     const вещь = presentedItem(entry.value.definition);
     const карточка = itemPresentation(вещь, itemDetailLanguage);
@@ -10005,8 +10101,9 @@ function contextTargetIsAdjacent(entry) {
   // расстояние до него посчитается в пикселях и выйдет в сотни клеток.
   const pixelActor = entry.kind === 'find'
     // Вещь на полу тоже хранит своё место в пикселях: она сделана из той же
-    // записи этажа, что и всё остальное живое в этом списке.
+    // записи этажа, что и всё остальное живое в этом списке. Событие — тоже.
     || entry.kind === 'loot'
+    || entry.kind === 'event'
     || entry.kind === 'wildlife'
     || entry.kind === 'guard'
     || entry.kind === 'graveyard-ghost'
@@ -10050,6 +10147,14 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'jail-door') return distance <= 1 && run.crime.jailed;
   if (entry.kind === 'guard') return distance <= 1 && entry.value.neutral && !entry.value.ghost && !entry.value.provoked;
   if (entry.kind === 'wildlife') return distance <= 1 && !entry.value.hunted && !entry.value.defeated;
+  /*
+   * На клетке или рядом — и то и другое считается.
+   *
+   * Без этой строки вещь и источник падали в правило двери внизу, а дверь
+   * открывают только с соседней клетки: стоя прямо на вещи, игрок видел
+   * кнопку, которая не нажимается. Ровно этим кончилась первая попытка.
+   */
+  if (entry.kind === 'loot' || entry.kind === 'event') return distance <= 1;
   const open = run.floor.opened.includes(entry.value.instanceId);
   return open ? distance <= 1 : distance === 1;
 }
@@ -11370,6 +11475,7 @@ function nearbyContextTargets() {
   }) <= 1;
 
   for (const loot of nearbyGroundLoot()) add('loot', loot);
+  add('event', nearbyFloorEvent());
   add('parley', nearbyParley());
   add('merchant', nearbyMerchant());
   add('find', nearbyFind());
@@ -11579,6 +11685,10 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'pick-up'({ target }) {
     closeContextActions();
     return takeGroundLoot(target.value);
+  },
+  'floor-event'({ target }) {
+    closeContextActions();
+    return triggerFloorEvent(target.value);
   },
   'trap-disarm'({ target }) {
     closeContextActions();
@@ -15807,45 +15917,19 @@ function resolveWorldInteractions() {
     persistRun();
   }
 
+  /*
+   * Само срабатывает только то, что и должно: ловушка.
+   *
+   * Источник, алтарь и саркофаг открывают карточку по нажатию — см.
+   * `triggerFloorEvent`. Раньше они срабатывали от шага по клетке, и игрок
+   * видел только всплывшее «+11» с картинкой саркофага рядом.
+   */
   for (let index = eventDefinitions.length - 1; index >= 0; index -= 1) {
     const event = eventDefinitions[index];
+    if (event.definition.effect !== 'damage') continue;
     if (Math.hypot(event.x - hero.x, event.y - hero.y) > TILE * 0.54) continue;
     if (event.id === 'blade-trap' && currentHeroMagic().flight) continue;
-    const { effect, value, path } = event.definition;
-    if (effect === 'heal') {
-      const healed = Math.min(value, currentHeroStats().maxHp - hero.hp);
-      eventDefinitions.splice(index, 1);
-      run.floor.resolved.push(event.instanceId);
-      if (healed > 0) hero.hp += healed;
-      showLootToast({ path, rarity: 1 }, healed);
-    } else if (effect === 'power') {
-      eventDefinitions.splice(index, 1);
-      run.floor.resolved.push(event.instanceId);
-      hero.power += value;
-      showLootToast({ path, rarity: 3 }, value);
-    } else if (effect === 'damage') {
-      if (event.id === 'blade-trap') {
-        detectedTrapIds.add(event.instanceId);
-        burst(event.x, event.y - 4, '#b4a597', 12);
-        addImpactWave(event.x, event.y, '#aa6954', 38, 1);
-      }
-      eventDefinitions.splice(index, 1);
-      run.floor.resolved.push(event.instanceId);
-      showLootToast({ path, rarity: 0 }, -value);
-      playSound('trap');
-      damageHero(value, { source: `trap:${event.id}` });
-    } else {
-      eventDefinitions.splice(index, 1);
-      run.floor.resolved.push(event.instanceId);
-      const reward = value * 5 + dungeon.depth;
-      gold += reward;
-      showLootToast({ path, rarity: 2 }, reward);
-    }
-    if (event.definition.status && !hero.dead) {
-      applyHeroStatus(event.definition.status.id, event.definition.status.duration);
-    }
-    updateHud();
-    persistRun();
+    triggerFloorEvent(event);
     if (hero.dead) return;
   }
 
