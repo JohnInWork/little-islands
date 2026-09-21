@@ -2559,9 +2559,29 @@ function validateFloorShape(floor, depth) {
 export function adoptRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
   if (!snapshot.hero || typeof snapshot.hero !== 'object') return snapshot;
+  /*
+   * Необязательное поле — это `undefined` в руках у того, кто ждёт список.
+   *
+   * Новое поле этажа делается необязательным, чтобы не ломать чужие
+   * сохранения проверкой. Но сохранение текущей версии проверку проходит и
+   * миграцию не видит — и приходит в игру без поля вовсе. Дальше первый же
+   * `.push` или `.map` роняет запуск, и забег выглядит пропавшим.
+   *
+   * Поэтому всё, что добавляется этажу, получает своё пустое значение здесь,
+   * на входе, — один раз и для всех.
+   */
+  const floor = snapshot.floor;
+  const дописать = Boolean(floor) && typeof floor === 'object'
+    && (floor.spoken === undefined || floor.drops === undefined);
   const skills = refundRetiredSkills(snapshot.hero.skills);
-  if (skills === snapshot.hero.skills) return snapshot;
-  return { ...snapshot, hero: { ...snapshot.hero, skills } };
+  // Здоровый сейв возвращается тем же объектом: приём — это починка, а не
+  // обязательная пересборка всего на входе.
+  if (skills === snapshot.hero.skills && !дописать) return snapshot;
+  return {
+    ...snapshot,
+    floor: дописать ? { ...floor, spoken: floor.spoken ?? [], drops: floor.drops ?? [] } : floor,
+    hero: skills === snapshot.hero.skills ? snapshot.hero : { ...snapshot.hero, skills },
+  };
 }
 
 /**

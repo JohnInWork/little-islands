@@ -22,6 +22,7 @@ import {
   SAVE_KEY,
   SAVE_VERSION,
   advanceRunFloor,
+  adoptRun,
   createRun,
   findGridPath,
   generateDungeon,
@@ -895,4 +896,29 @@ test('every floor the generator builds is a floor the save will take back', () =
   }
   // If the generator ever gets more generous, this is the number to raise.
   assert.ok(busiest > 24, 'the sweep never met a floor busier than the old limit');
+});
+
+/**
+ * Необязательное поле — это `undefined` в руках у того, кто ждёт список.
+ *
+ * Новое поле этажа делается необязательным, чтобы проверка не выбросила чужие
+ * сохранения. Но сохранение сегодняшней версии проверку проходит и миграцию не
+ * видит — и приходит в игру без поля вовсе; дальше первый же `push` или `map`
+ * роняет запуск, и забег выглядит пропавшим. Это уже случилось однажды, в тот
+ * же день, когда поле появилось.
+ */
+test('приём забега выдаёт пустое значение каждому новому полю этажа', () => {
+  const run = createRun(11);
+  const старый = structuredClone(run);
+  delete старый.floor.spoken;
+  delete старый.floor.drops;
+  assert.ok(validateRun(старый), 'сохранение без новых полей отвергнуто проверкой');
+
+  const принятый = adoptRun(старый);
+  assert.deepEqual(принятый.floor.spoken, []);
+  assert.deepEqual(принятый.floor.drops, []);
+  assert.ok(validateRun(принятый));
+  // И уже заполненное приём не трогает.
+  const сразговором = adoptRun({ ...run, floor: { ...run.floor, spoken: ['monster-1-rare'] } });
+  assert.deepEqual(сразговором.floor.spoken, ['monster-1-rare']);
 });

@@ -1046,6 +1046,26 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
 const assetRoot = new URL('../assets/dcss-preview/', document.baseURI);
 const assetUrl = (path) => new URL(path, assetRoot).href;
+const atlasRoot = new URL('../assets/atlas/', document.baseURI);
+
+/**
+ * Адрес картинки для интерфейса.
+ *
+ * Игровое поле рисует спрайты из атласа, а `<img>` в меню и карточках просит
+ * файл по адресу — и это последние полсотни отдельных запросов, которые
+ * оставались после атласа. Вырезанный кусок листа отдаётся им строкой, и
+ * файлов игре больше не нужно вовсе.
+ */
+const uiSpriteUrls = new Map();
+function spriteUrl(path) {
+  const готовый = uiSpriteUrls.get(path);
+  if (готовый) return готовый;
+  const вырезанный = images.get(path);
+  if (typeof вырезанный?.toDataURL !== 'function') return assetUrl(path);
+  const адрес = вырезанный.toDataURL();
+  uiSpriteUrls.set(path, адрес);
+  return адрес;
+}
 const visualOverrides = loadVisualOverrides();
 
 function runtimeVisual(kind, id, channel, path, scale = 1, offsetY = 0) {
@@ -1627,9 +1647,9 @@ function renderMainMenu() {
   feedbackLink.setAttribute('aria-label', labels.feedback);
   editAppearanceLabel.textContent = labels.appearance;
   editAppearanceButton.setAttribute('aria-label', labels.openAppearance);
-  menuAppearanceIcon.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
+  menuAppearanceIcon.src = spriteUrl(resolvePlayerAppearance(playerAppearance).body.layer);
   // Your own face on the key that opens your own sheet.
-  characterSheetFace.src = assetUrl(resolvePlayerAppearance(playerAppearance).body.layer);
+  characterSheetFace.src = spriteUrl(resolvePlayerAppearance(playerAppearance).body.layer);
   newRunFromMenuButton.hidden = second === null;
   if (second) {
     newRunFromMenuLabel.textContent = second.label;
@@ -4041,7 +4061,7 @@ function renderItemDetail(item) {
   itemDetailName.textContent = presentation.name;
   itemDetailRarity.textContent = `${presentation.rarity} ${presentation.rarityMarks}`;
   itemDetailSlot.textContent = presentation.slot;
-  itemDetailIcon.src = assetUrl(spriteForItem(displayItem));
+  itemDetailIcon.src = spriteUrl(spriteForItem(displayItem));
   paintMaterial(itemDetailIcon, displayItem);
   itemDetailDescription.textContent = presentation.description;
   itemDetailComparison.hidden = presentation.comparison.length === 0;
@@ -4455,7 +4475,7 @@ function renderSpellBar() {
     button.disabled = slot.empty || slot.intelligenceLocked || slot.cooldown > 0
       || runStatus !== 'playing' || hero.dead;
     icon.hidden = slot.empty;
-    if (!slot.empty) icon.src = assetUrl(slot.icon);
+    if (!slot.empty) icon.src = spriteUrl(slot.icon);
     cooldown.textContent = slot.cooldown > 0 ? String(Math.ceil(slot.cooldown)) : '';
   }
 }
@@ -4499,7 +4519,7 @@ function renderCharacterSpells() {
     const icon = document.createElement('img');
     icon.alt = '';
     icon.hidden = slot.empty;
-    if (!slot.empty) icon.src = assetUrl(slot.icon);
+    if (!slot.empty) icon.src = spriteUrl(slot.icon);
     const copy = document.createElement('span');
     const name = document.createElement('strong');
     name.textContent = slot.empty ? (ru ? 'Пусто' : 'Empty') : slot.name;
@@ -4530,7 +4550,7 @@ function renderCharacterSpells() {
     );
     const icon = document.createElement('img');
     icon.alt = '';
-    icon.src = assetUrl(spell.icon);
+    icon.src = spriteUrl(spell.icon);
     const copy = document.createElement('span');
     const name = document.createElement('strong');
     name.textContent = spell.name;
@@ -8205,7 +8225,7 @@ function renderEquippedPreview() {
     if (!item && twoHanded) {
       const held = presentedItem(twoHanded);
       delete button.dataset.rarity;
-      icon.src = assetUrl(spriteForItem(held));
+      icon.src = spriteUrl(spriteForItem(held));
       paintMaterial(icon, held);
       const name = itemPresentation(held, itemDetailLanguage).name;
       button.title = `${slotLabel}: ${name}`;
@@ -8227,7 +8247,7 @@ function renderEquippedPreview() {
     const displayItem = presentedItem(item);
     const presentation = itemPresentation(displayItem, itemDetailLanguage);
     button.dataset.rarity = String(displayItem.rarity);
-    icon.src = assetUrl(spriteForItem(displayItem));
+    icon.src = spriteUrl(spriteForItem(displayItem));
     paintMaterial(icon, displayItem);
     button.title = presentation.name;
     button.setAttribute('aria-label', `${slotLabel}: ${presentation.name}`);
@@ -8333,7 +8353,7 @@ function renderPack() {
       if (entry.source === 'pack' && markedForSalvage.has(index)) button.classList.add('marked');
 
       const icon = document.createElement('img');
-      icon.src = assetUrl(spriteForItem(displayItem));
+      icon.src = spriteUrl(spriteForItem(displayItem));
       paintMaterial(icon, displayItem);
       icon.alt = '';
       const copy = document.createElement('span');
@@ -8439,7 +8459,7 @@ function renderLootToast({ item, value }) {
   const color = rarityGlow[displayItem?.rarity ?? 1] ?? rarityGlow[1];
   lootToast.style.setProperty('--rarity', color);
   lootToast.dataset.informative = String(informative);
-  lootToast.querySelector('img').src = assetUrl(displayItem?.icon ?? displayItem?.path);
+  lootToast.querySelector('img').src = spriteUrl(displayItem?.icon ?? displayItem?.path);
   // A refusal must not look like a gift. The full backpack used to be shown on
   // exactly the card a pickup uses — same icon, same name, same rarity, with
   // one small line changed — so the player read «taken» and then found the
@@ -9087,7 +9107,7 @@ function openLore({ title, subtitle = '', icon = null, glyph = '', color = null,
   loreCard.style.setProperty('--lore-color', color ?? '#c9a84f');
   // A state may be a sprite or a glyph; the frame holds either.
   loreIcon.hidden = !icon;
-  if (icon) loreIcon.src = assetUrl(icon);
+  if (icon) loreIcon.src = spriteUrl(icon);
   loreGlyph.textContent = icon ? '' : glyph;
   loreGlyph.hidden = Boolean(icon);
   loreBody.replaceChildren(...body.flatMap((entry) => {
@@ -9188,7 +9208,7 @@ function renderHeroEffectsHud() {
         color: effect.color,
         body: [effect.description].filter(Boolean),
       }));
-      icon.src = assetUrl(effect.icon);
+      icon.src = spriteUrl(effect.icon);
       icon.alt = '';
       duration.textContent = String(Math.ceil(effect.duration));
       badge.append(icon, duration);
@@ -10070,7 +10090,7 @@ function fillTextWithIcons(node, text) {
     if (match.index > last) parts.push(document.createTextNode(source.slice(last, match.index)));
     const icon = document.createElement('img');
     icon.className = 'text-icon';
-    icon.src = assetUrl(TEXT_ICONS[match[1]].path);
+    icon.src = spriteUrl(TEXT_ICONS[match[1]].path);
     icon.alt = '';
     icon.setAttribute('aria-hidden', 'true');
     parts.push(icon);
@@ -10090,7 +10110,7 @@ function renderContextActions() {
   });
   contextActions.style.setProperty('--context-accent', model.accent);
   contextActionList.style.setProperty('--action-count', String(model.actions.length));
-  contextActionIcon.src = assetUrl(model.icon);
+  contextActionIcon.src = spriteUrl(model.icon);
   contextActionTitle.textContent = model.name;
   fillTextWithIcons(contextActionDescription, model.description);
   closeContextActionsButton.setAttribute('aria-label', model.closeLabel);
@@ -10191,7 +10211,7 @@ function updateInteractionUi() {
     button.title = model.triggerLabel;
     const icon = document.createElement('img');
     icon.alt = '';
-    icon.src = assetUrl(model.icon);
+    icon.src = spriteUrl(model.icon);
     const mark = document.createElement('b');
     mark.setAttribute('aria-hidden', 'true');
     mark.textContent = '+';
@@ -10393,7 +10413,7 @@ function merchantItemButton({ item, price, disabled = false, sold = false, badge
     `${presentation.name}. ${presentation.primaryEffect.text}. ${price} ${currentMainMenuModel().labels.gold}`,
   );
   const icon = document.createElement('img');
-  icon.src = assetUrl(displayItem.icon);
+  icon.src = spriteUrl(displayItem.icon);
   icon.alt = '';
   const copy = document.createElement('span');
   copy.className = 'merchant-item-copy';
@@ -10422,7 +10442,7 @@ function renderMerchantShop() {
   if (!merchantState) return;
   merchantShop.lang = itemDetailLanguage;
   merchantShopTitle.textContent = copy.name;
-  merchantShopPortrait.src = assetUrl(activeMerchant.actorPath);
+  merchantShopPortrait.src = spriteUrl(activeMerchant.actorPath);
   merchantShopGold.querySelector('b').textContent = String(gold);
   merchantShopGold.setAttribute('aria-label', `${copy.playerGold}: ${gold}`);
   merchantShopFunds.querySelector('b').textContent = String(merchantState.gold);
@@ -10580,7 +10600,7 @@ function chestTransferItemButton({ item, direction, disabled = false, onActivate
     `${action}: ${presentation.name}. ${presentation.primaryEffect?.text ?? presentation.rarity}`,
   );
   const icon = document.createElement('img');
-  icon.src = assetUrl(displayItem.icon);
+  icon.src = spriteUrl(displayItem.icon);
   icon.alt = '';
   const copy = document.createElement('span');
   copy.className = 'chest-transfer-copy';
@@ -10622,7 +10642,7 @@ function renderChestContainer() {
   chestBackpackCount.textContent = `${backpackItems.length}/${currentBackpackCapacity()}`;
   chestContainer.setAttribute('aria-label', chestContainerTitle.textContent);
   closeChestContainerButton.setAttribute('aria-label', copy.close);
-  chestContainerIcon.src = assetUrl(
+  chestContainerIcon.src = spriteUrl(
     Array.isArray(frames) && frames.length > 0
       ? frames.at(-1)
       : find?.definition.path ?? 'licensed/cmski-chests/wooden/4.png',
@@ -10636,7 +10656,7 @@ function renderChestContainer() {
     goldButton.dataset.transfer = 'take';
     goldButton.setAttribute('aria-label', `${copy.takeGold}: ${container.gold} ${copy.gold}`);
     const icon = document.createElement('img');
-    icon.src = assetUrl(GOLD_ICON_PATH);
+    icon.src = spriteUrl(GOLD_ICON_PATH);
     icon.alt = '';
     const label = document.createElement('span');
     label.className = 'chest-transfer-copy';
@@ -11861,7 +11881,7 @@ function updateBossHud() {
   bossHud.hidden = !visible;
   if (!visible) return;
   const percent = Math.max(0, Math.min(1, boss.hp / boss.maxHp));
-  bossHud.querySelector('img').src = assetUrl(boss.spritePath);
+  bossHud.querySelector('img').src = spriteUrl(boss.spritePath);
   bossHealth.querySelector('i').style.transform = `scaleX(${percent})`;
   bossHealth.setAttribute('aria-valuenow', String(Math.round(percent * 100)));
 }
@@ -11985,7 +12005,7 @@ function renderCharacterCreation() {
     card.setAttribute('aria-pressed', String(archetype.chosen));
     const icon = document.createElement('img');
     icon.className = 'creation-archetype-icon';
-    icon.src = assetUrl(archetype.icon);
+    icon.src = spriteUrl(archetype.icon);
     icon.alt = '';
     icon.decoding = 'async';
     const name = document.createElement('b');
@@ -13038,7 +13058,7 @@ function openAbilityTargeting(nextState) {
   abilityTargeting.inert = false;
   abilityTargeting.setAttribute('aria-hidden', 'false');
   abilityTargetingPrompt.style.setProperty('--targeting-color', nextState.color);
-  abilityTargetingIcon.src = assetUrl(nextState.icon);
+  abilityTargetingIcon.src = spriteUrl(nextState.icon);
   abilityTargetingLabel.textContent = nextState.label;
   cancelAbilityTargetingButton.setAttribute('aria-label', nextState.cancelLabel);
   moveControl.inert = true;
@@ -13520,7 +13540,7 @@ function renderOutfit() {
     .map((good) => {
       const worn = document.createElement('img');
       worn.className = 'outfit-worn';
-      worn.src = assetUrl(good.icon);
+      worn.src = spriteUrl(good.icon);
       worn.alt = good.name;
       worn.title = good.name;
       return worn;
@@ -13542,7 +13562,7 @@ function renderOutfit() {
       if (good.owned > 0) button.dataset.owned = String(good.owned);
       button.disabled = !good.affordable && good.owned === 0;
       const icon = document.createElement('img');
-      icon.src = assetUrl(good.icon);
+      icon.src = spriteUrl(good.icon);
       icon.alt = '';
       const name = document.createElement('b');
       name.textContent = good.name;
@@ -13575,7 +13595,7 @@ function renderOutfitDetail() {
   const model = stashModel(stashState, itemDetailLanguage);
   const good = model.rows.flatMap((row) => row.goods).find((entry) => entry.id === outfitDetailId);
   if (!good) return;
-  outfitDetailIcon.src = assetUrl(good.icon);
+  outfitDetailIcon.src = spriteUrl(good.icon);
   outfitDetailIcon.alt = good.name;
   outfitDetailName.textContent = good.name;
   outfitDetailKind.textContent = [good.rarity, good.slotLabel].filter(Boolean).join(' · ');
@@ -18731,32 +18751,111 @@ function moveFromPointer(event) {
   showMoveMarker(event.clientX, event.clientY, moved);
 }
 
-async function loadImage(path) {
-  if (!path) throw new Error('Missing preview asset path');
-  const sprite = new Image();
-  sprite.decoding = 'async';
-  await new Promise((resolve, reject) => {
-    sprite.addEventListener('load', resolve, { once: true });
+/** Одна картинка по её адресу. Ниже этого уровня грузить нечего. */
+function fetchPicture(url) {
+  return new Promise((resolve, reject) => {
+    const sprite = new Image();
+    sprite.decoding = 'async';
+    sprite.addEventListener('load', () => resolve(sprite), { once: true });
     sprite.addEventListener(
       'error',
-      (error) => reject(new Error(`Cannot load ${path}`, { cause: error })),
+      (error) => reject(new Error(`Cannot load ${url}`, { cause: error })),
       { once: true },
     );
-    sprite.src = assetUrl(path);
+    sprite.src = url;
   });
-  images.set(path, sprite);
-  if (floorLootSpritePaths.has(path)) {
+}
+
+/**
+ * Подобранная добыча узнаётся по силуэту, а не по кадру.
+ *
+ * Спрайт в файле почти всегда меньше своего холста, и вещь на полу, нарисованная
+ * по границам кадра, плавает в воздухе. Поэтому у всего, что может лежать на
+ * полу, читаются настоящие границы непрозрачных пикселей — один раз, при
+ * загрузке.
+ */
+function measureFloorLoot(path, source, width, height, context = null) {
+  if (!floorLootSpritePaths.has(path)) return;
+  let readbackContext = context;
+  if (!readbackContext) {
     const readback = document.createElement('canvas');
-    readback.width = sprite.naturalWidth;
-    readback.height = sprite.naturalHeight;
-    const readbackContext = readback.getContext('2d', { willReadFrequently: true });
+    readback.width = width;
+    readback.height = height;
+    readbackContext = readback.getContext('2d', { willReadFrequently: true });
     readbackContext.imageSmoothingEnabled = false;
-    readbackContext.drawImage(sprite, 0, 0);
-    floorLootSpriteBounds.set(
-      path,
-      opaquePixelBounds(readbackContext.getImageData(0, 0, readback.width, readback.height)),
-    );
+    readbackContext.drawImage(source, 0, 0);
   }
+  floorLootSpriteBounds.set(path, opaquePixelBounds(readbackContext.getImageData(0, 0, width, height)));
+}
+
+async function loadImage(path) {
+  if (!path) throw new Error('Missing preview asset path');
+  const sprite = await fetchPicture(assetUrl(path));
+  images.set(path, sprite);
+  measureFloorLoot(path, sprite, sprite.naturalWidth, sprite.naturalHeight);
+}
+
+/**
+ * Атлас: полторы тысячи спрайтов одним листом.
+ *
+ * Каждый спрайт лежал отдельным файлом, и запуск игры был полутора тысячами
+ * запросов подряд. На телефоне время съедает не размер — спрайт весит пару
+ * килобайт, — а сама очередь. Плюс itch.io не берёт в html-сборку больше
+ * тысячи файлов, и в это игра упёрлась.
+ *
+ * Атлас — это лист со всеми спрайтами и опись, где какой лежит. Запуск
+ * становится двумя запросами вместо полутора тысяч.
+ *
+ * Если атласа нет или он не читается — игра грузит спрайты по-старому. Это не
+ * запасной путь на всякий случай, а рабочий: атлас собирается руками, и
+ * забытый запуск упаковщика не должен ронять игру.
+ */
+async function loadSpriteAtlas() {
+  let опись = null;
+  try {
+    const ответ = await fetch(new URL('atlas.json', atlasRoot).href);
+    if (!ответ.ok) return null;
+    опись = await ответ.json();
+  } catch {
+    return null;
+  }
+  if (!опись?.frames || !Array.isArray(опись.sheets) || опись.sheets.length === 0) return null;
+  try {
+    const листы = await Promise.all(
+      опись.sheets.map((имя) => fetchPicture(new URL(имя, atlasRoot).href)),
+    );
+    return { frames: опись.frames, sheets: листы };
+  } catch (error) {
+    reportFrameFailure('atlas', error);
+    return null;
+  }
+}
+
+/**
+ * Вырезать спрайт из листа.
+ *
+ * Возвращается холст, а не картинка, и он выдаёт себя за картинку: всё, что
+ * рисует спрайты, читает у них `naturalWidth`. Подменить это здесь один раз
+ * честнее, чем дописывать «или ширина» в двадцати местах отрисовки.
+ */
+function sliceFromAtlas(atlas, path) {
+  const кадр = atlas.frames[path];
+  if (!Array.isArray(кадр)) return false;
+  const [лист, x, y, ширина, высота] = кадр;
+  const source = atlas.sheets[лист];
+  if (!source || !(ширина > 0) || !(высота > 0)) return false;
+  const canvas = document.createElement('canvas');
+  canvas.width = ширина;
+  canvas.height = высота;
+  const cut = canvas.getContext('2d', { willReadFrequently: floorLootSpritePaths.has(path) });
+  if (!cut) return false;
+  cut.imageSmoothingEnabled = false;
+  cut.drawImage(source, x, y, ширина, высота, 0, 0, ширина, высота);
+  Object.defineProperty(canvas, 'naturalWidth', { value: ширина });
+  Object.defineProperty(canvas, 'naturalHeight', { value: высота });
+  images.set(path, canvas);
+  measureFloorLoot(path, canvas, ширина, высота, cut);
+  return true;
 }
 
 async function loadImageQueue(paths, concurrency = 48) {
@@ -18776,7 +18875,13 @@ async function initialize() {
     resize();
     updateGearUi();
     const uniquePaths = [...new Set(requiredPaths)];
-    await loadImageQueue(uniquePaths);
+    // Сначала атлас, и по файлу — только за тем, чего в нём не нашлось.
+    const atlas = await loadSpriteAtlas();
+    const порознь = [];
+    for (const path of uniquePaths) {
+      if (!atlas || !sliceFromAtlas(atlas, path)) порознь.push(path);
+    }
+    await loadImageQueue(порознь);
     rebuildDungeonWorld3D();
     ready = true;
     discoverNearbyTraps({ feedback: false });
