@@ -3079,6 +3079,19 @@ body {
   background: #182125;
 }
 
+/* На создании очко можно вернуть, поэтому кнопок в строке две: сетка та же,
+   плюс одна колонка. При прокачке вернуть нельзя — там её и нет. */
+#creation-attribute-rows .character-attribute-row {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    'name value lower raise'
+    'text text lower raise';
+}
+
+#creation-attribute-rows .creation-attribute-lower {
+  grid-area: lower;
+}
+
 .character-attribute-row > b {
   grid-area: name;
   color: var(--bone);
@@ -9007,75 +9020,6 @@ body {
   background: #0d1416;
 }
 
-.creation-attributes {
-  display: grid;
-  gap: 4px;
-}
-
-.creation-attribute {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: 6px;
-  align-items: center;
-}
-
-.creation-attribute span {
-  font-size: 11px;
-}
-
-.creation-attribute output {
-  min-width: 22px;
-  text-align: center;
-  color: #d8bf68;
-}
-
-.creation-attribute button {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-}
-
-.creation-skills-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #8d9a99;
-}
-
-.creation-skills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.creation-skill {
-  padding: 4px 7px;
-  border: 2px solid #3a4446;
-  background: #121a1c;
-  color: #b9c0ae;
-  font: inherit;
-  font-size: 10px;
-  cursor: pointer;
-}
-
-.creation-skill[aria-pressed='true'] {
-  border-color: #d8bf68;
-  color: #e8dcb4;
-}
-
-.creation-skill[data-full='true'] {
-  opacity: 0.45;
-}
-
-/* Что делает выбранный навык. Живёт под сеткой и не двигает её. */
-.creation-skill-note {
-  margin: 0;
-  min-height: 2.6em;
-  color: #9fb0ac;
-  font-size: 10px;
-  line-height: 1.35;
-}
-
 /*
  * Кнопки экрана говорят тем же языком, что и главное меню.
  *
@@ -9183,15 +9127,15 @@ body {
 }
 
 /* Те же три цвета в строках своего героя: один язык на весь экран. */
-.creation-attribute[data-attribute='strength'] output {
+#creation-attribute-rows .character-attribute-row[data-attribute='strength'] output {
   color: #d9705f;
 }
 
-.creation-attribute[data-attribute='agility'] output {
+#creation-attribute-rows .character-attribute-row[data-attribute='agility'] output {
   color: #7cc47f;
 }
 
-.creation-attribute[data-attribute='intelligence'] output {
+#creation-attribute-rows .character-attribute-row[data-attribute='intelligence'] output {
   color: #6fa8dc;
 }
 

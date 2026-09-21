@@ -421,7 +421,9 @@ test('карточка навыка показывает лестницу', asyn
     readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8'),
   ]);
   assert.match(html, /id="character-skill-ladder"/);
-  assert.match(runtime, /function renderSkillLadder\(skill, copy\) \{/);
+  // Список ступеней — тот, который дали: одна и та же лестница рисуется и в
+  // листе персонажа, и на экране создания.
+  assert.match(runtime, /function renderSkillLadder\(skill, copy, list = characterSkillLadder\) \{/);
   assert.match(runtime, /renderSkillLadder\(skill, skillLadderCopy\);/);
   // Купленная ступень, следующая и дальние отличаются — иначе лестница не
   // говорит, где ты сейчас стоишь.

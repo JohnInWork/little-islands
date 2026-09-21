@@ -777,27 +777,40 @@ test('находки достаются наискосок, как и всё о�
 });
 
 /**
- * Навык объясняется до того, как его берут.
+ * Создание — тот же экран, что и прокачка.
  *
- * На экране создания сорок один навык и ни слова о том, что каждый делает.
- * Иван: «я вижу кучу навыков, но я в них теряюсь; хотел бы хотя бы понять, что
- * делает навык кулинарии, прежде чем вкачивать». Читается касанием, и занятый
- * набор мешает взять, а не узнать.
+ * Иван дважды: «экран создания персонажа выглядит супер неудобно. Нужно
+ * сделать так же, как в прокачке, чтобы было так же всё классно расписано. <...>
+ * я бы даже, мэйби, тот же интерфейс бы и взял, только ты вот можешь два очка
+ * в него вкинуть». Поэтому здесь те же классы строк и та же карточка навыка, а
+ * список считает та же модель меню навыков — со ступенями, требованиями и тем,
+ * что даст следующий ранг.
+ *
+ * Отличий ровно два, и оба нарочные: очков два вместо одного, и взятое можно
+ * вернуть — герой ещё не вышел из города.
  */
-test('навык на экране создания читается, даже когда взять его нельзя', async () => {
+test('создание героя собрано на том же интерфейсе, что и прокачка', async () => {
   const runtime = await readFile(runtimeUrl, 'utf8');
   const разметка = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
-  assert.match(разметка, /id="creation-skill-note"/);
-  // Кнопка больше не запирается: занятость — это тусклость, а не запрет.
-  assert.match(runtime, /chip\.dataset\.full = String\(!chosen && model\.skillPointsLeft <= 0\);/);
-  assert.equal(runtime.includes('chip.disabled = !chosen'), false, 'навык снова нельзя прочитать');
-  // Сначала рассказать, потом — если можно — взять.
-  const слушатель = runtime.slice(runtime.indexOf("creationSkills.addEventListener('click'"));
+  // Те же классы, что у листа персонажа: один вид, одна разметка, один стиль.
+  for (const узел of [
+    'id="creation-attribute-rows" class="character-attribute-rows"',
+    'id="creation-skill-detail" class="character-skill-detail pixel-frame"',
+  ]) {
+    assert.ok(разметка.includes(узел), `${узел}: экран собран не на прокачке`);
+  }
+  assert.match(runtime, /row\.className = 'character-skill-row';/);
+  // Список навыков считает та же модель, что и при прокачке.
+  const рисовалка = runtime.slice(runtime.indexOf('function renderCreationSkills('));
+  assert.match(рисовалка.slice(0, рисовалка.indexOf('\n}')), /skillMenuModel\(\{/);
+  // Сначала прочитать, потом взять: строка открывает карточку, а не покупает.
+  const слушатель = runtime.slice(runtime.indexOf("creationSkillGroups.addEventListener('click'"));
   const тело = слушатель.slice(0, слушатель.indexOf('});'));
-  assert.ok(
-    тело.indexOf('creationSkillNote.dataset.skill') < тело.indexOf('toggleBuildSkill'),
-    'навык берут раньше, чем объясняют',
-  );
+  assert.ok(тело.includes('creationSkillId ='), 'строка не открывает карточку');
+  assert.equal(тело.includes('toggleBuildSkill'), false, 'касание строки сразу берёт навык');
+  // Взятое возвращается: на создании это часть выбора, а не ошибка.
+  assert.match(runtime, /creationSkillTake\.addEventListener\('click'[\s\S]{0,240}toggleBuildSkill/);
+  assert.match(разметка, /id="creation-attribute-rows"[\s\S]{0,400}?<\/section>/);
 });
 
 /**

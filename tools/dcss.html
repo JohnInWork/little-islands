@@ -164,15 +164,37 @@
           </button>
           <!-- Заголовок у карточки один и тот же на оба шага, и на втором он и
                есть «Свой герой»: повторять его внутри — значит писать дважды. -->
+          <!-- Тот же экран, что и прокачка. Иван: «я бы даже, мэйби, тот же
+               интерфейс бы и взял, что как бы при прокачке персонажа, только ты
+               вот можешь два очка в него вкинуть». Поэтому здесь те же классы,
+               те же строки и та же карточка навыка — отличается только пул
+               очков и то, что взятое можно вернуть. -->
           <section class="creation-custom" aria-labelledby="character-creation-title">
-            <div class="creation-attributes" id="creation-attributes"></div>
-            <div class="creation-skills-head">
-              <span id="creation-skills-label">Навыки</span>
-              <output id="creation-skills-left">0 / 2</output>
-            </div>
-            <div class="creation-skills" id="creation-skills"></div>
-            <!-- Что делает навык. Читается касанием, до всякого выбора. -->
-            <p class="creation-skill-note" id="creation-skill-note"></p>
+            <section class="character-attributes" aria-labelledby="creation-attributes-title">
+              <header>
+                <h3 id="creation-attributes-title">Характеристики</h3>
+                <output id="creation-attribute-points"></output>
+              </header>
+              <div id="creation-attribute-rows" class="character-attribute-rows" role="list"></div>
+            </section>
+            <section class="character-skills" aria-labelledby="creation-skills-title">
+              <header>
+                <h3 id="creation-skills-title">Навыки</h3>
+                <output id="creation-skill-points"></output>
+              </header>
+              <div id="creation-skill-groups"></div>
+              <div id="creation-skill-detail" class="character-skill-detail pixel-frame" hidden>
+                <strong id="creation-skill-detail-name"></strong>
+                <div id="creation-skill-detail-branch" class="skill-branch" aria-hidden="true"></div>
+                <p id="creation-skill-detail-text"></p>
+                <ol id="creation-skill-ladder" class="skill-ladder"></ol>
+                <small id="creation-skill-detail-next"></small>
+                <div class="character-skill-detail-actions">
+                  <button id="creation-skill-take" class="primary" type="button">Взять</button>
+                  <button id="creation-skill-close" type="button">Отмена</button>
+                </div>
+              </div>
+            </section>
           </section>
           <footer class="creation-actions">
             <button id="cancel-creation" class="creation-back" type="button">Отмена</button>

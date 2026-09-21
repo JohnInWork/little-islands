@@ -155,8 +155,13 @@ import { materializeItemAffixes } from './dcss-rpg-affixes.js';
 import { materializeProceduralArtifact } from './dcss-rpg-artifacts.js';
 import { INVENTORY_FILTERS, inventoryControlsUseful, inventorySections } from './dcss-rpg-inventory-ui.js';
 import { characterSheetModel } from './dcss-rpg-character-sheet.js';
-import { cloneSkillState, deriveSkillCapabilities, learnSkill } from './dcss-rpg-skills.js';
-import { SKILL_CATALOG, skillById } from './dcss-rpg-skill-content.js';
+import {
+  cloneSkillState,
+  createSkillState,
+  deriveSkillCapabilities,
+  learnSkill,
+} from './dcss-rpg-skills.js';
+import { skillById } from './dcss-rpg-skill-content.js';
 import { activeDetectedTrapCells, discoverTraps, trapsFromDungeon } from './dcss-rpg-traps.js';
 import {
   DISARMED_TRAP_PATH,
@@ -732,10 +737,18 @@ const startGameDetail = document.querySelector('#start-game-detail');
 const newRunFromMenuButton = document.querySelector('#restart-from-menu');
 const characterCreation = document.querySelector('#character-creation');
 const creationArchetypes = document.querySelector('#creation-archetypes');
-const creationAttributes = document.querySelector('#creation-attributes');
-const creationSkills = document.querySelector('#creation-skills');
-const creationSkillsLeft = document.querySelector('#creation-skills-left');
-const creationSkillNote = document.querySelector('#creation-skill-note');
+const creationAttributeRows = document.querySelector('#creation-attribute-rows');
+const creationAttributePoints = document.querySelector('#creation-attribute-points');
+const creationSkillGroups = document.querySelector('#creation-skill-groups');
+const creationSkillPoints = document.querySelector('#creation-skill-points');
+const creationSkillDetail = document.querySelector('#creation-skill-detail');
+const creationSkillDetailName = document.querySelector('#creation-skill-detail-name');
+const creationSkillDetailBranch = document.querySelector('#creation-skill-detail-branch');
+const creationSkillDetailText = document.querySelector('#creation-skill-detail-text');
+const creationSkillLadder = document.querySelector('#creation-skill-ladder');
+const creationSkillDetailNext = document.querySelector('#creation-skill-detail-next');
+const creationSkillTake = document.querySelector('#creation-skill-take');
+const creationSkillClose = document.querySelector('#creation-skill-close');
 const creationCard = document.querySelector('.character-creation-card');
 const creationOwnButton = document.querySelector('#creation-open-custom');
 const creationHint = document.querySelector('#character-creation-hint');
@@ -4445,10 +4458,10 @@ function selectSkill(skill) {
  * которой герой уже стоит, помечена: тогда видно не только куда идти, но и
  * что уже куплено.
  */
-function renderSkillLadder(skill, copy) {
-  if (!characterSkillLadder) return;
+function renderSkillLadder(skill, copy, list = characterSkillLadder) {
+  if (!list) return;
   const attributes = attributeCopy(itemDetailLanguage);
-  characterSkillLadder.replaceChildren(...skill.ladder.map((step) => {
+  list.replaceChildren(...skill.ladder.map((step) => {
     const row = document.createElement('li');
     row.className = 'skill-ladder-step';
     row.dataset.state = step.rank <= skill.rank ? 'taken' : step.rank === skill.rank + 1 ? 'next' : 'later';
@@ -12144,59 +12157,158 @@ function renderCharacterCreation() {
     return card;
   }));
 
-  creationAttributes.replaceChildren(...ATTRIBUTE_IDS.map((id) => {
+  renderCreationAttributes(model, ru);
+  renderCreationSkills(model);
+}
+
+/**
+ * Характеристики — теми же строками, что и при прокачке.
+ *
+ * Разница ровно одна: взятое здесь можно вернуть. На уровне очко ложится
+ * навсегда, а на создании герой ещё не вышел из города, и передумать — не
+ * ошибка, а часть выбора.
+ */
+function renderCreationAttributes(model, ru) {
+  const copy = attributeCopy(itemDetailLanguage);
+  creationAttributePoints.textContent = `${copy.pointsLeft}: ${model.attributePointsLeft}`;
+  creationAttributeRows.replaceChildren(...ATTRIBUTE_IDS.map((id) => {
     const row = document.createElement('div');
-    row.className = 'creation-attribute';
+    row.className = 'character-attribute-row';
     row.dataset.attribute = id;
-    const name = document.createElement('span');
-    name.textContent = ATTRIBUTE_COPY[ru ? 'ru' : 'en'][id].name;
+    row.setAttribute('role', 'listitem');
+    const name = document.createElement('button');
+    name.type = 'button';
+    name.className = 'character-attribute-name';
+    name.textContent = copy[id].name;
+    name.dataset.explain = id;
+    name.setAttribute('aria-expanded', String(openCreationAttributeId === id));
+    const description = document.createElement('span');
+    description.textContent = copy[id].description;
+    description.hidden = openCreationAttributeId !== id;
     const value = document.createElement('output');
     value.textContent = String(model.attributes[id]);
-    const less = document.createElement('button');
-    less.type = 'button';
-    less.textContent = '−';
-    less.dataset.attribute = id;
-    less.dataset.step = '-1';
-    less.disabled = model.attributes[id] <= ATTRIBUTE_BASE;
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.textContent = '+';
-    more.dataset.attribute = id;
-    more.dataset.step = '1';
-    more.disabled = model.attributePointsLeft <= 0;
-    row.append(name, less, value, more);
+    const lower = document.createElement('button');
+    lower.type = 'button';
+    lower.className = 'character-attribute-raise creation-attribute-lower';
+    lower.textContent = '−';
+    lower.dataset.attribute = id;
+    lower.dataset.step = '-1';
+    lower.disabled = model.attributes[id] <= ATTRIBUTE_BASE;
+    lower.setAttribute('aria-label', `${ru ? 'Вернуть очко' : 'Take the point back'}: ${copy[id].name}`);
+    const raise = document.createElement('button');
+    raise.type = 'button';
+    raise.className = 'character-attribute-raise';
+    raise.textContent = '+';
+    raise.dataset.attribute = id;
+    raise.dataset.step = '1';
+    raise.disabled = model.attributePointsLeft <= 0;
+    raise.setAttribute('aria-label', `${copy.raise}: ${copy[id].name}`);
+    row.append(name, description, value, lower, raise);
     return row;
   }));
-
-  creationSkillsLeft.textContent = `${model.skillIds.length} / ${CREATION_SKILL_POINTS}`;
-  creationSkills.replaceChildren(...SKILL_CATALOG.map((skill) => {
-    const chosen = model.skillIds.includes(skill.id);
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'creation-skill';
-    chip.dataset.skill = skill.id;
-    chip.textContent = skill.name[ru ? 'ru' : 'en'];
-    chip.setAttribute('aria-pressed', String(chosen));
-    /*
-     * Занятый набор гасит остальные, но не запирает их.
-     *
-     * Кнопка была `disabled` — и о навыке нельзя было даже прочитать, набрав
-     * два других. Иван: «я вижу кучу навыков, но я в них теряюсь; хотел бы
-     * хотя бы понять, что делает навык, прежде чем вкачивать». Читать можно
-     * всё и всегда; занятость мешает взять, а не узнать.
-     */
-    chip.dataset.full = String(!chosen && model.skillPointsLeft <= 0);
-    return chip;
-  }));
-  const читаемый = skillById(creationSkillNote.dataset.skill ?? '');
-  creationSkillNote.textContent = читаемый
-    ? `${читаемый.name[ru ? 'ru' : 'en']} — ${читаемый.description[ru ? 'ru' : 'en']}`
-    : copy.skillHint;
 }
+
+/**
+ * Навыки — тем же списком и той же карточкой, что и при прокачке.
+ *
+ * Модель меню навыков считает всё сама: ступени, требования, что даст
+ * следующий ранг. Чтобы она заработала до первого этажа, ей даётся временный
+ * герой ровно такого уровня, чтобы у него было два очка, — этот герой никуда
+ * не сохраняется, из него берётся только список выбранного.
+ *
+ * Дальше одно отличие от прокачки: на создании берут навык целиком, а не
+ * ступень. Поэтому у взятого кнопка говорит «Убрать», а вторая ступень тут
+ * не предлагается вовсе — до неё ещё надо дожить.
+ */
+function creationSkillState() {
+  const выбрано = buildScreenModel({ build: pendingBuild }).skillIds;
+  const state = createSkillState(CREATION_SKILL_POINTS + 1);
+  for (const id of выбрано) state.ranks[id] = 1;
+  state.points = CREATION_SKILL_POINTS - выбрано.length;
+  return state;
+}
+
+function renderCreationSkills(model) {
+  const ru = itemDetailLanguage !== 'en';
+  const меню = skillMenuModel({
+    state: creationSkillState(),
+    heroLevel: CREATION_SKILL_POINTS + 1,
+    runStatus: 'playing',
+    language: itemDetailLanguage,
+    attributes: { ...model.attributes, spent: 0 },
+    rested: true,
+  });
+  creationSkillPoints.textContent = `${меню.pointsLabel}: ${model.skillPointsLeft}`;
+  skillLadderCopy = { rank: меню.ladderRankLabel, level: меню.ladderLevelLabel };
+  creationSkillGroups.replaceChildren(...меню.groups.map((group) => {
+    const section = document.createElement('section');
+    section.className = 'character-skill-group';
+    const heading = document.createElement('h4');
+    heading.textContent = group.label;
+    section.append(heading);
+    for (const skill of group.skills) {
+      const взят = model.skillIds.includes(skill.id);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'character-skill-row';
+      row.dataset.skillId = skill.id;
+      row.dataset.taken = String(взят);
+      row.setAttribute('aria-pressed', String(creationSkillId === skill.id));
+      const details = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = `${skill.name} ${взят ? 1 : 0}/${skill.maxRank}`;
+      const branch = document.createElement('div');
+      branch.className = 'skill-branch';
+      branch.setAttribute('aria-hidden', 'true');
+      renderSkillBranch(branch, skill.branch);
+      details.append(name, branch);
+      const state = document.createElement('p');
+      state.textContent = взят
+        ? (ru ? 'Взят' : 'Taken')
+        : model.skillPointsLeft > 0
+          ? (ru ? 'Можно взять' : 'Can be taken')
+          : (ru ? 'Очки кончились' : 'No points left');
+      details.append(state);
+      row.setAttribute('aria-label', `${skill.name}. ${skill.nextRankNote}. ${state.textContent}`);
+      row.append(details);
+      section.append(row);
+    }
+    return section;
+  }));
+  const выбранный = меню.groups.flatMap(({ skills }) => skills)
+    .find(({ id }) => id === creationSkillId) ?? null;
+  if (выбранный) showCreationSkillCard(выбранный, model);
+  else creationSkillDetail.hidden = true;
+}
+
+function showCreationSkillCard(skill, model) {
+  const ru = itemDetailLanguage !== 'en';
+  const взят = model.skillIds.includes(skill.id);
+  const строка = creationSkillGroups.querySelector(`[data-skill-id="${skill.id}"]`);
+  if (строка && creationSkillDetail.previousElementSibling !== строка) строка.after(creationSkillDetail);
+  creationSkillDetail.hidden = false;
+  creationSkillDetailName.textContent = `${skill.name} ${взят ? 1 : 0}/${skill.maxRank}`;
+  renderSkillBranch(creationSkillDetailBranch, skill.branch);
+  creationSkillDetailText.textContent = skill.description;
+  renderSkillLadder({ ...skill, rank: взят ? 1 : 0 }, skillLadderCopy, creationSkillLadder);
+  creationSkillDetailNext.textContent = skill.nextRankNote;
+  creationSkillTake.textContent = взят
+    ? (ru ? 'Убрать' : 'Drop')
+    : (ru ? 'Взять' : 'Take');
+  creationSkillTake.disabled = !взят && model.skillPointsLeft <= 0;
+  creationSkillTake.dataset.skillId = skill.id;
+  creationSkillClose.textContent = ru ? 'Закрыть' : 'Close';
+}
+
+/** Что раскрыто и что выбрано на экране создания — между перерисовками. */
+let openCreationAttributeId = null;
+let creationSkillId = null;
 
 function openCharacterCreation() {
   if (uiScreen !== 'menu' && uiScreen !== 'restart-confirm') return false;
   creationStep = 'archetypes';
+  openCreationAttributeId = null;
+  creationSkillId = null;
   if (uiScreen === 'restart-confirm') {
     newRunConfirm.inert = true;
     newRunConfirm.setAttribute('aria-hidden', 'true');
@@ -19326,22 +19438,47 @@ creationArchetypes.addEventListener('click', (event) => {
   playSound('ui-tap');
   renderCharacterCreation();
 });
-creationAttributes.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-attribute]');
-  if (!button || button.disabled || uiScreen !== 'creation') return;
+creationAttributeRows.addEventListener('click', (event) => {
+  if (uiScreen !== 'creation') return;
+  // Название раскрывает объяснение — тем же движением, что и при прокачке.
+  const explain = event.target.closest('[data-explain]');
+  if (explain) {
+    openCreationAttributeId = openCreationAttributeId === explain.dataset.explain
+      ? null
+      : explain.dataset.explain;
+    playSound('ui-tap');
+    renderCharacterCreation();
+    return;
+  }
+  const button = event.target.closest('[data-step]');
+  if (!button || button.disabled) return;
   pendingBuild = adjustBuildAttribute(pendingBuild, button.dataset.attribute, Number(button.dataset.step));
   playSound('ui-tap');
   renderCharacterCreation();
 });
-creationSkills.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-skill]');
-  if (!button || uiScreen !== 'creation') return;
-  // Сначала рассказать, потом — если можно — взять.
-  creationSkillNote.dataset.skill = button.dataset.skill;
-  if (button.dataset.full !== 'true') {
-    pendingBuild = toggleBuildSkill(pendingBuild, button.dataset.skill);
-  }
+/*
+ * Строка открывает карточку, а не покупает.
+ *
+ * Тот же порядок, что и в прокачке: сперва прочитать, что навык делает и что
+ * даст каждая ступень, и только потом решить. Иван про прежний экран: «я вижу
+ * кучу навыков, но я в них теряюсь».
+ */
+creationSkillGroups.addEventListener('click', (event) => {
+  const row = event.target.closest('.character-skill-row');
+  if (!row || uiScreen !== 'creation') return;
+  creationSkillId = creationSkillId === row.dataset.skillId ? null : row.dataset.skillId;
   playSound('ui-tap');
+  renderCharacterCreation();
+});
+creationSkillTake.addEventListener('click', () => {
+  if (uiScreen !== 'creation' || creationSkillTake.disabled) return;
+  pendingBuild = toggleBuildSkill(pendingBuild, creationSkillTake.dataset.skillId);
+  playSound('ui-tap');
+  renderCharacterCreation();
+});
+creationSkillClose.addEventListener('click', () => {
+  creationSkillId = null;
+  playSound('ui-close');
   renderCharacterCreation();
 });
 characterSheetButton.addEventListener('click', openCharacterSheet);
