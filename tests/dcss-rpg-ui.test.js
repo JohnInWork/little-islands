@@ -814,3 +814,24 @@ test('карточка навыка переезжает под выбранну
   // И фокус больше не тащит взгляд вниз за собой.
   assert.match(runtime, /\.focus\(\{ preventScroll: true \}\);/);
 });
+
+/**
+ * Сравнение называет, с чем сравнивает.
+ *
+ * Оно показывало цифры «после надевания», но не говорило, что уходит с тела. С
+ * одноручным оружием это угадывалось, с двуручным — нет: оно занимает обе руки
+ * и снимает заодно щит. Иван: «когда я надеваю новое оружие, но держу при этом
+ * двуручное, как мне понять, с чем сравнивается оружие, которое я нажал?».
+ */
+test('сравнение снаряжения называет, что оно заменяет', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  assert.match(runtime, /function replacedItemNames\(selection\)/);
+  // Считается примеркой — тем же способом, что и сами цифры.
+  const тело = runtime.slice(runtime.indexOf('function replacedItemNames('));
+  const кусок = тело.slice(0, тело.indexOf('\n}\n'));
+  assert.match(кусок, /equipInventoryItem\(state, selection\.item\.uid\)/);
+  assert.match(кусок, /\.filter\(\(uid\) => !стало\.has\(uid\)\)/);
+  // И заголовок перестаёт быть безымянным, когда есть что назвать.
+  assert.match(runtime, /`Вместо: \$\{уходит\.join\(', '\)\}`/);
+  assert.match(runtime, /`Replaces: \$\{уходит\.join\(', '\)\}`/);
+});

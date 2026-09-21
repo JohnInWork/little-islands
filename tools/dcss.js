@@ -3787,6 +3787,32 @@ function selectedActionStats(selection = selectedUiItem()) {
   };
 }
 
+/**
+ * Что уходит с тела, если надеть выбранное.
+ *
+ * Сравнение показывало цифры «после надевания», но не говорило, с чем
+ * сравнивает. С одноручным оружием это угадывалось, с двуручным — нет: оно
+ * занимает обе руки и снимает заодно щит. Иван: «когда я надеваю новое оружие,
+ * но держу при этом двуручное, как мне понять, с чем сравнивается оружие,
+ * которое я нажал?».
+ *
+ * Считается оно тем же способом, каким считаются и сами цифры: примеркой. Что
+ * из надетого исчезло после неё — то и уходит.
+ */
+function replacedItemNames(selection) {
+  if (!selection?.item.slot || selection.source === 'equipment') return [];
+  const state = currentItemState();
+  const result = equipInventoryItem(state, selection.item.uid);
+  if (!result.ok) return [];
+  const было = new Set(Object.values(state.equipment).filter(Boolean));
+  const стало = new Set(Object.values(result.state.equipment).filter(Boolean));
+  return [...было]
+    .filter((uid) => !стало.has(uid))
+    .map((uid) => itemInstances.get(uid))
+    .filter(Boolean)
+    .map((item) => itemPresentation(presentedItem(item), itemDetailLanguage).name);
+}
+
 function comparisonCopy(row) {
   const sign = row.delta > 0 ? '+' : '−';
   return `${sign}${Math.abs(row.delta)}${row.suffix}`;
@@ -3810,9 +3836,14 @@ function renderItemDetail(item) {
   paintMaterial(itemDetailIcon, displayItem);
   itemDetailDescription.textContent = presentation.description;
   itemDetailComparison.hidden = presentation.comparison.length === 0;
+  const уходит = selection?.item.uid === item.uid ? replacedItemNames(selection) : [];
   itemDetailComparisonTitle.textContent = selection?.source === 'equipment'
     ? itemDetailLanguage === 'ru' ? 'После снятия' : 'After unequipping'
-    : itemDetailLanguage === 'ru' ? 'После надевания' : 'After equipping';
+    : уходит.length > 0
+      ? itemDetailLanguage === 'ru'
+        ? `Вместо: ${уходит.join(', ')}`
+        : `Replaces: ${уходит.join(', ')}`
+      : itemDetailLanguage === 'ru' ? 'После надевания' : 'After equipping';
   itemDetailComparisonList.replaceChildren(
     ...presentation.comparison.map((row) => {
       const line = document.createElement('li');
