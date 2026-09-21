@@ -125,8 +125,22 @@ test('the front page offers two choices and the pause screen only what a pause n
   assert.match(runtime, /newRunFromMenuButton\.hidden = second === null;/);
   // «Кем играешь» is the hero, so the weapon in hand goes into the model.
   assert.match(runtime, /weaponName: equippedItem\('hand1'\)/);
-  // A pause is a pause: no wardrobe, no shop, no records.
-  assert.match(css, /\.main-menu\[data-mode='pause'\] \.main-menu-secondary \{\s*display: none;/);
+  /*
+   * Пауза — это пауза: ни гардероба, ни лавки, ни записей. Одно исключение —
+   * настройки: громкость убавляют ровно тогда, когда игра уже идёт, и раньше
+   * ради этого регулятор висел прямо в карточке меню поверх подземелья.
+   */
+  assert.match(
+    css,
+    /\.main-menu\[data-mode='pause'\] \.main-menu-secondary > button:not\(#open-settings\) \{\s*display: none;/,
+    'в паузе второстепенный ряд обязан прятаться весь, кроме настроек',
+  );
+  assert.ok(html.includes('id="open-settings"'), 'кнопки настроек нет в меню');
+  assert.ok(html.includes('id="open-credits"'), 'кнопки авторов нет в меню');
+  // Язык и звук переехали на экран настроек и в карточке меню больше не лежат.
+  const menuCard = html.slice(html.indexOf('main-menu-card'), html.indexOf('id="appearance-editor"'));
+  assert.ok(!menuCard.includes('id="main-menu-audio"'), 'звук всё ещё в карточке меню');
+  assert.ok(!menuCard.includes('id="main-menu-languages"'), 'язык всё ещё в карточке меню');
   // And nothing anywhere ends a run by walking away with the haul.
   assert.ok(!runtime.includes("action.id === 'retire'"), 'the gate can still cash out');
 });

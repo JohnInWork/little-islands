@@ -28,6 +28,7 @@ import {
   rollBonesReward,
   validateRun,
 } from './dcss-rpg-core.js';
+import { creditsModel } from './dcss-rpg-credits.js';
 import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
@@ -902,6 +903,23 @@ const runEndScreen = document.querySelector('#run-end-screen');
 const restartRunButton = document.querySelector('#restart-run');
 const runEndTitle = document.querySelector('#run-end-title');
 const runSummaryList = document.querySelector('#run-summary');
+const settingsScreen = document.querySelector('#settings-screen');
+const openSettingsButton = document.querySelector('#open-settings');
+const openSettingsLabel = document.querySelector('#open-settings-label');
+const closeSettingsButton = document.querySelector('#close-settings');
+const settingsTitle = document.querySelector('#settings-title');
+const settingsLanguageTitle = document.querySelector('#settings-language-title');
+const settingsAudioTitle = document.querySelector('#settings-audio-title');
+const settingsWipeTitle = document.querySelector('#settings-wipe-title');
+const settingsWipeNote = document.querySelector('#settings-wipe-note');
+const wipeProgressButton = document.querySelector('#wipe-progress');
+const creditsScreen = document.querySelector('#credits-screen');
+const openCreditsButton = document.querySelector('#open-credits');
+const openCreditsLabel = document.querySelector('#open-credits-label');
+const closeCreditsButton = document.querySelector('#close-credits');
+const creditsTitle = document.querySelector('#credits-title');
+const creditsIntro = document.querySelector('#credits-intro');
+const creditsBody = document.querySelector('#credits-body');
 const recordsScreen = document.querySelector('#records-screen');
 const openRecordsButton = document.querySelector('#open-records');
 const openRecordsLabel = document.querySelector('#open-records-label');
@@ -1320,6 +1338,8 @@ let metaState = createMetaState();
 /** What survived past runs and what has been bought for the next one. */
 let stashState = createStashState(null);
 let recordsReturnScreen = 'menu';
+let settingsReturnScreen = 'menu';
+let creditsReturnScreen = 'menu';
 let toastTimer = 0;
 let toastVisible = false;
 let activeLootToastEntry = null;
@@ -1578,6 +1598,10 @@ function renderMainMenu() {
     'aria-label',
     `${labels.hud}. ${hungerPresentation(hero.hunger, itemDetailLanguage).ariaLabel}`,
   );
+  // Подписи двух отдельных экранов живут там же, где остальное меню: язык
+  // переключается в одном месте, а меняется везде.
+  renderSettings();
+  renderCredits();
   characterSheetButton.setAttribute('aria-label', labels.character);
   moveControl.setAttribute('aria-label', labels.move);
   moveDirectionButtons.forEach((button) => {
@@ -12370,6 +12394,164 @@ function closeRecords() {
   return true;
 }
 
+/**
+ * Настройки: язык и звук, и одно необратимое действие под ними.
+ *
+ * Раньше язык и громкость лежали прямо в карточке меню — отнимали место у
+ * того, ради чего меню и открывают, и в паузе висели поверх игры. Здесь они
+ * стоят там, где их ищут, и подписаны словами, а не значками.
+ */
+function renderSettings() {
+  const { labels } = currentMainMenuModel();
+  settingsTitle.textContent = labels.settings;
+  openSettingsLabel.textContent = labels.settings;
+  openSettingsButton.setAttribute('aria-label', labels.openSettings);
+  closeSettingsButton.setAttribute('aria-label', labels.closeSettings);
+  settingsScreen.setAttribute('aria-label', labels.settings);
+  settingsLanguageTitle.textContent = labels.settingsLanguage;
+  settingsAudioTitle.textContent = labels.settingsAudio;
+  settingsWipeTitle.textContent = labels.wipeTitle;
+  settingsWipeNote.textContent = labels.wipeNote;
+  // Кнопка помнит, спрашивали уже или нет: взведённая говорит «точно?».
+  const armed = wipeProgressButton.dataset.armed === 'true';
+  wipeProgressButton.textContent = armed ? labels.wipeConfirm : labels.wipe;
+  wipeProgressButton.setAttribute('aria-label', armed ? labels.wipeConfirm : labels.wipe);
+}
+
+function openSettings() {
+  if (uiScreen === 'settings') return false;
+  settingsReturnScreen = uiScreen;
+  disarmWipe();
+  renderSettings();
+  uiScreen = 'settings';
+  document.body.dataset.screen = uiScreen;
+  settingsScreen.inert = false;
+  settingsScreen.setAttribute('aria-hidden', 'false');
+  playSound('ui-tap');
+  requestAnimationFrame(() => closeSettingsButton.focus());
+  return true;
+}
+
+function closeSettings() {
+  if (uiScreen !== 'settings') return false;
+  disarmWipe();
+  settingsScreen.inert = true;
+  settingsScreen.setAttribute('aria-hidden', 'true');
+  uiScreen = settingsReturnScreen === 'settings' ? 'menu' : settingsReturnScreen;
+  document.body.dataset.screen = uiScreen;
+  playSound('ui-close');
+  requestAnimationFrame(() => openSettingsButton.focus());
+  return true;
+}
+
+function disarmWipe() {
+  if (wipeProgressButton.dataset.armed !== 'true') return;
+  wipeProgressButton.dataset.armed = 'false';
+  renderSettings();
+}
+
+/**
+ * Стереть всё — единственное необратимое действие в меню.
+ *
+ * Поэтому первое касание только взводит кнопку, а стирает второе. Уходя с
+ * экрана, кнопка разряжается сама: вернуться к взведённой и снести записи
+ * случайным тычком игрок не должен.
+ */
+function wipeProgress() {
+  if (wipeProgressButton.dataset.armed !== 'true') {
+    wipeProgressButton.dataset.armed = 'true';
+    renderSettings();
+    playSound('ui-tap');
+    return;
+  }
+  wipeProgressButton.dataset.armed = 'false';
+  try {
+    for (const key of [SAVE_KEY, `${SAVE_KEY}:backup`, META_KEY, STASH_KEY, ...LEGACY_SAVE_KEYS]) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Приватный режим и переполненное хранилище — не повод падать.
+  }
+  const { labels } = currentMainMenuModel();
+  wipeProgressButton.textContent = labels.wipeDone;
+  wipeProgressButton.disabled = true;
+  playSound('ui-close');
+  // Перезагрузка — самый честный способ начать с чистого листа: половина
+  // состояния живёт в модулях, и склеивать её вручную значит забыть про часть.
+  setTimeout(() => window.location.reload(), 420);
+}
+
+/**
+ * Авторы: не вежливость, а условие.
+ *
+ * Часть графики лежит под CC-BY и CC-BY-SA. Они разрешают и правку, и
+ * продажу, но требуют назвать автора там, где работу видно, — в игре, а не
+ * только в файле репозитория. Каталог сверяется с настоящими лицензиями
+ * тестом, поэтому здесь остаётся только разложить его по карточкам.
+ */
+function renderCredits() {
+  const model = creditsModel(itemDetailLanguage);
+  creditsTitle.textContent = model.title;
+  openCreditsLabel.textContent = model.title;
+  openCreditsButton.setAttribute('aria-label', model.title);
+  closeCreditsButton.setAttribute('aria-label', model.close);
+  creditsScreen.setAttribute('aria-label', model.title);
+  creditsIntro.textContent = model.intro;
+  creditsBody.replaceChildren(...model.sections.map((entry) => {
+    const block = document.createElement('section');
+    block.className = 'credits-block';
+    const title = document.createElement('h3');
+    title.textContent = entry.title;
+    block.append(title);
+    if (entry.licenseLabel) {
+      const license = document.createElement('p');
+      license.className = 'credits-license';
+      license.textContent = entry.licenseLabel;
+      block.append(license);
+    }
+    for (const line of entry.lines) {
+      const text = document.createElement('p');
+      text.className = 'credits-line';
+      text.textContent = line;
+      block.append(text);
+    }
+    if (entry.source) {
+      const link = document.createElement('a');
+      link.className = 'credits-source';
+      link.href = entry.source;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.textContent = entry.source.replace(/^https?:\/\//, '');
+      block.append(link);
+    }
+    return block;
+  }));
+}
+
+function openCredits() {
+  if (uiScreen === 'credits') return false;
+  creditsReturnScreen = uiScreen;
+  renderCredits();
+  uiScreen = 'credits';
+  document.body.dataset.screen = uiScreen;
+  creditsScreen.inert = false;
+  creditsScreen.setAttribute('aria-hidden', 'false');
+  playSound('ui-tap');
+  requestAnimationFrame(() => closeCreditsButton.focus());
+  return true;
+}
+
+function closeCredits() {
+  if (uiScreen !== 'credits') return false;
+  creditsScreen.inert = true;
+  creditsScreen.setAttribute('aria-hidden', 'true');
+  uiScreen = creditsReturnScreen === 'credits' ? 'menu' : creditsReturnScreen;
+  document.body.dataset.screen = uiScreen;
+  playSound('ui-close');
+  requestAnimationFrame(() => openCreditsButton.focus());
+  return true;
+}
+
 function showRunEndScreen(result) {
   if (uiScreen === result) return;
   clearMoveControl();
@@ -17397,6 +17579,16 @@ window.addEventListener('keydown', (event) => {
     closeRecords();
     return;
   }
+  if (event.code === 'Escape' && uiScreen === 'settings') {
+    event.preventDefault();
+    closeSettings();
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'credits') {
+    event.preventDefault();
+    closeCredits();
+    return;
+  }
   if (event.code === 'Escape' && uiScreen === 'outfit') {
     event.preventDefault();
     if (!closeOutfitDetail()) closeOutfit();
@@ -17669,6 +17861,11 @@ outfitStartButton.addEventListener('click', () => {
 });
 openRecordsButton.addEventListener('click', openRecords);
 closeRecordsButton.addEventListener('click', closeRecords);
+openSettingsButton.addEventListener('click', openSettings);
+closeSettingsButton.addEventListener('click', closeSettings);
+wipeProgressButton.addEventListener('click', wipeProgress);
+openCreditsButton.addEventListener('click', openCredits);
+closeCreditsButton.addEventListener('click', closeCredits);
 closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
 contextActionBackdrop.addEventListener('click', () => closeContextActions());
 cancelTrapPlacementButton.addEventListener('click', () => closeTrapPlacement({ returnToInventory: true }));

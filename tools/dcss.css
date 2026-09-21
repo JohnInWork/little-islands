@@ -351,9 +351,6 @@ body {
    меню, звук, настройки — и больше ничего». Экран паузы и есть главное меню,
    поэтому «выйти» здесь — это «Начать заново»; внешность, снаряжение и записи
    к остановленному забегу отношения не имеют. */
-.main-menu[data-mode='pause'] .main-menu-secondary {
-  display: none;
-}
 
 /* Рука, занятая двуручным: её же оружие, но вполсилы — слот не пустой, и
    видно, чем именно он занят. */
@@ -492,6 +489,8 @@ body {
 [data-screen='menu'] .boss-hud,
 .appearance-editor,
 .records-screen,
+.settings-screen,
+.credits-screen,
 .outfit-screen,
 .new-run-confirm {
   position: fixed;
@@ -515,6 +514,8 @@ body {
 
 [data-screen='appearance'] .appearance-editor,
 [data-screen='records'] .records-screen,
+[data-screen='settings'] .settings-screen,
+[data-screen='credits'] .credits-screen,
 [data-screen='outfit'] .outfit-screen,
 [data-screen='restart-confirm'] .new-run-confirm {
   opacity: 1;
@@ -534,7 +535,25 @@ body {
   background: #0b1113;
 }
 
-.records-header {
+.settings-card,
+.credits-card {
+  width: min(460px, 100%);
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border-color: #667375;
+  background: #0b1113;
+}
+
+/* У авторов между шапкой и списком стоит одна поясняющая строка. */
+.credits-card {
+  grid-template-rows: auto auto 1fr;
+}
+
+.records-header,
+.settings-header,
+.credits-header {
   min-height: 56px;
   padding: 6px 10px;
   display: flex;
@@ -545,7 +564,9 @@ body {
   background: #151e20;
 }
 
-.records-header h2 {
+.records-header h2,
+.settings-header h2,
+.credits-header h2 {
   margin: 0;
   font-size: 13px;
   letter-spacing: 0.08em;
@@ -553,7 +574,9 @@ body {
   color: #d6c79c;
 }
 
-#close-records {
+#close-records,
+#close-settings,
+#close-credits {
   min-width: 44px;
   min-height: 44px;
   color: #c5d8c4;
@@ -8495,6 +8518,8 @@ body {
  * (a gold «Купить», a red «Напасть»).
  */
 .records-card button,
+.settings-card button,
+.credits-card button,
 .outfit-card button,
 .outfit-detail-card button,
 .character-sheet-card button,
@@ -8588,4 +8613,129 @@ body {
  */
 .inventory-shell:has(> #inventory-filters[hidden]) {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+/*
+ * Настройки и авторы: два экрана, собранные из того же, что и записи.
+ *
+ * Язык и громкость раньше лежали прямо в карточке меню и отнимали место у
+ * того, ради чего меню открывают. Здесь они стоят блоками с подписями
+ * словами, а не значками, и их видно с полутора метров.
+ */
+.settings-body,
+.credits-body {
+  min-height: 0;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #697577 #11181b;
+}
+
+.settings-block,
+.credits-block {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #11181b;
+  border: 3px solid #2b3638;
+}
+
+.settings-block h3,
+.credits-block h3 {
+  margin: 0;
+  color: #d6c79c;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Язык и звук внутри блока перестают быть прижатыми к краю меню. */
+.settings-block .main-menu-languages,
+.settings-block .main-menu-audio {
+  position: static;
+  margin: 0;
+}
+
+/* Стереть прогресс — единственное необратимое место в игре, и оно выглядит им. */
+.settings-danger {
+  border-color: #6b3a38;
+}
+
+.settings-danger h3 {
+  color: #d99a95;
+}
+
+#settings-wipe-note {
+  margin: 0;
+  color: #9fb0a8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#wipe-progress {
+  min-height: 46px;
+  color: #f0d7d3;
+  background: #3a2220;
+  border-color: #8d504c;
+  box-shadow: 0 6px 0 #1a0f0e;
+}
+
+/* Взведённая кнопка спрашивает второй раз — и выглядит иначе, чем первый. */
+#wipe-progress[data-armed='true'] {
+  color: #1a0f0e;
+  background: #d99a95;
+  border-color: #f0d7d3;
+}
+
+#wipe-progress:disabled {
+  color: #9fb0a8;
+  background: #202a2e;
+  border-color: #46535580;
+  box-shadow: none;
+}
+
+.credits-intro {
+  margin: 0;
+  padding: 10px 12px 0;
+  color: #9fb0a8;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credits-license {
+  margin: 0;
+  color: #b9a96f;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.credits-line {
+  margin: 0;
+  color: #cfd8d2;
+  font-size: 12px;
+  line-height: 1.5;
+  /* Длинные списки авторов переносятся по словам, а не рвут карточку вширь. */
+  overflow-wrap: anywhere;
+}
+
+.credits-source {
+  color: #7fb0c7;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * В паузе из второстепенного ряда нужны только настройки: громкость убавляют
+ * ровно тогда, когда игра уже идёт. Остальное — дело главного меню.
+ */
+.main-menu[data-mode='pause'] .main-menu-secondary {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.main-menu[data-mode='pause'] .main-menu-secondary > button:not(#open-settings) {
+  display: none;
 }

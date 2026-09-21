@@ -45,10 +45,6 @@
               </h1>
             </header>
           </div>
-          <div id="main-menu-languages" class="main-menu-languages" role="group" aria-label="Выбор языка">
-            <button type="button" data-language="ru" aria-pressed="true">РУ</button>
-            <button type="button" data-language="en" aria-pressed="false">EN</button>
-          </div>
           <div class="main-menu-actions">
             <p id="main-menu-state" class="main-menu-state" hidden>ПАУЗА</p>
             <button id="start-game" class="start-game" type="button" disabled>
@@ -72,12 +68,12 @@
               <button id="open-records" type="button">
                 <span aria-hidden="true">✦</span><b id="open-records-label">Записи</b>
               </button>
-            </div>
-            <div id="main-menu-audio" class="main-menu-audio" role="group" aria-label="Звук">
-              <button id="audio-mute" type="button" aria-pressed="false" aria-label="Выключить звук">♪</button>
-              <button id="audio-volume-down" type="button" aria-label="Тише">−</button>
-              <output id="audio-volume-value" aria-live="polite">70%</output>
-              <button id="audio-volume-up" type="button" aria-label="Громче">+</button>
+              <button id="open-settings" type="button">
+                <span aria-hidden="true">⚙</span><b id="open-settings-label">Настройки</b>
+              </button>
+              <button id="open-credits" type="button">
+                <span aria-hidden="true">♥</span><b id="open-credits-label">Авторы</b>
+              </button>
             </div>
             <ul id="main-menu-conditions" class="main-menu-conditions" aria-label="Условия забега" hidden></ul>
             <p id="main-menu-hint" class="main-menu-hint">Случайное подземелье</p>
@@ -867,6 +863,74 @@
               <ul id="records-milestones" class="records-milestones"></ul>
             </section>
           </div>
+        </article>
+      </section>
+
+      <!--
+        Настройки: язык и звук, которые раньше лежали прямо в карточке меню.
+        Отдельный экран нужен был не ради красоты — в карточке они отнимали
+        место у того, ради чего меню открывают, и в паузе висели поверх игры.
+      -->
+      <section
+        id="settings-screen"
+        class="settings-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Настройки"
+        aria-hidden="true"
+        inert
+      >
+        <article class="settings-card pixel-frame">
+          <header class="settings-header">
+            <h2 id="settings-title">Настройки</h2>
+            <button id="close-settings" type="button" aria-label="Закрыть настройки">×</button>
+          </header>
+          <div class="settings-body">
+            <section class="settings-block" aria-labelledby="settings-language-title">
+              <h3 id="settings-language-title">Язык</h3>
+              <div id="main-menu-languages" class="main-menu-languages" role="group" aria-label="Выбор языка">
+                <button type="button" data-language="ru" aria-pressed="true">РУ</button>
+                <button type="button" data-language="en" aria-pressed="false">EN</button>
+              </div>
+            </section>
+            <section class="settings-block" aria-labelledby="settings-audio-title">
+              <h3 id="settings-audio-title">Звук</h3>
+              <div id="main-menu-audio" class="main-menu-audio" role="group" aria-label="Звук">
+                <button id="audio-mute" type="button" aria-pressed="false" aria-label="Выключить звук">♪</button>
+                <button id="audio-volume-down" type="button" aria-label="Тише">−</button>
+                <output id="audio-volume-value" aria-live="polite">70%</output>
+                <button id="audio-volume-up" type="button" aria-label="Громче">+</button>
+              </div>
+            </section>
+            <section class="settings-block settings-danger" aria-labelledby="settings-wipe-title">
+              <h3 id="settings-wipe-title">Начать всё сначала</h3>
+              <p id="settings-wipe-note">Удалит записи, рекорды и текущий забег. Отменить нельзя.</p>
+              <button id="wipe-progress" type="button" data-armed="false">Стереть прогресс</button>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <!--
+        Авторы. Не вежливость, а условие: часть графики под CC-BY и CC-BY-SA,
+        и эти лицензии требуют назвать автора там, где работу видно.
+      -->
+      <section
+        id="credits-screen"
+        class="credits-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Авторы"
+        aria-hidden="true"
+        inert
+      >
+        <article class="credits-card pixel-frame">
+          <header class="credits-header">
+            <h2 id="credits-title">Авторы</h2>
+            <button id="close-credits" type="button" aria-label="Закрыть авторов">×</button>
+          </header>
+          <p id="credits-intro" class="credits-intro"></p>
+          <div id="credits-body" class="credits-body"></div>
         </article>
       </section>
 

@@ -8,3 +8,6 @@ output/
 !.env.example
 *.log
 release/
+
+# Черновики стенда проверки — не для репозитория.
+.playwright-mcp/
