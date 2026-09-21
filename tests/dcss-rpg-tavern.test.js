@@ -143,6 +143,25 @@ test('a man sitting at a table is the mercenary he will be if hired', () => {
   }
   assert.equal(mercenaryIdForHireMonster('city-guard'), null);
   assert.equal(mercenaryIdForHireMonster(null), null);
+
+  /*
+   * Префикс — не пропуск в наёмники.
+   *
+   * `wild-boar` и `wild-sheep` живут в бестиарии поверхности и начинаются с
+   * того же `wild-`. Пока имя просто отрезалось, кабан считался наёмным
+   * человеком: над ним всплывала кнопка «нанять», строки «boar» в модели не
+   * находилось, цель выходила пустой — и каждый кадр мира падал с
+   * `TypeError`, пока герой стоял рядом. Охоту на кабана эта же кнопка
+   * закрывала собой.
+   */
+  for (const зверь of ['wild-boar', 'wild-sheep']) {
+    assert.ok(monsterById(зверь), `${зверь} обязан быть в бестиарии — иначе проверка ни о чём`);
+    assert.equal(mercenaryIdForHireMonster(зверь), null, `${зверь} — зверь, а не наёмник`);
+  }
+  // И наоборот: настоящий наёмник в поле по-прежнему узнаётся.
+  for (const наёмник of mercenariesWhere('wild')) {
+    assert.equal(mercenaryIdForHireMonster(`wild-${наёмник.id}`), наёмник.id);
+  }
 });
 
 /** The bed is money for a whole night, and every refusal says which one it is. */

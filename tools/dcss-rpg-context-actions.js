@@ -387,7 +387,7 @@ const COPY = Object.freeze({
   }),
 });
 
-const validFind = (target, id) => target.kind === 'find'
+const validFind = (target, id) => target?.kind === 'find'
   && target.id === id
   && Number.isFinite(target.rewardGold)
   && Number.isFinite(target.rewardPower)

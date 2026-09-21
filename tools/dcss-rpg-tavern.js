@@ -311,10 +311,25 @@ export function wildHireMonsterId(mercenaryId) {
   return `wild-${mercenaryId}`;
 }
 
+const MERCENARY_IDS = new Set(MERCENARIES.map(({ id }) => id));
+
+/**
+ * Префикса мало: `wild-` носят не только наёмники.
+ *
+ * В бестиарии живут `wild-boar` и `wild-sheep` — обычные звери поверхности.
+ * Пока проверялся один префикс, кабан считался наёмным человеком: над ним
+ * всплывала кнопка «нанять», модель наёмников строки для «boar» не находила и
+ * отдавала `null`, а дальше падал каждый кадр мира — картинка замирала, бой
+ * шёл. Заодно кабан терял свою настоящую кнопку охоты.
+ *
+ * Поэтому имя не просто отрезается, а сверяется с каталогом.
+ */
 export function mercenaryIdForHireMonster(monsterId) {
   if (typeof monsterId !== 'string') return null;
   const prefix = HIRE_PREFIXES.find((candidate) => monsterId.startsWith(candidate));
-  return prefix ? monsterId.slice(prefix.length) : null;
+  if (!prefix) return null;
+  const id = monsterId.slice(prefix.length);
+  return MERCENARY_IDS.has(id) ? id : null;
 }
 
 export const TAVERN_HIRE_MONSTER_IDS = Object.freeze(
