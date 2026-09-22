@@ -141,26 +141,42 @@ test('a full backpack rejects a new chest item without mutating either side', ()
  * «и добавить навык, который расширяет рюкзак», so thirty is what everybody
  * carries and «Вьючник» adds six a rank on top of it.
  */
-test('the bag holds thirty, and portering widens it six slots a rank', async () => {
+/**
+ * Двадцать ячеек, и «Вьючник» добавляет шесть за ранг.
+ *
+ * Было тридцать — столько, что рюкзак перестал быть выбором. Потом из игры
+ * ушли эссенция, перековка, зачарование и алхимия, носить стало нечего, и
+ * Иван попросил: «есть смысл рюкзак уменьшить, потому что у нас предметов
+ * стало меньше».
+ *
+ * Потолок формы сохранения при этом остался прежним и ниже не опускается:
+ * вчерашний герой с тридцатью вещами в сумке обязан загрузиться. Носить он
+ * сможет меньше — лишнее просто не влезет обратно, — но забег останется его.
+ */
+test('в рюкзаке двадцать ячеек, и «Вьючник» добавляет шесть за ранг', async () => {
   const { SKILL_IMPLEMENTATIONS, createSkillState, deriveSkillCapabilities } =
     await import('../tools/dcss-rpg-skills.js');
-  assert.equal(HERO_BACKPACK_CAPACITY, 30);
-  assert.equal(backpackCapacity(), 30, 'a hero with no skills still gets the whole bag');
-  assert.equal(MAX_BACKPACK_CAPACITY, HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS);
+  assert.equal(HERO_BACKPACK_CAPACITY, 20);
+  assert.equal(backpackCapacity(), 20, 'герой без навыков всё равно носит весь рюкзак');
 
-  for (const [rank, expected] of [[1, 36], [2, 42], [3, 48]]) {
+  for (const [rank, expected] of [[1, 26], [2, 32], [3, 38]]) {
     const state = { ...createSkillState(9), ranks: { portering: rank } };
-    assert.equal(backpackCapacity(deriveSkillCapabilities(state)), expected, `rank ${rank}`);
+    assert.equal(backpackCapacity(deriveSkillCapabilities(state)), expected, `ранг ${rank}`);
   }
-  // The ceiling a save may reach is exactly the widest bag, no more.
-  assert.equal(
-    backpackCapacity(deriveSkillCapabilities({ ...createSkillState(9), ranks: { portering: 3 } })),
-    MAX_BACKPACK_CAPACITY,
-  );
   assert.ok(SKILL_IMPLEMENTATIONS.portering, 'the skill has no mechanic behind it');
+
+  // Потолок сохранения шире самой широкой сумки — это запас под старые забеги.
+  assert.ok(
+    MAX_BACKPACK_CAPACITY >= HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS,
+    'сохранение перестанет принимать вчерашние сумки',
+  );
+  assert.equal(MAX_BACKPACK_CAPACITY, 48, 'потолок сохранения опускать нельзя');
 
   // A nonsense capability never shrinks or overflows the bag.
   assert.equal(backpackCapacity({ backpackSlots: -50 }), HERO_BACKPACK_CAPACITY);
-  assert.equal(backpackCapacity({ backpackSlots: 900 }), MAX_BACKPACK_CAPACITY);
+  assert.equal(
+    backpackCapacity({ backpackSlots: 900 }),
+    HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS,
+  );
   assert.equal(backpackCapacity({ backpackSlots: Number.NaN }), HERO_BACKPACK_CAPACITY);
 });

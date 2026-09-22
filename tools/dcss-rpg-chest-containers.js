@@ -29,14 +29,26 @@ export function containerDepthOf(findId) {
 /**
  * The bag.
  *
- * Twelve slots meant the hero came home to sell three times a floor — «мало»,
- * said Ivan, and asked for thirty and a skill that widens it. Thirty is the
- * bag everybody carries; `portering` adds six a rank on top, so the ceiling a
- * save is allowed to reach is thirty plus eighteen.
+ * Двенадцать ячеек заставляли бегать в город трижды за этаж — «мало», сказал
+ * Иван, и попросил тридцать и навык, который их расширяет.
+ *
+ * Тридцать прожили ровно до того дня, когда из игры вычеркнули эссенцию,
+ * перековку, зачарование и алхимию: носить стало нечего, и рюкзак перестал
+ * быть выбором — в него просто влезало всё. Иван: «есть смысл рюкзак
+ * уменьшить, потому что у нас предметов стало меньше». Двадцать — столько,
+ * чтобы решать, что оставить, а «Вьючник» снова стоил очка.
  */
-export const HERO_BACKPACK_CAPACITY = 30;
+export const HERO_BACKPACK_CAPACITY = 20;
 export const MAX_BACKPACK_SLOTS = 18;
-export const MAX_BACKPACK_CAPACITY = HERO_BACKPACK_CAPACITY + MAX_BACKPACK_SLOTS;
+/**
+ * Потолок формы сохранения, а не игры.
+ *
+ * Проверка забега отвергает сумку длиннее этого числа, поэтому опускать его
+ * вслед за рюкзаком нельзя: вчерашний герой с тридцатью вещами в сумке
+ * перестал бы загружаться. Носить он сможет меньше — лишнее просто не
+ * влезет обратно, — но забег останется его.
+ */
+export const MAX_BACKPACK_CAPACITY = 48;
 
 /** How much this particular hero can carry, skills included. */
 export function backpackCapacity(capabilities = {}) {
