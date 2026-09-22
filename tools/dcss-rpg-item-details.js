@@ -200,6 +200,7 @@ const RUSSIAN_NAMES = Object.freeze({
   'iron-key': 'Железный ключ',
   'master-key': 'Ключ от всех сундуков',
   'lockpick-set': 'Набор отмычек',
+  'sapper-kit': 'Набор сапёра',
   'hunter-trap': 'Охотничий капкан',
   'coin-cache': 'Тайник с золотом',
 });
@@ -289,6 +290,8 @@ const ENGLISH_NAMES = Object.freeze({
   'tide-wand': 'Tide Wand',
   'iron-key': 'Iron key',
   'master-key': 'Key to every chest',
+  'lockpick-set': 'Lockpick set',
+  'sapper-kit': "Sapper's kit",
 });
 
 const RARITY = Object.freeze({

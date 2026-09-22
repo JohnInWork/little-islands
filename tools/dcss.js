@@ -165,6 +165,7 @@ import { skillById } from './dcss-rpg-skill-content.js';
 import { activeDetectedTrapCells, discoverTraps, trapsFromDungeon } from './dcss-rpg-traps.js';
 import {
   DISARMED_TRAP_PATH,
+  DISARM_TOOL_ITEM_ID,
   disarmTrap,
   trapDisarmAvailability,
   trapDisarmPresentation,
@@ -5114,7 +5115,7 @@ function trapDisarmState(trap = nearbyDetectedTrap()) {
       hp: hero.hp,
     },
     capabilities: currentSkillCapabilities(),
-    lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
+    sapperKitCount: interactionResourceCount(DISARM_TOOL_ITEM_ID),
   });
 }
 
@@ -5133,7 +5134,7 @@ function interactNearbyTrap(preferredTrap = null) {
       hp: hero.hp,
     },
     capabilities: currentSkillCapabilities(),
-    lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
+    sapperKitCount: interactionResourceCount(DISARM_TOOL_ITEM_ID),
   });
   const presentation = trapDisarmPresentation({
     trap,

@@ -4,12 +4,13 @@ export const DISARMED_TRAP_PATH = 'dngn/traps/pressure_plate.png';
  * Механизм снимают инструментом, а не голыми руками.
  *
  * Иван: «я бы хотел, чтобы ловушки обезвреживать был бы какой-нибудь
- * инструмент». Инструментом служит тот же набор отмычек, что открывает
- * сундуки: тонкая работа и там и там, а отмычки от этого становятся выбором
- * — потратить на замок или на механизм под ногами. Третий ранг «Ловушек»
- * снимает эту плату: рука уже знает, куда нажать.
+ * инструмент». Сперва им были отмычки, но Иван развёл вещи по делам:
+ * «отдельно для сундуков отмычки, чтобы их вскрывать, и чтобы обезвреживать
+ * ловушки — отдельный набор». Так запас на сундуки не решает за игрока,
+ * лезть ли ему к ловушке. Третий ранг «Ловушек» снимает эту плату вовсе:
+ * рука уже знает, куда нажать.
  */
-export const DISARM_TOOL_ITEM_ID = 'lockpick-set';
+export const DISARM_TOOL_ITEM_ID = 'sapper-kit';
 export const DISARM_TOOL_COST = 1;
 
 const COPY = Object.freeze({
@@ -18,14 +19,14 @@ const COPY = Object.freeze({
     success: 'Ловушка обезврежена',
     skillRequired: 'Нужен навык «Ловушки» I',
     tierRequired: (tier) => `Нужен навык «Ловушки» ${['I', 'II', 'III'][tier - 1]}`,
-    toolRequired: 'Нужна отмычка',
+    toolRequired: 'Нужен набор сапёра',
   }),
   en: Object.freeze({
     action: 'Disarm the detected trap',
     success: 'Trap disarmed',
     skillRequired: 'Traps I required',
     tierRequired: (tier) => `Traps ${['I', 'II', 'III'][tier - 1]} required`,
-    toolRequired: 'A lockpick is required',
+    toolRequired: "A sapper's kit is required",
   }),
 });
 
@@ -84,7 +85,7 @@ export function trapDisarmAvailability({
   hero,
   capabilities,
   toolTier = 0,
-  lockpickCount = 0,
+  sapperKitCount = 0,
 } = {}) {
   const skillTier = capabilities?.trapDisarmTier ?? 0;
   if (
@@ -107,7 +108,7 @@ export function trapDisarmAvailability({
   const effectiveTier = Math.max(skillTier, toolTier);
   // Третий ранг работает без отмычек; всем остальным нужна одна на механизм.
   const free = capabilities?.trapDisarmFree === 1;
-  const tools = Number.isInteger(lockpickCount) && lockpickCount >= 0 ? lockpickCount : 0;
+  const tools = Number.isInteger(sapperKitCount) && sapperKitCount >= 0 ? sapperKitCount : 0;
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive', trap.tier, effectiveTier);
   if (disarmedTrapIds.includes(trap.instanceId)) return rejected('disarmed', trap.tier, effectiveTier);
   if (resolvedEventIds.includes(trap.eventId)) return rejected('resolved', trap.tier, effectiveTier);

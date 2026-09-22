@@ -37,8 +37,8 @@ function command(overrides = {}) {
     runStatus: 'playing',
     hero: { x: trap.x + 1, y: trap.y, hp: 40 },
     capabilities: { trapDisarmTier: trap.tier },
-    // Механизм снимают отмычкой: у всех, кроме третьего ранга «Ловушек».
-    lockpickCount: 2,
+    // Механизм снимают набором сапёра: у всех, кроме третьего ранга.
+    sapperKitCount: 2,
     ...overrides,
   };
 }
@@ -56,11 +56,11 @@ test('disarming is an atomic deterministic command gated by adjacency, knowledge
   });
   assert.deepEqual(result.consumed, [{ id: DISARM_TOOL_ITEM_ID, amount: DISARM_TOOL_COST }]);
   // Без отмычки механизм не снять — и это отдельный отказ, а не «нет навыка».
-  assert.equal(disarmTrap({ ...input, lockpickCount: 0 }).reason, 'tool-required');
+  assert.equal(disarmTrap({ ...input, sapperKitCount: 0 }).reason, 'tool-required');
   // Третий ранг обходится без них: рука уже знает, куда нажать.
   const мастер = disarmTrap({
     ...input,
-    lockpickCount: 0,
+    sapperKitCount: 0,
     capabilities: { trapDisarmTier: 3, trapDisarmFree: 1 },
   });
   assert.equal(мастер.ok, true);
@@ -84,8 +84,8 @@ test('первый ранг «Ловушек» снимает любой мех�
   const en = trapDisarmPresentation({ trap: input.trap, effectiveTier: 0, language: 'en' });
   assert.match(ru.unavailable, /Ловушки/);
   assert.match(en.unavailable, /Traps/);
-  assert.match(ru.toolRequired, /отмычк/);
-  assert.match(en.toolRequired, /lockpick/);
+  assert.match(ru.toolRequired, /сапёра/);
+  assert.match(en.toolRequired, /sapper/);
 });
 
 test('v12 migration adds disarmed history and v15 hydration rejects foreign disarmed traps', () => {

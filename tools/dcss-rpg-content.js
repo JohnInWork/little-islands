@@ -2762,8 +2762,14 @@ export const LOOT_CATALOG = Object.freeze([
     interactionResource: 'master-key',
   },
   {
+    /*
+     * Отмычки открывают замки — и только их.
+     *
+     * Иконкой им служил спрайт метательной иглы: по нему не догадаться, что
+     * это инструмент, а в рюкзаке он к тому же похож на оружие.
+     */
     id: 'lockpick-set',
-    icon: 'item/weapon/ranged/needle-c.png',
+    icon: 'licensed/game-icons/lockpicks.png',
     slot: null,
     kind: 'tool',
     rarity: 0,
@@ -2771,6 +2777,26 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 2,
     interactionResource: 'lockpick',
+  },
+  {
+    /*
+     * Набор сапёра снимает механизмы — и только их.
+     *
+     * Сперва инструментом для ловушек были те же отмычки, но Иван развёл их:
+     * «отдельно для сундуков отмычки, чтобы их вскрывать, и чтобы
+     * обезвреживать ловушки — отдельный набор». Так замок и механизм больше
+     * не тянут один расходник, и запас на сундуки не решает за игрока, лезть
+     * ли ему к ловушке.
+     */
+    id: 'sapper-kit',
+    icon: 'licensed/game-icons/sapper-kit.png',
+    slot: null,
+    kind: 'tool',
+    rarity: 0,
+    weight: 8,
+    minDepth: 1,
+    stack: 2,
+    interactionResource: 'sapper',
   },
   {
     id: 'poison-vial',
