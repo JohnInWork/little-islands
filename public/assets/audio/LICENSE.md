@@ -208,6 +208,11 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
   <https://opengameart.org/content/ambience-pack-1-sci-fi-horror> (CC0). Ад.
 - `music/boss.mp3` — «Boss Battle Theme», Cleyton Kauffman.
   <https://opengameart.org/content/boss-battle-theme> (CC0). Бой со стражем главы.
+- `music/menu.mp3` — «Ancient Power Of Serpents», выложено josepharaoh99.
+  <https://opengameart.org/content/ancient-power-of-serpents> (CC0). Главное меню.
+  На странице сказано: указание авторства не требуется, но если указывать — то
+  Kevin MacLeod. Указываем: игра продаётся, и лишняя строчка в титрах дешевле
+  любого спора об авторстве.
 
 Бой со стражем — не дорога, а событие: эта запись громче остальных и сведена на
 два децибела выше, потому что она обязана перебить всё, что звучало до неё.

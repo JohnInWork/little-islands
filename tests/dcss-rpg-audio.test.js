@@ -12,12 +12,15 @@ import {
   SOUND_IDS,
   SOUND_SAMPLES,
   adjustAudioVolume,
+  adjustMusicVolume,
   ambientSample,
   audioMenuModel,
   audioSampleProblems,
   createAudioSettings,
   effectiveVolume,
+  effectiveMusicVolume,
   musicSample,
+  toggleMusicMute,
   parseAudioSettings,
   pickSampleFile,
   serializeAudioSettings,
@@ -96,20 +99,42 @@ test('every sample ships on disk, stays small and is listed in the CC0 notice', 
 test('audio settings persist as one strict document with stepped volume', () => {
   assert.equal(AUDIO_SETTINGS_KEY, 'dng-codex:audio:v1');
   assert.deepEqual(createAudioSettings(), AUDIO_DEFAULTS);
-  assert.deepEqual(createAudioSettings({ volume: 0.44, muted: 'yes' }), { volume: 0.4, muted: false });
-  assert.deepEqual(createAudioSettings({ volume: 7, muted: true }), { volume: 1, muted: true });
-  assert.deepEqual(parseAudioSettings('{"volume":0.3,"muted":true}'), { volume: 0.3, muted: true });
+  // Музыка живёт в том же документе: её ручка добавилась позже, и настройки,
+  // записанные до неё, читаются как «музыка по умолчанию», а не как ноль.
+  const по = (over) => ({ ...AUDIO_DEFAULTS, ...over });
+  assert.deepEqual(createAudioSettings({ volume: 0.44, muted: 'yes' }), по({ volume: 0.4 }));
+  assert.deepEqual(createAudioSettings({ volume: 7, muted: true }), по({ volume: 1, muted: true }));
+  assert.deepEqual(parseAudioSettings('{"volume":0.3,"muted":true}'), по({ volume: 0.3, muted: true }));
   assert.deepEqual(parseAudioSettings('not json'), AUDIO_DEFAULTS);
   assert.deepEqual(parseAudioSettings('[1,2]'), AUDIO_DEFAULTS);
   assert.deepEqual(parseAudioSettings(null), AUDIO_DEFAULTS);
-  assert.equal(serializeAudioSettings({ volume: 0.5, muted: false }), '{"volume":0.5,"muted":false}');
-  assert.deepEqual(adjustAudioVolume({ volume: 0.7, muted: false }, 0.1), { volume: 0.8, muted: false });
-  assert.deepEqual(adjustAudioVolume({ volume: 0.1, muted: false }, -0.3), { volume: 0, muted: false });
-  assert.deepEqual(adjustAudioVolume({ volume: 1, muted: true }, 0.1), { volume: 1, muted: true });
-  assert.deepEqual(toggleAudioMute({ volume: 0.6, muted: false }), { volume: 0.6, muted: true });
+  assert.equal(
+    serializeAudioSettings({ volume: 0.5, muted: false }),
+    '{"volume":0.5,"muted":false,"musicVolume":0.7,"musicMuted":false}',
+  );
+  assert.deepEqual(adjustAudioVolume(по({ volume: 0.7 }), 0.1), по({ volume: 0.8 }));
+  assert.deepEqual(adjustAudioVolume(по({ volume: 0.1 }), -0.3), по({ volume: 0 }));
+  assert.deepEqual(adjustAudioVolume(по({ volume: 1, muted: true }), 0.1), по({ volume: 1, muted: true }));
+  assert.deepEqual(toggleAudioMute(по({ volume: 0.6 })), по({ volume: 0.6, muted: true }));
   assert.equal(effectiveVolume({ volume: 0.6, muted: true }), 0);
   assert.equal(effectiveVolume({ volume: 0.6, muted: false }), 0.6);
   assert.ok(Object.isFrozen(createAudioSettings()));
+
+  /*
+   * Ручка музыки своя, но под общей.
+   *
+   * Иван: «так как у нас появилась музыка, надо отдельную настройку для неё —
+   * громкость и мут». Отдельная — значит мелодию можно убрать, не выключая
+   * ударов и шагов; под общей — значит «выключить звук» по-прежнему выключает
+   * всё, иначе надпись на кнопке врёт.
+   */
+  assert.deepEqual(adjustMusicVolume(по({ musicVolume: 0.7 }), -0.2), по({ musicVolume: 0.5 }));
+  assert.deepEqual(toggleMusicMute(по({})), по({ musicMuted: true }));
+  assert.equal(effectiveMusicVolume(по({ musicVolume: 0.5 })), 0.5);
+  assert.equal(effectiveMusicVolume(по({ musicVolume: 0.5, musicMuted: true })), 0);
+  assert.equal(effectiveMusicVolume(по({ musicVolume: 0.5, muted: true })), 0, 'общий мут не глушит музыку');
+  // Громкость звука при этом не трогается ни одной из музыкальных ручек.
+  assert.equal(effectiveVolume(toggleMusicMute(по({ volume: 0.6 }))), 0.6);
 });
 
 test('the menu model is bilingual and reflects mute and bounds', () => {

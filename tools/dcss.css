@@ -8927,7 +8927,9 @@ body {
 
 /* Звук: видно тот значок, который отвечает состоянию кнопки. */
 #audio-mute[aria-pressed='false'] .audio-off,
-#audio-mute[aria-pressed='true'] .audio-on {
+#audio-mute[aria-pressed='true'] .audio-on,
+#music-mute[aria-pressed='false'] .music-off,
+#music-mute[aria-pressed='true'] .music-on {
   display: none;
 }
 

@@ -7,7 +7,23 @@
 
 export const AUDIO_SETTINGS_KEY = 'dng-codex:audio:v1';
 export const AUDIO_VOLUME_STEP = 0.1;
-export const AUDIO_DEFAULTS = Object.freeze({ volume: 0.7, muted: false });
+/**
+ * Громкость у звука и у музыки своя.
+ *
+ * Иван: «так как у нас появилась музыка, надо отдельную настройку для неё —
+ * громкость и мут». Причина простая: удары и шаги нужны всегда, а мелодию
+ * слушают до третьего этажа, дальше её хочется убрать — и не вместе с игрой.
+ *
+ * Музыкальная ручка считается от общей, а не вместо неё: выключенный звук
+ * выключает всё, включая мелодию, — иначе «выключить звук» перестало бы
+ * значить то, что написано.
+ */
+export const AUDIO_DEFAULTS = Object.freeze({
+  volume: 0.7,
+  muted: false,
+  musicVolume: 0.7,
+  musicMuted: false,
+});
 
 /** Relative to `tools/dcss.html`; the build copies `public/assets/audio` next to it. */
 export const AUDIO_SAMPLE_ROOT = '../assets/audio/';
@@ -147,6 +163,14 @@ export const MUSIC_SAMPLES = Object.freeze({
    * мелодия возвращается сама.
    */
   boss: sample('music/boss.mp3', 0.1),
+  /*
+   * Меню — не дорога, а место, где игру ещё только открыли.
+   *
+   * Тема выбрана Иваном из шести: «Ancient Power of Serpents». Она громче
+   * дорожных — за меню нет ни гула этажа, ни боя, и тише неё просто не
+   * слышно, — но остаётся в том же потолке, что и все остальные.
+   */
+  menu: sample('music/menu.mp3', 0.1),
 });
 
 export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([
@@ -217,6 +241,12 @@ export function createAudioSettings(source = null) {
   return Object.freeze({
     volume: clampVolume(source?.volume),
     muted: source?.muted === true,
+    // Старое сохранение настроек про музыку ничего не знает — и получает ту
+    // громкость, с которой игра звучала до того, как ручка появилась.
+    musicVolume: source?.musicVolume === undefined
+      ? AUDIO_DEFAULTS.musicVolume
+      : clampVolume(source.musicVolume),
+    musicMuted: source?.musicMuted === true,
   });
 }
 
@@ -234,22 +264,44 @@ export function parseAudioSettings(raw) {
 
 export function serializeAudioSettings(settings) {
   const normalized = createAudioSettings(settings);
-  return JSON.stringify({ volume: normalized.volume, muted: normalized.muted });
+  return JSON.stringify({
+    volume: normalized.volume,
+    muted: normalized.muted,
+    musicVolume: normalized.musicVolume,
+    musicMuted: normalized.musicMuted,
+  });
 }
 
 export function adjustAudioVolume(settings, delta) {
   const current = createAudioSettings(settings);
-  return createAudioSettings({ volume: current.volume + delta, muted: current.muted });
+  return createAudioSettings({ ...current, volume: current.volume + delta });
+}
+
+export function adjustMusicVolume(settings, delta) {
+  const current = createAudioSettings(settings);
+  return createAudioSettings({ ...current, musicVolume: current.musicVolume + delta });
+}
+
+export function toggleMusicMute(settings) {
+  const current = createAudioSettings(settings);
+  return createAudioSettings({ ...current, musicMuted: !current.musicMuted });
 }
 
 export function toggleAudioMute(settings) {
   const current = createAudioSettings(settings);
-  return createAudioSettings({ volume: current.volume, muted: !current.muted });
+  return createAudioSettings({ ...current, muted: !current.muted });
 }
 
 export function effectiveVolume(settings) {
   const current = createAudioSettings(settings);
   return current.muted ? 0 : current.volume;
+}
+
+/** Мелодия звучит от своей ручки, но под общей: выключенный звук молчит весь. */
+export function effectiveMusicVolume(settings) {
+  const current = createAudioSettings(settings);
+  if (current.muted || current.musicMuted) return 0;
+  return current.musicVolume;
 }
 
 const MENU_COPY = Object.freeze({
@@ -260,6 +312,9 @@ const MENU_COPY = Object.freeze({
     quieter: 'Тише',
     louder: 'Громче',
     muted: 'Выкл',
+    musicGroup: 'Музыка',
+    musicMute: 'Выключить музыку',
+    musicUnmute: 'Включить музыку',
   }),
   en: Object.freeze({
     group: 'Sound',
@@ -268,8 +323,35 @@ const MENU_COPY = Object.freeze({
     quieter: 'Quieter',
     louder: 'Louder',
     muted: 'Off',
+    musicGroup: 'Music',
+    musicMute: 'Mute music',
+    musicUnmute: 'Unmute music',
   }),
 });
+
+/**
+ * Та же строка настроек, но про музыку.
+ *
+ * Модель одна на обе строки нарочно: кнопки, подписи и границы у них общие, и
+ * если они разъедутся, это будет ошибкой, а не задумкой. Отличается только
+ * то, какую пару чисел она читает.
+ */
+export function musicMenuModel(settings, language = 'ru') {
+  const current = createAudioSettings(settings);
+  const copy = MENU_COPY[language === 'en' ? 'en' : 'ru'];
+  return Object.freeze({
+    groupLabel: copy.musicGroup,
+    muted: current.musicMuted,
+    muteLabel: current.musicMuted ? copy.musicUnmute : copy.musicMute,
+    muteGlyph: current.musicMuted ? '×' : '♪',
+    volumePercent: Math.round(current.musicVolume * 100),
+    volumeText: current.musicMuted ? copy.muted : `${Math.round(current.musicVolume * 100)}%`,
+    quieterLabel: copy.quieter,
+    louderLabel: copy.louder,
+    canLower: current.musicVolume > 0,
+    canRaise: current.musicVolume < 1,
+  });
+}
 
 export function audioMenuModel(settings, language = 'ru') {
   const current = createAudioSettings(settings);

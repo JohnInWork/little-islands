@@ -967,6 +967,19 @@
                 <button id="audio-volume-up" type="button" aria-label="Громче">+</button>
               </div>
             </section>
+            <!-- Мелодию убирают отдельно от ударов и шагов: слушают её дольше. -->
+            <section class="settings-block" aria-labelledby="settings-music-title">
+              <h3 id="settings-music-title">Музыка</h3>
+              <div id="main-menu-music" class="main-menu-audio" role="group" aria-label="Музыка">
+                <button id="music-mute" type="button" aria-pressed="false" aria-label="Выключить музыку">
+                  <i class="ui-icon music-on" data-icon="speaker" aria-hidden="true"></i>
+                  <i class="ui-icon music-off" data-icon="speaker-off" aria-hidden="true"></i>
+                </button>
+                <button id="music-volume-down" type="button" aria-label="Тише">−</button>
+                <output id="music-volume-value" aria-live="polite">70%</output>
+                <button id="music-volume-up" type="button" aria-label="Громче">+</button>
+              </div>
+            </section>
             <section class="settings-block settings-danger" aria-labelledby="settings-wipe-title">
               <h3 id="settings-wipe-title">Начать всё сначала</h3>
               <p id="settings-wipe-note">Удалит записи, рекорды и текущий забег. Отменить нельзя.</p>

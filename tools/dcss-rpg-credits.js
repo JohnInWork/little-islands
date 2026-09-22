@@ -237,7 +237,7 @@ export const CREDITS_SECTIONS = Object.freeze([
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'Фон этажей и мелодии дорог — OpenGameArt: JaggedStone, Paul Wortmann, '
           + 'RandomMind, cynicmusic, Brandon75689, pauliuw, josepharaoh99, Joth, '
-          + 'Cleyton Kauffman.',
+          + 'Cleyton Kauffman, Kevin MacLeod.',
         'Всё — общественное достояние (CC0 1.0); авторы названы из уважения.',
       ]),
     },
@@ -249,7 +249,7 @@ export const CREDITS_SECTIONS = Object.freeze([
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'Floor ambience and road themes from OpenGameArt: JaggedStone, '
           + 'Paul Wortmann, RandomMind, cynicmusic, Brandon75689, pauliuw, '
-          + 'josepharaoh99, Joth, Cleyton Kauffman.',
+          + 'josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
         'All public domain (CC0 1.0); the authors are named out of courtesy.',
       ]),
     },

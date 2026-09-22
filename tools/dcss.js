@@ -532,8 +532,11 @@ import {
   AUDIO_VOLUME_STEP,
   adjustAudioVolume,
   ambientSample,
+  musicMenuModel,
   musicSample,
+  adjustMusicVolume,
   audioMenuModel,
+  effectiveMusicVolume,
   effectiveVolume,
   parseAudioSettings,
   heroVoiceSound,
@@ -541,6 +544,7 @@ import {
   serializeAudioSettings,
   soundSample,
   toggleAudioMute,
+  toggleMusicMute,
 } from './dcss-rpg-audio.js';
 import {
   MERCHANT_COMMANDS,
@@ -729,7 +733,15 @@ const audioMuteButton = document.querySelector('#audio-mute');
 const audioVolumeDownButton = document.querySelector('#audio-volume-down');
 const audioVolumeUpButton = document.querySelector('#audio-volume-up');
 const audioVolumeValue = document.querySelector('#audio-volume-value');
-const audioMenuButtons = [audioMuteButton, audioVolumeDownButton, audioVolumeUpButton];
+const mainMenuMusic = document.querySelector('#main-menu-music');
+const musicMuteButton = document.querySelector('#music-mute');
+const musicVolumeDownButton = document.querySelector('#music-volume-down');
+const musicVolumeUpButton = document.querySelector('#music-volume-up');
+const musicVolumeValue = document.querySelector('#music-volume-value');
+const audioMenuButtons = [
+  audioMuteButton, audioVolumeDownButton, audioVolumeUpButton,
+  musicMuteButton, musicVolumeDownButton, musicVolumeUpButton,
+];
 const startGameButton = document.querySelector('#start-game');
 const startGameLabel = document.querySelector('#start-game-label');
 const mainMenuHint = document.querySelector('#main-menu-hint');
@@ -8796,6 +8808,24 @@ function unlockLevelUpAudio() {
   return levelUpAudio;
 }
 
+/**
+ * Выход мелодии: своя ручка, включённая в общую.
+ *
+ * Иван: «надо отдельную настройку для неё — громкость и мут». Узел стоит
+ * между мелодией и общим выходом, поэтому выключенный звук по-прежнему
+ * выключает всё, а музыкальная ручка убирает только её.
+ */
+let audioMusicGain = null;
+
+function musicOutput(audio) {
+  if (!audioMusicGain || audioMusicGain.context !== audio) {
+    audioMusicGain = audio.createGain();
+    audioMusicGain.gain.value = effectiveMusicVolume(audioSettings);
+    audioMusicGain.connect(audioOutput(audio));
+  }
+  return audioMusicGain;
+}
+
 /** Every voice, old or new, mixes through one master gain that the menu controls. */
 function audioOutput(audio) {
   if (!audioMasterGain || audioMasterGain.context !== audio) {
@@ -8814,6 +8844,13 @@ function applyAudioSettings() {
       0.02,
     );
   }
+  if (levelUpAudio && audioMusicGain) {
+    audioMusicGain.gain.setTargetAtTime(
+      effectiveMusicVolume(audioSettings),
+      levelUpAudio.currentTime,
+      0.02,
+    );
+  }
   try {
     localStorage.setItem(AUDIO_SETTINGS_KEY, serializeAudioSettings(audioSettings));
   } catch {
@@ -8823,6 +8860,7 @@ function applyAudioSettings() {
 }
 
 function renderAudioMenu() {
+  renderMusicMenu();
   const model = audioMenuModel(audioSettings, itemDetailLanguage);
   mainMenuAudio.setAttribute('aria-label', model.groupLabel);
   audioMuteButton.setAttribute('aria-pressed', String(model.muted));
@@ -8842,6 +8880,20 @@ function renderAudioMenu() {
   audioVolumeUpButton.setAttribute('aria-label', model.louderLabel);
   audioVolumeDownButton.disabled = !model.canLower;
   audioVolumeUpButton.disabled = !model.canRaise;
+}
+
+/** Та же строка, но про мелодию: модель общая, узлы свои. */
+function renderMusicMenu() {
+  const model = musicMenuModel(audioSettings, itemDetailLanguage);
+  mainMenuMusic.setAttribute('aria-label', model.groupLabel);
+  musicMuteButton.setAttribute('aria-pressed', String(model.muted));
+  musicMuteButton.setAttribute('aria-label', model.muteLabel);
+  musicMuteButton.title = model.muteLabel;
+  musicVolumeValue.textContent = model.volumeText;
+  musicVolumeDownButton.setAttribute('aria-label', model.quieterLabel);
+  musicVolumeUpButton.setAttribute('aria-label', model.louderLabel);
+  musicVolumeDownButton.disabled = !model.canLower;
+  musicVolumeUpButton.disabled = !model.canRaise;
 }
 
 function decodeAudioSample(audio, bytes) {
@@ -9003,6 +9055,14 @@ function stopMusic() {
  * — место, а не ветка, и ключ у него свой.
  */
 function musicRoad() {
+  /*
+   * У меню своя тема, и она не зависит от того, что за ним показывают.
+   *
+   * Иначе мелодия менялась бы вместе с видом каждые тринадцать секунд — пять
+   * тем по кругу, ни одна не успевает начаться. Иван выбрал одну: «Ancient
+   * Power of Serpents».
+   */
+  if (showreelActive()) return 'menu';
   if (bossMusicOn) return 'boss';
   return isCityDepth(run.depth) ? 'city' : run.branch;
 }
@@ -9058,7 +9118,7 @@ function startMusic(branchId) {
   gain.gain.setValueAtTime(0.0001, now);
   // Мелодия входит медленнее гула: она заметнее, и резкое появление слышно.
   gain.gain.setTargetAtTime(Math.max(0.0001, audioMusic.level), now, 2.4);
-  gain.connect(audioOutput(audio));
+  gain.connect(musicOutput(audio));
   const source = audio.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
@@ -19660,6 +19720,18 @@ closeCharacterSheetButton.addEventListener('click', closeCharacterSheet);
 depthBadge.addEventListener('click', openFloorMap);
 onboardingDismissButton.addEventListener('click', dismissOnboardingHint);
 onboardingSkipButton.addEventListener('click', skipOnboarding);
+/*
+ * Первое же касание заводит звук.
+ *
+ * Браузер не пускает звук без жеста, а жест до сих пор считался только на
+ * кнопках звука, создании героя и «Продолжить». Открыв игру и слушая меню,
+ * игрок не слышал ничего, пока не нажмёт что-то из этого списка — а теперь за
+ * меню играет своя тема, и её нужно услышать сразу.
+ */
+for (const событие of ['pointerdown', 'keydown']) {
+  window.addEventListener(событие, () => unlockLevelUpAudio(), { once: true, passive: true });
+}
+
 audioMuteButton.addEventListener('click', () => {
   unlockLevelUpAudio();
   audioSettings = toggleAudioMute(audioSettings);
@@ -19675,6 +19747,24 @@ audioVolumeDownButton.addEventListener('click', () => {
 audioVolumeUpButton.addEventListener('click', () => {
   unlockLevelUpAudio();
   audioSettings = adjustAudioVolume(audioSettings, AUDIO_VOLUME_STEP);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
+musicMuteButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = toggleMusicMute(audioSettings);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
+musicVolumeDownButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = adjustMusicVolume(audioSettings, -AUDIO_VOLUME_STEP);
+  applyAudioSettings();
+  playSound('ui-tap');
+});
+musicVolumeUpButton.addEventListener('click', () => {
+  unlockLevelUpAudio();
+  audioSettings = adjustMusicVolume(audioSettings, AUDIO_VOLUME_STEP);
   applyAudioSettings();
   playSound('ui-tap');
 });
