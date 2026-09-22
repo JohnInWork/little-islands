@@ -76,7 +76,7 @@ const named = (entry) => ({ kin: 'humanoid', unique: true, ...entry });
 const ROSTER = [
   // ── Странники: мирные, и с ними можно иметь дело ────────────────────────
   // «Просто гуляя по верху можно встретить охотника и нанять его» — вот он.
-  wanderer({ id: 'wild-hunter', habitat: 'surface', sprite: 'unique/nessos.png', tier: 4, ru: 'Охотник', en: 'Hunter' }),
+  wanderer({ id: 'wild-hunter', habitat: 'surface', sprite: 'deep_elf_master_archer.png', tier: 4, ru: 'Охотник', en: 'Hunter' }),
   // Нарочно не `any`: живой человек, спокойно стоящий посреди ада, — это не
   // колорит, а поломка мира. Дружелюбных в аду и в катакомбах не бывает.
   wanderer({ id: 'wild-free-blade', habitat: 'deep', sprite: 'unique/norris.png', tier: 6, ru: 'Вольный клинок', en: 'Free blade' }),

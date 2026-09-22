@@ -40,23 +40,24 @@ export const PLAYER_APPEARANCE_STORAGE_KEY = 'dng-codex:player-appearance:v1';
  * угадывался по единственному женскому телу, и с приходом остальных это
  * сломалось бы молча.
  */
+/**
+ * Четыре тела: человек и эльф, он и она.
+ *
+ * Их было шестнадцать, и половина различалась одним оттенком кожи: эльф и
+ * тёмный эльф, дварф и глубинный дварф, гном и полурослик. Иван: «у нас
+ * слишком много рас в игре, они почти что все одинаковые, там только цветами
+ * немного отличаются. <...> раз оставляем только человека и эльфа, то есть
+ * мужчину и женщину, — четыре типа тела у нас будут, и всё».
+ *
+ * Сохранённая внешность с выброшенным телом не ломается и не теряется:
+ * `validatePlayerAppearance` её отвергает, и герой выходит человеком —
+ * `resolvePlayerAppearance` подставляет набор по умолчанию.
+ */
 export const PLAYER_BODY_OPTIONS = Object.freeze([
   Object.freeze({ id: 'human-m', layer: 'player/base/human_m.png', voice: 'male' }),
   Object.freeze({ id: 'human-f', layer: 'player/base/human_f.png', voice: 'female' }),
   Object.freeze({ id: 'elf-m', layer: 'player/base/elf_m.png', voice: 'male' }),
   Object.freeze({ id: 'elf-f', layer: 'player/base/elf_f.png', voice: 'female' }),
-  Object.freeze({ id: 'deep-elf-m', layer: 'player/base/deep_elf_m.png', voice: 'male' }),
-  Object.freeze({ id: 'deep-elf-f', layer: 'player/base/deep_elf_f.png', voice: 'female' }),
-  Object.freeze({ id: 'dwarf-m', layer: 'player/base/dwarf_m.png', voice: 'male' }),
-  Object.freeze({ id: 'dwarf-f', layer: 'player/base/dwarf_f.png', voice: 'female' }),
-  Object.freeze({ id: 'deep-dwarf-m', layer: 'player/base/deep_dwarf_m.png', voice: 'male' }),
-  Object.freeze({ id: 'deep-dwarf-f', layer: 'player/base/deep_dwarf_f.png', voice: 'female' }),
-  Object.freeze({ id: 'gnome-m', layer: 'player/base/gnome_m.png', voice: 'male' }),
-  Object.freeze({ id: 'gnome-f', layer: 'player/base/gnome_f.png', voice: 'female' }),
-  Object.freeze({ id: 'halfling-m', layer: 'player/base/halfling_m.png', voice: 'male' }),
-  Object.freeze({ id: 'halfling-f', layer: 'player/base/halfling_f.png', voice: 'female' }),
-  Object.freeze({ id: 'demigod-m', layer: 'player/base/demigod_m.png', voice: 'male' }),
-  Object.freeze({ id: 'demigod-f', layer: 'player/base/demigod_f.png', voice: 'female' }),
 ]);
 
 /** Все причёски набора: раньше подключены были восемь из двадцати трёх. */

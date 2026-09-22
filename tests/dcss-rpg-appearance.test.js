@@ -33,7 +33,16 @@ test('в выборе тела только человекоподобные р�
   const nextBody = cyclePlayerAppearance(initial, 'body', 1);
   const nextHair = cyclePlayerAppearance(initial, 'hair', 1);
 
-  assert.ok(PLAYER_BODY_OPTIONS.length >= 8, `тел всего ${PLAYER_BODY_OPTIONS.length}`);
+  /*
+   * Четыре тела: человек и эльф, он и она.
+   *
+   * Их было шестнадцать, и половина различалась одним оттенком кожи. Иван: «у
+   * нас слишком много рас в игре, они почти что все одинаковые, там только
+   * цветами немного отличаются <...> четыре типа тела у нас будут, и всё».
+   * Проверяется именно четыре: и добавленное пятое, и потерянное четвёртое —
+   * одинаково не то, о чём договорились.
+   */
+  assert.equal(PLAYER_BODY_OPTIONS.length, 4, `тел всего ${PLAYER_BODY_OPTIONS.length}`);
   assert.ok(PLAYER_HAIR_OPTIONS.length >= 20);
   assert.notEqual(nextBody.bodyId, initial.bodyId);
   assert.notEqual(nextHair.hairId, initial.hairId);

@@ -211,10 +211,10 @@ test('the hero is hurt and dies in her own voice', async () => {
   assert.equal(playerVoice({ bodyId: 'human-f' }), 'female');
   assert.equal(playerVoice({ bodyId: 'human-m' }), 'male');
   assert.equal(playerVoice(null), 'male', 'an unknown body is not a crash');
-  // Тел стало шестнадцать, и голос у каждого свой: проверяем, что женским
-  // кричит не только человеческая женщина.
+  // Тел четыре, и голос у каждого свой: проверяем, что женским кричит не
+  // только человеческая женщина.
   assert.equal(playerVoice({ bodyId: 'elf-f' }), 'female');
-  assert.ok(PLAYER_BODY_OPTIONS.length >= 8);
+  assert.equal(PLAYER_BODY_OPTIONS.length, 4);
   for (const тело of PLAYER_BODY_OPTIONS) {
     assert.equal(playerVoice({ bodyId: тело.id }), тело.voice, `${тело.id}: голос не совпал с телом`);
   }
