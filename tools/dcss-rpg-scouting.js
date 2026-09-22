@@ -1,37 +1,26 @@
 /**
  * Scouting techniques: what the hero notices and what notices the hero.
- * Darkvision widens both the fog radius and the distance at which creatures
- * read as present; stealth narrows enemy vision and the noise a deed makes;
- * secret search turns a patch of rubble into a stash. All three are pure
- * arithmetic over the skill capabilities, so the runtime only passes numbers.
+ * Stealth narrows enemy vision and the noise a deed makes; secret search turns
+ * a patch of rubble into a stash. Both are pure arithmetic over the skill
+ * capabilities, so the runtime only passes numbers.
+ *
+ * Темнозрение жило здесь третьим и прибавляло к радиусу одну-три клетки.
+ * Прибавлять было не к чему: темноты как признака в игре нет — есть туман
+ * неизвестного и вуаль поверх видимого, — и навык обещал «вижу в темноте», а
+ * давал «вижу чуть дальше». Иван: «убираем просто вообще такой эффект из
+ * игры, это лишнее». Радиус стал тем, чем и был на самом деле, — числом.
  */
 
-/** The radii the game uses without any skill; a rank only ever adds to them. */
-export const BASE_REVEAL_RADIUS = 4;
-export const BASE_SIGHT_RADIUS = 5.2;
+/** Насколько далеко герой видит и на сколько вокруг себя помнит карту. */
+export const HERO_REVEAL_RADIUS = 4;
+export const HERO_SIGHT_RADIUS = 5.2;
 
-const EMPTY_DARKVISION = Object.freeze({ rank: 0, radiusBonus: 0 });
 const EMPTY_STEALTH = Object.freeze({ rank: 0, visionPercent: 0, noisePercent: 0 });
 const EMPTY_SECRETS = Object.freeze({ rank: 0, radius: 0 });
 
 function boundedInteger(value, min, max) {
   if (!Number.isInteger(value)) return 0;
   return Math.max(min, Math.min(max, value));
-}
-
-export function darkvisionProfile(capabilities = {}) {
-  const rank = boundedInteger(capabilities.darkvisionRank, 0, 3);
-  const radiusBonus = boundedInteger(capabilities.darkvisionRadiusBonus, 0, 6);
-  if (rank === 0 || radiusBonus === 0) return EMPTY_DARKVISION;
-  return Object.freeze({ rank, radiusBonus });
-}
-
-export function heroRevealRadius(profile) {
-  return BASE_REVEAL_RADIUS + Math.max(0, profile?.radiusBonus ?? 0);
-}
-
-export function heroSightRadius(profile) {
-  return BASE_SIGHT_RADIUS + Math.max(0, profile?.radiusBonus ?? 0);
 }
 
 export function stealthProfile(capabilities = {}) {

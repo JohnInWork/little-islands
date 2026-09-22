@@ -15,7 +15,6 @@ export const ARTIFACT_CACHE_VARIANTS = Object.freeze(['locked', 'trapped', 'curs
 /** What the powers with a magnitude are worth. Named, not buried in the table. */
 export const EXECUTE_THRESHOLD = 0.15;
 export const THORNS_PERCENT = 22;
-export const DARKVISION_TILES = 2;
 export const SATIETY_SHARE = 0.5;
 export const QUICKENING_PERCENT = 18;
 
@@ -161,14 +160,6 @@ export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
     tags: ['armour', 'shield'],
     suffix: { ru: 'Терновой Оправы', en: 'of the Thorn Setting' },
     magic: { thorns: THORNS_PERCENT },
-    weight: 4,
-  }),
-  freezePower({
-    // Scouting already owns how far the hero sees in the dark.
-    id: 'darkvision',
-    tags: ['armour', 'shield'],
-    suffix: { ru: 'Совиного Глаза', en: 'of the Owl Eye' },
-    magic: { darkvision: DARKVISION_TILES },
     weight: 4,
   }),
   freezePower({

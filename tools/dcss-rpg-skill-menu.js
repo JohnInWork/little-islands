@@ -84,7 +84,7 @@ function reasonLabel(reason, definition, rank, copy, availability = {}) {
  *
  * Ivan asked to see the ranks as a tree and said a straight branch is enough
  * for now. The branch is the honest shape of the rule: ranks are strictly
- * sequential, so the third rank of alchemy cannot exist without the second.
+ * sequential, so the third rank of cooking cannot exist without the second.
  * Each node says which of the four things it is — already trained, lent by a
  * book, reachable now, or waiting for a higher level — and the view draws it.
  */

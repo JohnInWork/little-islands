@@ -24,7 +24,6 @@
  */
 
 import { skillRankRequirement } from './dcss-rpg-attributes.js';
-import { alchemyProfile } from './dcss-rpg-alchemy.js';
 import { cleansingProfile } from './dcss-rpg-cleansing.js';
 import {
   bondProfile,
@@ -64,7 +63,6 @@ const PROFILE_BY_SKILL = Object.freeze({
   cooking: (rank) => cookingProfile({ cookingRank: rank }),
   'field-medicine': (rank) => fieldMedicineProfile({ fieldMedicineRank: rank }),
   endurance: (rank) => enduranceProfile({ enduranceRank: rank }),
-  alchemy: (rank) => alchemyProfile({ alchemyRank: rank }),
   poisoncraft: (rank) => poisonProfile({ poisoncraftRank: rank }),
   weaponsmithing: (rank) => weaponSmithProfile({ weaponsmithingRank: rank }),
   armorsmithing: (rank) => armorSmithProfile({ armorsmithingRank: rank }),
@@ -104,7 +102,6 @@ const LABELS = Object.freeze({
   lockpickTier: unit('вскрывает замки', 'picks locks', 'tier'),
   itemIdentificationTier: unit('опознаёт вещи', 'identifies items', 'tier'),
   scrollVariantTier: unit('разбирает свитки', 'reads scrolls', 'tier'),
-  darkvisionRadiusBonus: unit('видит в темноте дальше на', 'sees further in the dark by', 'cells'),
   secretSearchRadius: unit('ищет тайники', 'searches for caches', 'cells'),
   backpackSlots: unit('рюкзак', 'backpack', 'slots'),
   stealthVisionPercent: unit('враг замечает хуже на', 'harder to notice by', 'percent'),

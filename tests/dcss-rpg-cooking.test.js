@@ -171,10 +171,13 @@ test('the fire says what a fire is for, whether or not there is meat in the bag'
     assert.equal(cold.enabled, false);
     assert.ok(cold.hint.length > 0, 'and still says why the button is dead');
   }
-  const brewing = contextActionModel({
-    target: { kind: 'campfire', rawMeatCount: 1, brewLabel: 'Зелье лечения', canBrew: true },
-    language: 'ru',
-  });
-  assert.ok(brewing.description.includes('Зелье лечения'), 'alchemy adds to the line rather than replacing it');
-  assert.ok(brewing.description.startsWith(contextActionModel({ target: { kind: 'campfire', rawMeatCount: 1 }, language: 'ru' }).description));
+  /*
+   * У костра одно дело, и карточка обещает только его.
+   *
+   * Вторым была алхимия: та же зола варила бутылку. Навык убран — эссенцию
+   * давал только второй ранг разбора, и до первого зелья выходило три уровня
+   * ради того, что в городе стоит копейки. Иван: «убираем алхимию».
+   */
+  const fire = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 1 }, language: 'ru' });
+  assert.deepEqual(fire.actions.map(({ id }) => id), ['cook'], 'у костра снова два дела');
 });

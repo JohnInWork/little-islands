@@ -37,15 +37,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['trap-detection'],
   },
   {
-    id: 'darkvision', category: 'exploration', mode: 'passive',
-    name: { ru: 'Темнозрение', en: 'Darkvision' },
-    description: {
-      ru: 'Позволяет дальше видеть существ и предметы в темноте, сохраняя преграды и линию видимости.',
-      en: 'Reveals creatures and items farther away in darkness while respecting obstacles and line of sight.',
-    },
-    requiresSystems: ['darkness-vision'],
-  },
-  {
     id: 'secret-search', category: 'exploration', mode: 'passive',
     name: { ru: 'Поиск тайников', en: 'Secret search' },
     description: {
@@ -299,15 +290,6 @@ export const SKILL_CATALOG = deepFreeze([
       en: 'Shortens cold, poison and other debilitating conditions without granting complete immunity.',
     },
     requiresSystems: ['condition-duration-scaling'],
-  },
-  {
-    id: 'alchemy', category: 'crafting', mode: 'contextual',
-    name: { ru: 'Алхимия', en: 'Alchemy' },
-    description: {
-      ru: 'Создаёт зелья и противоядия из собранных ингредиентов.',
-      en: 'Brews potions and antidotes from gathered ingredients.',
-    },
-    requiresSystems: ['alchemy-recipes'],
   },
   {
     id: 'poisoncraft', category: 'crafting', mode: 'contextual',

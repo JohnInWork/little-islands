@@ -66,6 +66,7 @@ import {
   validateItemAffixIds,
 } from './dcss-rpg-affixes.js';
 import {
+  artifactPowerById,
   owesArtifact,
   materializeProceduralArtifact,
   validateProceduralArtifactState,
@@ -2562,6 +2563,43 @@ function validateFloorShape(floor, depth) {
  *
  * Поэтому снятый навык возвращается очками до проверки, а не после неё.
  */
+/**
+ * Сила, которой в игре больше нет, слетает с вещи — а вещь остаётся.
+ *
+ * Снятый навык возвращается очками (`refundRetiredSkills`); у снятой силы
+ * артефакта такого возврата не было, и сохранение с ней отвергалось целиком:
+ * проверка требует, чтобы сила принадлежала каталогу. Игрок с «Совиным
+ * Глазом» в сумке потерял бы весь забег в тот день, когда темнозрения не
+ * стало.
+ *
+ * Обход рекурсивный, а не по списку мест: вещи лежат в руках, в рюкзаке, в
+ * сундуках, у скупщика, в тайнике лагеря, на полу этажа и в карманах у вора,
+ * и список этих мест ещё будет расти. Целое возвращается тем же объектом,
+ * если менять нечего.
+ */
+function stripRetiredArtifactPowers(value) {
+  if (Array.isArray(value)) {
+    let изменилось = false;
+    const next = value.map((entry) => {
+      const healed = stripRetiredArtifactPowers(entry);
+      if (healed !== entry) изменилось = true;
+      return healed;
+    });
+    return изменилось ? next : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  const снята = typeof value.artifactPowerId === 'string' && !artifactPowerById(value.artifactPowerId);
+  let изменилось = снята;
+  const next = снята ? { ...value, artifactPowerId: null, artifactCurseId: null } : { ...value };
+  for (const [key, entry] of Object.entries(next)) {
+    const healed = stripRetiredArtifactPowers(entry);
+    if (healed === entry) continue;
+    next[key] = healed;
+    изменилось = true;
+  }
+  return изменилось ? next : value;
+}
+
 export function adoptRun(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
   if (!snapshot.hero || typeof snapshot.hero !== 'object') return snapshot;
@@ -2580,13 +2618,17 @@ export function adoptRun(snapshot) {
   const дописать = Boolean(floor) && typeof floor === 'object'
     && (floor.spoken === undefined || floor.drops === undefined);
   const skills = refundRetiredSkills(snapshot.hero.skills);
+  const вещи = stripRetiredArtifactPowers(snapshot);
   // Здоровый сейв возвращается тем же объектом: приём — это починка, а не
   // обязательная пересборка всего на входе.
-  if (skills === snapshot.hero.skills && !дописать) return snapshot;
+  if (skills === snapshot.hero.skills && !дописать && вещи === snapshot) return snapshot;
+  const целое = вещи === snapshot ? snapshot : вещи;
   return {
-    ...snapshot,
-    floor: дописать ? { ...floor, spoken: floor.spoken ?? [], drops: floor.drops ?? [] } : floor,
-    hero: skills === snapshot.hero.skills ? snapshot.hero : { ...snapshot.hero, skills },
+    ...целое,
+    floor: дописать
+      ? { ...целое.floor, spoken: целое.floor.spoken ?? [], drops: целое.floor.drops ?? [] }
+      : целое.floor,
+    hero: skills === snapshot.hero.skills ? целое.hero : { ...целое.hero, skills },
   };
 }
 

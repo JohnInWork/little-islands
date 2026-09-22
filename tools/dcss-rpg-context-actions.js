@@ -25,7 +25,6 @@ const ACTION_COPY = Object.freeze({
     order: 'Приказ',
     release: 'Отпустить',
     cook: 'Приготовить',
-    brew: 'Сварить',
     rest: 'Отдохнуть',
     stash: 'Открыть сундук',
     pray: 'Молиться',
@@ -89,7 +88,6 @@ const ACTION_COPY = Object.freeze({
     order: 'Order',
     release: 'Release',
     cook: 'Cook',
-    brew: 'Brew',
     rest: 'Rest',
     stash: 'Open the chest',
     pray: 'Pray',
@@ -153,7 +151,6 @@ const GLYPHS = Object.freeze({
   order: '➤',
   release: '↩',
   cook: '♨',
-  brew: '⚗',
   rest: '☾',
   stash: '▤',
   pray: '✚',
@@ -244,7 +241,6 @@ const COPY = Object.freeze({
     portalHint: 'Обратный проход закроется, когда ты им вернёшься.',
     campfireName: 'Костёр',
     campfireUse: 'Огонь для еды: сырое мясо на нём становится сытным и безопасным.',
-    campfireBrew: (label) => `Можно сварить: ${label}.`,
     campBedName: 'Спальник',
     campBedClosed: '',
     campBedRested: 'Герой уже отдохнул здесь.',
@@ -368,7 +364,6 @@ const COPY = Object.freeze({
     portalHint: 'The way back closes once you have come back through it.',
     campfireName: 'Campfire',
     campfireUse: 'A fire to cook on: raw meat becomes filling and safe to eat.',
-    campfireBrew: (label) => `Can be brewed: ${label}.`,
     campBedName: 'Bedroll',
     campBedClosed: '',
     campBedRested: 'The hero has already slept here.',
@@ -489,17 +484,11 @@ export const INTERACTION_REGISTRY = Object.freeze([
     matches: (target) => target?.kind === 'campfire' && Number.isInteger(target.rawMeatCount),
     present: ({ target, copy }) => ({
       name: copy.campfireName,
-      description: target.brewLabel
-        ? `${copy.campfireUse} ${copy.campfireBrew(target.brewLabel)}`
-        : copy.campfireUse,
+      description: copy.campfireUse,
       icon: 'dngn/altars/makhleb_flame1.png',
       accent: '#d88447',
       actions: [
         { id: 'cook', enabled: target.rawMeatCount > 0, hint: target.rawMeatCount > 0 ? '' : copy.campfireEmpty },
-        // Alchemy adds a second use for the same fire: a bottle instead of a meal.
-        ...(target.brewLabel
-          ? [{ id: 'brew', enabled: target.canBrew === true, hint: target.canBrew ? '' : target.brewHint ?? '' }]
-          : []),
       ],
     }),
   }),

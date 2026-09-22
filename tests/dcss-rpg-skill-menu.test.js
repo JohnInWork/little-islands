@@ -30,7 +30,6 @@ test('production menu exposes implemented trap skills, with no empty categories'
   assert.equal(model.groups.length, 6, 'exploration, combat, magic, survival, crafting and companions');
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
     'trap-sense',
-    'darkvision',
     'secret-search',
     'trap-disarming',
     'lockpicking',
@@ -56,7 +55,6 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'field-medicine',
     'portering',
     'endurance',
-    'alchemy',
     'poisoncraft',
     'weaponsmithing',
     'armorsmithing',
@@ -369,7 +367,7 @@ test('ни один ранг навыка не молчит, и каждое ч�
   const { SKILL_IMPLEMENTATIONS } = await import('../tools/dcss-rpg-skills.js');
   // Навыки без реализации в меню не показываются — с них и спроса нет.
   const shown = SKILL_CATALOG.filter(({ id }) => SKILL_IMPLEMENTATIONS[id]).map(({ id }) => id);
-  assert.ok(shown.length >= 38, `навыков с реализацией всего ${shown.length}`);
+  assert.ok(shown.length >= 36, `навыков с реализацией всего ${shown.length}`);
   assert.deepEqual(unlabelledRankKeys(shown), [], 'эти числа игра покажет, но назвать не сможет');
   assert.deepEqual(
     skillRankProblems(shown),

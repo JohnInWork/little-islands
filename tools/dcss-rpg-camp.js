@@ -42,9 +42,9 @@ export const CAMP_ASSET_PATHS = Object.freeze([
  *
  * Ivan: «пусть он горит 1 или 2 минуты, потом он в потухший превращается и
  * использовать его нельзя». A fire that never goes out makes a camp a room:
- * pitch it once, cook forever, brew forever. Two minutes is long enough to
- * cook what the hero is carrying and short enough that the camp is a stop on
- * the way rather than a place to live. The clock is play time, not wall time,
+ * pitch it once, cook forever. Two minutes is long enough to cook what the
+ * hero is carrying and short enough that the camp is a stop on the way rather
+ * than a place to live. The clock is play time, not wall time,
  * so nothing burns down while the game is paused or the hero is a floor away.
  */
 export const CAMP_FIRE_SECONDS = 120;

@@ -296,10 +296,8 @@ import { whipCopy, whipProfile, whipPull } from './dcss-rpg-whips.js';
 import { channelSpellCooldowns, staffProfile } from './dcss-rpg-staves.js';
 import { dodgeSpeedMultiplier, mobilityProfile, refreshDodgeBoost, tickDodgeBoost } from './dcss-rpg-mobility.js';
 import {
-  darkvisionProfile,
+  HERO_SIGHT_RADIUS,
   discoverSecrets,
-  heroRevealRadius,
-  heroSightRadius,
   secretSearchProfile,
   stealthNoiseRadius,
   stealthProfile,
@@ -409,14 +407,6 @@ import {
   trainingProfile,
   treatCompanion,
 } from './dcss-rpg-companions.js';
-import {
-  alchemyProfile,
-  alchemyRefusalText,
-  brew,
-  canBrew,
-  nextBrew,
-  recipeLabel,
-} from './dcss-rpg-alchemy.js';
 import {
   applyReforge,
   armorSmithProfile,
@@ -2909,18 +2899,6 @@ function currentMobilityProfile() {
   return mobilityProfile(currentSkillCapabilities());
 }
 
-function currentDarkvisionProfile() {
-  const skill = darkvisionProfile(currentSkillCapabilities());
-  const worn = currentHeroMagic().darkvision;
-  if (!worn) return skill;
-  // Worn sight adds to schooled sight rather than replacing it: an owl-eye helm
-  // is worth the same two tiles to a scout and to somebody who never studied.
-  return Object.freeze({
-    rank: Math.max(1, skill.rank ?? 0),
-    radiusBonus: Math.min(6, (skill.radiusBonus ?? 0) + worn),
-  });
-}
-
 /** Everything worn, folded once: the armour traits the hero is carrying. */
 function currentArmourProfile() {
   return armourProfile(EQUIPMENT_SLOTS.map((slot) => equippedItem(slot)).filter(Boolean));
@@ -5249,7 +5227,7 @@ function canHeroAttack(monster, combat) {
 function isCurrentlyVisible(x, y) {
   const from = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const to = { x: Math.floor(x / TILE), y: Math.floor(y / TILE) };
-  return Math.hypot(to.x - from.x, to.y - from.y) <= heroSightRadius(currentDarkvisionProfile())
+  return Math.hypot(to.x - from.x, to.y - from.y) <= HERO_SIGHT_RADIUS
     && hasLineOfSight(world, from, to);
 }
 
@@ -8331,7 +8309,7 @@ function carveLight(origin, screenPosition, radius, strength) {
   atmosphereContext.restore();
 }
 
-/** How far the hero uncovers the map: darkvision below, daylight in town. */
+/** How far the hero uncovers the map: one radius below, daylight in town. */
 function currentRevealRadius() {
   /*
    * Что видно — то и разведано.
@@ -8341,8 +8319,7 @@ function currentRevealRadius() {
    * неразведанной. Тычок туда не делал ничего вовсе, а путь мимо неё уходил в
    * обход. Полосы больше нет.
    */
-  const base = Math.max(2, heroSightRadius(currentDarkvisionProfile())
-    + currentConditions().revealRadiusDelta);
+  const base = Math.max(2, HERO_SIGHT_RADIUS + currentConditions().revealRadiusDelta);
   if (isCityDepth(dungeon.depth)) return Math.max(base, CITY_REVEAL_RADIUS);
   // Outside, the sky does the work the torch does below.
   if (dungeon.branch === 'surface') return Math.max(base, SURFACE_REVEAL_RADIUS);
@@ -10105,25 +10082,7 @@ function contextModelTarget(entry = contextTarget) {
     };
   }
   if (entry.kind === 'campfire') {
-    const profile = alchemyProfile(currentSkillCapabilities());
-    const recipe = nextBrew({ essence: interactionResourceCount(ESSENCE_ITEM_ID), profile });
-    const decision = recipe
-      ? canBrew({
-          recipeId: recipe.id,
-          essence: interactionResourceCount(ESSENCE_ITEM_ID),
-          backpackCount: backpackItems.filter(Boolean).length,
-          capacity: currentBackpackCapacity(),
-          profile,
-        })
-      : null;
-    return {
-      kind: 'campfire',
-      rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
-      brewLabel: recipe ? recipeLabel(recipe.id, itemDetailLanguage) : '',
-      canBrew: decision?.ok === true,
-      brewHint: decision && !decision.ok ? alchemyRefusalText(decision.reason, itemDetailLanguage) : '',
-      brewRecipeId: recipe?.id ?? '',
-    };
+    return { kind: 'campfire', rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID) };
   }
   if (entry.kind === 'camp-rest') {
     return { kind: 'camp-rest', reason: campRestDecision().reason };
@@ -11673,44 +11632,6 @@ function cookAtCampfire(site) {
   return true;
 }
 
-/**
- * Brewing at the fire: essence in, a bottle out. The recipe is the best one the
- * hero can both read and afford, so the panel never offers what it cannot make.
- */
-function brewAtCampfire() {
-  if (hero.dead || runStatus !== 'playing') return false;
-  const profile = alchemyProfile(currentSkillCapabilities());
-  const essence = interactionResourceCount(ESSENCE_ITEM_ID);
-  const recipe = nextBrew({ essence, profile });
-  if (!recipe) return false;
-  const result = brew({
-    recipeId: recipe.id,
-    essence,
-    backpackCount: backpackItems.filter(Boolean).length,
-    capacity: currentBackpackCapacity(),
-    profile,
-  });
-  if (!result.ok) {
-    showLootToast(
-      { path: lootById(recipe.id)?.icon ?? 'derived/icon/potion-curing.png', rarity: 2 },
-      alchemyRefusalText(result.reason, itemDetailLanguage),
-    );
-    return false;
-  }
-  if (!consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])) return false;
-  grantItem(result.itemId, `brewed-${result.itemId}-${run.seed}-${run.commandSequence}`);
-  // A hero who brewed the bottle knows what is in it.
-  run.knowledge = identifyItem(run.knowledge, result.itemId, IDENTIFIABLE_LOOT_IDS);
-  playerHasActed = true;
-  playSound('drink');
-  burst(hero.x, hero.y - 10, '#9fd4c4', 20);
-  addImpactWave(hero.x, hero.y - 8, '#9fd4c4', 54, 0);
-  showLootToast(lootById(result.itemId), alchemyRefusalText('brewed', itemDetailLanguage));
-  updateHud();
-  renderPack();
-  persistRun();
-  return true;
-}
 
 /** The two roads out of the city, offered where they part. */
 /**
@@ -12126,10 +12047,9 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
     if (action.id === 'tame') return tameNearbyWildlife(creature);
     return beginNearbyWildlifeHunt(creature);
   },
-  'cook-meat'({ target, action }) {
+  'cook-meat'({ target }) {
     const site = target.value;
     closeContextActions();
-    if (action.id === 'brew') return brewAtCampfire();
     return cookAtCampfire(site);
   },
   'buy-house'() {

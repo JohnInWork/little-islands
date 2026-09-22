@@ -15,7 +15,7 @@ import { skillById } from '../tools/dcss-rpg-skill-content.js';
  * герой исчезает, будто его не было. Именно это и случилось бы на телефоне.
  */
 
-const прежние = ['camping', 'trap-setting'];
+const прежние = ['camping', 'trap-setting', 'darkvision', 'alchemy'];
 
 test('снятые навыки больше не существуют в каталоге', () => {
   for (const id of прежние) {
@@ -57,4 +57,37 @@ test('умения лагеря и ловушек доступны без вся
   const умения = deriveSkillCapabilities(run.hero.skills);
   assert.ok(умения.campRank >= 3, `лагерь ранга ${умения.campRank}`);
   assert.ok(умения.trapPlacementTier >= 3, `ловушки тира ${умения.trapPlacementTier}`);
+});
+
+/**
+ * Снятая сила артефакта — то же самое, только на вещи.
+ *
+ * Темнозрения в игре не стало, и вместе с навыком ушёл «Совиный Глаз»: сила,
+ * которую проверка забега ищет в каталоге. Сейв с такой вещью в сумке негоден
+ * целиком — а это чей-то живой забег. Поэтому сила слетает на приёме, а вещь
+ * остаётся: без имени силы, но с тем же uid, на том же месте, надетая.
+ */
+test('сейв с силой, которой больше нет, принимается, а вещь остаётся', () => {
+  const run = createRun(4245);
+  const шлем = {
+    id: 'worn-tunic',
+    uid: 'owl-eye-tunic',
+    affixIds: [],
+    artifactPowerId: 'darkvision',
+    artifactCurseId: null,
+  };
+  const вчерашний = {
+    ...run,
+    items: [...run.items, шлем],
+    inventory: [...run.inventory, шлем.uid],
+  };
+  assert.equal(validateRun(вчерашний), false, 'как есть сейв действительно негоден');
+
+  const принятый = adoptRun(вчерашний);
+  assert.equal(validateRun(принятый), true, 'после приёма забег обязан загрузиться');
+  const вещь = принятый.items.find(({ uid }) => uid === шлем.uid);
+  assert.equal(вещь.artifactPowerId, null, 'сила всё ещё на вещи');
+  assert.equal(вещь.id, 'worn-tunic', 'вещь потеряли вместе с силой');
+  assert.ok(принятый.inventory.includes(шлем.uid), 'вещь пропала из рюкзака');
+  assert.equal(вчерашний.items.at(-1).artifactPowerId, 'darkvision', 'приём правит чужой объект на месте');
 });

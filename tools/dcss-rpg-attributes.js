@@ -73,7 +73,7 @@ export const ATTRIBUTE_COPY = Object.freeze({
     intelligence: Object.freeze({
       name: 'Intelligence',
       short: 'INT',
-      description: 'Knowledge and magic. Every school, alchemy, enchanting and medicine ask for it.',
+      description: 'Knowledge and magic. Every school, enchanting and medicine ask for it.',
     }),
     raise: 'Raise',
     pointsLeft: 'Points',
@@ -117,7 +117,6 @@ export const SKILL_ATTRIBUTES = Object.freeze({
 
   // Head.
   'trap-sense': 'intelligence',
-  darkvision: 'intelligence',
   'secret-search': 'intelligence',
   appraisal: 'intelligence',
   'staff-channeling': 'intelligence',
@@ -130,7 +129,6 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   herbalism: 'intelligence',
   cooking: 'intelligence',
   'field-medicine': 'intelligence',
-  alchemy: 'intelligence',
   poisoncraft: 'intelligence',
   enchanting: 'intelligence',
   taming: 'intelligence',

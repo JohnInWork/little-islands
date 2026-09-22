@@ -55,20 +55,20 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'trap-sense', 'trap-disarming', 'lockpicking', 'appraisal', 'swords', 'axes',
-    'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'darkvision', 'secret-search', 'stealth',
+    'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'training', 'animal-care', 'beast-bond', 'pack-leader',
-    'alchemy', 'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
+    'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
     'trap-detection', 'camp-rest', 'carrying-capacity', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
-    'condition-duration-scaling', 'darkness-vision',
+    'condition-duration-scaling',
     'secret-discovery', 'stealth-detection',
     'ambush-attacks', 'backstab-attacks', 'armor-break', 'attack-interruption',
     'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'whip-control', 'staff-channeling', 'fire-spread', 'frost-buildup', 'chain-lightning',
-    'cleansing-ritual', 'scroll-variants', 'component-salvage', 'enchantment-transfer', 'alchemy-recipes',
+    'cleansing-ritual', 'scroll-variants', 'component-salvage', 'enchantment-transfer',
     'weapon-coatings', 'poison-bait', 'weapon-reforging', 'armor-reforging',
     'animal-taming', 'companion-limits', 'pet-behaviors', 'pet-treatment',
     'companion-shared-vision', 'companion-upkeep',
@@ -140,7 +140,7 @@ test('terminal runs, bad commands and ranks above the hero level never spend poi
   }
   const first = learnSkill(command(createSkillState(2), 2)).state;
   assert.equal(learnSkill(command(first, 2, 1)).reason, 'level-required');
-  const noPoints = { version: 1, points: 0, ranks: { 'trap-sense': 1, darkvision: 1, stealth: 1 } };
+  const noPoints = { version: 1, points: 0, ranks: { 'trap-sense': 1, 'secret-search': 1, stealth: 1 } };
   assert.equal(learnSkill(command(noPoints, 4, 1)).reason, 'no-points');
 });
 
@@ -208,7 +208,6 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     trapPlacementTier: 3, campRank: 3, campRestPercent: 40, campStashSlots: 8,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
     necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
-    darkvisionRank: 0, darkvisionRadiusBonus: 0,
     secretSearchRank: 0, secretSearchRadius: 0,
     stealthRank: 0, stealthVisionPercent: 0, stealthNoisePercent: 0,
     daggerRank: 0, daggerAmbushPercent: 0, daggerBackstabPercent: 0,
@@ -224,7 +223,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     shieldBlockChancePercent: 0, shieldBlockStunMs: 0,
     pyromancyRank: 0, cryomancyRank: 0, stormMagicRank: 0,
     cleansingRank: 0, arcanaRank: 0, scrollVariantTier: 0,
-    salvagingRank: 0, alchemyRank: 0, tamingRank: 0, enchantingRank: 0,
+    salvagingRank: 0, tamingRank: 0, enchantingRank: 0,
     poisoncraftRank: 0, weaponsmithingRank: 0, armorsmithingRank: 0,
     trainingRank: 0, animalCareRank: 0, beastBondRank: 0, packLeaderRank: 0,
     porterRank: 0, backpackSlots: 0,

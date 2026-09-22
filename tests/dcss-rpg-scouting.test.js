@@ -16,12 +16,9 @@ import {
 } from '../tools/dcss-rpg-finds.js';
 import { createSkillState, deriveSkillCapabilities, isSkillReady, learnSkill } from '../tools/dcss-rpg-skills.js';
 import {
-  BASE_REVEAL_RADIUS,
-  BASE_SIGHT_RADIUS,
-  darkvisionProfile,
+  HERO_REVEAL_RADIUS,
+  HERO_SIGHT_RADIUS,
   discoverSecrets,
-  heroRevealRadius,
-  heroSightRadius,
   secretSearchProfile,
   stealthNoiseRadius,
   stealthProfile,
@@ -38,22 +35,31 @@ function capabilitiesAt(skillId, rank) {
   return deriveSkillCapabilities(state);
 }
 
-test('the three scouting techniques are ready and nineteen skills now work', () => {
-  for (const id of ['darkvision', 'secret-search', 'stealth']) assert.equal(isSkillReady(id), true, id);
-  assert.equal(BASE_REVEAL_RADIUS, 4);
-  assert.equal(BASE_SIGHT_RADIUS, 5.2);
+test('the two scouting techniques are ready and the radius is one number', () => {
+  for (const id of ['secret-search', 'stealth']) assert.equal(isSkillReady(id), true, id);
+  assert.equal(HERO_REVEAL_RADIUS, 4);
+  assert.equal(HERO_SIGHT_RADIUS, 5.2);
 });
 
-test('darkvision widens the fog and the distance a creature reads at', () => {
-  assert.deepEqual(darkvisionProfile({}), { rank: 0, radiusBonus: 0 });
-  assert.equal(heroRevealRadius(darkvisionProfile({})), 4, 'an untrained hero keeps the base radius');
-  assert.equal(heroSightRadius(darkvisionProfile({})), 5.2);
-  for (const [rank, bonus] of [[1, 1], [2, 2], [3, 3]]) {
-    const profile = darkvisionProfile(capabilitiesAt('darkvision', rank));
-    assert.deepEqual(profile, { rank, radiusBonus: bonus });
-    assert.equal(heroRevealRadius(profile), 4 + bonus);
-    assert.equal(Math.round(heroSightRadius(profile) * 10) / 10, 5.2 + bonus);
-  }
+/**
+ * Темнозрения нет, и прибавлять к радиусу больше нечему.
+ *
+ * Навык давал одну-три клетки сверх зрения, шлем «совиный глаз» — ещё две.
+ * Обещал он «вижу в темноте», а темноты как признака в игре нет: есть туман
+ * неизвестного и вуаль поверх видимого. Иван: «убираем просто вообще такой
+ * эффект из игры, это лишнее» — и радиус стал числом, а не суммой.
+ */
+test('темнозрения нет ни в навыках, ни в силах вещей', async () => {
+  const scouting = await import('../tools/dcss-rpg-scouting.js');
+  assert.equal('darkvisionProfile' in scouting, false, 'разведка всё ещё считает темнозрение');
+  const { skillById } = await import('../tools/dcss-rpg-skill-content.js');
+  assert.equal(skillById('darkvision'), null, 'навык всё ещё в списке');
+  const { PROCEDURAL_ARTIFACT_POWERS } = await import('../tools/dcss-rpg-artifacts.js');
+  assert.equal(
+    PROCEDURAL_ARTIFACT_POWERS.some(({ id }) => id === 'darkvision'), false, 'совиный глаз всё ещё падает',
+  );
+  const { MAGIC_MAGNITUDES } = await import('../tools/dcss-rpg-magic.js');
+  assert.equal(MAGIC_MAGNITUDES.includes('darkvision'), false, 'свойство вещи всё ещё читают');
 });
 
 test('stealth shortens enemy sight and muffles what the hero does', () => {
@@ -178,8 +184,8 @@ test('the runtime hides a stash until it is noticed and feeds the new radii ever
    * ничего, а путь мимо неё уходил в обход по освещённому. Теперь память
    * считается по зрению, и полосы нет.
    */
-  assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*heroSightRadius\(currentDarkvisionProfile\(\)\)[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
-  assert.match(runtime, /<= heroSightRadius\(currentDarkvisionProfile\(\)\)/);
+  assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*HERO_SIGHT_RADIUS[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
+  assert.match(runtime, /<= HERO_SIGHT_RADIUS/);
   assert.match(runtime, /stealthVisionRadius\(monster\.vision, currentStealthProfile\(\)\)[\s\S]{0,90}?distanceToHero > TILE \* sight/);
   assert.match(runtime, /const heard = stealthNoiseRadius\(radiusInTiles, currentStealthProfile\(\)\)[\s\S]{0,140}?magic\.clamour/);
   assert.doesNotMatch(runtime, /revealAround\(revealed, world, heroCell, 4\)/, 'no hard-coded fog radius remains');

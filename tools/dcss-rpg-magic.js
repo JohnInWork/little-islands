@@ -46,7 +46,6 @@ export const INVISIBILITY_REVEAL_SECONDS = 3;
  * different game.
  */
 export const THORNS_CAP_PERCENT = 40;
-export const DARKVISION_CAP_TILES = 3;
 export const QUICKENING_CAP_PERCENT = 30;
 export const SATIETY_CAP_SHARE = 0.6;
 /** What the brands and the tempo powers are worth where the fight reads them. */
@@ -64,7 +63,7 @@ export const CLAMOUR_MULTIPLIER = 2;
  * list that goes stale the first time somebody adds a power.
  */
 export const MAGIC_MAGNITUDES = Object.freeze([
-  'healOnKill', 'thorns', 'darkvision', 'quickening', 'satiety', 'execute',
+  'healOnKill', 'thorns', 'quickening', 'satiety', 'execute',
   'appetite', 'greed', 'bloodlust', 'riverborn',
 ]);
 
@@ -98,7 +97,6 @@ export function equipmentMagic(equipment, items) {
   const flags = Object.fromEntries(MAGIC_FLAGS.map((id) => [id, false]));
   let healOnKill = 0;
   let thorns = 0;
-  let darkvision = 0;
   let quickening = 0;
   let satiety = 0;
   let execute = 0;
@@ -117,7 +115,6 @@ export function equipmentMagic(equipment, items) {
     }
     healOnKill += Math.max(0, magic.healOnKill ?? 0);
     thorns += Math.max(0, magic.thorns ?? 0);
-    darkvision += Math.max(0, magic.darkvision ?? 0);
     quickening += Math.max(0, magic.quickening ?? 0);
     satiety += Math.max(0, magic.satiety ?? 0);
     appetite += Math.max(0, magic.appetite ?? 0);
@@ -136,7 +133,6 @@ export function equipmentMagic(equipment, items) {
     brands: Object.freeze([...brands]),
     healOnKill: Math.min(4, healOnKill),
     thorns: Math.min(THORNS_CAP_PERCENT, thorns),
-    darkvision: Math.min(DARKVISION_CAP_TILES, darkvision),
     quickening: Math.min(QUICKENING_CAP_PERCENT, quickening),
     satiety: Math.min(SATIETY_CAP_SHARE, satiety),
     execute: Math.min(0.25, execute),
@@ -265,9 +261,6 @@ export function extraMagicRows(magic, ru = true) {
   if (magic.thorns) say('✸', ru
     ? `Тернии: ${magic.thorns}% полученного в ближнем бою урона возвращается бьющему.`
     : `Thorns: ${magic.thorns}% of melee damage taken is returned to the attacker.`);
-  if (magic.darkvision) say('◉', ru
-    ? `Совиный глаз: видно на ${magic.darkvision} клетки дальше в темноте.`
-    : `Owl eye: ${magic.darkvision} tiles further sight in the dark.`);
   if (magic.hushed) say('◌', ru
     ? 'Тихий шаг: шаги слышно вдвое ближе — мимо комнаты можно пройти.'
     : 'Quiet step: footsteps carry half as far — a room can be walked past.');
