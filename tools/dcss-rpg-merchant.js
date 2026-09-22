@@ -159,9 +159,18 @@ function baseItemPrice(item) {
   if (item.identification?.group === 'wand') return 12;
   if (item.identification?.group === 'book') return 10;
   if (!item.slot) return Math.max(2, 3 + Math.ceil(effectiveLootDepth(item) * 1.5));
+  /*
+   * Редкость — то, за что платят.
+   *
+   * Она входила слагаемым по три монеты за ступень, и выходило вот что:
+   * лучший топор в игре стоил шестьдесят восемь, а тарелка в таверне —
+   * шестьдесят. Иван: «еда в таверне какая-то безумно дорогая, а, например,
+   * какая-нибудь железная кираса очень дешёвая». Квадрат редкости разводит
+   * их обратно: обычное железо остаётся дешёвым, редкое становится покупкой.
+   */
   return Math.max(
     4,
-    3 + effectiveLootDepth(item) * 2 + (item.rarity ?? 0) * 3 + Math.ceil(itemPowerScore(item) * 0.7),
+    3 + effectiveLootDepth(item) * 2 + (item.rarity ?? 0) ** 2 * 5 + Math.ceil(itemPowerScore(item) * 0.7),
   );
 }
 

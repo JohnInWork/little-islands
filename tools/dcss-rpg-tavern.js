@@ -22,6 +22,8 @@
  */
 
 import { MERCENARIES, mercenariesWhere } from './dcss-rpg-mercenaries.js';
+import { lootById } from './dcss-rpg-content.js';
+import { merchantBuyPrice } from './dcss-rpg-merchant.js';
 
 const ROOT = 'licensed/lpc-tavern/';
 
@@ -556,12 +558,25 @@ export function bedOffer({ gold = 0, rest = 0, restMax = 1, language = 'ru' } = 
  * derived because a tavern is not a market: the keeper charges what he
  * charges, and the player should be able to learn the numbers.
  */
-export const TAVERN_MENU = Object.freeze([
-  Object.freeze({ itemId: 'bread', price: 14 }),
-  Object.freeze({ itemId: 'beef-jerky', price: 18 }),
-  Object.freeze({ itemId: 'hearty-stew', price: 34 }),
-  Object.freeze({ itemId: 'feast-platter', price: 60 }),
-]);
+/**
+ * Наценка трактира: та же еда, что на рынке, но приготовленная и поданная.
+ *
+ * Цены стояли руками — четырнадцать за хлеб, шестьдесят за тарелку, — и
+ * разошлись с рынком втрое: лавка отдавала тот же хлеб за пять. Иван: «еда в
+ * таверне какая-то безумно дорогая, а, например, какая-нибудь железная кираса
+ * очень дешёвая. <...> еду я как бы буду покупать чаще». Теперь цена считается
+ * от той же оценки, что и у всего остального в игре, и разойтись с ней больше
+ * не может.
+ */
+export const TAVERN_MARKUP = 1.6;
+
+export const TAVERN_MENU = Object.freeze(
+  ['bread', 'beef-jerky', 'hearty-stew', 'feast-platter'].map((itemId) => {
+    const dish = lootById(itemId);
+    if (!dish) throw new TypeError(`No such dish: ${itemId}`);
+    return Object.freeze({ itemId, price: Math.ceil(merchantBuyPrice(dish) * TAVERN_MARKUP) });
+  }),
+);
 
 /** One line per dish, with the reason it cannot be bought when it cannot. */
 export function tavernMenuModel({ gold = 0, backpackCount = 0, capacity = 0, language = 'ru' } = {}) {
