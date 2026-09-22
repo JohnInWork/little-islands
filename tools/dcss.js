@@ -998,7 +998,6 @@ const openCreditsButton = document.querySelector('#open-credits');
 const openCreditsLabel = document.querySelector('#open-credits-label');
 const closeCreditsButton = document.querySelector('#close-credits');
 const creditsTitle = document.querySelector('#credits-title');
-const creditsIntro = document.querySelector('#credits-intro');
 const creditsBody = document.querySelector('#credits-body');
 const recordsScreen = document.querySelector('#records-screen');
 const openRecordsButton = document.querySelector('#open-records');
@@ -12340,7 +12339,16 @@ const CREATION_COPY = Object.freeze({
     pickTitle: 'Кем выйти',
     pickHint: 'Возьми готового героя или собери своего.',
     ownTitle: 'Свой герой',
-    ownHint: 'Два очка характеристик и два навыка.',
+    /*
+     * Сколько очков — говорит счётчик, а не подпись под заголовком.
+     *
+     * Иван: «„Два очка характеристик и два навыка“ — это надо убрать из
+     * создания персонажа. Просто надо более явно показать, сколько у игрока
+     * очков, которые можно потратить». Счётчики стоят в заголовках обоих
+     * разделов и меняются по ходу — подпись повторяла их и врала, как только
+     * первое очко потрачено.
+     */
+    ownHint: '',
     skillHint: 'Нажми на навык, чтобы прочитать, что он делает.',
     own: 'Создать своего',
     back: 'Назад',
@@ -12353,7 +12361,7 @@ const CREATION_COPY = Object.freeze({
     pickTitle: 'Who walks out',
     pickHint: 'Take a ready hero or build your own.',
     ownTitle: 'Your own hero',
-    ownHint: 'Two attribute points and two skills.',
+    ownHint: '',
     skillHint: 'Tap a skill to read what it does.',
     own: 'Build your own',
     back: 'Back',
@@ -14306,7 +14314,6 @@ function renderCredits() {
   openCreditsButton.setAttribute('aria-label', model.title);
   closeCreditsButton.setAttribute('aria-label', model.close);
   creditsScreen.setAttribute('aria-label', model.title);
-  creditsIntro.textContent = model.intro;
   creditsBody.replaceChildren(...model.sections.map((entry) => {
     const block = document.createElement('section');
     block.className = 'credits-block';

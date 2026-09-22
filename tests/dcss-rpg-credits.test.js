@@ -77,7 +77,8 @@ test('модель экрана готова к отрисовке и перек
   assert.equal(creditsModel('иное').language, 'ru', 'неизвестный язык — русский');
   assert.equal(ru.title, 'Авторы');
   assert.equal(en.title, 'Credits');
-  assert.notEqual(ru.intro, en.intro);
+  // Вступления нет: Иван просил на экране только автора, паки и лицензии.
+  assert.equal(ru.intro, undefined);
   assert.equal(ru.sections.length, CREDITS_SECTIONS.length);
 
   const floors = ru.sections.find(({ id }) => id === 'lpc-floors');

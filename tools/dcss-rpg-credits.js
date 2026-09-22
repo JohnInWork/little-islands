@@ -37,20 +37,8 @@ const section = ({ id, packDir = null, license = null, source = null, ru, en }) 
 export const CREDITS_SECTIONS = Object.freeze([
   section({
     id: 'game',
-    ru: {
-      title: 'Игра',
-      lines: Object.freeze([
-        'DNG Codex — пиксельная 2D-рогалик-игра.',
-        'Код и сборка: Иван Кузнецов.',
-      ]),
-    },
-    en: {
-      title: 'The game',
-      lines: Object.freeze([
-        'DNG Codex — a pixel 2D roguelike.',
-        'Code and build: Ivan Kuznetsov.',
-      ]),
-    },
+    ru: { title: 'Автор', lines: Object.freeze(['Иван Кузнецов']) },
+    en: { title: 'Author', lines: Object.freeze(['Ivan Kuznetsov']) },
   }),
   section({
     id: 'dcss',
@@ -58,17 +46,11 @@ export const CREDITS_SECTIONS = Object.freeze([
     source: 'https://github.com/crawl/tiles',
     ru: {
       title: 'Тайлы подземелья',
-      lines: Object.freeze([
-        'Dungeon Crawl Stone Soup — монстры, вещи, герой, стены и полы.',
-        'Общественное достояние (CC0 1.0). Авторы просят упоминания — вот оно.',
-      ]),
+      lines: Object.freeze(['Dungeon Crawl Stone Soup']),
     },
     en: {
       title: 'Dungeon tiles',
-      lines: Object.freeze([
-        'Dungeon Crawl Stone Soup — monsters, items, the hero, walls and floors.',
-        'Public domain (CC0 1.0). The authors ask to be acknowledged; here it is.',
-      ]),
+      lines: Object.freeze(['Dungeon Crawl Stone Soup']),
     },
   }),
   section({
@@ -173,15 +155,13 @@ export const CREDITS_SECTIONS = Object.freeze([
     ru: {
       title: 'Сундуки',
       lines: Object.freeze([
-        'Cmski, «Pixel Animated Chests». Автор разрешает использование в '
-          + 'коммерческих проектах; перепродажа самих файлов запрещена.',
+        'Cmski, «Pixel Animated Chests»',
       ]),
     },
     en: {
       title: 'Chests',
       lines: Object.freeze([
-        'Cmski, “Pixel Animated Chests”. The author permits commercial use; '
-          + 'reselling the files themselves is not allowed.',
+        'Cmski, “Pixel Animated Chests”',
       ]),
     },
   }),
@@ -192,17 +172,11 @@ export const CREDITS_SECTIONS = Object.freeze([
     source: 'https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg',
     ru: {
       title: 'Монета интерфейса',
-      lines: Object.freeze([
-        'Henrique Lazarini (7Soul1), «496 pixel art icons for medieval/fantasy RPG».',
-        'Общественное достояние (CC0 1.0). Взята одна иконка — золотая монета.',
-      ]),
+      lines: Object.freeze(['Henrique Lazarini (7Soul1)']),
     },
     en: {
       title: 'The interface coin',
-      lines: Object.freeze([
-        'Henrique Lazarini (7Soul1), “496 pixel art icons for medieval/fantasy RPG”.',
-        'Public domain (CC0 1.0). One icon taken: the gold coin.',
-      ]),
+      lines: Object.freeze(['Henrique Lazarini (7Soul1)']),
     },
   }),
   section({
@@ -210,20 +184,14 @@ export const CREDITS_SECTIONS = Object.freeze([
     license: 'CC BY 3.0',
     source: 'https://game-icons.net',
     ru: {
+      // CC BY требует назвать авторов — они и названы. Что каким значком
+      // нарисовано, игроку знать незачем.
       title: 'Значки интерфейса',
-      lines: Object.freeze([
-        'game-icons.net — сплошные силуэты, нарисованные для инвентарей и панелей.',
-        'Delapouite: рюкзак, снаряжение, внешность, звук, прицел, лестница, «i», очки навыков.',
-        'Lorc: настройки, начать заново, записи, разум. sbed: череп. guard13007: пауза.',
-      ]),
+      lines: Object.freeze(['game-icons.net: Delapouite, Lorc, sbed, guard13007']),
     },
     en: {
       title: 'Interface icons',
-      lines: Object.freeze([
-        'game-icons.net — solid silhouettes drawn for inventories and HUDs.',
-        'Delapouite: backpack, gear, appearance, sound, crosshair, stairs, info, upgrade.',
-        'Lorc: settings, restart, records, brain. sbed: skull. guard13007: pause.',
-      ]),
+      lines: Object.freeze(['game-icons.net: Delapouite, Lorc, sbed, guard13007']),
     },
   }),
   section({
@@ -235,10 +203,8 @@ export const CREDITS_SECTIONS = Object.freeze([
         'Kenney (kenney.nl); Still North Media — Ben Jaszczak и Brian Nelson; '
           + 'Galacti-Chron, голос — Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
-        'Фон этажей и мелодии дорог — OpenGameArt: JaggedStone, Paul Wortmann, '
-          + 'RandomMind, cynicmusic, Brandon75689, pauliuw, josepharaoh99, Joth, '
-          + 'Cleyton Kauffman, Kevin MacLeod.',
-        'Всё — общественное достояние (CC0 1.0); авторы названы из уважения.',
+        'OpenGameArt: JaggedStone, Paul Wortmann, RandomMind, cynicmusic, '
+          + 'Brandon75689, pauliuw, josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
       ]),
     },
     en: {
@@ -247,10 +213,8 @@ export const CREDITS_SECTIONS = Object.freeze([
         'Kenney (kenney.nl); Still North Media — Ben Jaszczak and Brian Nelson; '
           + 'Galacti-Chron, voice by Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
-        'Floor ambience and road themes from OpenGameArt: JaggedStone, '
-          + 'Paul Wortmann, RandomMind, cynicmusic, Brandon75689, pauliuw, '
-          + 'josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
-        'All public domain (CC0 1.0); the authors are named out of courtesy.',
+        'OpenGameArt: JaggedStone, Paul Wortmann, RandomMind, cynicmusic, '
+          + 'Brandon75689, pauliuw, josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
       ]),
     },
   }),
@@ -260,15 +224,11 @@ const COPY = Object.freeze({
   ru: Object.freeze({
     title: 'Авторы',
     close: 'Закрыть авторов',
-    intro: 'Игра стоит на чужой работе, и вот чьей. Полные тексты лицензий лежат '
-      + 'рядом с самими файлами в репозитории.',
     licenseLabel: 'Лицензия',
   }),
   en: Object.freeze({
     title: 'Credits',
     close: 'Close credits',
-    intro: 'The game stands on other people’s work. Here is whose. The full licence '
-      + 'texts sit next to the files themselves in the repository.',
     licenseLabel: 'Licence',
   }),
 });

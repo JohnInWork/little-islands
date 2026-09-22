@@ -293,22 +293,31 @@ export function mainMenuModel({
   const resumable = !terminal && (runStarted || paused);
   const who = copy.whoYouAre({ level, weapon: weaponName, depth: depthLabel });
   const action = terminal ? copy.restartRun : resumable ? copy.continueRun : copy.newRun;
+  /*
+   * «Случайное подземелье» не говорит ничего.
+   *
+   * Оно стояло и подписью под меню, и подписью на кнопке «Начать забег» —
+   * дважды на одном экране, и оба раза не сообщало ничего, чего игрок не знал
+   * бы и так. Иван: «надпись „Случайное подземелье“ в меню я бы убрал и в
+   * кнопке тоже. Оно не нужно». Там, где есть что сказать — чем кончился
+   * забег, на каком этаже герой, — подпись осталась.
+   */
   const hint = terminal
     ? copy.ended({ depth: depthLabel, level })
     : resumable
       ? copy.progress({ depth: depthLabel, level })
-      : copy.freshHint;
+      : '';
 
   const actions = resumable
     ? [
         Object.freeze({ id: 'continue', label: copy.continueRun, detail: who, primary: true }),
-        Object.freeze({ id: 'restart', label: copy.restartRun, detail: copy.freshHint, primary: false }),
+        Object.freeze({ id: 'restart', label: copy.restartRun, detail: '', primary: false }),
       ]
     : [
         Object.freeze({
           id: 'start',
           label: terminal ? copy.restartRun : copy.newRun,
-          detail: terminal ? copy.ended({ depth: depthLabel, level }) : copy.freshHint,
+          detail: terminal ? copy.ended({ depth: depthLabel, level }) : '',
           primary: true,
         }),
       ];

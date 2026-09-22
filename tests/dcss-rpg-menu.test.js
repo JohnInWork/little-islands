@@ -28,7 +28,16 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
 
   assert.equal(fresh.title, 'DNG Codex');
   assert.equal(fresh.action, 'Начать забег');
-  assert.equal(fresh.hint, 'Случайное подземелье');
+  /*
+   * Подписи «Случайное подземелье» больше нет.
+   *
+   * Она стояла и под меню, и на кнопке «Начать забег» — дважды на одном
+   * экране, и оба раза не сообщала ничего, чего игрок не знал бы и так. Иван:
+   * «оно не нужно». Там, где сказать есть что — чем кончился забег, на каком
+   * этаже герой, — подпись осталась, и это проверено ниже.
+   */
+  assert.equal(fresh.hint, '');
+  assert.equal(fresh.actions[0].detail, '');
   assert.equal(fresh.labels.inventoryTitle, 'Рюкзак');
   assert.equal(fresh.labels.equippedItems, 'Надетое');
   assert.equal(continuing.title, 'DNG Codex');
@@ -49,7 +58,7 @@ test('main menu localizes fresh, continuing and terminal runs', () => {
   assert.deepEqual(continuing.actions.map(({ id }) => id), ['continue', 'restart']);
   assert.equal(continuing.actions[0].detail, 'Level 4 · Rusty sword · Floor III');
   assert.equal(continuing.actions[1].label, 'Start over');
-  assert.equal(continuing.actions[1].detail, 'Random dungeon');
+  assert.equal(continuing.actions[1].detail, '');
   // A run that is over cannot be continued, whatever the hero was carrying.
   assert.deepEqual(terminal.actions.map(({ id }) => id), ['start']);
   assert.equal(terminal.actions[0].label, 'Начать заново');
