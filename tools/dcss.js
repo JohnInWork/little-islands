@@ -564,6 +564,7 @@ import {
   BRAND_SECONDS,
   SUNDER_PERCENT,
   SUNDER_SECONDS,
+  SWIFT_STEP_PERCENT,
   CLAMOUR_MULTIPLIER,
   wardActorEffects,
   INVISIBILITY_REVEAL_SECONDS,
@@ -5221,6 +5222,11 @@ function interactNearbyTrap(preferredTrap = null) {
 /** How long until a spell comes back: the armour's focus, then worn quickening. */
 const SENSE_RADIUS = 5;
 const SENSE_TIER = 3;
+
+/** Сапоги Лёгкого Шага и есть вся прибавка к скорости: либо они, либо ничего. */
+function heroSwiftness() {
+  return currentHeroMagic().swiftness ? 1 + SWIFT_STEP_PERCENT / 100 : 1;
+}
 
 function heroSpellCooldown(spell) {
   const focused = focusedCooldown(spell.cooldown, currentArmourProfile());
@@ -17034,6 +17040,7 @@ function updateHero(delta) {
           actorEffectModifiers(hero.effects).moveSpeed *
           terrainSpeedMultiplier({ inWater: heroWading() && !currentArmourProfile().surefooted }) *
           dodgeSpeedMultiplier(heroDodgeBoost, currentMobilityProfile()) *
+          heroSwiftness() *
           currentConditions().heroSpeedScale,
       );
       if (distance > 0) {

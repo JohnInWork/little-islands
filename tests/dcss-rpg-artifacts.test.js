@@ -320,3 +320,51 @@ test('the artefact is promised once per road, however many roads a hero walks', 
   );
   assert.ok(secondRoadFloors.size > 8, 'every hero would find the second one on the same floor');
 });
+
+/**
+ * Сапоги Лёгкого Шага — единственная вещь в игре, которая ускоряет героя.
+ *
+ * Скорость задумывалась заклинанием грозовой школы, потом числом на любой
+ * вещи — Иван остановил и то и другое: «нет, флагом. Это уникальное свойство
+ * типа сапоги, быстрой скорости. Это артефакт, он очень крутой». Отсюда три
+ * требования, которые и проверяются: свойство есть только на сапогах, оно
+ * булево (вторая пара ничего не прибавит), и прибавка одна на всю игру.
+ */
+test('лёгкий шаг живёт только на сапогах и ничего не складывает', async () => {
+  const { LOOT_CATALOG } = await import('../tools/dcss-rpg-content.js');
+  const { SWIFT_STEP_PERCENT, equipmentMagic, MAGIC_MAGNITUDES } = await import('../tools/dcss-rpg-magic.js');
+
+  const power = PROCEDURAL_ARTIFACT_POWERS.find(({ id }) => id === 'swift-step');
+  assert.ok(power, 'силы нет вовсе');
+  assert.deepEqual([...power.tags], ['boots'], 'скорость может выпасть не на сапогах');
+  assert.deepEqual(power.magic, { swiftness: true }, 'свойство перестало быть флагом');
+  assert.equal(MAGIC_MAGNITUDES.includes('swiftness'), false, 'флаг попал в числовые свойства');
+
+  const boots = LOOT_CATALOG.filter(({ slot }) => slot === 'boots');
+  assert.ok(boots.length >= 5, 'сапог в каталоге слишком мало, чтобы сила находилась');
+  for (const item of boots) {
+    assert.ok(eligibleArtifactPowers(item).some(({ id }) => id === 'swift-step'), item.id);
+  }
+  for (const item of LOOT_CATALOG.filter(({ slot }) => slot && slot !== 'boots')) {
+    assert.equal(
+      eligibleArtifactPowers(item).some(({ id }) => id === 'swift-step'),
+      false,
+      `${item.id}: скорость выпала не на сапогах`,
+    );
+  }
+
+  // Флаг не копится: две вещи со свойством дают ровно столько же, сколько одна.
+  const one = equipmentMagic({ boots: 'a' }, [{ uid: 'a', magic: { swiftness: true } }]);
+  const two = equipmentMagic(
+    { boots: 'a', cloak: 'b' },
+    [{ uid: 'a', magic: { swiftness: true } }, { uid: 'b', magic: { swiftness: true } }],
+  );
+  assert.equal(one.swiftness, true);
+  assert.equal(two.swiftness, one.swiftness);
+  assert.ok(SWIFT_STEP_PERCENT > 0 && SWIFT_STEP_PERCENT <= 30, 'прибавка вне разумного');
+
+  // Переходник умножает скорость на неё и ни на что больше.
+  const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /return currentHeroMagic\(\)\.swiftness \? 1 \+ SWIFT_STEP_PERCENT \/ 100 : 1;/);
+  assert.match(runtime, /heroSwiftness\(\) \*\n\s*currentConditions\(\)\.heroSpeedScale/);
+});

@@ -47,6 +47,16 @@ export const INVISIBILITY_REVEAL_SECONDS = 3;
  */
 export const THORNS_CAP_PERCENT = 40;
 export const QUICKENING_CAP_PERCENT = 30;
+/**
+ * Насколько быстрее ходит тот, кому достались эти сапоги.
+ *
+ * Задумывалось заклинанием, потом числом на любой вещи — Иван остановил и то
+ * и другое: «нет, флагом. Это уникальное свойство типа сапоги, быстрой
+ * скорости. Это артефакт, он очень крутой». Поэтому здесь одно число на всю
+ * игру: свойство либо есть, либо нет, складывать нечего, и вторая пара
+ * сапог ничего не прибавит.
+ */
+export const SWIFT_STEP_PERCENT = 20;
 export const SATIETY_CAP_SHARE = 0.6;
 /** What the brands and the tempo powers are worth where the fight reads them. */
 export const BRAND_SECONDS = 4;
@@ -68,6 +78,7 @@ export const MAGIC_MAGNITUDES = Object.freeze([
 ]);
 
 const MAGIC_FLAGS = Object.freeze([
+  'swiftness',
   'flight',
   'invisibility',
   'vampirism',
@@ -279,6 +290,9 @@ export function extraMagicRows(magic, ru = true) {
   if (magic.quickening) say('✦', ru
     ? `Скорая рука: заклинания откатываются на ${magic.quickening}% быстрее.`
     : `Quick hand: spells come back ${magic.quickening}% sooner.`);
+  if (magic.swiftness) say('»', ru
+    ? `Лёгкий шаг: герой идёт на ${SWIFT_STEP_PERCENT}% быстрее.`
+    : `Light step: the hero moves ${SWIFT_STEP_PERCENT}% faster.`);
   // The drawbacks say what they are in the same voice. A curse the card hides
   // is a card that lied.
   if (magic.appetite) say('✘', ru

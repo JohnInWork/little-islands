@@ -221,6 +221,24 @@ export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
     weight: 4,
   }),
   freezePower({
+    /*
+     * Сапоги, в которых ходят быстрее. Одни на всю игру.
+     *
+     * Задумывалось заклинанием грозовой школы, потом числом на любой вещи —
+     * Иван остановил и то и другое: «нет, флагом. Это уникальное свойство
+     * типа сапоги, быстрой скорости. Это артефакт, он очень крутой».
+     *
+     * Поэтому свойство живёт только на сапогах: слот — такой же тег, как
+     * «броня», и адресуется точно. На поясе или в кольце скорость была бы
+     * просто ещё одним процентом; на ногах она читается сама собой.
+     */
+    id: 'swift-step',
+    tags: ['boots'],
+    suffix: { ru: 'Лёгкого Шага', en: 'of the Light Step' },
+    magic: { swiftness: true },
+    weight: 4,
+  }),
+  freezePower({
     // Armour already knows how to shorten a spell's cooldown.
     id: 'quickening',
     tags: ['jewellery', 'focus'],

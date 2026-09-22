@@ -53,6 +53,7 @@ function combatRuntime() {
     refreshVisibleSecrets: () => {},
     visibleSecretIds: new Set(),
     HERO_SIGHT_RADIUS: 5.2,
+    heroSwiftness: () => 1,
     isSecretFind: () => false,
     currentStealthProfile: () => ({ rank: 0, visionPercent: 0, noisePercent: 0 }),
     currentSecretSearchProfile: () => ({ rank: 0, radius: 0 }),
