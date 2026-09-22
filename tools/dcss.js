@@ -181,6 +181,12 @@ import {
   visualOverridePaths,
 } from './dcss-rpg-visual-overrides.js';
 import { skillMenuModel } from './dcss-rpg-skill-menu.js';
+import {
+  SHOWREEL_SCENES,
+  showreelCameraAt,
+  showreelCameraPath,
+  showreelFrame,
+} from './dcss-rpg-menu-showreel.js';
 import { awardHeroExperience } from './dcss-rpg-progression.js';
 import {
   LEVEL_UP_PRESENTATION_MS,
@@ -713,6 +719,7 @@ const atmosphereCanvas = document.createElement('canvas');
 const atmosphereContext = atmosphereCanvas.getContext('2d', { alpha: true });
 const status = document.querySelector('#status');
 const trapAnnouncement = document.querySelector('#trap-announcement');
+const menuBackdrop = document.querySelector('#menu-backdrop');
 const mainMenu = document.querySelector('#main-menu');
 const mainMenuTitle = document.querySelector('#main-menu-title');
 const mainMenuLanguages = document.querySelector('#main-menu-languages');
@@ -6425,7 +6432,10 @@ function syncWorldActors3D() {
       size: ACTOR_SIZE,
       facing: hero.facing,
       screenOffsetY: (heroMagic.flight ? -23 : heroWading() ? -7 : -13) + motion.bob,
-      opacity: hero.dead ? Math.max(0.2, 1 - deathProgress * 0.8) : concealed ? 0.38 : 1,
+      // За меню герой едет вместо камеры и не показывается: свет и туман
+      // считаются от него, а видеть там его нечего.
+      opacity: showreelActive() ? 0
+        : hero.dead ? Math.max(0.2, 1 - deathProgress * 0.8) : concealed ? 0.38 : 1,
       rotation: deathProgress * hero.facing * 0.8,
       scaleX: motion.attackMotion.scaleX,
       scaleY: motion.attackMotion.scaleY,
@@ -7394,6 +7404,121 @@ function rebuildDungeonWorld3D() {
   });
 }
 
+/**
+ * Подземелья за главным меню.
+ *
+ * Меню стояло на застывшем кадре первого этажа — одном и том же у каждого,
+ * кто открывал игру. Иван: «на фоне я хочу, чтобы были подземелья вот наши и
+ * чтобы там по ним как-нибудь клёво камера летала, а потом оно сменяется на
+ * другое подземелье».
+ *
+ * Мир при этом не живёт: в меню кадр не обновляется, монстры не ходят. Летит
+ * только камера, а этаж стоит — и это ровно то, что нужно: за меню видно
+ * место, а не бой.
+ *
+ * Герой едет вместе с камерой, невидимый: свет, туман и глубина считаются от
+ * него, и без этого фонарь остался бы стоять там, где его бросили.
+ */
+let showreelSeconds = 0;
+let showreelTurn = -1;
+let showreelPath = null;
+let showreelFade = 0;
+/** Этаж забега, на который надо вернуться, когда меню закроется. */
+let showreelBorrowedFloor = false;
+
+const showreelActive = () => uiScreen === 'menu' && menuMode !== 'pause' && ready;
+
+/** Крайние проходимые клетки — по ним и летит камера. */
+function walkableBounds(grid) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let y = 0; y < grid.length; y += 1) {
+    for (let x = 0; x < grid[y].length; x += 1) {
+      if (grid[y][x] === '#') continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (!Number.isFinite(minX)) return { minX: 0, maxX: grid[0].length - 1, minY: 0, maxY: grid.length - 1 };
+  return { minX, maxX, minY, maxY };
+}
+
+/** Собрать показываемый этаж. Забег при этом не трогается — только картинка. */
+function buildShowreelFloor(scene, turn) {
+  dungeon = generateDungeon({ seed: scene.seed, depth: scene.depth, branch: scene.branch });
+  world = dungeon.grid;
+  doorDefinitions = dungeon.doors.map((door) => ({ ...door }));
+  builtWallCells = new Set(dungeon.builtWalls ?? []);
+  thicketCells = new Set(dungeon.thicketWalls ?? []);
+  hewnWallCells = new Set(dungeon.hewnWalls ?? []);
+  greenFloorCells = new Set(cityGreenCells(dungeon.city));
+  waterPaths = waterTiles(dungeon.themeId);
+  dungeonEnvironment = createDungeonEnvironment(dungeon, { graveyardRoom: null });
+  mistAnchors = createMistAnchors(dungeon);
+  voidStarLayers = createVoidStars(dungeon);
+  /*
+   * Этаж показывают целым, а не пустым.
+   *
+   * Сперва я вычистила с него всё живое и всё лежащее — и получила чёрный
+   * коридор: свет в игре идёт от находок, костров и фонтанов, и без них
+   * смотреть не на что. Мир в меню всё равно не тикает, так что стоящий
+   * монстр — это картинка места, а не бой.
+   */
+  monsters = createMonsters(dungeon);
+  passiveCreatures = createPassiveCreatures(dungeon);
+  lootDefinitions = createFloorLoot(dungeon);
+  eventDefinitions = createEventDefinitions(dungeon);
+  findDefinitions = createFindDefinitions(dungeon);
+  trapDefinitions = [];
+  placedTraps = [];
+  floorGhost = null;
+  allies = [];
+  // Показывают целое место, а не то, что успели разведать.
+  revealed.clear();
+  for (let y = 0; y < world.length; y += 1) {
+    for (let x = 0; x < world[y].length; x += 1) {
+      if (world[y][x] !== '#') revealed.add(`${x},${y}`);
+    }
+  }
+  showreelPath = showreelCameraPath(walkableBounds(world), turn);
+  showreelBorrowedFloor = true;
+  rebuildDungeonWorld3D();
+}
+
+/** Вернуть этаж забега — тот самый, с того же места. */
+function returnBorrowedFloor() {
+  if (!showreelBorrowedFloor) return;
+  showreelBorrowedFloor = false;
+  showreelTurn = -1;
+  showreelFade = 0;
+  menuBackdrop.style.opacity = '0';
+  replaceFloor(run.depth, { x: run.hero.x, y: run.hero.y });
+}
+
+function updateMenuShowreel(delta) {
+  if (!showreelActive()) return;
+  // Спокойный режим смотрит одно место и не летает: смена вида и движение
+  // камеры — ровно то, от чего он и защищает.
+  const frame = showreelFrame(reducedMotion ? 0 : showreelSeconds, SHOWREEL_SCENES);
+  if (frame.turn !== showreelTurn) {
+    showreelTurn = frame.turn;
+    buildShowreelFloor(frame.scene, frame.turn);
+  }
+  showreelSeconds += delta;
+  showreelFade = frame.fade;
+  menuBackdrop.style.opacity = String(frame.fade);
+  if (!showreelPath) return;
+  const точка = showreelCameraAt(showreelPath, reducedMotion ? 0.5 : frame.progress);
+  camera.x = (точка.x + 0.5) * TILE;
+  camera.y = (точка.y + 0.5) * TILE;
+  hero.x = camera.x;
+  hero.y = camera.y;
+}
+
 function clearActorCanvas() {
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
@@ -8001,6 +8126,24 @@ function drawImpactWaves() {
 function atmosphereLightSources() {
   const theme = atmosphereThemeFor(dungeon.themeId);
   const sources = [
+    /*
+     * Свет показа: три фонаря, летящих с камерой.
+     *
+     * Один не справляется — у источника постоянная яркость, и радиус только
+     * растягивает её тоньше. Трое, расставленные вокруг центра кадра, держат
+     * освещённой всю видимую полосу, а не пятно под собой.
+     */
+    ...(showreelActive() ? [[0, 0], [-3.2, -2.2], [3.2, 2.2]].map(([dx, dy], index) => ({
+      id: `showreel-lantern-${index}`,
+      x: camera.x + dx * TILE,
+      y: camera.y + dy * TILE,
+      gridX: Math.floor(camera.x / TILE + dx),
+      gridY: Math.floor(camera.y / TILE + dy),
+      color: theme.heroLight,
+      radius: 8.5,
+      phase: index * 1.3,
+      beam: false,
+    })) : []),
     {
       id: 'refuge-shaft',
       x: (dungeon.spawn.x + 0.5) * TILE,
@@ -12330,6 +12473,7 @@ let creationSkillId = null;
 
 function openCharacterCreation() {
   if (uiScreen !== 'menu' && uiScreen !== 'restart-confirm') return false;
+  returnBorrowedFloor();
   creationStep = 'archetypes';
   openCreationAttributeId = null;
   creationSkillId = null;
@@ -12454,6 +12598,8 @@ function startGameFromMenu() {
    */
   if (!playerHasActed || isTerminalRunStatus(runStatus)) return openCharacterCreation();
   unlockLevelUpAudio();
+  // Показ занимал картинку — этаж забега возвращается до первого кадра игры.
+  returnBorrowedFloor();
   mainMenu.inert = true;
   mainMenu.setAttribute('aria-hidden', 'true');
   uiScreen = 'game';
@@ -18844,7 +18990,8 @@ function animate(time) {
       }
       // Static overlays (bag, map, menu…) keep the last frame; live screens render
       // at most ~60 Hz so 120 Hz phones do not double the GPU work.
-      const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen);
+      framePhase('showreel', () => updateMenuShowreel(delta));
+      const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen) || showreelActive();
       if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
         if (framePhase('render', render)) renderedScreen = uiScreen;
         lastRenderAt = time;
