@@ -110,10 +110,19 @@ export const AMBIENT_SCENES = Object.freeze([
     quarry: ['mon/animals/wolf.png', 'derived/mon/boar.png', 'mon/animals/black_bear.png'],
     // He is already winning when you see him, and he leaves at once. A fight you
     // could join and cannot reach is a promise the game has no way to keep.
+    /*
+     * Уходит он бегом, а не уплывает.
+     *
+     * Уход занимал две с половиной секунды на две с половиной клетки — клетка
+     * в секунду, вчетверо медленнее шага героя. Иван: «он не убежал быстро
+     * куда-нибудь, чтобы игрок подумал, что это реально НПС, а просто улетел в
+     * стену дешёвой анимацией». Те же клетки за восемь десятых — это уже бег,
+     * и к концу его он успевает погаснуть в темноте, а не упереться в стену.
+     */
     phases: [
       { id: 'fight', seconds: 3.4 },
       { id: 'kill', seconds: 1.1 },
-      { id: 'flee', seconds: 2.4 },
+      { id: 'flee', seconds: 0.8 },
     ],
     line: { ru: 'Кто-то добил своего и ушёл', en: 'Someone finished a kill and left' },
   }),
@@ -129,7 +138,7 @@ export const AMBIENT_SCENES = Object.freeze([
     phases: [
       { id: 'fight', seconds: 3.8 },
       { id: 'kill', seconds: 1.1 },
-      { id: 'flee', seconds: 2.6 },
+      { id: 'flee', seconds: 0.9 },
     ],
     line: { ru: 'Двое не поделили этаж', en: 'Two of them fell out over the floor' },
   }),
@@ -140,7 +149,9 @@ export const AMBIENT_SCENES = Object.freeze([
     colour: '#8c8f6d',
     sound: 'ambient-drag',
     sprites: ['mon/unique/urug.png', 'licensed/lpc-tavern/deco/basket.png'],
-    phases: [{ id: 'haul', seconds: 6.4 }],
+    // Четыре клетки за три секунды — шаг человека с ношей. Было шесть с
+    // половиной, и это выглядело не «тащит», а «едет по стеклу».
+    phases: [{ id: 'haul', seconds: 3 }],
     line: { ru: 'Кто-то уволок свою добычу', en: 'Something hauled its haul away' },
   }),
   scene({
@@ -416,7 +427,9 @@ export function ambientActors(id, elapsed, variant = 0) {
       loserU = 0.58;
     } else if (phase.id === 'flee') {
       loserOpacity = 0;
-      winnerU = 0.44 + ease(phase.progress) * 0.62;
+      // Ровно до конца проверенного отрезка и ни клеткой дальше: за ним пол
+      // никто не проверял, и там начинается стена.
+      winnerU = 0.44 + ease(phase.progress) * 0.56;
       /*
        * Уходит он в темноту, а не в воздух.
        *

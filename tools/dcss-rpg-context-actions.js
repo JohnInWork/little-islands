@@ -221,7 +221,14 @@ const COPY = Object.freeze({
       }),
       'blood-altar': Object.freeze({
         name: 'Алтарь крови',
-        line: (value) => `Дар за ожог: +${value} к силе, и пламя оставит след.`,
+        /*
+         * «Сила» здесь была враньём.
+         *
+         * Алтарь прибавляет к урону, а не к характеристике. Иван нажал, пошёл
+         * смотреть лист персонажа и увидел ту же тройку силы: «в чём прикол,
+         * не понимаю». Теперь названо то, что он и правда даёт.
+         */
+        line: (value) => `Дар за ожог: +${value} к урону навсегда, и пламя оставит след.`,
       }),
       sarcophagus: Object.freeze({
         name: 'Вскрытый саркофаг',
@@ -345,7 +352,7 @@ const COPY = Object.freeze({
       }),
       'blood-altar': Object.freeze({
         name: 'Altar of blood',
-        line: (value) => `A gift for a burn: +${value} power, and the flame leaves its mark.`,
+        line: (value) => `A gift for a burn: +${value} attack for good, and the flame leaves its mark.`,
       }),
       sarcophagus: Object.freeze({
         name: 'Opened sarcophagus',

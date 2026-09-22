@@ -7705,7 +7705,17 @@ function drawEvents() {
       );
       continue;
     }
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.2 + gridX) * 2;
+    /*
+     * Качается то, что и должно качаться.
+     *
+     * Покачивание стояло на всём, что лежит на этаже, и каменный саркофаг
+     * плавал над полом, как воздушный шар. Иван прислал скриншот: «гробница
+     * эта — она почему-то левитирует». Вода бликует, пламя дышит, камень
+     * стоит.
+     */
+    const pulse = reducedMotion || !event.definition.hover
+      ? 0
+      : Math.sin(elapsed * 2.2 + gridX) * 2;
     drawSprite(
       event.definition.path,
       event.x,
@@ -14450,7 +14460,7 @@ const CONSUMABLE_REPORTS = Object.freeze({
   ru: Object.freeze({
     healed: (amount) => `Исцеление +${amount}`,
     healedFull: 'Уже полное здоровье',
-    power: (amount) => `Сила +${amount}`,
+    power: (amount) => `Урон +${amount}`,
     cleansed: 'Состояния сняты',
     nothingToCleanse: 'Снимать было нечего',
     venom: (damage, seconds) => `Яд: −${damage} и отравление на ${Math.round(seconds)} с`,
@@ -14470,7 +14480,7 @@ const CONSUMABLE_REPORTS = Object.freeze({
   en: Object.freeze({
     healed: (amount) => `Healed +${amount}`,
     healedFull: 'Already at full health',
-    power: (amount) => `Power +${amount}`,
+    power: (amount) => `Attack +${amount}`,
     cleansed: 'Conditions cleared',
     nothingToCleanse: 'Nothing to clear',
     venom: (damage, seconds) => `Venom: −${damage} and poisoned for ${Math.round(seconds)}s`,
