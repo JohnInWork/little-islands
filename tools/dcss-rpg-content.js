@@ -1944,7 +1944,7 @@ export const LOOT_CATALOG = Object.freeze([
   {
     id: 'ice-ring', element: 'ice',
     magic: { immunity: ['chilled'] },
-    icon: 'item/amulet/ring_cyan.png',
+    icon: 'item/ring/glass.png',
     slot: 'ring2',
     variant: 1,
     stats: { defense: 1, moveSpeed: 0.05 },
@@ -1964,7 +1964,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'antidote-ring',
-    icon: 'item/amulet/ring_green.png',
+    icon: 'item/ring/emerald.png',
     slot: 'ring2',
     variant: 1,
     magic: { immunity: ['poison'] },
@@ -1986,7 +1986,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'spirit-amulet',
-    icon: 'derived/icon/amulet-spirit.png',
+    icon: 'item/amulet/cameo_blue.png',
     slot: 'amulet',
     variant: 1,
     stats: { attack: 1, maxHp: 8, attackSpeed: 0.06 },
@@ -3336,7 +3336,7 @@ export const LOOT_CATALOG = Object.freeze([
   // невидимость, сытость, чутьё, — так что слот стал важнее, чем был.
   {
     id: 'warding-ring',
-    icon: 'item/amulet/ring_red.png',
+    icon: 'item/ring/gold_blue.png',
     slot: 'ring1',
     stats: { defense: 3, maxHp: 6 },
     armour: { thorns: 2 },

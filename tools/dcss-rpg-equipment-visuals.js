@@ -321,13 +321,13 @@ export const EQUIPMENT_VISUALS = Object.freeze({
   }),
   'regeneration-ring': Object.freeze({ icon: 'item/ring/tourmaline.png', layer: null }),
   'fire-ring': Object.freeze({ icon: 'item/ring/ruby.png', layer: null }),
-  'ice-ring': Object.freeze({ icon: 'item/amulet/ring_cyan.png', layer: null }),
+  'ice-ring': Object.freeze({ icon: 'item/ring/glass.png', layer: null }),
   'slaying-ring': Object.freeze({ icon: 'item/ring/artefact/urand_octoring.png', layer: null }),
-  'antidote-ring': Object.freeze({ icon: 'item/amulet/ring_green.png', layer: null }),
+  'antidote-ring': Object.freeze({ icon: 'item/ring/emerald.png', layer: null }),
   'vitality-amulet': Object.freeze({
     icon: 'item/amulet/artefact/urand_vitality.png', layer: null,
   }),
-  'spirit-amulet': Object.freeze({ icon: 'derived/icon/amulet-spirit.png', layer: null }),
+  'spirit-amulet': Object.freeze({ icon: 'item/amulet/cameo_blue.png', layer: null }),
   'wood-buckler': Object.freeze({
     icon: 'item/armour/shields/buckler1.png', layer: 'player/hand2/buckler_green.png',
     iconVariants: Object.freeze(['item/armour/shields/buckler2.png', 'item/armour/shields/buckler3.png']),
@@ -483,7 +483,7 @@ export const EQUIPMENT_VISUALS = Object.freeze({
     icon: 'item/armour/silver_dragon_scales.png', layer: 'player/body/bplate_metal1.png',
   }),
   // Украшения на кукле не рисуются: у неё нет ни шеи, ни пальцев.
-  'warding-ring': Object.freeze({ icon: 'item/amulet/ring_red.png', layer: null }),
+  'warding-ring': Object.freeze({ icon: 'item/ring/gold_blue.png', layer: null }),
   'swift-ring': Object.freeze({ icon: 'item/ring/artefact/urand_shadows.png', layer: null }),
   'mind-charm': Object.freeze({ icon: 'item/amulet/crystal_green.png', layer: null }),
   'might-charm': Object.freeze({ icon: 'item/amulet/cameo_orange.png', layer: null }),
