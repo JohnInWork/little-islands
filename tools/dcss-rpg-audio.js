@@ -166,11 +166,16 @@ export const MUSIC_SAMPLES = Object.freeze({
   /*
    * Меню — не дорога, а место, где игру ещё только открыли.
    *
-   * Тема выбрана Иваном из шести: «Ancient Power of Serpents». Она громче
-   * дорожных — за меню нет ни гула этажа, ни боя, и тише неё просто не
-   * слышно, — но остаётся в том же потолке, что и все остальные.
+   * Тема выбрана Иваном из шести: «Ancient Power of Serpents».
+   *
+   * Дорожный потолок ей не годится. Дорожная тема играет под гулом этажа и
+   * обязана быть тише него; за меню не звучит ничего, и на том же потолке её
+   * просто не слышно — Иван: «музыка из меню была очень тихая». Сама запись
+   * тише дорожных, а обе ручки громкости по умолчанию стоят на 0.7 и режут
+   * ещё вдвое: 0.1 превращались в шёпот. Здесь она вровень со звуками
+   * интерфейса — единственное, с чем в меню и можно сравнивать.
    */
-  menu: sample('music/menu.mp3', 0.1),
+  menu: sample('music/menu.mp3', 0.34),
 });
 
 export const AUDIO_SAMPLE_FILES = Object.freeze([...new Set([
@@ -204,6 +209,17 @@ export function pickSampleFile(entry, roll = 0) {
 const SAMPLE_FILE_PATTERN = /^(sfx|ambience|music)\/[a-z0-9-]+\.mp3$/;
 
 /** Catalog invariants for the test suite: paths, gains and unique variations. */
+/**
+ * Потолки громкости мелодий: дорожная живёт под гулом этажа, меню — само по
+ * себе. Один потолок на двоих означал бы, что одну из них не слышно.
+ */
+export const ROAD_MUSIC_GAIN_CAP = 0.1;
+export const MENU_MUSIC_GAIN_CAP = 0.4;
+
+export function musicGainCap(id) {
+  return id === 'menu' ? MENU_MUSIC_GAIN_CAP : ROAD_MUSIC_GAIN_CAP;
+}
+
 export function audioSampleProblems() {
   const problems = [];
   const check = (where, entry) => {
@@ -226,7 +242,8 @@ export function audioSampleProblems() {
     check(`music:${id}`, entry);
     if (!entry.files.every((file) => file.startsWith('music/'))) problems.push(`music:${id}:folder`);
     // Мелодия обязана быть тише гула той же глубины, иначе она начнёт вести.
-    if (entry.gain > 0.1) problems.push(`music:${id}:loud`);
+    // Меню — исключение: гула за ним нет, и вести там больше некому.
+    if (entry.gain > musicGainCap(id)) problems.push(`music:${id}:loud`);
   }
   return problems;
 }

@@ -8848,12 +8848,9 @@ function unlockLevelUpAudio() {
     levelUpAudio = new AudioContextConstructor();
     preloadAudioSamples(levelUpAudio);
   }
-  const begin = () => {
-    startAmbient(biomeThemeFor(dungeon.themeId).palette);
-    // Мелодия заводится тем же касанием, что и гул: браузер пускает звук
-    // только после жеста, и второго такого жеста может не случиться.
-    startMusic(musicRoad());
-  };
+  // Звук заводится тем же касанием: браузер пускает его только после жеста,
+  // и второго такого жеста может не случиться.
+  const begin = () => refreshRoadAudio();
   if (levelUpAudio.state === 'suspended') levelUpAudio.resume().then(begin).catch(() => {});
   else begin();
   return levelUpAudio;
@@ -9036,6 +9033,12 @@ function stopAmbient() {
 function startAmbient(paletteId) {
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running') return;
+  // Палитры нет — значит, гула быть не должно: `ambientSample` на неизвестный
+  // ключ отдаёт запасную палитру, и тишина превратилась бы в каменный зал.
+  if (paletteId === null) {
+    stopAmbient();
+    return;
+  }
   const sample = ambientSample(paletteId);
   const file = pickSampleFile(sample, 0);
   audioAmbientRequest = paletteId;
@@ -9119,6 +9122,19 @@ function musicRoad() {
 }
 
 /**
+ * Чей гул заводить.
+ *
+ * Гул принадлежит этажу, а за меню показывают чужой: на лугу из показа в
+ * главном меню пели птицы. Иван: «там были какие-то лишние шумы, типа птички
+ * почему-то щебетали». У показа своего воздуха нет — за ним звучит одна
+ * мелодия, и `null` означает ровно это: тишину, а не запасную палитру.
+ */
+function ambientPalette() {
+  if (showreelActive()) return null;
+  return biomeThemeFor(dungeon.themeId).palette;
+}
+
+/**
  * Музыка боя со стражем.
  *
  * Начинается, когда полоса стража появляется на экране, — то есть по тому же
@@ -9195,6 +9211,25 @@ function setAmbientLevel(level) {
   if (audioAmbient.gain && levelUpAudio) {
     audioAmbient.gain.gain.setTargetAtTime(Math.max(0.0001, level), levelUpAudio.currentTime, 0.5);
   }
+}
+
+/**
+ * Звук догоняет место — сам, каждый кадр.
+ *
+ * Раньше оба слоя будились в трёх местах, и любой переход, о котором забыли,
+ * оставлял игрока с чужим звуком. Иван: «когда я нажал „Продолжить играть“,
+ * музыка из меню не остановилась, а продолжилась в игре» — выход из меню как
+ * раз и был таким местом: показ кончался, а тему никто не переспрашивал.
+ *
+ * Спрашивать стоит дёшево: пока ответ тот же, что уже играет, обе проверки
+ * ничего не делают, а `startMusic`/`startAmbient` и сами не перезаводят
+ * звучащую петлю.
+ */
+function refreshRoadAudio() {
+  const road = musicRoad();
+  if (road !== audioMusicRequest) startMusic(road);
+  const palette = ambientPalette();
+  if (palette !== audioAmbientRequest) startAmbient(palette);
 }
 
 /** Booleans the onboarding module needs; nothing here mutates game state. */
@@ -12722,7 +12757,6 @@ function startGameFromMenu() {
    * на кнопке: сделал ли игрок хоть один ход.
    */
   if (!playerHasActed || isTerminalRunStatus(runStatus)) return openCharacterCreation();
-  unlockLevelUpAudio();
   // Показ занимал картинку — этаж забега возвращается до первого кадра игры.
   returnBorrowedFloor();
   mainMenu.inert = true;
@@ -12754,6 +12788,13 @@ function startGameFromMenu() {
   updateInteractionUi();
   setAmbientLevel(1);
   setMusicLevel(1);
+  /*
+   * Звук будится последним — когда этаж уже возвращён, а экран уже игровой.
+   *
+   * Разбудить его раньше значило бы завести тему меню ровно тем касанием,
+   * которым из меню выходят.
+   */
+  unlockLevelUpAudio();
   startGameButton.blur();
   return true;
 }
@@ -16847,11 +16888,10 @@ function replaceFloor(nextDepth, arrival = null) {
   dungeon = hydrateDungeon(run);
   world = dungeon.grid;
   resolveGraveyard();
-  startAmbient(biomeThemeFor(dungeon.themeId).palette);
   // Дорога могла смениться вратами — мелодия спрашивается заново. Бой со
   // стражем остаётся на том этаже, где шёл: новый начинается без него.
   bossMusicOn = false;
-  startMusic(musicRoad());
+  refreshRoadAudio();
   mistAnchors = createMistAnchors(dungeon);
   voidStarLayers = createVoidStars(dungeon);
   monsters = createMonsters(dungeon);
@@ -16939,8 +16979,7 @@ function replaceFloor(nextDepth, arrival = null) {
    * Слоёв стало два, и просыпаться они обязаны в одних и тех же местах, иначе
    * один поедет за героем, а второй останется на прежнем этаже.
    */
-  startAmbient(biomeThemeFor(dungeon.themeId).palette);
-  startMusic(musicRoad());
+  refreshRoadAudio();
   if (ready) rebuildDungeonWorld3D();
   discoverNearbyTraps({ feedback: false });
   updateHud();
@@ -19159,6 +19198,8 @@ function animate(time) {
       // Static overlays (bag, map, menu…) keep the last frame; live screens render
       // at most ~60 Hz so 120 Hz phones do not double the GPU work.
       framePhase('showreel', () => updateMenuShowreel(delta));
+      // Сразу за показом: он и решает, меню сейчас или этаж.
+      framePhase('audio', () => refreshRoadAudio());
       const liveWorld = LIVE_WORLD_SCREENS.has(uiScreen) || showreelActive();
       if ((liveWorld && time - lastRenderAt >= RENDER_INTERVAL_MS) || renderedScreen !== uiScreen) {
         if (framePhase('render', render)) renderedScreen = uiScreen;

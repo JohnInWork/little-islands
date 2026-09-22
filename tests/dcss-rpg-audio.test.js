@@ -8,7 +8,9 @@ import {
   AUDIO_SAMPLE_FILES,
   AUDIO_SAMPLE_ROOT,
   AUDIO_SETTINGS_KEY,
+  MENU_MUSIC_GAIN_CAP,
   MUSIC_SAMPLES,
+  ROAD_MUSIC_GAIN_CAP,
   SOUND_IDS,
   SOUND_SAMPLES,
   adjustAudioVolume,
@@ -19,6 +21,7 @@ import {
   createAudioSettings,
   effectiveVolume,
   effectiveMusicVolume,
+  musicGainCap,
   musicSample,
   toggleMusicMute,
   parseAudioSettings,
@@ -253,6 +256,10 @@ test('the hero is hurt and dies in her own voice', async () => {
  * окажется громче постели того же места, дорога начнёт звучать как заставка.
  * Поэтому у каждой темы потолок вдвое ниже, чем у гула, и это проверяется, а
  * не остаётся в комментарии.
+ *
+ * Меню из этого правила выпадает, и потолок у него свой: за меню нет ни гула
+ * этажа, ни боя — вторым слоем там быть не под чем. Иван на дорожном потолке
+ * его просто не услышал: «музыка из меню была очень тихая».
  */
 test('у города своя тема, а дорога без темы честно молчит', () => {
   assert.ok(MUSIC_SAMPLES.city, 'город стоит на ветке спуска — без своего ключа он играл бы пещеру');
@@ -262,9 +269,13 @@ test('у города своя тема, а дорога без темы чес�
   assert.equal(musicSample('нет такой дороги'), null, 'неизвестный ключ вернул чужую музыку');
   assert.equal(musicSample('нет такой дороги'), null);
   for (const [road, entry] of Object.entries(MUSIC_SAMPLES)) {
-    assert.ok(entry.gain > 0 && entry.gain <= 0.1, `${road}: мелодия громче гула`);
+    assert.ok(entry.gain > 0 && entry.gain <= musicGainCap(road), `${road}: мелодия громче гула`);
     assert.ok(entry.files.every((file) => file.startsWith('music/')), `${road}: файл не из music/`);
   }
+  assert.equal(musicGainCap('deep'), ROAD_MUSIC_GAIN_CAP);
+  assert.equal(musicGainCap('menu'), MENU_MUSIC_GAIN_CAP);
+  assert.ok(MENU_MUSIC_GAIN_CAP > ROAD_MUSIC_GAIN_CAP, 'у меню потолок дорожный — её снова не слышно');
+  assert.ok(MUSIC_SAMPLES.menu.gain > MUSIC_SAMPLES.boss.gain, 'тема меню тише боя, а слушают её в тишине');
   assert.deepEqual(audioSampleProblems(), []);
 });
 
@@ -283,9 +294,18 @@ test('адаптер спрашивает мелодию у места, а не 
     'адаптер больше не различает город и ветку под ним',
   );
   assert.equal(runtime.includes('startMusic(run.branch)'), false, 'где-то мелодию всё ещё просят у ветки');
-  // Все три пробуждения звука — одно и то же правило, иначе слои разъедутся.
-  // Четвёртое место — начало и конец боя со стражем: он тоже меняет ключ.
-  assert.equal(runtime.split('startMusic(musicRoad())').length - 1, 4);
+  /*
+   * Оба слоя будит одна функция, и она же сверяет их с местом каждый кадр.
+   *
+   * Пробуждений было три, и каждое повторяло правило своими руками. Выход из
+   * меню в этот список не попал — Иван: «когда я нажал „Продолжить играть“,
+   * музыка из меню не остановилась, а продолжилась в игре». Пока правило
+   * живёт в одном месте и спрашивается само, забыть о переходе нельзя.
+   */
+  assert.match(runtime, /function refreshRoadAudio\(\) \{\s*\n\s*const road = musicRoad\(\);/);
+  assert.match(runtime, /framePhase\('audio', \(\) => refreshRoadAudio\(\)\);/);
+  assert.equal(runtime.split('startMusic(musicRoad())').length - 1, 1, 'мелодию снова заводят мимо общей функции');
+  assert.equal(runtime.split('startAmbient(biomeThemeFor').length - 1, 0, 'гул снова заводят мимо общей функции');
 });
 
 /** Авторы фона и мелодий названы в титрах, а не только в файле рядом с mp3. */
@@ -333,5 +353,5 @@ test('у боя со стражем своя тема, и она громче д
   assert.match(runtime, /const идёт = bossMusicOn\s*\n\s*\? Boolean\(boss\)/);
   assert.match(runtime, /refreshBossMusic\(\);\s*\n\s*const boss = activeBoss\(\);/);
   // Новый этаж начинается без чужого боя.
-  assert.match(runtime, /bossMusicOn = false;\s*\n\s*startMusic\(musicRoad\(\)\);/);
+  assert.match(runtime, /bossMusicOn = false;\s*\n\s*refreshRoadAudio\(\);/);
 });
