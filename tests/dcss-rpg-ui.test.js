@@ -880,3 +880,28 @@ test('вещь с пола берут руками, а монеты подбир
     'кнопка появится и не нажмётся',
   );
 });
+
+/**
+ * В меню видно, какая это сборка.
+ *
+ * Номер версии меняется раз в месяц, а выкатов за день бывает шесть, и телефон
+ * охотно показывает вчерашнюю страницу из кэша. Иван: «подпиши версию игры в
+ * меню, чтобы я не терялся и понимал, что тестирую именно то, что нужно (а то
+ * эти куки и кеш бесят)». Сверять есть что только тогда, когда на экране стоит
+ * хеш коммента сборки, а не одно и то же «0.1.0».
+ */
+test('подпись в меню называет сборку, а не только версию', async () => {
+  const runtime = await readFile(runtimeUrl, 'utf8');
+  const конфиг = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+  assert.match(конфиг, /__BUILD_STAMP__: JSON\.stringify\(buildStamp\(\)\)/);
+  // На сборочной машине хеш берётся у самой площадки, локально — у git.
+  assert.match(конфиг, /process\.env\.GITHUB_SHA/);
+  assert.match(конфиг, /git rev-parse HEAD/);
+  assert.match(runtime, /const BUILD_STAMP = typeof __BUILD_STAMP__ === 'string'/);
+  assert.match(runtime, /appVersionLabel\.textContent = `\$\{labels\.version\} \$\{APP_VERSION\} · \$\{коммит\}`/);
+  assert.match(runtime, /appVersionLabel\.title = BUILD_STAMP;/);
+  // И хеш не рвётся на две строки: он единственное, что сверяют посимвольно.
+  const styles = await readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8');
+  const правило = styles.slice(styles.indexOf('#app-version {'));
+  assert.match(правило.slice(0, правило.indexOf('}')), /white-space: nowrap/);
+});

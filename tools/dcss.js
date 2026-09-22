@@ -1057,6 +1057,8 @@ const itemDetailCraft = document.querySelector('#item-detail-craft');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Injected by Vite from package.json; the dev server and tests fall back to a placeholder. */
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
+/** Хеш коммита и дата сборки: по ним видно, из кэша страница или свежая. */
+const BUILD_STAMP = typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev';
 const assetRoot = new URL('../assets/dcss-preview/', document.baseURI);
 const assetUrl = (path) => new URL(path, assetRoot).href;
 const atlasRoot = new URL('../assets/atlas/', document.baseURI);
@@ -1655,7 +1657,16 @@ function renderMainMenu() {
   startGameButton.setAttribute('aria-label', `${first.label}. ${first.detail}`);
   mainMenuHint.textContent = model.hint;
   renderRunConditions(labels.conditions);
-  appVersionLabel.textContent = `${labels.version} ${APP_VERSION}`;
+  /*
+   * В строке — хеш, в подсказке — ещё и время сборки.
+   *
+   * Полная отметка в одну строку на телефоне не влезает и рвётся посередине.
+   * Хеша достаточно, чтобы сверить экран с тем, что выкачено; время нужно
+   * реже, и живёт оно во всплывающей подписи.
+   */
+  const [коммит] = BUILD_STAMP.split(' · ');
+  appVersionLabel.textContent = `${labels.version} ${APP_VERSION} · ${коммит}`;
+  appVersionLabel.title = BUILD_STAMP;
   feedbackLink.textContent = labels.feedback;
   feedbackLink.setAttribute('aria-label', labels.feedback);
   editAppearanceLabel.textContent = labels.appearance;
