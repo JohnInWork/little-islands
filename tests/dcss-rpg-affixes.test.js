@@ -140,7 +140,10 @@ test('the production generator yields mostly ordinary gear and some enchanted ge
     }
   }
   const total = counts.reduce((sum, count) => sum + count, 0);
-  assert.ok(total > 1500);
+  // Порог — про размер выборки, а не про правило: носимого на этаже стало
+  // в полтора раза меньше, и семьсот подземелий дают уже не полторы тысячи
+  // вещей, а около тысячи. Для долей ниже этого с запасом хватает.
+  assert.ok(total > 900, `выборка всего ${total} вещей`);
   assert.ok(counts[0] / total > 0.5);
   assert.ok(counts[1] > 200);
   assert.equal(counts[2], 0);

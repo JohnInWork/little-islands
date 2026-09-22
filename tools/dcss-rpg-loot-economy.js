@@ -89,6 +89,28 @@ function weightedPick(rng, entries, weightOf) {
 export const SUPPLY_POOL_SHARE = 0.032;
 
 /**
+ * Насколько реже в выпадении носимое.
+ *
+ * Иван: «очень легко зачистить первый этаж, пойти в город и купить себе фулл
+ * сет брони. <...> вещи в игре должны быть дорогие, чтобы это была находка.
+ * <...> урежь всё-таки находки, если сейчас 2.2, то сделаем 1.5».
+ *
+ * Резать сам счёт мест нельзя: по нему же отмерены и еда — целый час полосы
+ * голода на дорогу, — и золото в сокровищнице. Поэтому мест на этаже столько
+ * же, а вес снаряжения в лотерее меньше: реже железо, чаще зелья и свитки.
+ * Найденный доспех становится событием, а не третьей штукой за этаж.
+ */
+export const GEAR_POOL_DAMPING = 0.12;
+
+/** Прижать носимое в пуле, оставив всё остальное как было. */
+export function dampGearWeights(pool, isGear, damping = GEAR_POOL_DAMPING) {
+  if (!Array.isArray(pool) || !(damping > 0) || damping >= 1) return pool;
+  return pool.map((item) => (isGear(item)
+    ? { ...item, weight: Math.max(0, (item.weight ?? 1) * damping) }
+    : item));
+}
+
+/**
  * Holds the larder's share of the draw steady.
  *
  * A weighted lottery gives food whatever slice is left over after everything

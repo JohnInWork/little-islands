@@ -56,6 +56,7 @@ import {
 import {
   DEFAULT_LOOT_ABUNDANCE,
   balanceSupplyWeights,
+  dampGearWeights,
   createBalancedLootPicks,
   validateLootAbundance,
 } from './dcss-rpg-loot-economy.js';
@@ -981,7 +982,12 @@ export function generateDungeon({
   );
   const selectedLoot = createBalancedLootPicks({
     rng: createRng(mixSeed(floorSeed, 0x4c4f4f54)),
-    pool: balanceSupplyWeights(lootPool, (item) => item.useEffect?.type === 'food'),
+    // Сначала прижать носимое, потом закрепить долю еды: порядок важен —
+    // еде обещана доля от того пула, который в итоге разыгрывается.
+    pool: balanceSupplyWeights(
+      dampGearWeights(lootPool, (item) => Boolean(item.slot)),
+      (item) => item.useEffect?.type === 'food',
+    ),
     starterPool: starterLootPool,
     count: 1 + lootCells.length,
     qualityBudget: budget.qualityBudget,

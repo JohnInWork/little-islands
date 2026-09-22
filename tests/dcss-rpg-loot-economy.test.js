@@ -102,3 +102,42 @@ test('high abundance stays mostly common across a seed sweep', () => {
   assert.ok(total > 1000);
   assert.ok(rare / total < 0.12);
 });
+
+/**
+ * Носимое — находка, а не третья штука за этаж.
+ *
+ * Иван: «очень легко зачистить первый этаж, пойти в город и купить себе фулл
+ * сет брони. <...> вещи в игре должны быть дорогие, чтобы это была находка.
+ * <...> урежь всё-таки находки, если сейчас 2.2, то сделаем 1.5».
+ *
+ * Резать сам счёт мест нельзя: по нему отмерены и еда — час полосы голода на
+ * дорогу, — и золото сокровищницы. Поэтому мест столько же, а вес железа в
+ * лотерее прижат. Здесь заперт итог: полторы вещи на ранний этаж, и золото с
+ * едой при этом на месте.
+ */
+test('на раннем этаже носимого около полутора штук, а золото и еда на месте', async () => {
+  const { generateDungeon } = await import('../tools/dcss-rpg-core.js');
+  const { lootById } = await import('../tools/dcss-rpg-content.js');
+  let носимых = 0;
+  let золота = 0;
+  let этажей = 0;
+  for (const depth of [1, 2, 3]) {
+    for (let seed = 1; seed <= 40; seed += 1) {
+      for (const branch of ['deep', 'surface', 'crypt']) {
+        const dungeon = generateDungeon({ seed, depth, branch });
+        этажей += 1;
+        for (const spawn of dungeon.loot) {
+          const item = lootById(spawn.id);
+          if (!item) continue;
+          if (item.gold) золота += spawn.amount ?? 1;
+          else if (item.slot) носимых += 1;
+        }
+      }
+    }
+  }
+  const наЭтаж = носимых / этажей;
+  assert.ok(наЭтаж > 1.2 && наЭтаж < 1.8, `носимого на этаж: ${наЭтаж.toFixed(2)}`);
+  // И сокровищница не осушена: без золота под ногами ранние этажи оставались,
+  // когда счёт мест резали напрямую.
+  assert.ok(золота / этажей > 3, `золота на этаж: ${(золота / этажей).toFixed(1)}`);
+});

@@ -43,7 +43,7 @@ export const MERCHANT_COMMANDS = Object.freeze({
 // One public profile keeps economy tuning out of the UI and room generator.
 export const MERCHANT_ECONOMY = Object.freeze({
   buyMultiplier: 1,
-  sellMultiplier: 0.34,
+  sellMultiplier: 0.25,
   buybackMultiplier: 0.68,
   nextDepthPreview: 1,
   startingGold: 60,
@@ -168,9 +168,16 @@ function baseItemPrice(item) {
    * какая-нибудь железная кираса очень дешёвая». Квадрат редкости разводит
    * их обратно: обычное железо остаётся дешёвым, редкое становится покупкой.
    */
+  /*
+   * Носимое стоит дорого, потому что оно и есть игра.
+   *
+   * Базовая часть была тройкой, и кираса с первого этажа стоила девять монет:
+   * полный комплект в городе — сорок четыре, то есть два этажа. Находка при
+   * таких ценах ничего не значит, потому что дешевле купить.
+   */
   return Math.max(
     4,
-    3 + effectiveLootDepth(item) * 2 + (item.rarity ?? 0) ** 2 * 5 + Math.ceil(itemPowerScore(item) * 0.7),
+    12 + effectiveLootDepth(item) * 2 + (item.rarity ?? 0) ** 2 * 5 + Math.ceil(itemPowerScore(item) * 1.2),
   );
 }
 
