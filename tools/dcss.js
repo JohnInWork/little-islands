@@ -10816,7 +10816,12 @@ function merchantItemButton({ item, price, disabled = false, sold = false, badge
   }
   const value = document.createElement('span');
   value.className = 'merchant-item-price';
-  value.innerHTML = sold ? `<b>${merchantPresentation(activeMerchant.variantId, itemDetailLanguage).sold}</b>` : `<b>${price}</b><i>●</i>`;
+  if (sold) {
+    value.textContent = merchantPresentation(activeMerchant.variantId, itemDetailLanguage).sold;
+  } else {
+    // Монета та же, что в кошельке: кружок из шрифта её не заменяет.
+    fillTextWithIcons(value, `${price} {gold}`);
+  }
   button.append(icon, copy, value);
   button.addEventListener('click', onActivate);
   return button;
@@ -11143,7 +11148,7 @@ function transactChestGold() {
   const amount = result.state.gold - gold;
   gold = result.state.gold;
   replaceChestContainerState(result.state.container);
-  chestContainerFeedback.textContent = `+${amount} ●`;
+  fillTextWithIcons(chestContainerFeedback, `+${amount} {gold}`);
   playerHasActed = true;
   applyGameEvents(result.events);
   updateHud();
@@ -11289,7 +11294,7 @@ function transactMerchantSale(uid) {
   replaceMerchantState(result.state.merchantState);
   applyItemState({ items: result.state.items, inventory: result.state.inventory, equipment: state.equipment });
   gold = result.state.gold;
-  merchantShopFeedback.textContent = `+${result.state.transactionAmount} ●`;
+  fillTextWithIcons(merchantShopFeedback, `+${result.state.transactionAmount} {gold}`);
   playerHasActed = true;
   applyGameEvents(result.events);
   updateHud();
@@ -13997,7 +14002,7 @@ function renderRecords() {
     const label = document.createElement('span');
     mark.textContent = trophy.taken ? '✔' : '·';
     body.textContent = trophy.taken ? trophy.name : '???';
-    label.textContent = `${trophy.road} · ${trophy.floor} · ${trophy.bounty}●`;
+    fillTextWithIcons(label, `${trophy.road} · ${trophy.floor} · ${trophy.bounty} {gold}`);
     body.append(label);
     row.append(mark, body);
     row.dataset.earned = String(trophy.taken);
@@ -14080,7 +14085,7 @@ function renderOutfit() {
       name.textContent = good.name;
       const price = document.createElement('span');
       price.className = 'outfit-price';
-      price.textContent = `${good.price}●`;
+      fillTextWithIcons(price, `${good.price} {gold}`);
       button.append(icon, name, price);
       if (good.owned > 0) {
         const owned = document.createElement('i');
@@ -14111,7 +14116,7 @@ function renderOutfitDetail() {
   outfitDetailIcon.alt = good.name;
   outfitDetailName.textContent = good.name;
   outfitDetailKind.textContent = [good.rarity, good.slotLabel].filter(Boolean).join(' · ');
-  outfitDetailPrice.textContent = `${good.price}●`;
+  fillTextWithIcons(outfitDetailPrice, `${good.price} {gold}`);
   outfitDetailEffects.replaceChildren(...good.effects.map((effect) => {
     const row = document.createElement('li');
     const icon = document.createElement('i');
@@ -14129,7 +14134,7 @@ function renderOutfitDetail() {
   outfitDetailClose.setAttribute('aria-label', model.copy.close);
   outfitDetailReturn.textContent = model.copy.give;
   outfitDetailReturn.hidden = good.owned === 0;
-  outfitDetailBuy.textContent = `${model.copy.buy} · ${good.price}●`;
+  fillTextWithIcons(outfitDetailBuy, `${model.copy.buy} · ${good.price} {gold}`);
   outfitDetailBuy.disabled = !good.affordable;
 }
 

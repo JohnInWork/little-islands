@@ -732,9 +732,17 @@ body {
   color: #d8bf68;
 }
 
+/*
+ * Строка «пока пусто» живёт внутри рамки, а не на ней.
+ *
+ * Отступов у неё не было вовсе, и текст в снаряжении начинался вплотную к
+ * краю — Иван прислал скриншот. Отступ тот же, что у соседних блоков экрана.
+ */
 .records-empty {
   margin: 0;
+  padding: 8px 10px;
   font-size: 11px;
+  line-height: 1.45;
   color: #7d8f8a;
 }
 
@@ -8425,6 +8433,13 @@ body {
   width: 32px;
   height: 32px;
   image-rendering: pixelated;
+}
+
+/* Монета в цене — по размеру текста, а не по размеру вещи рядом. */
+.outfit-good .text-icon,
+.outfit-detail .text-icon {
+  width: 1.15em;
+  height: 1.15em;
 }
 
 .outfit-good b {
