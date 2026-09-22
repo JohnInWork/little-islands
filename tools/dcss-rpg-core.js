@@ -120,7 +120,7 @@ import {
   validateAttributeState,
 } from './dcss-rpg-attributes.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
-import { createSpellState, validateSpellState } from './dcss-rpg-spells.js';
+import { createSpellState, spellIdsForRanks, validateSpellState } from './dcss-rpg-spells.js';
 import { buildAttributes, validateBuild } from './dcss-rpg-character-creation.js';
 import {
   MAX_BACKPACK_CAPACITY,
@@ -1578,12 +1578,22 @@ export function createRun(
           ? buildAttributes(build)
           : { intelligence: startingMagic.intelligence },
       ),
-      spells: build && build.spellIds.length > 0
-        ? createSpellState({
-          knownSpellIds: [...build.spellIds],
-          preparedSpellIds: [build.spellIds[0] ?? null, build.spellIds[1] ?? null, null],
-        })
-        : startingMagic.spells,
+      /*
+       * Заклинания забега — это его школы, а не отдельный список.
+       *
+       * Сборка героя раздавала стартовые заклинания сама; теперь их приносит
+       * первый ранг школы, взятый на создании. Маг, выбравший пиромантию,
+       * рождается с огненной стрелой на панели и без второго источника правды.
+       */
+      spells: (() => {
+        const ranks = Object.fromEntries((build?.skillIds ?? []).map((id) => [id, 1]));
+        const known = spellIdsForRanks(ranks);
+        if (known.length === 0) return startingMagic.spells;
+        return createSpellState({
+          knownSpellIds: [...known],
+          preparedSpellIds: [known[0] ?? null, known[1] ?? null, known[2] ?? null],
+        });
+      })(),
     },
     gold: 0,
     status: 'playing',

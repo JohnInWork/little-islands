@@ -46,9 +46,13 @@ test('готовый герой не даёт ничего сверх того, 
     }
     assert.ok(validateBuild(createArchetypeBuild(archetype.id)));
   }
-  // Заклинание есть ровно у одного: магу без него нечего делать до первой книги.
+  // Заклинаний не раздаёт никто: магу их даёт ранг пиромантии, взятый здесь же.
   const сзаклинанием = BUILD_ARCHETYPES.filter(({ spellIds }) => spellIds.length > 0);
-  assert.deepEqual(сзаклинанием.map(({ id }) => id), ['mage']);
+  assert.deepEqual(сзаклинанием.map(({ id }) => id), []);
+  assert.ok(
+    buildArchetypeById('mage').skillIds.some((id) => ['pyromancy', 'arcana'].includes(id)),
+    'маг без школы — маг без заклинаний',
+  );
   assert.equal(buildArchetypeById('нет такого'), null);
   assert.throws(() => createArchetypeBuild('нет такого'), TypeError);
 });
@@ -178,8 +182,10 @@ test('забег выходит собранным, а забег без соз�
     assert.equal(run.hero.skills.points, 0, `${id}: очки взялись из ниоткуда`);
   }
 
+  // Маг берёт пиромантию и арканистику — и рождается с первым заклинанием
+  // каждой школы. Отдельного списка заклинаний у сборки больше нет.
   const маг = createRun(1, generateDungeon({ seed: 1, depth: 1 }), null, createArchetypeBuild('mage'));
-  assert.deepEqual([...маг.hero.spells.knownSpellIds], ['ember-bolt']);
+  assert.deepEqual([...маг.hero.spells.knownSpellIds], ['ember-bolt', 'arcane-splinter']);
 
   const прежний = createRun(2, generateDungeon({ seed: 2, depth: 1 }));
   assert.equal(validateRun(прежний), true);

@@ -159,6 +159,7 @@ import {
   cloneSkillState,
   createSkillState,
   deriveSkillCapabilities,
+  effectiveSkillRank,
   learnSkill,
 } from './dcss-rpg-skills.js';
 import { skillById } from './dcss-rpg-skill-content.js';
@@ -604,13 +605,13 @@ import {
 import {
   READ_BOOK_COMMAND,
   createBookStudy,
-  bookOutcome,
-  readSpellBook,
   readSkillBook,
 } from './dcss-rpg-books.js';
 import {
+  SPELL_SCHOOL_IDS,
   createSpellState,
   knownSpellModel,
+  spellIdsForRanks,
   prepareSpell,
   pyromancySpreadProfile,
   spellBarModel,
@@ -2463,6 +2464,39 @@ function currentSkillOptions() {
   return { rankAdjustments: hero.skillStudy.rankAdjustments };
 }
 
+/**
+ * Заклинания героя — это его ранги школ, и ничего кроме.
+ *
+ * Список известного лежит в сохранении, но истиной больше не является: его
+ * пересобирают отсюда всякий раз, когда ранг мог измениться — очком, книгой
+ * или сбросом. Заклинание, под которое ранга больше нет, уходит и с панели:
+ * «Книга забвения» умеет отнимать ранг, и держать на панели то, чего герой
+ * уже не умеет, было бы обманом.
+ */
+function syncKnownSpells() {
+  const ranks = Object.fromEntries(SPELL_SCHOOL_IDS.map((schoolId) => [
+    schoolId,
+    effectiveSkillRank(hero.skills, schoolId, hero.skillStudy.rankAdjustments),
+  ]));
+  const known = spellIdsForRanks(ranks);
+  const prepared = hero.spells.preparedSpellIds.map((id) => (known.includes(id) ? id : null));
+  // Новое заклинание само ложится в пустую ячейку: открыть школу и потом
+  // искать, куда нажать, — лишний шаг там, где выбора ещё нет.
+  for (const id of known) {
+    if (prepared.includes(id)) continue;
+    const slot = prepared.indexOf(null);
+    if (slot < 0) break;
+    prepared[slot] = id;
+  }
+  hero.spells = createSpellState({
+    ...hero.spells,
+    knownSpellIds: known,
+    preparedSpellIds: prepared,
+    activeSustainedSpellIds: hero.spells.activeSustainedSpellIds.filter((id) => prepared.includes(id)),
+  });
+  return hero.spells;
+}
+
 /** How wide this hero's bag is: thirty, plus whatever «Вьючник» adds. */
 function currentBackpackCapacity() {
   return backpackCapacity(currentSkillCapabilities());
@@ -3458,6 +3492,7 @@ function payPriestForForgetting() {
 function applyRespec() {
   const before = respecHero({ level: hero.level, build: run.build ?? null });
   hero.skills = cloneSkillState(before.skills);
+  syncKnownSpells();
   hero.attributes = cloneAttributeState(before.attributes);
   hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
   renderCharacterAttributes();
@@ -4018,6 +4053,9 @@ function learnHeroSkill(skillId, expectedRank) {
   });
   if (!result.ok) return result;
   hero.skills = result.state;
+  // Новый ранг школы — новые заклинания на панели.
+  syncKnownSpells();
+  renderSpellBar();
   hero.hp = Math.min(hero.hp, currentHeroStats().maxHp);
   discoverNearbyTraps();
   updateGearUi();
@@ -14135,41 +14173,15 @@ function applyIdentifiablePotion(item) {
   return consumableReport().venom(result?.damage ?? outcome.damage, outcome.duration);
 }
 
+/**
+ * Книга поднимает ранг школы, а заклинания приходят вместе с рангом.
+ *
+ * Раньше книга учила одному заклинанию навсегда, и школьный навык только
+ * усиливал уже известное. Иван перевернул: «магия должна быть в навыках <...>
+ * книга прокачивает тебе какой-то определённый навык, не тратя очко навыков».
+ */
 function applyBook(item) {
   const command = nextGameCommand(READ_BOOK_COMMAND, item.uid, { itemId: item.id });
-  const outcome = bookOutcome(item);
-  if (outcome?.type === 'learn-spell') {
-    const result = readSpellBook({
-      command,
-      item,
-      spells: hero.spells,
-      intelligence: currentHeroStats().intelligence,
-    });
-    if (!result.ok) {
-      const required = result.reason === 'intelligence-required'
-        ? spellById(outcome.spellId)?.minimumIntelligence
-        : null;
-      if (Number.isFinite(required)) {
-        addCombatGlyph(hero.x, hero.y, `✧${required}`, '#9abfc0', -62);
-        showLootToast(item, `✧ ${required}`);
-      } else {
-        // Уже знакомое заклинание — тоже ответ, и его надо сказать.
-        const spell = spellById(outcome.spellId);
-        showLootToast(item, consumableReport().spellKnown(spell?.name?.[itemDetailLanguage] ?? ''));
-      }
-      return null;
-    }
-    hero.spells = createSpellState(result.state.spells);
-    const firstEmptySlot = hero.spells.preparedSpellIds.indexOf(null);
-    if (firstEmptySlot >= 0) {
-      hero.spells = prepareSpell(hero.spells, firstEmptySlot, outcome.spellId).state;
-    }
-    const spell = spellById(outcome.spellId);
-    burst(hero.x, hero.y - 8, spell.color, 20);
-    addImpactWave(hero.x, hero.y - 8, spell.color, 62, 1);
-    renderSpellBar();
-    return consumableReport().learned(spell.name[itemDetailLanguage]);
-  }
   const result = readSkillBook({
     command,
     item,
@@ -14187,6 +14199,8 @@ function applyBook(item) {
     return consumableReport().blankBook;
   }
   const { skillId, direction } = adjustment.payload;
+  // Ранг школы мог открыть или закрыть заклинания — панель узнаёт об этом тут.
+  syncKnownSpells();
   const skillName = skillById(skillId)?.name?.[itemDetailLanguage] ?? skillId;
   const color = direction > 0 ? '#d8c76c' : '#9b6d9f';
   burst(hero.x, hero.y - 8, color, 18);
@@ -16791,6 +16805,7 @@ function restartRun(seed = null, build = null) {
   currentHungerStageId = hungerStage(hero.hunger).id;
   hero.effects = createActorEffects(run.hero.effects);
   hero.skills = cloneSkillState(run.hero.skills);
+  syncKnownSpells();
   hero.skillStudy = createBookStudy(run.hero.skillStudy);
   for (const id of Object.keys(spellCooldowns)) delete spellCooldowns[id];
   spellUiAccumulator = 0;

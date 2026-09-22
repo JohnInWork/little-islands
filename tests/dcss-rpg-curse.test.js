@@ -17,7 +17,7 @@ import { materializeProceduralArtifact } from '../tools/dcss-rpg-artifacts.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { createEmptyEquipment, equipInventoryItem, unequipItem } from '../tools/dcss-rpg-rules.js';
 import { equipmentMagic } from '../tools/dcss-rpg-magic.js';
-import { spellById } from '../tools/dcss-rpg-spells.js';
+import { SPELLS_BY_RANK, spellById } from '../tools/dcss-rpg-spells.js';
 
 const bind = (id, uid = id) => materializeProceduralArtifact(
   { ...lootById(id), uid },
@@ -85,8 +85,12 @@ test('there are exactly three ways out, and each costs a different thing', () =>
   assert.ok(spell, 'the spell exists');
   assert.equal(spell.kind, 'unbind');
   assert.ok(spell.minimumIntelligence >= 8, 'a late spell, not an early one');
-  assert.ok(LOOT_CATALOG.some((item) => item.bookEffect?.spellId === UNBINDING_SPELL_ID),
-    'a spell with no book is a spell nobody can learn');
+  // Книга больше не учит заклинанию — она поднимает ранг школы. Снятие оков
+  // лежит на третьей ступени очищения, и книги этой школы туда и ведут.
+  assert.ok(SPELLS_BY_RANK.cleansing[2].includes(UNBINDING_SPELL_ID),
+    'заклинание, до которого не дотянуться ни одним рангом школы');
+  assert.ok(LOOT_CATALOG.some((item) => item.bookEffect?.skillId === 'cleansing'),
+    'школа без книг — школа, которую не поднять находкой');
 
   // Money: steep, and steeper the further a run has come.
   assert.equal(templePrice(1), TEMPLE_BASE_PRICE);

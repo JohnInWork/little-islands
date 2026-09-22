@@ -59,12 +59,21 @@ test('a new run starts with worn clothes, a rusty sword, one potion, one meal an
   assert.ok(bar.slots.every((slot) => slot.empty), 'the HUD column has nothing to show');
 });
 
-test('the bare preset is the default while the wanderer kit only serves old saves', () => {
+/**
+ * Заготовки задают только интеллект: заклинания приходят рангами школ.
+ *
+ * Раньше набор странника выдавал два заклинания на старте. Теперь магия — это
+ * навык, и стартовое заклинание берётся оттуда же, откуда всё остальное: из
+ * ранга школы, взятого на создании героя.
+ */
+test('ни одна заготовка не раздаёт заклинаний — их раздают ранги школ', () => {
   assert.equal(DEFAULT_BUILD_PRESET_ID, 'outcast');
   assert.equal(LEGACY_BUILD_PRESET_ID, 'wanderer');
-  assert.deepEqual(BUILD_PRESETS.outcast.knownSpellIds, []);
   assert.equal(createStartingMagic().intelligence, 3);
-  assert.deepEqual(createStartingMagic(LEGACY_BUILD_PRESET_ID).spells.knownSpellIds, ['ember-bolt', 'mending-light']);
+  for (const preset of Object.values(BUILD_PRESETS)) {
+    assert.deepEqual(preset.knownSpellIds, [], `${preset.id} всё ещё раздаёт заклинания`);
+    assert.deepEqual(createStartingMagic(preset.id).spells.preparedSpellIds, [null, null, null]);
+  }
 });
 
 /**
@@ -104,8 +113,8 @@ test('starter gear is weaker than any drop and never appears as loot or stock', 
 test('the former starting spells are ordinary unknown books with enough authored looks', () => {
   const embers = lootById('book-of-embers');
   const mending = lootById('book-of-mending');
-  assert.deepEqual(embers.bookEffect, { type: 'learn-spell', spellId: 'ember-bolt' });
-  assert.deepEqual(mending.bookEffect, { type: 'learn-spell', spellId: 'mending-light' });
+  assert.deepEqual(embers.bookEffect, { type: 'study', skillId: 'pyromancy' });
+  assert.deepEqual(mending.bookEffect, { type: 'study', skillId: 'cleansing' });
   assert.equal(embers.identification.tier, 1);
   assert.equal(mending.identification.tier, 1);
   assert.equal(lootEligibleForFloor(embers, floorScaling(1)), true);

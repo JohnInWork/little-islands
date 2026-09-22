@@ -2201,7 +2201,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 1,
     identification: { group: 'book', tier: 1 },
-    bookEffect: { type: 'learn-spell', spellId: 'ember-bolt' },
+    bookEffect: { type: 'study', skillId: 'pyromancy' },
   },
   {
     id: 'book-of-mending',
@@ -2213,7 +2213,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 1,
     identification: { group: 'book', tier: 1 },
-    bookEffect: { type: 'learn-spell', spellId: 'mending-light' },
+    bookEffect: { type: 'study', skillId: 'cleansing' },
   },
   {
     id: 'book-of-frost', element: 'ice',
@@ -2225,7 +2225,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'frost-lance' },
+    bookEffect: { type: 'study', skillId: 'cryomancy' },
   },
   {
     id: 'book-of-flight',
@@ -2237,7 +2237,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'flight' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     id: 'book-of-storms',
@@ -2249,7 +2249,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'storm-bolt' },
+    bookEffect: { type: 'study', skillId: 'storm-magic' },
   },
   // ── Книги новых школ ────────────────────────────────────────────────────
   // Заклинание, которому негде научиться, — это обещание, которого никто не
@@ -2265,7 +2265,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'frost-burst' },
+    bookEffect: { type: 'study', skillId: 'cryomancy' },
   },
   {
     id: 'book-of-glaciate',
@@ -2278,7 +2278,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 4,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'glaciate' },
+    bookEffect: { type: 'study', skillId: 'cryomancy' },
   },
   {
     id: 'book-of-ice-armour',
@@ -2291,7 +2291,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'ice-armour' },
+    bookEffect: { type: 'study', skillId: 'cryomancy' },
   },
   {
     id: 'book-of-storm-burst',
@@ -2303,7 +2303,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 4,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'storm-burst' },
+    bookEffect: { type: 'study', skillId: 'storm-magic' },
   },
   {
     id: 'book-of-thunderclap',
@@ -2315,7 +2315,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'thunderclap' },
+    bookEffect: { type: 'study', skillId: 'storm-magic' },
   },
   {
     id: 'book-of-shove',
@@ -2327,7 +2327,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 1,
     identification: { group: 'book', tier: 1 },
-    bookEffect: { type: 'learn-spell', spellId: 'shove' },
+    bookEffect: { type: 'study', skillId: 'storm-magic' },
   },
   {
     id: 'book-of-cauterising',
@@ -2340,7 +2340,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'cauterise' },
+    bookEffect: { type: 'study', skillId: 'pyromancy' },
   },
   {
     id: 'book-of-kindling',
@@ -2353,7 +2353,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'kindle' },
+    bookEffect: { type: 'study', skillId: 'pyromancy' },
   },
   {
     id: 'book-of-sharing',
@@ -2365,7 +2365,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'share-life' },
+    bookEffect: { type: 'study', skillId: 'necromancy' },
   },
   {
     id: 'book-of-warding',
@@ -2377,7 +2377,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'ward' },
+    bookEffect: { type: 'study', skillId: 'cleansing' },
   },
   {
     id: 'book-of-tending',
@@ -2389,7 +2389,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'cleanse-ally' },
+    bookEffect: { type: 'study', skillId: 'cleansing' },
   },
   {
     id: 'book-of-keys',
@@ -2401,7 +2401,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 5,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'unlock' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     id: 'book-of-translocation',
@@ -2413,7 +2413,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 4,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'teleport' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     id: 'book-of-invisibility',
@@ -2425,7 +2425,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'invisibility' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     id: 'book-of-bones',
@@ -2437,7 +2437,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'raise-skeleton' },
+    bookEffect: { type: 'study', skillId: 'necromancy' },
   },
   {
     id: 'book-of-hunger',
@@ -2449,7 +2449,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 5,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'raise-ghoul' },
+    bookEffect: { type: 'study', skillId: 'necromancy' },
   },
   {
     id: 'book-of-wardens',
@@ -2461,7 +2461,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 6,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'raise-warden' },
+    bookEffect: { type: 'study', skillId: 'necromancy' },
   },
   {
     id: 'book-of-embers-burst', element: 'fire',
@@ -2473,7 +2473,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 4,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'ember-burst' },
+    bookEffect: { type: 'study', skillId: 'pyromancy' },
   },
   {
     // The page that teaches the unbinding. Deep and rare on purpose: the spell
@@ -2488,7 +2488,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 6,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'unbinding' },
+    bookEffect: { type: 'study', skillId: 'cleansing' },
   },
   {
     id: 'book-of-purity',
@@ -2500,7 +2500,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'purging-light' },
+    bookEffect: { type: 'study', skillId: 'cleansing' },
   },
   {
     id: 'book-of-splinters',
@@ -2512,7 +2512,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 2,
     stack: 1,
     identification: { group: 'book', tier: 2 },
-    bookEffect: { type: 'learn-spell', spellId: 'arcane-splinter' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     id: 'book-of-camp-call',
@@ -2524,7 +2524,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 3,
     stack: 1,
     identification: { group: 'book', tier: 3 },
-    bookEffect: { type: 'learn-spell', spellId: 'camp-call' },
+    bookEffect: { type: 'study', skillId: 'arcana' },
   },
   {
     // A shield is only worth a hand when something depends on the hand. Three of

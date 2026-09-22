@@ -60,7 +60,7 @@ export const BUILD_ARCHETYPES = Object.freeze([
     skillIds: Object.freeze(['pyromancy', 'arcana']),
     // Единственный, кто выходит со заклинанием: без него магу нечего делать
     // до первой книги, а книга может не выпасть за весь забег.
-    spellIds: Object.freeze(['ember-bolt']),
+    spellIds: Object.freeze([]),
     ru: Object.freeze({
       name: 'Маг',
       line: 'Огонь с расстояния. Начинает с уголька и знает, как учить книги.',

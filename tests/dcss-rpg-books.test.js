@@ -7,7 +7,6 @@ import {
   bookOutcome,
   createBookStudy,
   readSkillBook,
-  readSpellBook,
   validateBookStudy,
 } from '../tools/dcss-rpg-books.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
@@ -47,7 +46,11 @@ const owned = (id, uid = `${id}-1`) => ({ ...lootById(id), uid });
 test('three data-driven books cover mastery, amnesia and deliberately blank reading', () => {
   assert.deepEqual(
     ['practice-manual', 'tome-of-amnesia', 'blank-codex'].map((id) => bookOutcome(lootById(id))),
-    [{ type: 'study' }, { type: 'forget' }, { type: 'blank' }],
+    [
+      { type: 'study', skillId: null },
+      { type: 'forget', skillId: null },
+      { type: 'blank', skillId: null },
+    ],
   );
   for (const id of ['practice-manual', 'tome-of-amnesia', 'blank-codex']) {
     const item = lootById(id);
@@ -110,48 +113,67 @@ test('a blank book is consumed as a real discovery but has no hidden mutation', 
   assert.deepEqual(result.events.map(({ type }) => type), ['book-read', 'book-was-blank']);
 });
 
-test('spellbooks teach one permanent spell only when intelligence is high enough', () => {
+/**
+ * Книга школы поднимает ранг школы, а заклинания приходят вместе с рангом.
+ *
+ * Раньше книга учила одному заклинанию навсегда, и школьный навык только
+ * усиливал уже известное. Иван перевернул: «магия должна не даваться в
+ * заклинаниях, а также быть в навыках <...> книга прокачивает тебе какой-то
+ * определённый навык, не тратя очко навыков, потому что ты книгу нашёл».
+ */
+test('книга школы поднимает свою школу и ничью больше', async () => {
+  const { spellIdsForRanks } = await import('../tools/dcss-rpg-spells.js');
   const item = owned('book-of-flight');
-  const spells = createSpellState();
-  assert.deepEqual(bookOutcome(item), { type: 'learn-spell', spellId: 'flight' });
-  const blocked = readSpellBook({
-    command: command(4, item.uid), item, spells, intelligence: 5,
-  });
-  assert.equal(blocked.ok, false);
-  assert.equal(blocked.reason, 'intelligence-required');
-  assert.deepEqual(spells.knownSpellIds, []);
+  assert.deepEqual(bookOutcome(item), { type: 'study', skillId: 'arcana' });
 
-  const learned = readSpellBook({
-    command: command(5, item.uid), item, spells, intelligence: 6,
+  const study = createBookStudy();
+  const read = readSkillBook({
+    command: command(4, item.uid),
+    item,
+    study,
+    skills: createSkillState(4),
+    heroLevel: 4,
+    attributes: { strength: 12, agility: 12, intelligence: 12 },
   });
-  assert.equal(learned.ok, true);
-  assert.deepEqual(learned.state.spells.knownSpellIds, ['flight']);
-  assert.deepEqual(learned.events.map(({ type }) => type), ['book-read', 'spell-learned']);
-  assert.equal(readSkillBook({
-    command: command(6, item.uid), item, study: createBookStudy(), skills: createSkillState(), heroLevel: 1,
-  }).reason, 'not-a-skill-book');
+  assert.equal(read.ok, true);
+  assert.deepEqual(read.state.study.rankAdjustments, { arcana: 1 });
+  assert.deepEqual(read.events.map(({ type }) => type), ['book-read', 'skill-rank-adjusted']);
+  // Первый ранг арканистики — и осколок уже в руках, без второй книги.
+  assert.deepEqual(spellIdsForRanks({ arcana: 1 }), ['arcane-splinter']);
 
+  // Книга мороза поднимает криомантию, а не что попало: школа названа в самой книге.
   const frostBook = owned('book-of-frost');
-  assert.deepEqual(bookOutcome(frostBook), { type: 'learn-spell', spellId: 'frost-lance' });
-  const frost = readSpellBook({
-    command: command(7, frostBook.uid),
+  assert.deepEqual(bookOutcome(frostBook), { type: 'study', skillId: 'cryomancy' });
+  const frost = readSkillBook({
+    command: command(5, frostBook.uid),
     item: frostBook,
-    spells,
-    intelligence: 4,
+    study: read.state.study,
+    skills: createSkillState(4),
+    heroLevel: 4,
+    attributes: { strength: 12, agility: 12, intelligence: 12 },
   });
   assert.equal(frost.ok, true);
-  assert.deepEqual(frost.state.spells.knownSpellIds, ['frost-lance']);
+  assert.deepEqual(frost.state.study.rankAdjustments, { arcana: 1, cryomancy: 1 });
 
-  const stormBook = owned('book-of-storms');
-  assert.deepEqual(bookOutcome(stormBook), { type: 'learn-spell', spellId: 'storm-bolt' });
-  const storm = readSpellBook({
-    command: command(8, stormBook.uid),
-    item: stormBook,
-    spells,
-    intelligence: 5,
-  });
-  assert.equal(storm.ok, true);
-  assert.deepEqual(storm.state.spells.knownSpellIds, ['storm-bolt']);
+  // Три книги одной школы дают третий ранг — и всё, что он открывает.
+  let study3 = createBookStudy();
+  for (const step of [6, 7, 8]) {
+    const next = readSkillBook({
+      command: command(step, frostBook.uid),
+      item: frostBook,
+      study: study3,
+      skills: createSkillState(8),
+      heroLevel: 8,
+      attributes: { strength: 12, agility: 12, intelligence: 12 },
+    });
+    assert.equal(next.ok, true, `шаг ${step}`);
+    study3 = next.state.study;
+  }
+  assert.deepEqual(study3.rankAdjustments, { cryomancy: 3 });
+  assert.deepEqual(
+    spellIdsForRanks({ cryomancy: 3 }),
+    ['frost-lance', 'frost-burst', 'glaciate', 'ice-armour'],
+  );
 });
 
 test('every unknown family has its own seeded appearance pool without effect leakage', () => {

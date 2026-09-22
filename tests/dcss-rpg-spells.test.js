@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import {
   ICE_ARMOUR_SOAK,
+  SPELLS_BY_RANK,
   SPELL_CATALOG,
   SPELL_SLOT_COUNT,
   SUSTAINED_MAGIC_FLAGS,
@@ -24,7 +25,23 @@ import {
   validateSpellState,
 } from '../tools/dcss-rpg-spells.js';
 import { createStartingMagic } from '../tools/dcss-rpg-build-presets.js';
+
+/*
+ * Заготовка «знающего героя».
+ *
+ * Раньше её роль играл набор странника: он выдавал два стартовых заклинания.
+ * Теперь заклинания приходят рангами школ, а заготовки задают только
+ * интеллект, поэтому герой с двумя заклинаниями собирается здесь руками.
+ */
+const casterMagic = () => ({
+  intelligence: 4,
+  spells: createSpellState({
+    knownSpellIds: ['ember-bolt', 'mending-light'],
+    preparedSpellIds: ['ember-bolt', 'mending-light', null],
+  }),
+});
 import { LOOT_CATALOG } from '../tools/dcss-rpg-content.js';
+import { skillById } from '../tools/dcss-rpg-skill-content.js';
 
 test('spell state owns exactly three unique prepared slots and validates strictly', () => {
   const outcast = createStartingMagic();
@@ -33,7 +50,7 @@ test('spell state owns exactly three unique prepared slots and validates strictl
   assert.deepEqual(outcast.spells.knownSpellIds, []);
   assert.deepEqual(outcast.spells.preparedSpellIds, [null, null, null]);
   assert.equal(validateSpellState(outcast.spells), true);
-  const starting = createStartingMagic('wanderer');
+  const starting = casterMagic();
   assert.equal(starting.intelligence, 4);
   assert.deepEqual(starting.spells.preparedSpellIds, ['ember-bolt', 'mending-light', null]);
   assert.equal(validateSpellState(starting.spells), true);
@@ -107,7 +124,7 @@ test('no sustained spell promises a power the fold would drop', () => {
 });
 
 test('manual cast availability handles targets, healing, cooldown and intelligence', () => {
-  const state = createStartingMagic('wanderer').spells;
+  const state = casterMagic().spells;
   assert.equal(spellUseAvailability({ state: createStartingMagic().spells, slotIndex: 0, intelligence: 4, hasTarget: true }).reason, 'empty-slot');
   assert.equal(spellUseAvailability({ state, slotIndex: 0, intelligence: 4, hasTarget: false }).reason, 'no-target');
   assert.equal(spellUseAvailability({ state, slotIndex: 0, intelligence: 4, hasTarget: true }).ok, true);
@@ -160,7 +177,7 @@ test('the spell catalog and both UI models are bilingual and data driven', () =>
   assert.equal(new Set(SPELL_CATALOG.map(({ id }) => id)).size, SPELL_CATALOG.length);
   const empty = spellBarModel({ state: createStartingMagic().spells, intelligence: 3, language: 'ru' });
   assert.ok(empty.slots.every((slot) => slot.empty), 'a new run prepares nothing');
-  const magic = createStartingMagic('wanderer');
+  const magic = casterMagic();
   const bar = spellBarModel({ state: magic.spells, intelligence: magic.intelligence, language: 'ru' });
   assert.equal(bar.slots.length, 3);
   assert.equal(bar.slots[0].name, 'Огненная стрела');
@@ -187,13 +204,31 @@ test('no school is too thin to build a hero out of, and no spell is a dead end',
     assert.ok(count >= 4, `${schoolId} carries only ${count} spells — nothing to specialise into`);
   }
 
-  const taught = LOOT_CATALOG.filter((item) => item.bookEffect?.type === 'learn-spell');
-  const spellIds = taught.map((book) => book.bookEffect.spellId);
+  /*
+   * Каждое заклинание лежит на какой-то ступени какой-то школы.
+   *
+   * Раньше здесь сверялось другое: что у каждого заклинания есть своя книга.
+   * Книга больше не учит заклинанию — она поднимает ранг школы, — и забытым
+   * теперь остаётся не тот, кому не написали книгу, а тот, кого не положили
+   * ни на одну ступень.
+   */
+  const placed = new Set(Object.values(SPELLS_BY_RANK).flat(2));
   assert.deepEqual(
-    [...spellIds].sort(),
+    [...placed].sort(),
     SPELL_CATALOG.map(({ id }) => id).sort(),
-    'every spell is taught by exactly one book, and no book teaches a spell that is not there',
+    'заклинание, до которого не дотянуться ни одним рангом школы',
   );
+  for (const schoolId of Object.keys(SPELLS_BY_RANK)) {
+    assert.equal(SPELLS_BY_RANK[schoolId].length, 3, `${schoolId}: ступеней не три`);
+    for (const rank of SPELLS_BY_RANK[schoolId]) {
+      assert.ok(rank.length > 0, `${schoolId}: пустая ступень`);
+    }
+    assert.ok(schools.has(schoolId), `${schoolId}: школа без заклинаний`);
+  }
+  // У каждой школы есть навык с тем же именем — иначе ранг взять неоткуда.
+  for (const schoolId of Object.keys(SPELLS_BY_RANK)) {
+    assert.ok(skillById(schoolId), `${schoolId}: нет навыка школы`);
+  }
 
   const preview = new URL('../public/assets/dcss-preview/', import.meta.url);
   for (const spell of SPELL_CATALOG) {

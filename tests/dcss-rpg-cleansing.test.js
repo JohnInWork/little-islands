@@ -120,8 +120,9 @@ test('the salt, the scrolls and the books are complete catalogue items', () => {
       assert.ok(!details.name.startsWith('item'), `${id} is not a raw path in ${language}`);
     }
   }
-  assert.equal(lootById('book-of-purity').bookEffect.spellId, 'purging-light');
-  assert.equal(lootById('book-of-splinters').bookEffect.spellId, 'arcane-splinter');
+  // Книга поднимает ранг школы, а заклинание приходит вместе с рангом.
+  assert.equal(lootById('book-of-purity').bookEffect.skillId, 'cleansing');
+  assert.equal(lootById('book-of-splinters').bookEffect.skillId, 'arcana');
   assert.equal(spellById('purging-light').kind, 'purge');
   assert.equal(spellById('arcane-splinter').schoolId, 'arcana');
   assert.ok(spellById('arcane-splinter').cooldown < spellById('ember-bolt').cooldown, 'the splinter is the cheap shot');

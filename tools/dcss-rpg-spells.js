@@ -480,6 +480,79 @@ export const SPELL_CATALOG = Object.freeze([
   }),
 ]);
 
+/**
+ * Заклинания раздают навыки школ, а не книги.
+ *
+ * Раньше книга учила одному заклинанию навсегда, а ранг школы только усиливал
+ * уже известное. Иван: «магия должна не даваться в заклинаниях, а также быть
+ * в навыках. Вот у нас есть навык пиромантии — и на первом уровне
+ * открывается какое-то одно заклинание, на втором другое, на третьем
+ * другое». Книга теперь поднимает ранг школы, не тратя очко навыка.
+ *
+ * Ступени разложены по требуемому интеллекту: чем сильнее вещь, тем позже.
+ * Один ранг может открыть и два заклинания, и три — школы разной ширины, а
+ * растягивать их до одинаковой значило бы выкинуть написанное.
+ *
+ * Интеллект при этом никуда не делся: он решает, ляжет ли заклинание на
+ * панель. Книга может выдать третий ранг рано, но «Поднять стража» без
+ * девяти интеллекта не поднимется — этого Иван и хотел: «нужно много
+ * интеллекта, чтобы герой маленького уровня не смог сразу дойти».
+ */
+export const SPELLS_BY_RANK = Object.freeze({
+  pyromancy: Object.freeze([
+    Object.freeze(['ember-bolt']),
+    Object.freeze(['cauterise']),
+    Object.freeze(['ember-burst', 'kindle']),
+  ]),
+  cryomancy: Object.freeze([
+    Object.freeze(['frost-lance']),
+    Object.freeze(['frost-burst']),
+    Object.freeze(['ice-armour', 'glaciate']),
+  ]),
+  'storm-magic': Object.freeze([
+    Object.freeze(['storm-bolt']),
+    Object.freeze(['shove', 'thunderclap']),
+    Object.freeze(['storm-burst']),
+  ]),
+  cleansing: Object.freeze([
+    Object.freeze(['purging-light']),
+    Object.freeze(['mending-light', 'cleanse-ally']),
+    Object.freeze(['ward', 'unbinding']),
+  ]),
+  necromancy: Object.freeze([
+    Object.freeze(['raise-skeleton']),
+    Object.freeze(['share-life', 'raise-ghoul']),
+    Object.freeze(['raise-warden']),
+  ]),
+  arcana: Object.freeze([
+    Object.freeze(['arcane-splinter']),
+    Object.freeze(['flight', 'teleport']),
+    Object.freeze(['invisibility', 'camp-call', 'unlock']),
+  ]),
+});
+
+export const SPELL_SCHOOL_IDS = Object.freeze(Object.keys(SPELLS_BY_RANK));
+
+/** Что открывает эта школа к такому рангу включительно. */
+export function spellIdsForSchoolRank(schoolId, rank) {
+  const ladder = SPELLS_BY_RANK[schoolId];
+  if (!ladder) return Object.freeze([]);
+  const reached = Number.isInteger(rank) ? Math.max(0, Math.min(ladder.length, rank)) : 0;
+  return Object.freeze(ladder.slice(0, reached).flat());
+}
+
+/**
+ * Всё, что герой знает при таких рангах школ. Порядок каталожный, чтобы
+ * панель и сохранение не зависели от того, в каком порядке качали школы.
+ */
+export function spellIdsForRanks(ranks = {}) {
+  const known = new Set();
+  for (const schoolId of SPELL_SCHOOL_IDS) {
+    for (const id of spellIdsForSchoolRank(schoolId, ranks[schoolId])) known.add(id);
+  }
+  return Object.freeze(SPELL_CATALOG.map(({ id }) => id).filter((id) => known.has(id)));
+}
+
 const SPELL_BY_ID = new Map(SPELL_CATALOG.map((spell) => [spell.id, spell]));
 
 /** Every spell's picture: the bar and the book both draw from a loaded image. */

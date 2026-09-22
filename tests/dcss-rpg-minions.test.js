@@ -117,10 +117,10 @@ test('both summons are spells with a body in the catalog and a book to learn', a
     await access(new URL(`../public/assets/dcss-preview/${definition.path}`, import.meta.url));
   }
   const bones = lootById('book-of-bones');
-  assert.deepEqual(bones.bookEffect, { type: 'learn-spell', spellId: 'raise-skeleton' });
+  assert.deepEqual(bones.bookEffect, { type: 'study', skillId: 'necromancy' });
   assert.equal(itemDetails(bones, 'ru').name, 'Книга костей');
   const hunger = lootById('book-of-hunger');
-  assert.deepEqual(hunger.bookEffect, { type: 'learn-spell', spellId: 'raise-ghoul' });
+  assert.deepEqual(hunger.bookEffect, { type: 'study', skillId: 'necromancy' });
   assert.equal(itemDetails(hunger, 'en').name, 'Book of Hunger');
   assert.equal(SPELL_CATALOG.filter(({ kind }) => kind === 'minion').length, 3);
 });

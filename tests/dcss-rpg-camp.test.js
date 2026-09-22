@@ -350,7 +350,7 @@ test('Call of the Camp is a real spell with a book to learn it from', () => {
 
   const book = lootById('book-of-camp-call');
   assert.ok(book, 'the book is in the catalog');
-  assert.deepEqual(book.bookEffect, { type: 'learn-spell', spellId: 'camp-call' });
+  assert.deepEqual(book.bookEffect, { type: 'study', skillId: 'arcana' });
   assert.equal(itemDetails(book, 'ru').name, 'Книга зова лагеря');
   assert.equal(itemDetails(book, 'en').name, 'Book of the Camp Call');
 });
