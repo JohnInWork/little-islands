@@ -322,34 +322,33 @@ test('the artefact is promised once per road, however many roads a hero walks', 
 });
 
 /**
- * Сапоги Лёгкого Шага — единственная вещь в игре, которая ускоряет героя.
+ * Лёгкий Шаг — единственное, что ускоряет героя, и носить его можно по-разному.
  *
  * Скорость задумывалась заклинанием грозовой школы, потом числом на любой
  * вещи — Иван остановил и то и другое: «нет, флагом. Это уникальное свойство
- * типа сапоги, быстрой скорости. Это артефакт, он очень крутой». Отсюда три
- * требования, которые и проверяются: свойство есть только на сапогах, оно
- * булево (вторая пара ничего не прибавит), и прибавка одна на всю игру.
+ * типа сапоги, быстрой скорости. Это артефакт, он очень крутой». А потом
+ * развязал слоты: «это не обязательно должны быть сапоги — это может быть и
+ * кольцо, и плащ».
  */
-test('лёгкий шаг живёт только на сапогах и ничего не складывает', async () => {
+test('лёгкий шаг носят сапоги, плащ и украшения — и он ничего не складывает', async () => {
   const { LOOT_CATALOG } = await import('../tools/dcss-rpg-content.js');
   const { SWIFT_STEP_PERCENT, equipmentMagic, MAGIC_MAGNITUDES } = await import('../tools/dcss-rpg-magic.js');
 
   const power = PROCEDURAL_ARTIFACT_POWERS.find(({ id }) => id === 'swift-step');
   assert.ok(power, 'силы нет вовсе');
-  assert.deepEqual([...power.tags], ['boots'], 'скорость может выпасть не на сапогах');
+  assert.deepEqual([...power.tags], ['boots', 'jewellery', 'cloak'], 'слоты скорости разошлись');
   assert.deepEqual(power.magic, { swiftness: true }, 'свойство перестало быть флагом');
   assert.equal(MAGIC_MAGNITUDES.includes('swiftness'), false, 'флаг попал в числовые свойства');
 
-  const boots = LOOT_CATALOG.filter(({ slot }) => slot === 'boots');
-  assert.ok(boots.length >= 5, 'сапог в каталоге слишком мало, чтобы сила находилась');
-  for (const item of boots) {
+  const носители = ['boots', 'cloak', 'ring1', 'ring2', 'amulet'];
+  for (const item of LOOT_CATALOG.filter(({ slot }) => носители.includes(slot))) {
     assert.ok(eligibleArtifactPowers(item).some(({ id }) => id === 'swift-step'), item.id);
   }
-  for (const item of LOOT_CATALOG.filter(({ slot }) => slot && slot !== 'boots')) {
+  for (const item of LOOT_CATALOG.filter(({ slot }) => slot && !носители.includes(slot))) {
     assert.equal(
       eligibleArtifactPowers(item).some(({ id }) => id === 'swift-step'),
       false,
-      `${item.id}: скорость выпала не на сапогах`,
+      `${item.id}: скорость выпала не на том слоте`,
     );
   }
 
@@ -367,4 +366,72 @@ test('лёгкий шаг живёт только на сапогах и нич�
   const runtime = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /return currentHeroMagic\(\)\.swiftness \? 1 \+ SWIFT_STEP_PERCENT \/ 100 : 1;/);
   assert.match(runtime, /heroSwiftness\(\) \*\n\s*currentConditions\(\)\.heroSpeedScale/);
+});
+
+/**
+ * Одно уникальное свойство на забег — и носить его можно по-разному.
+ *
+ * Иван: «суть в том, чтобы только по одному предмету на забег было с этим
+ * уникальным свойством. Мы можем найти кольцо на невидимость и сапоги на
+ * полёт, но не можем найти два кольца на невидимость или кольцо на
+ * невидимость и сапоги на невидимость».
+ *
+ * Помнит это сам забег, а не игрок: сила, единожды положенная в сундук,
+ * больше не выпадет нигде — даже если вещь продали, потеряли или тот сундук
+ * так и не открыли. Два одинаковых обещания — это не две находки.
+ */
+test('сила артефакта выпадает за забег ровно один раз', async () => {
+  const { createRun, generateDungeon, advanceRunFloor, validateRun, adoptRun } =
+    await import('../tools/dcss-rpg-core.js');
+
+  let положено = 0;
+  for (let seed = 1; seed <= 40; seed += 1) {
+    let run = createRun(seed, generateDungeon({ seed, depth: 1 }));
+    const встречено = new Map();
+    const собрать = (floor, depth) => {
+      for (const chest of floor.chests ?? []) {
+        for (const item of chest.items ?? []) {
+          if (!item?.artifactPowerId) continue;
+          положено += 1;
+          assert.equal(
+            встречено.has(item.artifactPowerId),
+            false,
+            `семя ${seed}: ${item.artifactPowerId} выпал дважды — на ${встречено.get(item.artifactPowerId)} и ${depth}`,
+          );
+          встречено.set(item.artifactPowerId, depth);
+        }
+      }
+    };
+    собрать(run.floor, run.depth);
+    for (let step = 0; step < 17; step += 1) {
+      run = advanceRunFloor(run);
+      собрать(run.floor, run.depth);
+    }
+    // Забег помнит ровно то, что раздал, и ничего сверх.
+    assert.deepEqual([...run.artifactPowers].sort(), [...встречено.keys()].sort(), `семя ${seed}`);
+  }
+  assert.ok(положено > 20, `артефактов за сорок забегов всего ${положено}`);
+});
+
+/**
+ * Список выданных сил появился позже сохранений, и вчерашний забег без него
+ * обязан загрузиться. Но если он есть — он обязан быть списком настоящих сил
+ * без повторов: строка в этом поле разлетелась бы по буквам, и каждая буква
+ * стала бы «уже выданной силой».
+ */
+test('память о выданных силах необязательна, но проверяется', async () => {
+  const { createRun, generateDungeon, validateRun, adoptRun } =
+    await import('../tools/dcss-rpg-core.js');
+  const run = createRun(9, generateDungeon({ seed: 9, depth: 1 }));
+  const { artifactPowers: _брошено, ...вчерашний } = run;
+
+  assert.equal(validateRun(вчерашний), true, 'сейв без поля перестал грузиться');
+  assert.deepEqual(adoptRun(вчерашний).artifactPowers, [], 'приём не дописал поле');
+
+  assert.equal(validateRun({ ...run, artifactPowers: ['flight', 'invisibility'] }), true);
+  assert.equal(validateRun({ ...run, artifactPowers: 'строка' }), false, 'строка прошла проверку');
+  assert.equal(validateRun({ ...run, artifactPowers: ['flight', 'flight'] }), false, 'повтор прошёл');
+  assert.equal(validateRun({ ...run, artifactPowers: ['нет-такой'] }), false, 'выдуманная сила прошла');
+  // Снятая из игры сила уходит из памяти, а забег остаётся.
+  assert.deepEqual(adoptRun({ ...run, artifactPowers: ['flight', 'нет-такой'] }).artifactPowers, ['flight']);
 });

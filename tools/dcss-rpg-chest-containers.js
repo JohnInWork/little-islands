@@ -156,6 +156,7 @@ export function createChestContainerStates({
   lootAbundance = 1,
   resolvedFindIds = [],
   guaranteedArtifact = false,
+  usedPowerIds = [],
 } = {}) {
   if (
     !Number.isInteger(seed)
@@ -233,6 +234,7 @@ export function createChestContainerStates({
         items: selected,
         guaranteed: guaranteedArtifact,
         roadLength: STORY_DEPTH,
+        usedPowerIds,
       });
       return Object.freeze({
         findId: find.instanceId,

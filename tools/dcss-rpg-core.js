@@ -1538,6 +1538,9 @@ export function createRun(
   for (const [slot, uid] of Object.entries(bareEquipment)) {
     if (uid && equipment[slot] !== uid) inventory.push(uid);
   }
+  // Первый этаж рождается раньше забега: забегу надо знать, что тот успел
+  // положить в сундуки, чтобы второй раз этих сил не выдать.
+  const первый = createEmptyFloorState(dungeon);
   return {
     version: SAVE_VERSION,
     generatorVersion: GENERATOR_VERSION,
@@ -1638,11 +1641,20 @@ export function createRun(
      */
     prize: null,
     floors: {},
-    floor: createEmptyFloorState(dungeon),
+    floor: первый,
+    /*
+     * Силы артефактов, которые забег уже раздал.
+     *
+     * Иван: «только по одному предмету на забег было с этим уникальным
+     * свойством <...> мы не можем найти два кольца на невидимость или кольцо
+     * на невидимость и сапоги на невидимость». Список копится по мере того,
+     * как рождаются этажи, и генератор сундуков в него смотрит.
+     */
+    artifactPowers: artifactPowersInFloor(первый),
   };
 }
 
-function createEmptyFloorState(dungeon = null) {
+function createEmptyFloorState(dungeon = null, usedPowerIds = []) {
   return {
     revealed: [],
     defeated: [],
@@ -1688,9 +1700,29 @@ function createEmptyFloorState(dungeon = null) {
           finds: dungeon.finds,
           lootAbundance: dungeon.scaling?.lootAbundance ?? DEFAULT_LOOT_ABUNDANCE,
           guaranteedArtifact: dungeon.artifactFloor === true,
+          usedPowerIds,
         })]
       : [],
   };
+}
+
+/**
+ * Силы артефактов, которые забег уже раздал.
+ *
+ * Иван: «только по одному предмету на забег с этим уникальным свойством».
+ * Помнит это сам забег, а не игрок: сила, единожды положенная в сундук,
+ * больше не выпадет нигде — даже если вещь продали, потеряли или так и не
+ * открыли тот сундук. Два одинаковых обещания — это не две находки.
+ */
+export function artifactPowersInFloor(floor) {
+  const inside = (floor?.chests ?? []).flatMap(({ items }) => items ?? []);
+  return [...new Set(inside.map((item) => item?.artifactPowerId).filter(Boolean))];
+}
+
+/** Что забег раздал вместе с новым этажом: прежнее плюс положенное сейчас. */
+function withFloorArtifactPowers(used, floor) {
+  const next = new Set([...(used ?? []), ...artifactPowersInFloor(floor)]);
+  return [...next].sort();
 }
 
 function normalizeEquipment(equipment) {
@@ -2628,12 +2660,22 @@ export function adoptRun(snapshot) {
     && (floor.spoken === undefined || floor.drops === undefined);
   const skills = refundRetiredSkills(snapshot.hero.skills);
   const вещи = stripRetiredArtifactPowers(snapshot);
+  // Список выданных сил появился позже сохранений: без него забег считает,
+  // что не выдал ещё ничего, и это честнее, чем отвергнуть его целиком.
+  const силы = Array.isArray(snapshot.artifactPowers)
+    ? snapshot.artifactPowers.filter((id) => artifactPowerById(id))
+    : [];
+  const дописатьСилы = !Array.isArray(snapshot.artifactPowers)
+    || силы.length !== snapshot.artifactPowers.length;
   // Здоровый сейв возвращается тем же объектом: приём — это починка, а не
   // обязательная пересборка всего на входе.
-  if (skills === snapshot.hero.skills && !дописать && вещи === snapshot) return snapshot;
+  if (skills === snapshot.hero.skills && !дописать && !дописатьСилы && вещи === snapshot) {
+    return snapshot;
+  }
   const целое = вещи === snapshot ? snapshot : вещи;
   return {
     ...целое,
+    artifactPowers: дописатьСилы ? силы : целое.artifactPowers,
     floor: дописать
       ? { ...целое.floor, spoken: целое.floor.spoken ?? [], drops: целое.floor.drops ?? [] }
       : целое.floor,
@@ -2650,6 +2692,21 @@ export function adoptRun(snapshot) {
  * что украденное хранится целиком, вместе со своими свойствами, и ждёт, когда
  * вора догонят.
  */
+/**
+ * Список уже выданных сил артефактов.
+ *
+ * Поле необязательное: у вчерашнего забега его нет, и портить из-за этого
+ * сохранение нельзя. Но если оно есть — оно обязано быть списком настоящих
+ * сил без повторов: строка в этом поле разлетелась бы по буквам, и каждая
+ * буква стала бы «уже выданной силой».
+ */
+export function validateArtifactPowers(powers) {
+  if (powers === undefined || powers === null) return true;
+  if (!Array.isArray(powers) || powers.length > 64) return false;
+  if (new Set(powers).size !== powers.length) return false;
+  return powers.every((id) => typeof id === 'string' && Boolean(artifactPowerById(id)));
+}
+
 export function validateThiefState(thief) {
   if (thief === undefined || thief === null) return true;
   if (typeof thief !== 'object' || Array.isArray(thief)) return false;
@@ -2682,6 +2739,7 @@ export function validateRun(snapshot) {
     snapshot.difficulty < MIN_DIFFICULTY ||
     snapshot.difficulty > MAX_DIFFICULTY ||
     !validateLootAbundance(snapshot.lootAbundance)
+    || !validateArtifactPowers(snapshot.artifactPowers)
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
@@ -3027,6 +3085,8 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
   const landing = arrival && isWalkableCell(dungeon.grid, arrival.x, arrival.y)
     ? { x: arrival.x, y: arrival.y }
     : { x: dungeon.spawn.x, y: dungeon.spawn.y };
+  // Этаж, на котором уже были, ничего нового не раздаёт: он помнит своё.
+  const следующий = remembered ?? createEmptyFloorState(dungeon, snapshot.artifactPowers ?? []);
   return {
     ...snapshot,
     depth,
@@ -3051,8 +3111,9 @@ function moveRunToFloor(snapshot, depth, arrival = null) {
     // The city's memory is the run's, not the floor's.
     crime: createCrimeState(snapshot.crime),
     companions: createCompanionParty(snapshot.companions),
-    floor: remembered ?? createEmptyFloorState(dungeon),
+    floor: следующий,
     floors,
+    artifactPowers: withFloorArtifactPowers(snapshot.artifactPowers, следующий),
     commandSequence: snapshot.commandSequence,
   };
 }

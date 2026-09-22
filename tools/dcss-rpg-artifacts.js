@@ -189,16 +189,25 @@ export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
   }),
 
   // — Jewellery and foci. What is true about the wearer, not the tool. —
+  /*
+   * Свойство не привязано к одной вещи: оно про носящего.
+   *
+   * Иван: «это не обязательно должны быть сапоги быстрой скорости — это может
+   * быть и кольцо, и плащ, а невидимость может быть и кольцом, и плащом, и
+   * перчатками». Поэтому у каждой из этих сил несколько слотов, и находка
+   * каждый раз выглядит иначе: плащ невидимости и кольцо невидимости — две
+   * разные находки с одним обещанием.
+   */
   freezePower({
     id: 'flight',
-    tags: ['jewellery'],
+    tags: ['jewellery', 'cloak', 'boots'],
     suffix: { ru: 'Небес', en: 'of the Sky' },
     magic: { flight: true },
     weight: 5,
   }),
   freezePower({
     id: 'invisibility',
-    tags: ['jewellery'],
+    tags: ['jewellery', 'cloak', 'gloves'],
     suffix: { ru: 'Забвения', en: 'of Oblivion' },
     magic: { invisibility: true },
     weight: 4,
@@ -228,12 +237,12 @@ export const PROCEDURAL_ARTIFACT_POWERS = Object.freeze([
      * Иван остановил и то и другое: «нет, флагом. Это уникальное свойство
      * типа сапоги, быстрой скорости. Это артефакт, он очень крутой».
      *
-     * Поэтому свойство живёт только на сапогах: слот — такой же тег, как
-     * «броня», и адресуется точно. На поясе или в кольце скорость была бы
-     * просто ещё одним процентом; на ногах она читается сама собой.
+     * Слотов у него три: сапоги, плащ и украшения. Слот — такой же тег, как
+     * «броня», поэтому адресуется точно, а находка каждый раз выглядит
+     * иначе.
      */
     id: 'swift-step',
-    tags: ['boots'],
+    tags: ['boots', 'jewellery', 'cloak'],
     suffix: { ru: 'Лёгкого Шага', en: 'of the Light Step' },
     magic: { swiftness: true },
     weight: 4,
@@ -387,10 +396,23 @@ export function artifactTags(item) {
   return Object.freeze([...tags]);
 }
 
-export function eligibleArtifactPowers(item) {
+/**
+ * Какие силы может нести эта вещь — и каких забег уже не выдаст.
+ *
+ * Иван: «суть в том, чтобы только по одному предмету на забег было с этим
+ * уникальным свойством. Мы можем найти кольцо на невидимость и сапоги на
+ * полёт, но не можем найти два кольца на невидимость или кольцо на
+ * невидимость и сапоги на невидимость».
+ *
+ * Поэтому у забега есть память: раз выданная сила больше не выпадает нигде и
+ * ни на чём. Два одинаковых обещания — это не две находки, а одна, найденная
+ * дважды, и вторая обесценивает первую.
+ */
+export function eligibleArtifactPowers(item, usedPowerIds = []) {
   const tags = artifactTags(item);
+  const used = new Set(Array.isArray(usedPowerIds) ? usedPowerIds : []);
   return PROCEDURAL_ARTIFACT_POWERS.filter((power) => (
-    power.tags.some((tag) => tags.includes(tag))
+    !used.has(power.id) && power.tags.some((tag) => tags.includes(tag))
   ));
 }
 
@@ -453,6 +475,7 @@ export function rollProceduralArtifact({
   instanceId,
   guaranteed = false,
   rate = DEFAULT_ARTIFACT_RATE,
+  usedPowerIds = [],
 } = {}) {
   validateRoll({ seed, depth, item, instanceId, rate });
   const random = createStableRng(stableHash(
@@ -466,7 +489,7 @@ export function rollProceduralArtifact({
   if (!guaranteed && (rate === 0 || random() >= chance)) {
     return Object.freeze({ artifactPowerId: null, artifactCurseId: null });
   }
-  const power = weightedPick(random, eligibleArtifactPowers(item));
+  const power = weightedPick(random, eligibleArtifactPowers(item, usedPowerIds));
   if (!power) return Object.freeze({ artifactPowerId: null, artifactCurseId: null });
   const curse = random() < CURSED_ARTIFACT_CHANCE
     ? weightedPick(random, PROCEDURAL_ARTIFACT_CURSES)
@@ -491,6 +514,7 @@ export function rollCacheArtifact({
   guaranteed = false,
   rate = DEFAULT_ARTIFACT_RATE,
   roadLength = MEASURED_ROAD,
+  usedPowerIds = [],
 } = {}) {
   if (!Array.isArray(items)) throw new TypeError('Cache artifact roll requires container items');
   if (typeof findId !== 'string' || findId.length === 0) {
@@ -516,12 +540,21 @@ export function rollCacheArtifact({
   const share = (2 * rung) / (eligibleFloors * (eligibleFloors + 1));
   const cacheChance = Math.min(ARTIFACT_LUCK_CAP, ARTIFACT_ROAD_LUCK * share * rate);
   if (!guaranteed && random() >= cacheChance) return null;
-  const itemIndex = eligibleIndexes[Math.floor(random() * eligibleIndexes.length)];
+  /*
+   * Вещь выбирается не вслепую: она должна суметь понести хоть одну силу,
+   * которую забег ещё не выдавал. Иначе обещанный артефакт оказался бы
+   * обычным сапогом — промах тем обиднее, что сундук за это уже взял плату.
+   */
+  const carriers = eligibleIndexes.filter(
+    (index) => eligibleArtifactPowers(items[index], usedPowerIds).length > 0,
+  );
+  if (carriers.length === 0) return null;
+  const itemIndex = carriers[Math.floor(random() * carriers.length)];
   const item = items[itemIndex];
   const instanceId = `${findId}-item-${itemIndex}`;
   return Object.freeze({
     itemIndex,
-    ...rollProceduralArtifact({ seed, depth, item, instanceId, guaranteed: true, rate }),
+    ...rollProceduralArtifact({ seed, depth, item, instanceId, guaranteed: true, rate, usedPowerIds }),
   });
 }
 
