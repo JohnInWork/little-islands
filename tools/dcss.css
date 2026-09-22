@@ -3672,6 +3672,14 @@ body {
   color: #7fa2a3;
 }
 
+/* Занято мест — рядом со словом «Рюкзак», а не отдельной строкой внизу. */
+.inventory-capacity {
+  margin-left: 8px;
+  color: #8d9a99;
+  font: 700 12px/1 ui-monospace, 'SFMono-Regular', monospace;
+  letter-spacing: 0.04em;
+}
+
 .inventory-body {
   min-height: 0;
   display: grid;

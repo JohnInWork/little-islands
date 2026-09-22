@@ -882,6 +882,7 @@ const inventoryShell = inventory.querySelector('.inventory-shell');
 const packPanel = inventory.querySelector('.pack-panel');
 const closeInventoryButton = document.querySelector('#close-inventory');
 const inventoryTitle = document.querySelector('#inventory-title');
+const inventoryCapacity = document.querySelector('#inventory-capacity');
 const inventoryViewSwitcher = inventory.querySelector('.inventory-view-switcher');
 const inventoryViewButtons = [...inventoryViewSwitcher.querySelectorAll('[data-pack-view]')];
 const inventoryFilters = document.querySelector('#inventory-filters');
@@ -900,7 +901,6 @@ const salvageCount = document.querySelector('#salvage-count');
 const salvageConfirm = document.querySelector('#salvage-confirm');
 const salvageLabel = document.querySelector('#salvage-label');
 const salvageConfirmLabel = document.querySelector('#salvage-confirm-label');
-const inventoryCount = document.querySelector('#inventory-count');
 const inventoryVitals = document.querySelector('#inventory-vitals');
 const inventoryHealth = document.querySelector('#inventory-health');
 const inventoryHungerMeter = document.querySelector('#inventory-hunger-meter');
@@ -1602,6 +1602,7 @@ function updateInventoryFilterUi() {
     consumables: 'consumables',
   };
   inventoryTitle.textContent = labels.inventoryTitle;
+  renderInventoryCapacity();
   inventoryFilters.setAttribute('aria-label', labels.inventoryFilter);
   for (const button of inventoryFilterButtons) {
     const active = button.dataset.inventoryFilter === inventoryFilter;
@@ -5264,7 +5265,20 @@ function findPath(
     || (heroMovement ? isHeroWalkable(cx, cy) : isWalkable(cx, cy));
   if (!проходима(end.x, end.y)) return [];
   if (!allowHidden && !revealed.has(`${end.x},${end.y}`)) return [];
-  let navigationGrid = allowHidden
+  /*
+   * Неразведанная клетка — не стена.
+   *
+   * Для поиска пути она ею была, и герой обходил неразведанное по уже
+   * пройденному: тычок на три клетки в темноту уводил его в длинный крюк по
+   * освещённому. Иван: «когда я тыкаю, чтобы персонаж пошёл на короткое
+   * расстояние в тень, он начинает идти по какой-то абсолютно другой, более
+   * длинной, но освещённой территории».
+   *
+   * Знания это не выдаёт: стены нарисованы на экране всегда, темнота их
+   * только притемняет. Правило остаётся у цели — идти можно туда, что игрок
+   * уже видел, — а вот дорога к ней считается по настоящему этажу.
+   */
+  let navigationGrid = allowHidden || heroMovement
     ? world
     : world.map((row, y) => row.map((cell, x) => (revealed.has(`${x},${y}`) ? cell : '#')));
   /*
@@ -8310,7 +8324,15 @@ function carveLight(origin, screenPosition, radius, strength) {
 
 /** How far the hero uncovers the map: darkvision below, daylight in town. */
 function currentRevealRadius() {
-  const base = Math.max(2, heroRevealRadius(currentDarkvisionProfile())
+  /*
+   * Что видно — то и разведано.
+   *
+   * Радиус памяти был четыре клетки, а зрения — пять с лишним, и между ними
+   * жила полоса: игрок видел клетку на экране, а игра считала её
+   * неразведанной. Тычок туда не делал ничего вовсе, а путь мимо неё уходил в
+   * обход. Полосы больше нет.
+   */
+  const base = Math.max(2, heroSightRadius(currentDarkvisionProfile())
     + currentConditions().revealRadiusDelta);
   if (isCityDepth(dungeon.depth)) return Math.max(base, CITY_REVEAL_RADIUS);
   // Outside, the sky does the work the torch does below.
@@ -8549,6 +8571,23 @@ function updateSalvageUi() {
   salvageConfirm.disabled = markedForSalvage.size === 0;
 }
 
+/**
+ * Сколько мест занято — рядом со словом «Рюкзак».
+ *
+ * Иван: «мне не нравится, как у нас отображаются сколько свободно в
+ * инвентаре. Я бы это отображал возле слова рюкзак, когда открываешь меню
+ * инвентаря. То есть рюкзак. И показываем, что 2 из 30».
+ */
+function renderInventoryCapacity() {
+  const занято = backpackItems.filter(Boolean).length;
+  const всего = currentBackpackCapacity();
+  inventoryCapacity.textContent = `${занято}/${всего}`;
+  inventoryCapacity.setAttribute(
+    'aria-label',
+    itemDetailLanguage === 'en' ? `${занято} of ${всего} slots` : `Занято ${занято} из ${всего}`,
+  );
+}
+
 function renderPack() {
   packGrid.replaceChildren();
   const labels = currentMainMenuModel().labels;
@@ -8676,8 +8715,8 @@ function renderPack() {
   const itemCount = backpackItems.filter(Boolean).length;
   bagButton.querySelector('b').textContent = String(itemCount);
   const capacity = currentBackpackCapacity();
-  inventoryCount.textContent = `${itemCount}/${capacity}`;
-  inventoryCount.setAttribute('aria-label', `${labels.itemCount}: ${itemCount} / ${capacity}`);
+  // Занятые места показываются в заголовке рюкзака — там, где их ищут.
+  renderInventoryCapacity();
   updateInventoryViewUi();
 }
 
@@ -14409,6 +14448,17 @@ const CONSUMABLE_REPORTS = Object.freeze({
     nothingToCleanse: 'Снимать было нечего',
     venom: (damage, seconds) => `Яд: −${damage} и отравление на ${Math.round(seconds)} с`,
     learned: (name) => `Изучено: ${name}`,
+    /*
+     * Книга обязана сказать, что в ней было.
+     *
+     * Иван: «я прочитал какую-то чёрную книгу, эффект неизвестен. И опять же,
+     * она просто исчезла, я не понял, что случилось. Что она мне дала, что
+     * произошло». Она была пустой — и говорила об этом нулём в углу экрана.
+     */
+    blankBook: 'Страницы пусты. Ничего в них не было.',
+    skillUp: (name) => `Изучено: ${name} +1`,
+    skillDown: (name) => `Забыто: ${name} −1`,
+    spellKnown: (name) => `Это уже знакомо: ${name}`,
   }),
   en: Object.freeze({
     healed: (amount) => `Healed +${amount}`,
@@ -14418,6 +14468,10 @@ const CONSUMABLE_REPORTS = Object.freeze({
     nothingToCleanse: 'Nothing to clear',
     venom: (damage, seconds) => `Venom: −${damage} and poisoned for ${Math.round(seconds)}s`,
     learned: (name) => `Learned: ${name}`,
+    blankBook: 'The pages are blank. There was nothing in them.',
+    skillUp: (name) => `Learned: ${name} +1`,
+    skillDown: (name) => `Forgotten: ${name} −1`,
+    spellKnown: (name) => `Already known: ${name}`,
   }),
 });
 
@@ -14477,6 +14531,10 @@ function applyBook(item) {
       if (Number.isFinite(required)) {
         addCombatGlyph(hero.x, hero.y, `✧${required}`, '#9abfc0', -62);
         showLootToast(item, `✧ ${required}`);
+      } else {
+        // Уже знакомое заклинание — тоже ответ, и его надо сказать.
+        const spell = spellById(outcome.spellId);
+        showLootToast(item, consumableReport().spellKnown(spell?.name?.[itemDetailLanguage] ?? ''));
       }
       return null;
     }
@@ -14503,8 +14561,9 @@ function applyBook(item) {
   hero.skillStudy = createBookStudy(result.state.study);
   const adjustment = result.events.find(({ type }) => type === 'skill-rank-adjusted');
   if (!adjustment) {
+    // Пустая книга: сказать словами, а не нулём в углу экрана.
     burst(hero.x, hero.y - 8, '#929b94', 10);
-    return '0';
+    return consumableReport().blankBook;
   }
   const { skillId, direction } = adjustment.payload;
   const skillName = skillById(skillId)?.name?.[itemDetailLanguage] ?? skillId;
@@ -14512,7 +14571,10 @@ function applyBook(item) {
   burst(hero.x, hero.y - 8, color, 18);
   addImpactWave(hero.x, hero.y - 8, color, 54, direction > 0 ? 1 : 0);
   discoverNearbyTraps();
-  return `${direction > 0 ? '+' : '−'}1 ${skillName}`;
+  // Названием навыка, а не знаком с цифрой: «−1 Мечи» читается как урон.
+  return direction > 0
+    ? consumableReport().skillUp(skillName)
+    : consumableReport().skillDown(skillName);
 }
 
 /** Everything the hero can see within a radius, in cells, and still alive. */

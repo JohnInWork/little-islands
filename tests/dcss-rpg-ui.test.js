@@ -261,7 +261,8 @@ test('loot and inventory expose translated item identity before opening full det
     'loot-slot',
     'loot-effect',
     'inventory-title',
-    'inventory-count',
+    // Занятые места переехали к слову «Рюкзак» и в подвале больше не дублируются.
+    'inventory-capacity',
     'item-detail-action',
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));

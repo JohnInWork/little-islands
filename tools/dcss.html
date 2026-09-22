@@ -649,7 +649,7 @@
       >
         <div class="inventory-shell pixel-frame">
           <header class="inventory-header">
-            <strong id="inventory-title">РЮКЗАК</strong>
+            <strong id="inventory-title">РЮКЗАК</strong><output id="inventory-capacity" class="inventory-capacity">0/30</output>
             <div class="inventory-view-switcher" role="group" aria-label="Вид рюкзака">
               <button type="button" data-pack-view="grid" aria-label="Плитка" aria-pressed="true">
                 <span class="view-glyph view-glyph-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
@@ -658,7 +658,12 @@
                 <span class="view-glyph view-glyph-table" aria-hidden="true"><i></i><i></i><i></i></span>
               </button>
             </div>
-            <div class="currency" aria-label="Золото: 86"><span>●</span><b>86</b></div>
+            <!-- Монета та же, что в кошельке наверху: кружок из шрифта рядом с
+                 пиксельной игрой не значит ничего. -->
+            <div class="currency" aria-label="Золото: 86">
+              <img class="purse-coin" src="../assets/dcss-preview/licensed/7soul-icons/coin-gold.png" alt="" />
+              <b>86</b>
+            </div>
           </header>
 
           <!--
@@ -763,7 +768,6 @@
               <strong id="salvage-label">Разбор</strong>
               <b id="salvage-count">0</b>
             </button>
-            <output id="inventory-count" aria-label="Предметов: 0 из 30">0/30</output>
             <button id="salvage-confirm" type="button" aria-label="Разобрать выбранные предметы">
               <span aria-hidden="true">●</span><strong id="salvage-confirm-label">Получить</strong><b>0</b>
             </button>

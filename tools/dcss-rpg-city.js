@@ -1062,10 +1062,20 @@ export function cityLampPath({ seed = 0, palette = 'town' } = {}) {
  */
 export const CITY_SIGN_PATHS = Object.freeze({
   armourer: `${VILLAGE}sign-smith.png`,
-  'relic-dealer': `${VILLAGE}sign-jewellery.png`,
+  /*
+   * Мечи висят там, где мечами торгуют.
+   *
+   * Скрещённые клинки висели над казармой, а реликварий — тот, кто и продаёт
+   * оружие, — носил ожерелье. Иван ходил на клинки: «опять магазин оружия,
+   * опять в нём никого нет. Такое чувство, что это всегда происходит именно с
+   * магазином вот оружия». Магазина там и не было: была казарма стражи.
+   *
+   * Теперь клинки над тем, у кого прилавок, а казарма не обещает торговли.
+   */
+  'relic-dealer': `${VILLAGE}sign-blade.png`,
   provisioner: `${VILLAGE}sign-bread.png`,
   temple: `${VILLAGE}sign-book.png`,
-  barracks: `${VILLAGE}sign-blade.png`,
+  barracks: `${VILLAGE}sign-blank.png`,
   tavern: `${VILLAGE}sign-inn.png`,
   jail: `${VILLAGE}sign-blank.png`,
   plot: `${VILLAGE}sign-blank.png`,

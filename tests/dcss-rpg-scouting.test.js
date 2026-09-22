@@ -170,7 +170,15 @@ test('the runtime hides a stash until it is noticed and feeds the new radii ever
   ]) {
     assert.match(runtime, gate, String(gate));
   }
-  assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*heroRevealRadius\(currentDarkvisionProfile\(\)\)[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
+  /*
+   * Что видно — то и разведано.
+   *
+   * Радиус памяти был меньше радиуса зрения, и между ними жила полоса: клетку
+   * видно на экране, а игра считает её неразведанной. Тычок туда не делал
+   * ничего, а путь мимо неё уходил в обход по освещённому. Теперь память
+   * считается по зрению, и полосы нет.
+   */
+  assert.match(runtime, /function currentRevealRadius\(\)[\s\S]*heroSightRadius\(currentDarkvisionProfile\(\)\)[\s\S]*revealAround\(revealed, world, heroCell, currentRevealRadius\(\)\)/);
   assert.match(runtime, /<= heroSightRadius\(currentDarkvisionProfile\(\)\)/);
   assert.match(runtime, /stealthVisionRadius\(monster\.vision, currentStealthProfile\(\)\)[\s\S]{0,90}?distanceToHero > TILE \* sight/);
   assert.match(runtime, /const heard = stealthNoiseRadius\(radiusInTiles, currentStealthProfile\(\)\)[\s\S]{0,140}?magic\.clamour/);
