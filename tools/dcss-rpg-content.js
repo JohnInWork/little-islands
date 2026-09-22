@@ -2798,7 +2798,7 @@ export const LOOT_CATALOG = Object.freeze([
   },
   {
     id: 'hunter-trap',
-    icon: 'dngn/traps/blade.png',
+    icon: 'licensed/game-icons/trap-jaws.png',
     slot: null,
     kind: 'trap',
     rarity: 1,
@@ -3429,7 +3429,7 @@ export const EVENT_CATALOG = Object.freeze([
     status: { id: 'burning', duration: 5 },
     weight: 5,
   },
-  { id: 'blade-trap', path: 'dngn/traps/blade.png', effect: 'damage', value: 14, weight: 7 },
+  { id: 'blade-trap', path: 'licensed/game-icons/trap-jaws.png', effect: 'damage', value: 14, weight: 7 },
   {
     /*
      * Вскрытый гроб, а не запечатанный.

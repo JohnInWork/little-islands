@@ -1139,6 +1139,9 @@ function roadPrize() {
     offsetY: artifactVisual.offsetY,
   };
 }
+/** Одна картинка на все ловушки: и на чужие под ногами, и на свои капканы. */
+const TRAP_PATH = PLAYER_TRAP_PATH;
+
 const armedPlayerTrapVisual = runtimeVisual('trap', 'player-armed', 'world', PLAYER_TRAP_PATH, 1, 5);
 const spentPlayerTrapVisual = runtimeVisual('trap', 'player-spent', 'world', PLAYER_TRAP_PATH, 0.86, 5);
 // A bait is not a machine: it looks like what it is, a piece of bad meat.
@@ -5111,6 +5114,7 @@ function trapDisarmState(trap = nearbyDetectedTrap()) {
       hp: hero.hp,
     },
     capabilities: currentSkillCapabilities(),
+    lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
   });
 }
 
@@ -5129,6 +5133,7 @@ function interactNearbyTrap(preferredTrap = null) {
       hp: hero.hp,
     },
     capabilities: currentSkillCapabilities(),
+    lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
   });
   const presentation = trapDisarmPresentation({
     trap,
@@ -5136,13 +5141,17 @@ function interactNearbyTrap(preferredTrap = null) {
     language: itemDetailLanguage,
   });
   if (!result.ok) {
-    if (['skill-required', 'tier-required'].includes(result.reason)) {
-      trapAnnouncement.textContent = presentation.unavailable;
+    if (['skill-required', 'tier-required', 'tool-required'].includes(result.reason)) {
+      trapAnnouncement.textContent = result.reason === 'tool-required'
+        ? presentation.toolRequired
+        : presentation.unavailable;
       addCombatGlyph((trap.x + 0.5) * TILE, (trap.y + 0.5) * TILE, '!', '#dec982', -36);
-      showLootToast({ path: 'dngn/traps/blade.png', rarity: 1 }, ['I', 'II', 'III'][trap.tier - 1]);
+      showLootToast({ path: TRAP_PATH, rarity: 1 }, result.reason === 'tool-required' ? '⌁' : ['I', 'II', 'III'][trap.tier - 1]);
     }
     return false;
   }
+  // Отмычка уходит на механизм — кроме третьего ранга, который обходится сам.
+  if (!consumeInteractionResources(result.consumed)) return false;
 
   hero.path = [];
   hero.attack = 0;
@@ -5233,7 +5242,7 @@ function discoverNearbyTraps({ feedback = true } = {}) {
     addCombatGlyph(x, y, '!', '#dec982', -36);
   }
   if (feedback) {
-    showLootToast({ path: 'dngn/traps/blade.png', rarity: 1 }, '!');
+    showLootToast({ path: TRAP_PATH, rarity: 1 }, '!');
     trapAnnouncement.textContent = itemDetailLanguage === 'ru' ? 'Чутьё: ловушка обнаружена' : 'Trap Sense: trap detected';
   }
   persistRun();
@@ -5243,7 +5252,7 @@ function discoverNearbyTraps({ feedback = true } = {}) {
 function warnTrapStep(cell) {
   const [x, y] = cell.split(',').map(Number);
   addCombatGlyph((x + 0.5) * TILE, (y + 0.5) * TILE, '!', '#dec982', -36);
-  showLootToast({ path: 'dngn/traps/blade.png', rarity: 1 }, '!');
+  showLootToast({ path: TRAP_PATH, rarity: 1 }, '!');
   trapAnnouncement.textContent = itemDetailLanguage === 'ru'
     ? 'Ловушка. Отпусти управление и нажми снова, если хочешь наступить.'
     : 'Trap. Release the control and press again to step on it deliberately.';

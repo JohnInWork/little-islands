@@ -5,7 +5,7 @@ import { skillMenuModel } from '../tools/dcss-rpg-skill-menu.js';
 import { createSkillState, learnSkill } from '../tools/dcss-rpg-skills.js';
 
 const implementations = {
-  'trap-sense': {
+  'traps': {
     version: 1,
     modifiersByRank: [{}, {}, {}],
     capabilitiesByRank: [
@@ -15,7 +15,7 @@ const implementations = {
     ],
   },
 };
-const systems = ['trap-detection'];
+const systems = ['trap-detection', 'trap-disarming', 'trap-placement'];
 // Every skill's second and third rank now asks for an attribute; a fixture
 // about levels and points hands over a hero who has grown into all three.
 const GROWN = Object.freeze({ strength: 40, agility: 40, intelligence: 40 });
@@ -29,9 +29,8 @@ test('production menu exposes implemented trap skills, with no empty categories'
   assert.equal(model.visible, true);
   assert.equal(model.groups.length, 6, 'exploration, combat, magic, survival, crafting and companions');
   assert.deepEqual(model.groups.flatMap(({ skills }) => skills.map(({ id }) => id)), [
-    'trap-sense',
+    'traps',
     'secret-search',
-    'trap-disarming',
     'lockpicking',
     'appraisal',
     'stealth',
@@ -215,8 +214,8 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   // сюда значило бы прятать самое полезное внутрь сверки формы.
   const { ladder, ...shape } = firstSkill(ru);
   assert.deepEqual(shape, {
-    id: 'trap-sense', name: 'Чутьё',
-    description: 'Показывает механические ловушки поблизости. Не видит сквозь стены и не обезвреживает.',
+    id: 'traps', name: 'Ловушки',
+    description: 'Видишь чужие ловушки, снимаешь их отмычкой и ставишь свои капканы. Третий ранг обходится без отмычек.',
     rank: 0, trainedRank: 0, rankAdjustment: 0, rankAdjustmentLabel: '', maxRank: 3, nextRank: 1,
     canLearn: true, actionLabel: 'Изучить', reasonLabel: '',
     // The straight branch Ivan asked to see: three nodes, the first reachable
@@ -236,9 +235,22 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
    * разбирался, какая цифра к какому рангу.
    */
   assert.deepEqual(ladder, [
-    { rank: 1, heroLevel: 1, attribute: null, attributeValue: 0, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '2 кл' }] },
-    { rank: 2, heroLevel: 4, attribute: 'intelligence', attributeValue: 5, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '3 кл' }] },
-    { rank: 3, heroLevel: 6, attribute: 'intelligence', attributeValue: 7, gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '4 кл' }] },
+    {
+      rank: 1, heroLevel: 1, attribute: null, attributeValue: 0,
+      gains: [
+        { key: 'trapDetectionRadius', label: 'видит ловушки', value: '2 кл' },
+        { key: 'trapDisarmTier', label: 'обезвреживает ловушки', value: 'ступень 3' },
+        { key: 'trapPlacementTier', label: 'ставит ловушки', value: 'ступень 3' },
+      ],
+    },
+    {
+      rank: 2, heroLevel: 4, attribute: 'agility', attributeValue: 5,
+      gains: [{ key: 'trapDetectionRadius', label: 'видит ловушки', value: '4 кл' }],
+    },
+    {
+      rank: 3, heroLevel: 6, attribute: 'agility', attributeValue: 7,
+      gains: [{ key: 'trapDisarmFree', label: 'снимает ловушки без отмычек', value: 'да' }],
+    },
   ]);
   assert.equal(ru.ladderRankLabel, 'Ранг');
   assert.equal(ru.ladderLevelLabel, 'ур.');
@@ -249,14 +261,14 @@ test('ready mechanic is shown with bilingual catalog copy and matching learn dec
   assert.equal(en.ladderRankLabel, 'Rank');
   assert.equal(en.pointsLabel, 'Skill points');
   assert.equal(en.groups[0].label, 'Exploration');
-  assert.equal(firstSkill(en).name, 'Trap sense');
-  assert.match(firstSkill(en).description, /^Shows mechanical traps nearby/);
+  assert.equal(firstSkill(en).name, 'Traps');
+  assert.match(firstSkill(en).description, /^See enemy traps/);
   assert.equal(firstSkill(en).actionLabel, 'Learn');
 });
 
 test('rank advancement, level requirements and points use current gameplay rules', () => {
   const initialOptions = options();
-  const learned = learnSkill({ ...initialOptions, skillId: 'trap-sense', expectedRank: 0, attributes: { strength: 40, agility: 40, intelligence: 40 } });
+  const learned = learnSkill({ ...initialOptions, skillId: 'traps', expectedRank: 0, attributes: { strength: 40, agility: 40, intelligence: 40 } });
   assert.equal(learned.ok, true);
   const rankOne = firstSkill(skillMenuModel(options(learned.state)));
   assert.equal(rankOne.rank, 1);
@@ -265,16 +277,16 @@ test('rank advancement, level requirements and points use current gameplay rules
   assert.equal(rankOne.actionLabel, 'Улучшить');
   assert.equal(rankOne.reasonLabel, 'Нужен уровень 4');
 
-  const levelFour = { version: 1, points: 2, ranks: { 'trap-sense': 1 } };
+  const levelFour = { version: 1, points: 2, ranks: { 'traps': 1 } };
   assert.equal(firstSkill(skillMenuModel(options(levelFour, 4))).canLearn, true);
-  const noPoints = { version: 1, points: 0, ranks: { 'trap-sense': 1, 'trap-disarming': 2 } };
+  const noPoints = { version: 1, points: 0, ranks: { traps: 1, lockpicking: 2 } };
   const blocked = firstSkill(skillMenuModel({ ...options(noPoints, 4), language: 'en' }));
   assert.equal(blocked.rank, 1);
   assert.equal(blocked.canLearn, false);
   assert.equal(blocked.reasonLabel, 'No skill points');
   assert.equal(blocked.actionLabel, 'Upgrade');
 
-  const masteredState = { version: 1, points: 2, ranks: { 'trap-sense': 3 } };
+  const masteredState = { version: 1, points: 2, ranks: { 'traps': 3 } };
   const mastered = firstSkill(skillMenuModel(options(masteredState, 6)));
   assert.equal(mastered.rank, 3);
   assert.equal(mastered.nextRank, null);
@@ -284,7 +296,7 @@ test('rank advancement, level requirements and points use current gameplay rules
 });
 
 test('finished run keeps learned rank visible but blocks spending', () => {
-  const state = { version: 1, points: 2, ranks: { 'trap-sense': 1 } };
+  const state = { version: 1, points: 2, ranks: { 'traps': 1 } };
   const model = skillMenuModel({ ...options(state, 4), runStatus: 'dead', language: 'en' });
   assert.equal(firstSkill(model).rank, 1);
   assert.equal(firstSkill(model).canLearn, false);
@@ -295,7 +307,7 @@ test('book adjustments are visible without corrupting trained ranks or point spe
   const state = createSkillState(2);
   const boosted = firstSkill(skillMenuModel({
     ...options(state, 2),
-    rankAdjustments: { 'trap-sense': 1 },
+    rankAdjustments: { 'traps': 1 },
   }));
   assert.equal(boosted.rank, 1);
   assert.equal(boosted.trainedRank, 0);
@@ -361,7 +373,7 @@ test('ни один ранг навыка не молчит, и каждое ч�
   const { SKILL_IMPLEMENTATIONS } = await import('../tools/dcss-rpg-skills.js');
   // Навыки без реализации в меню не показываются — с них и спроса нет.
   const shown = SKILL_CATALOG.filter(({ id }) => SKILL_IMPLEMENTATIONS[id]).map(({ id }) => id);
-  assert.ok(shown.length >= 30, `навыков с реализацией всего ${shown.length}`);
+  assert.ok(shown.length >= 29, `навыков с реализацией всего ${shown.length}`);
   assert.deepEqual(unlabelledRankKeys(shown), [], 'эти числа игра покажет, но назвать не сможет');
   assert.deepEqual(
     skillRankProblems(shown),

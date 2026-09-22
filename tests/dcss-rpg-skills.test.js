@@ -26,8 +26,9 @@ const TRAP_IMPLEMENTATION = {
     { trapDetectionRadius: 3, trapDetectionTier: 3 },
   ],
 };
-const implementations = { 'trap-sense': TRAP_IMPLEMENTATION };
-const systems = ['trap-detection'];
+const implementations = { 'traps': TRAP_IMPLEMENTATION };
+// «Ловушки» держатся на трёх системах сразу: видеть, снимать и ставить.
+const systems = ['trap-detection', 'trap-disarming', 'trap-placement'];
 const neutral = { attack: 0, defense: 0, maxHp: 0, moveSpeed: 0, attackSpeed: 0, intelligence: 0 };
 /**
  * A hero who has grown into their skills. The second and third rank of every
@@ -40,7 +41,7 @@ const command = (state, heroLevel, expectedRank = 0, overrides = {}) => ({
   state,
   heroLevel,
   runStatus: 'playing',
-  skillId: 'trap-sense',
+  skillId: 'traps',
   expectedRank,
   implementations,
   systems,
@@ -54,7 +55,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS));
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
-    'trap-sense', 'trap-disarming', 'lockpicking', 'appraisal', 'swords', 'axes',
+    'traps', 'lockpicking', 'appraisal', 'swords', 'axes',
     'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'pack-leader',
@@ -72,9 +73,9 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'weapon-coatings', 'poison-bait',
     'animal-taming', 'companion-limits', 'companion-upkeep',
   ]);
-  assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
-  assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
-  assert.ok(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank.every(Object.isFrozen));
+  assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['traps']));
+  assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['traps'].capabilitiesByRank));
+  assert.ok(SKILL_IMPLEMENTATIONS['traps'].capabilitiesByRank.every(Object.isFrozen));
   assert.deepEqual(deriveSkillModifiers(initial), neutral);
   const levelFour = grantSkillPoints(initial, 1, 4);
   assert.equal(levelFour.points, 3);
@@ -89,7 +90,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
 });
 
 test('saved ranks are strict, level-gated and conserve all earned points', () => {
-  const valid = { version: 1, points: 2, ranks: { 'trap-sense': 1 } };
+  const valid = { version: 1, points: 2, ranks: { 'traps': 1 } };
   assert.equal(validateSkillState(valid, 4), true);
   const invalid = [
     null, [], {}, { ...valid, version: 2 }, { ...valid, points: '2' },
@@ -97,15 +98,15 @@ test('saved ranks are strict, level-gated and conserve all earned points', () =>
     { ...valid, points: -1 }, { ...valid, points: 1.5 },
     { ...valid, points: 3 }, { ...valid, extra: true },
     { ...valid, ranks: [] }, { ...valid, ranks: { missing: 1 } },
-    { ...valid, ranks: { 'trap-sense': 0 } },
-    { ...valid, ranks: { 'trap-sense': 4 } },
-    { ...valid, ranks: { 'trap-sense': 1.5 } },
-    { ...valid, ranks: Object.create({ 'trap-sense': 1 }) },
+    { ...valid, ranks: { 'traps': 0 } },
+    { ...valid, ranks: { 'traps': 4 } },
+    { ...valid, ranks: { 'traps': 1.5 } },
+    { ...valid, ranks: Object.create({ 'traps': 1 }) },
     { ...valid, ranks: JSON.parse('{"__proto__":1}') },
   ];
   for (const state of invalid) assert.equal(validateSkillState(state, 4), false);
-  assert.equal(validateSkillState({ version: 1, points: 0, ranks: { 'trap-sense': 2 } }, 3), false);
-  assert.equal(validateSkillState({ version: 1, points: 2, ranks: { 'trap-sense': 3 } }, 6), true);
+  assert.equal(validateSkillState({ version: 1, points: 0, ranks: { 'traps': 2 } }, 3), false);
+  assert.equal(validateSkillState({ version: 1, points: 2, ranks: { 'traps': 3 } }, 6), true);
   assert.equal(validateSkillState(valid, '4'), false);
 });
 
@@ -115,9 +116,9 @@ test('learning is immutable and expectedRank prevents duplicate command spending
   const result = learnSkill(command(state, 2));
   assert.equal(result.ok, true);
   assert.deepEqual(state, before);
-  assert.deepEqual(result.state, { version: 1, points: 0, ranks: { 'trap-sense': 1 } });
+  assert.deepEqual(result.state, { version: 1, points: 0, ranks: { 'traps': 1 } });
   assert.deepEqual(result.event, {
-    type: 'skill-learned', skillId: 'trap-sense', previousRank: 0, rank: 1, pointsSpent: 1,
+    type: 'skill-learned', skillId: 'traps', previousRank: 0, rank: 1, pointsSpent: 1,
   });
   const repeated = learnSkill(command(result.state, 2));
   assert.equal(repeated.ok, false);
@@ -139,7 +140,7 @@ test('terminal runs, bad commands and ranks above the hero level never spend poi
   }
   const first = learnSkill(command(createSkillState(2), 2)).state;
   assert.equal(learnSkill(command(first, 2, 1)).reason, 'level-required');
-  const noPoints = { version: 1, points: 0, ranks: { 'trap-sense': 1, 'secret-search': 1, stealth: 1 } };
+  const noPoints = { version: 1, points: 0, ranks: { 'traps': 1, 'secret-search': 1, stealth: 1 } };
   assert.equal(learnSkill(command(noPoints, 4, 1)).reason, 'no-points');
 });
 
@@ -153,7 +154,7 @@ test('all three ranks work at their level thresholds and stop at the ceiling', (
   assert.equal(available.ok, true);
   assert.equal(available.nextRank, 3);
   state = learnSkill(command(state, 6, 2)).state;
-  assert.equal(state.ranks['trap-sense'], 3);
+  assert.equal(state.ranks['traps'], 3);
   assert.equal(state.points, 2);
   assert.equal(learnSkill(command(state, 6, 3)).reason, 'max-rank');
   assert.equal(deriveSkillCapabilities(state, { implementations, systems }).trapDetectionRadius, 3);
@@ -161,8 +162,8 @@ test('all three ranks work at their level thresholds and stop at the ceiling', (
 
 test('catalogue text alone cannot enable skills: real implementation and every system are mandatory', () => {
   const state = createSkillState(4);
-  assert.equal(isSkillReady('trap-sense'), true);
-  assert.equal(isSkillReady('trap-disarming'), true);
+  assert.equal(isSkillReady('traps'), true);
+  assert.equal(isSkillReady('traps'), true);
   // Ловушечник и лагерь сняты: ставить капканы и разбивать лагерь герой
   // умеет сам, в полную силу и без вложений.
   assert.equal(isSkillReady('trap-setting'), false);
@@ -170,10 +171,10 @@ test('catalogue text alone cannot enable skills: real implementation and every s
   assert.equal(isSkillReady('swords'), true);
   assert.equal(isSkillReady('axes'), true);
   assert.equal(isSkillReady('missing', { implementations, systems }), false);
-  assert.equal(isSkillReady('trap-sense', { implementations, systems: [] }), false);
-  assert.equal(isSkillReady('trap-sense', { implementations, systems: ['wrong-system'] }), false);
-  assert.equal(isSkillReady('trap-sense', { implementations, systems: 'trap-detection' }), false);
-  assert.equal(isSkillReady('trap-sense', { implementations, systems }), true);
+  assert.equal(isSkillReady('traps', { implementations, systems: [] }), false);
+  assert.equal(isSkillReady('traps', { implementations, systems: ['wrong-system'] }), false);
+  assert.equal(isSkillReady('traps', { implementations, systems: 'trap-detection' }), false);
+  assert.equal(isSkillReady('traps', { implementations, systems }), true);
   assert.equal(learnSkill(command(state, 4, 0, { implementations: {} })).reason, 'not-implemented');
   assert.equal(learnSkill(command(state, 4, 0, { systems: [] })).reason, 'missing-systems');
   for (const implementation of [
@@ -189,22 +190,24 @@ test('catalogue text alone cannot enable skills: real implementation and every s
     { ...TRAP_IMPLEMENTATION, capabilitiesByRank: [{ arbitraryAbility: 1 }, {}, {}] },
     { ...TRAP_IMPLEMENTATION, apply: () => {} },
   ]) {
-    const invalidRegistry = { 'trap-sense': implementation };
-    assert.equal(isSkillReady('trap-sense', { implementations: invalidRegistry, systems }), false);
+    const invalidRegistry = { 'traps': implementation };
+    assert.equal(isSkillReady('traps', { implementations: invalidRegistry, systems }), false);
     assert.equal(learnSkill(command(state, 4, 0, { implementations: invalidRegistry })).reason, 'not-implemented');
   }
 });
 
 test('temporarily disabled owned skills survive cloning and have no gameplay effects', () => {
-  const state = { version: 1, points: 2, ranks: { 'trap-sense': 3 } };
+  const state = { version: 1, points: 2, ranks: { 'traps': 3 } };
   const copy = cloneSkillState(state);
   assert.deepEqual(copy, state);
   assert.notEqual(copy.ranks, state.ranks);
   assert.deepEqual(deriveSkillModifiers(state), neutral);
   assert.deepEqual(deriveSkillCapabilities(state, { implementations: {} }), {
     trapDetectionRadius: 0, trapDetectionTier: 0, trapDisarmTier: 0,
+    // Ставить капканы больше не даром: это первый ранг «Ловушек».
+    trapDisarmFree: 0, trapPlacementTier: 0,
     // Даром и всем: навыков за этими числами больше нет.
-    trapPlacementTier: 3, campRank: 3, campRestPercent: 40, campStashSlots: 8,
+    campRank: 3, campRestPercent: 40, campStashSlots: 8,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
     necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
     secretSearchRank: 0, secretSearchRadius: 0,
@@ -236,20 +239,23 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
 
 test('derived modifiers use the current rank once and ignore save insertion order', () => {
   const fixture = {
-    'trap-sense': {
+    traps: {
       version: 1,
       modifiersByRank: [{ attack: 1 }, { attack: 2 }, { attack: 3, moveSpeed: 0.1 }],
       capabilitiesByRank: [{}, {}, {}],
     },
-    'trap-disarming': {
+    lockpicking: {
       version: 1,
       modifiersByRank: [{ defense: 2 }, { defense: 4 }, { defense: 6, moveSpeed: 0.2 }],
       capabilitiesByRank: [{}, {}, {}],
     },
   };
-  const stateA = { version: 1, points: 1, ranks: { 'trap-sense': 3, 'trap-disarming': 3 } };
-  const stateB = { ...stateA, ranks: { 'trap-disarming': 3, 'trap-sense': 3 } };
-  const options = { implementations: fixture, systems: ['trap-detection', 'trap-disarming'] };
+  const stateA = { version: 1, points: 1, ranks: { traps: 3, lockpicking: 3 } };
+  const stateB = { ...stateA, ranks: { lockpicking: 3, traps: 3 } };
+  const options = {
+    implementations: fixture,
+    systems: ['trap-detection', 'trap-disarming', 'trap-placement', 'lockpicking'],
+  };
   const a = deriveSkillModifiers(stateA, options);
   assert.deepEqual(a, deriveSkillModifiers(stateB, options));
   assert.equal(a.attack, 3);
@@ -257,7 +263,12 @@ test('derived modifiers use the current rank once and ignore save insertion orde
   assert.ok(Math.abs(a.moveSpeed - 0.3) < 1e-10);
   assert.equal(a.maxHp, 0);
   assert.equal(a.attackSpeed, 0);
-  assert.deepEqual(deriveSkillModifiers(stateA, { ...options, systems: ['trap-detection'] }), {
-    ...neutral, attack: 3, moveSpeed: 0.1,
-  });
+  // Убери систему взлома — и вклад взлома исчезает, а «Ловушки» остаются.
+  assert.deepEqual(
+    deriveSkillModifiers(stateA, {
+      ...options,
+      systems: ['trap-detection', 'trap-disarming', 'trap-placement'],
+    }),
+    { ...neutral, attack: 3, moveSpeed: 0.1 },
+  );
 });

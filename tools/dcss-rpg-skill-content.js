@@ -28,13 +28,13 @@ export const SKILL_CATEGORIES = deepFreeze([
  */
 export const SKILL_CATALOG = deepFreeze([
   {
-    id: 'trap-sense', category: 'exploration', mode: 'passive',
-    name: { ru: 'Чутьё', en: 'Trap sense' },
+    id: 'traps', category: 'exploration', mode: 'contextual',
+    name: { ru: 'Ловушки', en: 'Traps' },
     description: {
-      ru: 'Показывает механические ловушки поблизости. Не видит сквозь стены и не обезвреживает.',
-      en: 'Shows mechanical traps nearby. Cannot see through walls or disarm them.',
+      ru: 'Видишь чужие ловушки, снимаешь их отмычкой и ставишь свои капканы. Третий ранг обходится без отмычек.',
+      en: 'See enemy traps, disarm them with picks and set your own. The third rank needs no picks.',
     },
-    requiresSystems: ['trap-detection'],
+    requiresSystems: ['trap-detection', 'trap-disarming', 'trap-placement'],
   },
   {
     id: 'secret-search', category: 'exploration', mode: 'passive',
@@ -44,15 +44,6 @@ export const SKILL_CATALOG = deepFreeze([
       en: 'Helps notice clues to secret doors, hidden alcoves and buried treasure.',
     },
     requiresSystems: ['secret-discovery'],
-  },
-  {
-    id: 'trap-disarming', category: 'exploration', mode: 'contextual',
-    name: { ru: 'Сапёр', en: 'Trap disarming' },
-    description: {
-      ru: 'Обезвреживает обнаруженные ловушки. Сложные механизмы требуют достаточного ранга или инструмента.',
-      en: 'Disarms discovered traps. Complex mechanisms require sufficient skill or a suitable tool.',
-    },
-    requiresSystems: ['trap-disarming'],
   },
   {
     id: 'lockpicking', category: 'exploration', mode: 'contextual',

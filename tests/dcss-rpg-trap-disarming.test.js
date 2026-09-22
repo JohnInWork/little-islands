@@ -11,6 +11,8 @@ import {
 import { deriveSkillCapabilities } from '../tools/dcss-rpg-skills.js';
 import { trapsFromDungeon } from '../tools/dcss-rpg-traps.js';
 import {
+  DISARM_TOOL_COST,
+  DISARM_TOOL_ITEM_ID,
   disarmTrap,
   trapDisarmAvailability,
   trapDisarmPresentation,
@@ -35,6 +37,8 @@ function command(overrides = {}) {
     runStatus: 'playing',
     hero: { x: trap.x + 1, y: trap.y, hp: 40 },
     capabilities: { trapDisarmTier: trap.tier },
+    // Механизм снимают отмычкой: у всех, кроме третьего ранга «Ловушек».
+    lockpickCount: 2,
     ...overrides,
   };
 }
@@ -48,8 +52,20 @@ test('disarming is an atomic deterministic command gated by adjacency, knowledge
   assert.deepEqual(result.state.resolvedEventIds, [input.trap.eventId]);
   assert.deepEqual(result.state.disarmedTrapIds, [input.trap.instanceId]);
   assert.deepEqual(result.event, {
-    type: 'trap-disarmed', trapId: input.trap.instanceId, tier: input.trap.tier, method: 'skill',
+    type: 'trap-disarmed', trapId: input.trap.instanceId, tier: input.trap.tier, method: 'tool',
   });
+  assert.deepEqual(result.consumed, [{ id: DISARM_TOOL_ITEM_ID, amount: DISARM_TOOL_COST }]);
+  // Без отмычки механизм не снять — и это отдельный отказ, а не «нет навыка».
+  assert.equal(disarmTrap({ ...input, lockpickCount: 0 }).reason, 'tool-required');
+  // Третий ранг обходится без них: рука уже знает, куда нажать.
+  const мастер = disarmTrap({
+    ...input,
+    lockpickCount: 0,
+    capabilities: { trapDisarmTier: 3, trapDisarmFree: 1 },
+  });
+  assert.equal(мастер.ok, true);
+  assert.deepEqual(мастер.consumed, []);
+  assert.equal(мастер.event.method, 'skill');
   assert.deepEqual(input, before);
   assert.equal(disarmTrap({ ...input, detectedTrapIds: [] }).reason, 'undetected');
   assert.equal(disarmTrap({ ...input, hero: { ...input.hero, x: input.trap.x + 2 } }).reason, 'distance');
@@ -57,17 +73,19 @@ test('disarming is an atomic deterministic command gated by adjacency, knowledge
   assert.equal(disarmTrap({ ...input, runStatus: 'dead' }).reason, 'inactive');
 });
 
-test('skill ranks and bilingual copy expose the exact trap tier', () => {
+test('первый ранг «Ловушек» снимает любой механизм, и отказы названы по-человечески', () => {
   const input = command();
-  const skillState = { version: 1, points: 0, ranks: { 'trap-disarming': 1 } };
+  const skillState = { version: 1, points: 0, ranks: { traps: 1 } };
   const capabilities = deriveSkillCapabilities(skillState);
-  assert.equal(capabilities.trapDisarmTier, 1);
-  const availability = trapDisarmAvailability({ ...input, capabilities });
-  assert.equal(availability.ok, input.trap.tier === 1);
+  // Все напольные ловушки первого тира, поэтому первый ранг берёт любую.
+  assert.equal(capabilities.trapDisarmTier, 3);
+  assert.equal(trapDisarmAvailability({ ...input, capabilities }).ok, true);
   const ru = trapDisarmPresentation({ trap: input.trap, effectiveTier: 0, language: 'ru' });
   const en = trapDisarmPresentation({ trap: input.trap, effectiveTier: 0, language: 'en' });
-  assert.match(ru.skillRequired ?? ru.unavailable, /Сапёр/);
-  assert.match(en.unavailable, /Trap disarming/);
+  assert.match(ru.unavailable, /Ловушки/);
+  assert.match(en.unavailable, /Traps/);
+  assert.match(ru.toolRequired, /отмычк/);
+  assert.match(en.toolRequired, /lockpick/);
 });
 
 test('v12 migration adds disarmed history and v15 hydration rejects foreign disarmed traps', () => {

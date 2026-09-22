@@ -88,6 +88,7 @@ const LABELS = Object.freeze({
   // ── Способности из `capabilitiesByRank` ─────────────────────────────────
   trapDetectionRadius: unit('видит ловушки', 'sees traps', 'cells'),
   trapDisarmTier: unit('обезвреживает ловушки', 'disarms traps', 'tier'),
+  trapDisarmFree: unit('снимает ловушки без отмычек', 'disarms traps without picks', 'flag'),
   trapPlacementTier: unit('ставит ловушки', 'sets traps', 'tier'),
   lockpickTier: unit('вскрывает замки', 'picks locks', 'tier'),
   itemIdentificationTier: unit('опознаёт вещи', 'identifies items', 'tier'),

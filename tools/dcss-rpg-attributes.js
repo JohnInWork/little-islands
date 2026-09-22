@@ -108,11 +108,10 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   mobility: 'agility',
   stealth: 'agility',
   lockpicking: 'agility',
-  'trap-disarming': 'agility',
   salvaging: 'agility',
 
   // Head.
-  'trap-sense': 'intelligence',
+  traps: 'agility',
   'secret-search': 'intelligence',
   appraisal: 'intelligence',
   'staff-channeling': 'intelligence',

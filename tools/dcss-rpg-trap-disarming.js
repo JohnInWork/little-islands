@@ -1,17 +1,31 @@
 export const DISARMED_TRAP_PATH = 'dngn/traps/pressure_plate.png';
 
+/**
+ * Механизм снимают инструментом, а не голыми руками.
+ *
+ * Иван: «я бы хотел, чтобы ловушки обезвреживать был бы какой-нибудь
+ * инструмент». Инструментом служит тот же набор отмычек, что открывает
+ * сундуки: тонкая работа и там и там, а отмычки от этого становятся выбором
+ * — потратить на замок или на механизм под ногами. Третий ранг «Ловушек»
+ * снимает эту плату: рука уже знает, куда нажать.
+ */
+export const DISARM_TOOL_ITEM_ID = 'lockpick-set';
+export const DISARM_TOOL_COST = 1;
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     action: 'Обезвредить обнаруженную ловушку',
     success: 'Ловушка обезврежена',
-    skillRequired: 'Нужен навык «Сапёр» I',
-    tierRequired: (tier) => `Нужен навык «Сапёр» ${['I', 'II', 'III'][tier - 1]}`,
+    skillRequired: 'Нужен навык «Ловушки» I',
+    tierRequired: (tier) => `Нужен навык «Ловушки» ${['I', 'II', 'III'][tier - 1]}`,
+    toolRequired: 'Нужна отмычка',
   }),
   en: Object.freeze({
     action: 'Disarm the detected trap',
     success: 'Trap disarmed',
-    skillRequired: 'Trap disarming I required',
-    tierRequired: (tier) => `Trap disarming ${['I', 'II', 'III'][tier - 1]} required`,
+    skillRequired: 'Traps I required',
+    tierRequired: (tier) => `Traps ${['I', 'II', 'III'][tier - 1]} required`,
+    toolRequired: 'A lockpick is required',
   }),
 });
 
@@ -48,6 +62,7 @@ export function trapDisarmPresentation({ trap, effectiveTier = 0, language = 'ru
     action: copy.action,
     success: copy.success,
     unavailable: effectiveTier === 0 ? copy.skillRequired : copy.tierRequired(trap.tier),
+    toolRequired: copy.toolRequired,
     requiredTier: trap.tier,
     effectiveTier,
     ready,
@@ -69,6 +84,7 @@ export function trapDisarmAvailability({
   hero,
   capabilities,
   toolTier = 0,
+  lockpickCount = 0,
 } = {}) {
   const skillTier = capabilities?.trapDisarmTier ?? 0;
   if (
@@ -89,6 +105,9 @@ export function trapDisarmAvailability({
   ) return rejected('invalid');
 
   const effectiveTier = Math.max(skillTier, toolTier);
+  // Третий ранг работает без отмычек; всем остальным нужна одна на механизм.
+  const free = capabilities?.trapDisarmFree === 1;
+  const tools = Number.isInteger(lockpickCount) && lockpickCount >= 0 ? lockpickCount : 0;
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive', trap.tier, effectiveTier);
   if (disarmedTrapIds.includes(trap.instanceId)) return rejected('disarmed', trap.tier, effectiveTier);
   if (resolvedEventIds.includes(trap.eventId)) return rejected('resolved', trap.tier, effectiveTier);
@@ -97,7 +116,10 @@ export function trapDisarmAvailability({
   if (distance !== 1) return rejected('distance', trap.tier, effectiveTier);
   if (effectiveTier === 0) return rejected('skill-required', trap.tier, effectiveTier);
   if (effectiveTier < trap.tier) return rejected('tier-required', trap.tier, effectiveTier);
-  return Object.freeze({ ok: true, reason: 'available', requiredTier: trap.tier, effectiveTier });
+  if (!free && tools < DISARM_TOOL_COST) return rejected('tool-required', trap.tier, effectiveTier);
+  return Object.freeze({
+    ok: true, reason: 'available', requiredTier: trap.tier, effectiveTier, free,
+  });
 }
 
 export function disarmTrap(options = {}) {
@@ -106,6 +128,9 @@ export function disarmTrap(options = {}) {
   const { trap, resolvedEventIds, disarmedTrapIds } = options;
   return Object.freeze({
     ...availability,
+    consumed: Object.freeze(availability.free
+      ? []
+      : [Object.freeze({ id: DISARM_TOOL_ITEM_ID, amount: DISARM_TOOL_COST })]),
     state: Object.freeze({
       resolvedEventIds: Object.freeze([...resolvedEventIds, trap.eventId].sort()),
       disarmedTrapIds: Object.freeze([...disarmedTrapIds, trap.instanceId].sort()),
@@ -114,7 +139,7 @@ export function disarmTrap(options = {}) {
       type: 'trap-disarmed',
       trapId: trap.instanceId,
       tier: trap.tier,
-      method: options.toolTier > (options.capabilities?.trapDisarmTier ?? 0) ? 'tool' : 'skill',
+      method: availability.free ? 'skill' : 'tool',
     }),
   });
 }

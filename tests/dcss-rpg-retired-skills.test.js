@@ -15,7 +15,7 @@ import { skillById } from '../tools/dcss-rpg-skill-content.js';
  * герой исчезает, будто его не было. Именно это и случилось бы на телефоне.
  */
 
-const прежние = ['camping', 'trap-setting', 'darkvision', 'alchemy'];
+const прежние = ['camping', 'trap-setting', 'darkvision', 'alchemy', 'trap-sense', 'trap-disarming'];
 
 test('снятые навыки больше не существуют в каталоге', () => {
   for (const id of прежние) {
@@ -52,11 +52,13 @@ test('приём ничего не трогает там, где трогать 
   assert.equal(adoptRun({ hero: null }).hero, null);
 });
 
-test('умения лагеря и ловушек доступны без всяких очков', () => {
+test('лагерь доступен без всяких очков, а капканы — уже нет', () => {
   const run = createRun(4244);
   const умения = deriveSkillCapabilities(run.hero.skills);
   assert.ok(умения.campRank >= 3, `лагерь ранга ${умения.campRank}`);
-  assert.ok(умения.trapPlacementTier >= 3, `ловушки тира ${умения.trapPlacementTier}`);
+  // Ставить капканы умел всякий; теперь это первый ранг «Ловушек». Иван:
+  // «ставить ловушки можно на первом уровне этого навыка».
+  assert.equal(умения.trapPlacementTier, 0, 'капканы всё ещё даром');
 });
 
 /**

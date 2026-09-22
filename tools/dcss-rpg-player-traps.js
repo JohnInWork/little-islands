@@ -3,7 +3,7 @@ export const PLAYER_TRAP_KIND = 'jaw';
 /** A poisoner lays the same kind of thing, and it works the other way round. */
 export const PLAYER_BAIT_KIND = 'bait';
 export const PLACED_TRAP_KINDS = Object.freeze([PLAYER_TRAP_KIND, PLAYER_BAIT_KIND]);
-export const PLAYER_TRAP_PATH = 'dngn/traps/blade.png';
+export const PLAYER_TRAP_PATH = 'licensed/game-icons/trap-jaws.png';
 export const PLAYER_BAIT_PATH = 'item/food/chunk_rotten.png';
 export const MAX_PLACED_TRAPS = 16;
 

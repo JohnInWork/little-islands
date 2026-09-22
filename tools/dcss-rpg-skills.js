@@ -6,22 +6,36 @@ export const SKILL_STATE_VERSION = 1;
 // Registration is a gameplay contract, not a catalogue/preview flag. Leave a skill
 // absent until its consumer, save handling and integration tests actually exist.
 export const SKILL_IMPLEMENTATIONS = Object.freeze({
-  'trap-sense': Object.freeze({
+  /*
+   * Ловушки: одно дело вместо двух навыков.
+   *
+   * «Чутьё» показывало ловушки, «Сапёр» их снимал, и без обоих ни одна
+   * половина не работала: снять можно только то, что видишь. Тир у «Чутья»
+   * не значил вообще ничего — все напольные ловушки в игре первого тира.
+   *
+   * Лестница задана Иваном: «за первый уровень мы даём обезвреживать
+   * ловушки, за второй +2 к радиусу сразу, за третий — обезвреживать без
+   * инструментов, а ставить ловушки можно на первом уровне — он тогда
+   * становится классным».
+   *
+   * Инструмент — набор отмычек, тот же, что открывает сундуки: тонкая работа
+   * и там и там. Поэтому отмычки становятся выбором, а третий ранг —
+   * настоящей экономией, а не прибавкой к числу.
+   */
+  traps: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
     capabilitiesByRank: Object.freeze([
-      Object.freeze({ trapDetectionRadius: 2, trapDetectionTier: 1 }),
-      Object.freeze({ trapDetectionRadius: 3, trapDetectionTier: 2 }),
-      Object.freeze({ trapDetectionRadius: 4, trapDetectionTier: 3 }),
-    ]),
-  }),
-  'trap-disarming': Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ trapDisarmTier: 1 }),
-      Object.freeze({ trapDisarmTier: 2 }),
-      Object.freeze({ trapDisarmTier: 3 }),
+      Object.freeze({
+        trapDetectionRadius: 2, trapDetectionTier: 3, trapDisarmTier: 3, trapPlacementTier: 3,
+      }),
+      Object.freeze({
+        trapDetectionRadius: 4, trapDetectionTier: 3, trapDisarmTier: 3, trapPlacementTier: 3,
+      }),
+      Object.freeze({
+        trapDetectionRadius: 4, trapDetectionTier: 3, trapDisarmTier: 3, trapPlacementTier: 3,
+        trapDisarmFree: 1,
+      }),
     ]),
   }),
   lockpicking: Object.freeze({
@@ -353,6 +367,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   trapDetectionRadius: Object.freeze([0, 32]),
   trapDetectionTier: Object.freeze([0, 3]),
   trapDisarmTier: Object.freeze([0, 3]),
+  trapDisarmFree: Object.freeze([0, 1]),
   trapPlacementTier: Object.freeze([0, 3]),
   lockpickTier: Object.freeze([0, 3]),
   itemIdentificationTier: Object.freeze([0, 3]),
@@ -741,7 +756,9 @@ export function deriveSkillModifiers(state, options = {}) {
  * в полную силу у всех.
  */
 export const SKILL_CAPABILITY_BASELINE = Object.freeze({
-  trapPlacementTier: 3,
+  // Ставить свои капканы умел всякий. Теперь это первый ранг «Ловушек»:
+  // Иван: «ставить ловушки можно на первом уровне этого навыка — он тогда
+  // становится классным».
   campRank: 3,
   campRestPercent: 40,
   campStashSlots: 8,

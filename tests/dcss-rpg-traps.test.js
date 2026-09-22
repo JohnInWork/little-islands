@@ -50,19 +50,33 @@ test('trap records reuse existing event IDs and do not alter generation or consu
   }
 });
 
-test('production Trap Sense ranks detect at actual 2/3/4-cell Manhattan distances', () => {
+/**
+ * «Ловушки»: первый ранг видит на две клетки, второй сразу на четыре.
+ *
+ * Лестницу задал Иван: «за первый уровень мы даём обезвреживать ловушки, за
+ * второй +2 к радиусу сразу». Тир детекции больше не растёт по рангам — все
+ * напольные ловушки в игре первого тира, и делить их было нечем.
+ */
+test('ранги «Ловушек» видят на 2 и на 4 клетки по-настоящему', () => {
   const traps = [record(3, 1, 0), record(4, 1, 1), record(5, 1, 2), record(6, 1, 3)];
   let state = createSkillState(6);
   const base = deriveSkillCapabilities(state);
   assert.deepEqual(discoverTraps({ traps, origin: { x: 1, y: 1 }, capabilities: base, hasLineOfSight: allVisible }), []);
+  const радиусы = [2, 4, 4];
+  // Ловушки стоят в двух, трёх, четырёх и пяти клетках от героя.
+  const видно = [1, 3, 3];
   for (let rank = 1; rank <= 3; rank += 1) {
-    const learned = learnSkill({ state, heroLevel: 6, runStatus: 'playing', skillId: 'trap-sense', expectedRank: rank - 1, attributes: { strength: 40, agility: 40, intelligence: 40 } });
+    const learned = learnSkill({ state, heroLevel: 6, runStatus: 'playing', skillId: 'traps', expectedRank: rank - 1, attributes: { strength: 40, agility: 40, intelligence: 40 } });
     assert.equal(learned.ok, true);
     state = learned.state;
     const capabilities = deriveSkillCapabilities(state);
-    assert.equal(capabilities.trapDetectionRadius, rank + 1);
-    assert.equal(capabilities.trapDetectionTier, rank);
-    assert.deepEqual(discoverTraps({ traps, origin: { x: 1, y: 1 }, capabilities, hasLineOfSight: allVisible }), traps.slice(0, rank).map(({ instanceId }) => instanceId));
+    assert.equal(capabilities.trapDetectionRadius, радиусы[rank - 1]);
+    assert.equal(capabilities.trapDetectionTier, 3, 'тир один на все ловушки');
+    assert.equal(capabilities.trapPlacementTier, 3, 'свои капканы ставятся с первого ранга');
+    assert.deepEqual(
+      discoverTraps({ traps, origin: { x: 1, y: 1 }, capabilities, hasLineOfSight: allVisible }),
+      traps.slice(0, видно[rank - 1]).map(({ instanceId }) => instanceId),
+    );
   }
 });
 
@@ -121,7 +135,7 @@ test('v10 migration preserves earned skills while the expanded-run boundary clea
   delete legacy.floor.disarmedTrapIds;
   delete legacy.floor.placedTraps;
   legacy.hero.level = 4;
-  legacy.hero.skills = { version: 1, points: 2, ranks: { 'trap-sense': 1 } };
+  legacy.hero.skills = { version: 1, points: 2, ranks: { 'traps': 1 } };
   legacy.hero.hp = 43;
   legacy.started = true;
   legacy.difficulty = dungeon.scaling.difficulty;

@@ -1103,7 +1103,7 @@ export const INTERACTION_REGISTRY = Object.freeze([
         ['I', 'II', 'III'][target.tier - 1],
         target.canDisarm ? copy.trapReady : target.unavailable,
       ),
-      icon: 'dngn/traps/blade.png',
+      icon: 'licensed/game-icons/trap-jaws.png',
       accent: target.canDisarm ? '#8eaa9a' : '#c59663',
       actions: [
         { id: 'disarm', enabled: target.canDisarm, hint: target.canDisarm ? '' : target.unavailable },

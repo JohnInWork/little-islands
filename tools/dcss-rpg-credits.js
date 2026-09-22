@@ -181,16 +181,18 @@ export const CREDITS_SECTIONS = Object.freeze([
   }),
   section({
     id: 'game-icons',
+    packDir: 'game-icons',
     license: 'CC BY 3.0',
     source: 'https://game-icons.net',
     ru: {
       // CC BY требует назвать авторов — они и названы. Что каким значком
-      // нарисовано, игроку знать незачем.
-      title: 'Значки интерфейса',
+      // нарисовано, игроку знать незачем. Оттуда же и капкан на полу:
+      // настоящего пиксельного капкана не нашлось нигде в свободном доступе.
+      title: 'Значки интерфейса и капкан',
       lines: Object.freeze(['game-icons.net: Delapouite, Lorc, sbed, guard13007']),
     },
     en: {
-      title: 'Interface icons',
+      title: 'Interface icons and the trap',
       lines: Object.freeze(['game-icons.net: Delapouite, Lorc, sbed, guard13007']),
     },
   }),
