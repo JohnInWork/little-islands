@@ -56,8 +56,6 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'portering',
     'endurance',
     'poisoncraft',
-    'weaponsmithing',
-    'armorsmithing',
     'salvaging',
     'taming',
     'pack-leader',
@@ -363,15 +361,13 @@ test('ни один ранг навыка не молчит, и каждое ч�
   const { SKILL_IMPLEMENTATIONS } = await import('../tools/dcss-rpg-skills.js');
   // Навыки без реализации в меню не показываются — с них и спроса нет.
   const shown = SKILL_CATALOG.filter(({ id }) => SKILL_IMPLEMENTATIONS[id]).map(({ id }) => id);
-  assert.ok(shown.length >= 32, `навыков с реализацией всего ${shown.length}`);
+  assert.ok(shown.length >= 30, `навыков с реализацией всего ${shown.length}`);
   assert.deepEqual(unlabelledRankKeys(shown), [], 'эти числа игра покажет, но назвать не сможет');
   assert.deepEqual(
     skillRankProblems(shown),
     [
       // Известные дыры баланса, а не UI: на этих ступенях профиль отдаёт ровно
       // то же, что и на предыдущей. Строка здесь — чтобы они не потерялись.
-      'weaponsmithing: ранг 3 ничего не обещает',
-      'armorsmithing: ранг 3 ничего не обещает',
       'pack-leader: ранг 2 ничего не обещает',
     ],
     'появился новый молчащий ранг',

@@ -274,24 +274,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['weapon-coatings', 'poison-bait'],
   },
   {
-    id: 'weaponsmithing', category: 'crafting', mode: 'contextual',
-    name: { ru: 'Оружейное дело', en: 'Weaponsmithing' },
-    description: {
-      ru: 'Перенастраивает оружие, выбирая между темпом и силой удара.',
-      en: 'Retunes a weapon to trade attack speed for impact or vice versa.',
-    },
-    requiresSystems: ['weapon-reforging'],
-  },
-  {
-    id: 'armorsmithing', category: 'crafting', mode: 'contextual',
-    name: { ru: 'Бронное дело', en: 'Armorsmithing' },
-    description: {
-      ru: 'Переделывает броню в более защищённый тяжёлый или более подвижный лёгкий вариант.',
-      en: 'Reworks armor into a heavier protective or lighter mobile variant.',
-    },
-    requiresSystems: ['armor-reforging'],
-  },
-  {
     id: 'salvaging', category: 'crafting', mode: 'contextual',
     name: { ru: 'Разбор механизмов', en: 'Salvaging' },
     description: {

@@ -58,7 +58,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
     'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'pack-leader',
-    'poisoncraft', 'weaponsmithing', 'armorsmithing', 'arcana',
+    'poisoncraft', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
     'trap-detection', 'camp-rest', 'carrying-capacity', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
@@ -69,7 +69,7 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'whip-control', 'staff-channeling', 'fire-spread', 'frost-buildup', 'chain-lightning',
     'cleansing-ritual', 'scroll-variants', 'component-salvage',
-    'weapon-coatings', 'poison-bait', 'weapon-reforging', 'armor-reforging',
+    'weapon-coatings', 'poison-bait',
     'animal-taming', 'companion-limits', 'companion-upkeep',
   ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
@@ -223,7 +223,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     pyromancyRank: 0, cryomancyRank: 0, stormMagicRank: 0,
     cleansingRank: 0, arcanaRank: 0, scrollVariantTier: 0,
     salvagingRank: 0, tamingRank: 0,
-    poisoncraftRank: 0, weaponsmithingRank: 0, armorsmithingRank: 0,
+    poisoncraftRank: 0,
     packLeaderRank: 0,
     porterRank: 0, backpackSlots: 0,
   });

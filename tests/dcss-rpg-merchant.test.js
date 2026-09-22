@@ -224,9 +224,9 @@ test('the shop shows the thing in the big window before it takes the money', asy
   assert.match(runtime, /label: `\$\{selection\.verb\} · \$\{selection\.price\} \{gold\}`/);
   // Nothing is bought until that window's button is pressed.
   assert.match(runtime, /if \(itemDetailOffer\) \{\s*const \{ act \} = itemDetailOffer;/);
-  // The forge and the alternative belong to the backpack, not to a counter.
+  // Второе чтение свитка принадлежит рюкзаку, а не прилавку. Кузни, которая
+  // стояла здесь же, больше нет.
   assert.match(runtime, /const secondary = !itemDetailOffer &&/);
-  assert.match(runtime, /const craft = !itemDetailOffer &&/);
 });
 
 /**

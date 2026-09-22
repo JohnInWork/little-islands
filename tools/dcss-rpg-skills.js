@@ -286,24 +286,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ poisoncraftRank: 3 }),
     ]),
   }),
-  weaponsmithing: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ weaponsmithingRank: 1 }),
-      Object.freeze({ weaponsmithingRank: 2 }),
-      Object.freeze({ weaponsmithingRank: 3 }),
-    ]),
-  }),
-  armorsmithing: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ armorsmithingRank: 1 }),
-      Object.freeze({ armorsmithingRank: 2 }),
-      Object.freeze({ armorsmithingRank: 3 }),
-    ]),
-  }),
   arcana: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -351,8 +333,6 @@ export const SKILL_SYSTEMS = Object.freeze([
   'component-salvage',
   'weapon-coatings',
   'poison-bait',
-  'weapon-reforging',
-  'armor-reforging',
   'animal-taming',
   'companion-limits',
   'companion-upkeep',
@@ -432,8 +412,6 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   cleansingRank: Object.freeze([0, 3]),
   salvagingRank: Object.freeze([0, 3]),
   poisoncraftRank: Object.freeze([0, 3]),
-  weaponsmithingRank: Object.freeze([0, 3]),
-  armorsmithingRank: Object.freeze([0, 3]),
   tamingRank: Object.freeze([0, 3]),
   packLeaderRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),

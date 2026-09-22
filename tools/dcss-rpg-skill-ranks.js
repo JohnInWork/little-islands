@@ -38,7 +38,6 @@ import { necromancyProfile } from './dcss-rpg-minions.js';
 import { poisonProfile } from './dcss-rpg-poisoncraft.js';
 import { SKILL_IMPLEMENTATIONS } from './dcss-rpg-skills.js';
 import { skillById } from './dcss-rpg-skill-content.js';
-import { armorSmithProfile, weaponSmithProfile } from './dcss-rpg-smithing.js';
 import { pyromancySpreadProfile } from './dcss-rpg-spells.js';
 import { stormChainProfile } from './dcss-rpg-storm-magic.js';
 
@@ -61,8 +60,6 @@ const PROFILE_BY_SKILL = Object.freeze({
   'field-medicine': (rank) => fieldMedicineProfile({ fieldMedicineRank: rank }),
   endurance: (rank) => enduranceProfile({ enduranceRank: rank }),
   poisoncraft: (rank) => poisonProfile({ poisoncraftRank: rank }),
-  weaponsmithing: (rank) => weaponSmithProfile({ weaponsmithingRank: rank }),
-  armorsmithing: (rank) => armorSmithProfile({ armorsmithingRank: rank }),
   salvaging: (rank) => salvageProfile({ salvagingRank: rank }),
   taming: (rank) => tamingProfile({ tamingRank: rank }),
   'pack-leader': (rank) => packProfile({ packLeaderRank: rank }),
@@ -152,11 +149,8 @@ const LABELS = Object.freeze({
   hits: unit('покрытия хватает на', 'the coating lasts', 'hits'),
   seconds: unit('яд держится', 'the venom lasts', 'seconds'),
   baitSeconds: unit('приманка держится', 'the bait lasts', 'seconds'),
-  cost: unit('стоит эссенции', 'costs essence', 'count'),
   bonusPercent: unit('деталей больше на', 'more parts by', 'percent'),
-  essencePerPiece: unit('эссенции с детали', 'essence per part', 'count'),
   maxAffixes: unit('свойств на предмете', 'properties per item', 'count'),
-  essenceCost: unit('стоит эссенции', 'costs essence', 'count'),
   difficulty: unit('приручает зверей до', 'tames beasts up to', 'tier'),
   hpPercent: unit('питомец крепче на', 'the pet is tougher by', 'percent'),
   damagePercent: unit('урон по ним', 'damage to them', 'percent'),

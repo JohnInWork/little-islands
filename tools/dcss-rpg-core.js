@@ -99,7 +99,6 @@ import {
 } from './dcss-rpg-portal.js';
 import { createCrimeState, validateCrimeState } from './dcss-rpg-crime.js';
 import { createCompanionParty, validateCompanionParty } from './dcss-rpg-companions.js';
-import { validateReforgeState } from './dcss-rpg-smithing.js';
 import { rollMaterial, validateItemMaterial } from './dcss-rpg-materials.js';
 import { createCoatingState, validateCoatingState } from './dcss-rpg-poisoncraft.js';
 import { validatePlacedTraps } from './dcss-rpg-player-traps.js';
@@ -2744,7 +2743,6 @@ export function validateRun(snapshot) {
           { required: Boolean(lootById(item.id)?.slot) },
         ) ||
         !validateProceduralArtifactState(lootById(item.id), item) ||
-        !validateReforgeState(lootById(item.id), item) ||
         !validateItemMaterial(lootById(item.id), item) ||
         (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999)),
     )
@@ -2828,7 +2826,6 @@ export function validateRun(snapshot) {
         { required: Boolean(lootById(item.id)?.slot) },
       )
       || !validateProceduralArtifactState(lootById(item.id), item)
-      || !validateReforgeState(lootById(item.id), item)
       || !validateItemMaterial(lootById(item.id), item)
       || (item.stack !== undefined && !isFiniteInteger(item.stack, 1, 999))
     ))

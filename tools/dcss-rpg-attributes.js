@@ -99,8 +99,6 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   shield: 'strength',
   endurance: 'strength',
   portering: 'strength',
-  weaponsmithing: 'strength',
-  armorsmithing: 'strength',
   'pack-leader': 'strength',
 
   // Fingers and feet.

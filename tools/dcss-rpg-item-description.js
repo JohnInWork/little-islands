@@ -155,7 +155,6 @@ const COPY = Object.freeze({
     key: 'Открывает один сундук · расходуется',
     'master-key': 'Открывает любой сундук · не расходуется',
     lockpick: 'Взлом замка · нужен навык · расходуется',
-    essence: 'Реагент перековки · остаётся от разобранных вещей',
     trap: 'Установка рядом · нужен Ловушечник I',
     bait: 'Установка рядом · нужны «Ядовитые составы»',
     coat: 'Смазывает клинок ядом · нужны «Ядовитые составы»',
@@ -210,7 +209,6 @@ const COPY = Object.freeze({
     key: 'Opens one chest · consumed',
     'master-key': 'Opens any chest · never consumed',
     lockpick: 'Picks a lock · requires skill · consumed',
-    essence: 'Forge reagent · left behind by salvaged gear',
     trap: 'Place nearby · requires Trap setting I',
     bait: 'Placed nearby · requires Poisoncraft',
     coat: 'Coats the blade with venom · requires Poisoncraft',
@@ -537,13 +535,11 @@ function utilityFacts(item, language) {
     facts.push(freezeFact({
       id: `resource:${item.interactionResource}`,
       kind: 'use',
-      icon: item.interactionResource === 'key'
+      icon: ['key', 'master-key'].includes(item.interactionResource)
         ? '⌑'
         : item.interactionResource === 'cooking'
           ? '♨'
-          : item.interactionResource === 'essence'
-            ? '◈'
-            : '⌁',
+          : '⌁',
       text,
       short: text,
     }));

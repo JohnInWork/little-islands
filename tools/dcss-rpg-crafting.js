@@ -1,26 +1,17 @@
 /**
- * Что герой ломает, то и кормит кузню: разбор превращает ненужное снаряжение в
- * золото и эссенцию, а эссенцию тратит перековка.
+ * Разбор: что герой ломает, то и превращается в золото.
  *
- * Зачарование жило здесь же и вешало аффикс на вещь за ту же эссенцию. Иван:
- * «зачарование точно убираем». Аффиксы никуда не делись — их по-прежнему
- * приносит сама добыча, — но выбрать их рукой больше нельзя.
- *
- * Всё здесь — арифметика над тем, что уже есть: награда за лом и каталог
- * аффиксов. Второй экономики модуль не выдумывает.
+ * Рядом жила целая экономика: лом оставлял «аркановую эссенцию», а её тратили
+ * зачарование, алхимия и обе кузни. Все трое ушли — по очереди и каждый по
+ * своей причине, — и эссенцию стало некому тратить. Иван: «раз нам ни для
+ * чего они не нужны, давай пока их просто уберём». Вместе с ней ушёл и второй
+ * ранг разбора как порог: теперь навык делает одно и с первого ранга.
  */
 
-export const ESSENCE_ITEM_ID = 'arcane-essence';
-
-/** Salvaging: more gold for the same scrap, and essence out of what held magic. */
+/** Разбор: больше золота за тот же лом. */
 export const SALVAGE_BONUS_PERCENT = Object.freeze([0, 50, 75, 100]);
-/**
- * How much essence one enchanted piece leaves. Plain iron leaves none at any
- * rank: the crystal comes out of the magic, not out of the metal.
- */
-export const SALVAGE_ESSENCE_PER_PIECE = Object.freeze([0, 0, 1, 2]);
 
-const EMPTY_SALVAGE = Object.freeze({ rank: 0, bonusPercent: 0, essencePerPiece: 0 });
+const EMPTY_SALVAGE = Object.freeze({ rank: 0, bonusPercent: 0 });
 
 /** A piece holds magic when something was put on it — an affix or a power. */
 export function isMagicalPiece(item) {
@@ -36,36 +27,25 @@ function boundedRank(value) {
 export function salvageProfile(capabilities = {}) {
   const rank = boundedRank(capabilities.salvagingRank);
   if (rank === 0) return EMPTY_SALVAGE;
-  return Object.freeze({
-    rank,
-    bonusPercent: SALVAGE_BONUS_PERCENT[rank],
-    essencePerPiece: SALVAGE_ESSENCE_PER_PIECE[rank],
-  });
+  return Object.freeze({ rank, bonusPercent: SALVAGE_BONUS_PERCENT[rank] });
 }
 
 /**
  * What a pile of scrap is worth to this hero: the gold the rules already gave,
- * raised by the school, plus one essence for every piece worth the name.
+ * raised by the school.
  */
-export function salvageYield({ reward = 0, items = [], profile = EMPTY_SALVAGE } = {}) {
+export function salvageYield({ reward = 0, profile = EMPTY_SALVAGE } = {}) {
   const base = Math.max(0, Math.round(reward));
   const gold = base + Math.round((base * (profile?.bonusPercent ?? 0)) / 100);
-  const magical = items.filter(isMagicalPiece).length;
-  return Object.freeze({
-    gold,
-    essence: magical * (profile?.essencePerPiece ?? 0),
-    bonus: gold - base,
-  });
+  return Object.freeze({ gold, bonus: gold - base });
 }
 
 const COPY = Object.freeze({
   ru: Object.freeze({
-    'no-essence': 'Не хватает эссенции',
-    salvage: (gold, essence) => (essence > 0 ? `+${gold} · эссенция ×${essence}` : `+${gold}`),
+    salvage: (gold) => `+${gold}`,
   }),
   en: Object.freeze({
-    'no-essence': 'Not enough essence',
-    salvage: (gold, essence) => (essence > 0 ? `+${gold} · essence ×${essence}` : `+${gold}`),
+    salvage: (gold) => `+${gold}`,
   }),
 });
 
