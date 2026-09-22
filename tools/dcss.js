@@ -1979,7 +1979,7 @@ function fetchTargetFor(ally) {
 function takeGroundLoot(loot) {
   const index = lootDefinitions.indexOf(loot);
   if (index < 0 || runStatus !== 'playing' || hero.dead) return false;
-  if (!addInventoryItem(loot.definition, loot.instanceId)) {
+  if (!addInventoryItem(loot.definition, freeItemUid(loot.instanceId))) {
     showLootToast(loot.definition, 'full');
     return false;
   }
@@ -3420,9 +3420,12 @@ function grantEssence(amount) {
 }
 
 /** Puts one authored item straight into the backpack, if there is room for it. */
-function grantItem(id, uid, powerId = null) {
+function grantItem(id, requestedUid, powerId = null) {
   if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) return false;
   const state = currentItemState();
+  // Номер обещанного тоже может быть занят: подарки именных и призы считаются
+  // от того, кто их дал, а встретить его дважды за забег никто не запрещал.
+  const uid = freeItemUid(requestedUid);
   // Only gear carries affixes; a tool's record is the item and its uid.
   const definition = lootById(id);
   const record = definition?.slot
@@ -15915,6 +15918,27 @@ function resolvePendingHeroAttack(previousRemaining, nextRemaining) {
       weaponMagic: pending.weaponMagic,
     });
   }
+}
+
+/**
+ * Свободный номер для вещи, которая ложится в рюкзак.
+ *
+ * Номер вещи на полу — это `loot-<этаж>-<по счёту>`, и дорога в нём не
+ * участвует: четвёртый этаж спуска и четвёртый этаж поверхности раздают одни
+ * и те же номера. Подобрал шлем на спуске, поднялся воротами наверх, нашёл
+ * там шлем под тем же номером — и второй не берётся.
+ *
+ * Иван: «нашёл шлем какой-то наверху, на поверхности. Не могу его взять,
+ * рюкзак полон пишет. Хотя у меня два из тридцати». Рюкзак был ни при чём:
+ * отказ приходил от занятого номера, а сказать об этом было некому.
+ */
+function freeItemUid(uid) {
+  if (!itemInstances.has(uid)) return uid;
+  for (let n = 2; n < 999; n += 1) {
+    const candidate = `${uid}#${n}`;
+    if (!itemInstances.has(candidate)) return candidate;
+  }
+  return `${uid}#${Math.floor(Math.random() * 1e6)}`;
 }
 
 function addInventoryItem(definition, uid) {

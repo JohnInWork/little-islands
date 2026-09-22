@@ -154,14 +154,27 @@ test('the far floor is pinned however far the hero walks from it', () => {
   assert.ok(Object.keys(run.floors).includes('12'), 'the portal floor was forgotten');
 });
 
-test('the town end is beside the stairs down, and the same place every time', async () => {
+/**
+ * Городской конец портала стоит на площади.
+ *
+ * Стоял он у ворот вниз — и это било с двух сторон. Игрок, поднявшийся наверх
+ * другими воротами, находил кольцо у чужого выхода: «иду как бы в другой
+ * проход, и там стоит портал, хотя его там как бы быть не должно». А
+ * вернувшись своим порталом, оказывался в углу и шёл искать проход через весь
+ * город — этим забег и кончился: «подхожу к порталу и не могу улететь
+ * обратно». Иван: «давай сделаем, чтобы портал появлялся в центре города».
+ */
+test('the town end stands on the plaza, and the same place every time', async () => {
   for (const seed of [1, 6, 42, 4242]) {
     const town = generateDungeon({ seed, depth: 0 });
     const cell = cityPortalCell(town);
     assert.ok(cell, `seed ${seed}: the town has nowhere to put a portal`);
     assert.deepEqual(cell, cityPortalCell(town), 'the town end wanders');
-    // Beside the stairs down: a player who has used the gate knows where to look.
-    assert.ok(Math.abs(cell.x - town.gates.deep.x) <= 1 && Math.abs(cell.y - town.gates.deep.y) <= 1);
+    const plaza = town.city.blocks.find(({ kind }) => kind === 'plaza').interior;
+    assert.ok(
+      cell.x >= plaza.x && cell.x < plaza.x + plaza.w && cell.y >= plaza.y && cell.y < plaza.y + plaza.h,
+      `seed ${seed}: портал встал не на площади`,
+    );
     assert.equal(town.grid[cell.y][cell.x], '.', `seed ${seed}: the town end is in a wall`);
   }
   assert.equal(cityPortalCell(null), null);

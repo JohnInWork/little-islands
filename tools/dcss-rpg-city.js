@@ -432,16 +432,35 @@ function neighboursOf({ x, y }) {
 }
 
 /**
- * Where the town end of a portal stands.
+ * Где стоит городской конец портала — посреди площади.
  *
- * Beside the stairs down: the way into the dungeon and the way back from it
- * belong in the same corner of town, and a player who has used the gate once
- * knows where to look. Derived from the level, never stored — a portal is two
- * coordinates in the dungeon and this side is always the same place.
+ * Стоял он у ворот вниз, и это было ошибкой сразу с двух сторон. Игрок,
+ * поднявшийся наверх другими воротами, находил кольцо у чужого выхода: «иду
+ * как бы в другой проход, и там стоит портал, хотя его там как бы быть не
+ * должно». А вернувшись в город своим порталом, он оказывался в углу и шёл
+ * искать проход через весь город — Иван на этом и закончил забег: «подхожу к
+ * порталу и не могу улететь обратно».
+ *
+ * Площадь — единственное место в городе, которое видно отовсюду и которое
+ * одно. Иван: «давай сделаем, чтобы портал, который в город телепортировал
+ * тебя, появлялся в центре города». Выводится из плана, а не хранится: портал
+ * — это две координаты в подземелье, а эта сторона всегда одна и та же.
  */
 export function cityPortalCell(level) {
+  if (!Array.isArray(level?.grid)) return null;
+  const площадь = level.city?.blocks?.find(({ kind }) => kind === 'plaza')?.interior ?? null;
+  if (площадь) {
+    const центр = {
+      x: Math.floor(площадь.x + площадь.w / 2),
+      y: Math.floor(площадь.y + площадь.h / 2),
+    };
+    if (level.grid[центр.y]?.[центр.x] === CITY_FLOOR) return центр;
+    const рядом = neighboursOf(центр).find(({ x, y }) => level.grid[y]?.[x] === CITY_FLOOR);
+    if (рядом) return рядом;
+  }
+  // План без площади — не бывает, но и падать из-за этого портал не должен.
   const gate = level?.gates?.deep;
-  if (!gate || !Array.isArray(level.grid)) return null;
+  if (!gate) return null;
   const free = neighboursOf(gate).find(({ x, y }) => level.grid[y]?.[x] === CITY_FLOOR);
   return free ?? { x: gate.x, y: gate.y };
 }

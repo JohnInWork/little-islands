@@ -863,7 +863,9 @@ test('сравнение снаряжения называет, что оно з
 test('вещь с пола берут руками, а монеты подбираются сами', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   const подбор = functionBody(runtime, 'takeGroundLoot');
-  assert.match(подбор, /addInventoryItem\(loot\.definition, loot\.instanceId\)/);
+  // Номер вещи в рюкзаке выбирается свободный: номер на полу не уникален —
+  // четвёртый этаж спуска и четвёртый этаж поверхности раздают одни и те же.
+  assert.match(подбор, /addInventoryItem\(loot\.definition, freeItemUid\(loot\.instanceId\)\)/);
   assert.match(подбор, /showLootToast\(loot\.definition, 'full'\)/, 'полный рюкзак молчит');
   // Кадровый проход остался только у золота.
   assert.match(runtime, /if \(!loot\.definition\.gold\) continue;/);
