@@ -131,9 +131,9 @@ test('ready skill bonuses compose with gear without accumulating, and disabled r
   const before = deriveHeroStats(run.hero, run.equipment, items);
   // Test-only registration exercises the shared stat pipeline, not a released skill.
   const options = {
-    systems: skillById('endurance').requiresSystems,
+    systems: skillById('cleansing').requiresSystems,
     implementations: {
-      endurance: {
+      cleansing: {
         version: 1,
         modifiersByRank: [{ maxHp: 12 }, { maxHp: 24 }, { maxHp: 36 }],
         capabilitiesByRank: [{}, {}, {}],
@@ -142,7 +142,7 @@ test('ready skill bonuses compose with gear without accumulating, and disabled r
   };
   const learned = learnSkill({
     state: run.hero.skills, heroLevel: 2, runStatus: 'playing',
-    skillId: 'endurance', expectedRank: 0, ...options,
+    skillId: 'cleansing', expectedRank: 0, ...options,
     attributes: { strength: 40, agility: 40, intelligence: 40 },
   });
   assert.equal(learned.ok, true);

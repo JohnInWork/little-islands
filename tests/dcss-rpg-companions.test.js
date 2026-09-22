@@ -12,7 +12,7 @@ import {
   companionRefusalText,
   companionStats,
   createCompanionParty,
-  packProfile,
+  companionLimit,
   tameCreature,
   tameFoodCost,
   tamingProfile,
@@ -68,34 +68,57 @@ test('the rank decides which beast will come, and food is always the price', () 
   }
 });
 
-test('the pack decides how many follow, and every extra beast eats more', () => {
-  const alone = packProfile({});
-  assert.equal(alone.limit, COMPANION_LIMIT[0]);
+/**
+ * Стаю разрешает само «Приручение», и каждый следующий зверь ест больше.
+ *
+ * «Вожак стаи» был отдельным навыком, и половина его молчала: первый и второй
+ * ранг разрешали по двое. Спутников ужали с пяти навыков до двух, а второй
+ * существовал ради одного числа — теперь это число растёт вместе с рангом
+ * приручения.
+ */
+test('стаю разрешает ранг приручения, и каждый лишний зверь ест больше', () => {
+  assert.deepEqual([...COMPANION_LIMIT], [1, 1, 2, 3], 'лестница стаи разошлась с рангами');
+  assert.equal(companionLimit(tamingProfile({})), 1, 'без навыка зверь всё равно один');
+  assert.equal(companionLimit(tamingProfile({ tamingRank: 1 })), 1);
+  assert.equal(companionLimit(tamingProfile({ tamingRank: 2 })), 2, 'второй ранг ничего не дал');
+  assert.equal(companionLimit(master), 3);
+
   assert.equal(tameFoodCost(0), 1);
   assert.equal(tameFoodCost(1), 2, 'the second beast costs a meal more');
   assert.equal(tameFoodCost(2), 3);
 
-  const first = tameCreature({ creature: { id: 'hog' }, profile: master, pack: alone, foodCount: 1, party: [] });
+  const новичок = tamingProfile({ tamingRank: 1 });
+  // Первый ранг берёт самого смирного зверя: овцу, не кабана.
+  const first = tameCreature({ creature: { id: 'sheep' }, profile: новичок, foodCount: 1, party: [] });
   assert.equal(first.ok, true);
   assert.equal(first.cost, 1);
   assert.equal(first.companion.mode, DEFAULT_COMPANION_MODE, 'a new friend guards by default');
 
-  // Without Pack leader the party is full at one.
-  const full = canTame({ creature: { id: 'sheep' }, profile: master, pack: alone, foodCount: 9, party: [first.companion] });
+  // На первом ранге отряд полон уже одним зверем.
+  const full = canTame({ creature: { id: 'cave-rodent' }, profile: новичок, foodCount: 9, party: [first.companion] });
   assert.equal(full.reason, 'already-bonded');
   assert.equal(full.limit, 1);
 
-  const leader = packProfile({ packLeaderRank: 1 });
-  assert.equal(leader.limit, 2);
-  const second = canTame({ creature: { id: 'sheep' }, profile: master, pack: leader, foodCount: 1, party: [first.companion] });
+  // Второй ранг разрешает второго — но кормить надо обоих.
+  const second = canTame({
+    creature: { id: 'cave-rodent' },
+    profile: tamingProfile({ tamingRank: 2 }),
+    foodCount: 1,
+    party: [first.companion],
+  });
   assert.equal(second.reason, 'no-food', 'a second mouth needs a second meal');
   assert.equal(second.cost, 2);
   assert.equal(
-    canTame({ creature: { id: 'sheep' }, profile: master, pack: leader, foodCount: 2, party: [first.companion] }).ok,
+    canTame({
+      creature: { id: 'cave-rodent' },
+      profile: tamingProfile({ tamingRank: 2 }),
+      foodCount: 2,
+      party: [first.companion],
+    }).ok,
     true,
   );
-  assert.equal(packProfile({ packLeaderRank: 3 }).limit, COMPANION_LIMIT[3]);
 });
+
 
 /**
  * Приказов, ухода и связи у зверя больше нет.
@@ -195,8 +218,8 @@ test('no tamed body ever opens a floor as its first creature', async () => {
   }
 });
 
-test('both companion skills are wired, and the runtime keeps the party', async () => {
-  for (const id of ['taming', 'pack-leader']) {
+test('приручение подключено, и переходник держит отряд', async () => {
+  for (const id of ['taming']) {
     assert.ok(SKILL_IMPLEMENTATIONS[id], id);
     for (const system of skillById(id).requiresSystems) {
       assert.ok(SKILL_SYSTEMS.includes(system), `${system} is connected`);

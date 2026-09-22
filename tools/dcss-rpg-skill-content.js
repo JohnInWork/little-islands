@@ -214,10 +214,10 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'cleansing', category: 'magic', mode: 'contextual',
     name: { ru: 'Очищение', en: 'Cleansing' },
     description: {
-      ru: 'Снимает проклятия и опасные состояния ритуалом, расходующим реагент.',
-      en: 'Removes curses and harmful conditions through a ritual that consumes a reagent.',
+      ru: 'Снимает опасные состояния светом и солью, а те, что остались, проходят быстрее.',
+      en: 'Strips harmful conditions with light and salt; whatever is left passes sooner.',
     },
-    requiresSystems: ['cleansing-ritual'],
+    requiresSystems: ['cleansing-ritual', 'condition-duration-scaling'],
   },
   {
     id: 'cooking', category: 'survival', mode: 'contextual',
@@ -247,15 +247,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['carrying-capacity'],
   },
   {
-    id: 'endurance', category: 'survival', mode: 'passive',
-    name: { ru: 'Выносливость', en: 'Endurance' },
-    description: {
-      ru: 'Сокращает действие холода, отравления и других изнуряющих состояний, не давая полной неуязвимости.',
-      en: 'Shortens cold, poison and other debilitating conditions without granting complete immunity.',
-    },
-    requiresSystems: ['condition-duration-scaling'],
-  },
-  {
     id: 'poisoncraft', category: 'crafting', mode: 'contextual',
     name: { ru: 'Ядовитые составы', en: 'Poisoncraft' },
     description: {
@@ -281,15 +272,6 @@ export const SKILL_CATALOG = deepFreeze([
       en: 'Tames suitable animals with food. Stronger species require preparation.',
     },
     requiresSystems: ['animal-taming', 'companion-limits'],
-  },
-  {
-    id: 'pack-leader', category: 'companions', mode: 'passive',
-    name: { ru: 'Вожак стаи', en: 'Pack leader' },
-    description: {
-      ru: 'Позволяет взять дополнительного спутника ценой большего расхода корма. Размер отряда ограничен.',
-      en: 'Allows an additional companion at the cost of more food. Total party size remains limited.',
-    },
-    requiresSystems: ['companion-limits', 'companion-upkeep'],
   },
 /*
  * Первая ступень открывается сразу.

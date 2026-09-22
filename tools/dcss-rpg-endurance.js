@@ -1,7 +1,14 @@
 /**
- * Endurance never makes the hero immune: it makes every debilitating state
- * pass sooner. A shortened effect still lasts at least a second, so poison is
- * always poison and a freeze is always a freeze — only briefer.
+ * Состояния проходят быстрее — вторая, тихая половина «Очищения».
+ *
+ * Была отдельным навыком «Выносливость», и её никто не замечал: минус
+ * двадцать процентов к длительности — число, которого в бою не видно. А
+ * «Очищение» и так про состояния, только с другого конца: одно их снимает
+ * солью и светом, другое сокращает. Теперь это один навык, и его ранг
+ * работает обоими способами.
+ *
+ * Неуязвимости по-прежнему нет: укороченное состояние длится хотя бы секунду,
+ * то есть яд остаётся ядом, а заморозка заморозкой — только короче.
  */
 
 /** No effect is ever shortened below this, unless it was briefer to begin with. */
@@ -17,7 +24,7 @@ function boundedRank(value) {
 }
 
 export function enduranceProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.enduranceRank);
+  const rank = boundedRank(capabilities.cleansingRank);
   if (rank === 0) return EMPTY_PROFILE;
   return Object.freeze({ rank, durationPercent: ENDURANCE_DURATION_PERCENT[rank] });
 }

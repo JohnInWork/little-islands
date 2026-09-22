@@ -26,11 +26,11 @@ const withRank = (rank) => {
   return deriveSkillCapabilities(state);
 };
 
-test('endurance shortens a state without ever removing it', () => {
+test('«Очищение» сокращает состояние, но никогда не снимает его вовсе', () => {
   assert.equal(enduranceProfile({}).rank, 0);
   assert.equal(enduredDuration(10, enduranceProfile({})), 10, 'no skill changes nothing');
 
-  const ranks = [1, 2, 3].map((rank) => enduranceProfile({ enduranceRank: rank }));
+  const ranks = [1, 2, 3].map((rank) => enduranceProfile({ cleansingRank: rank }));
   assert.deepEqual(ranks.map(({ durationPercent }) => durationPercent), ENDURANCE_DURATION_PERCENT.slice(1));
   assert.equal(enduredDuration(10, ranks[0]), 8);
   assert.equal(enduredDuration(10, ranks[1]), 6.5);
@@ -43,14 +43,27 @@ test('endurance shortens a state without ever removing it', () => {
   assert.ok(enduredDuration(MAX_EFFECT_DURATION, ranks[2]) <= MAX_EFFECT_DURATION);
 });
 
-test('Endurance is a real skill with a system behind it', () => {
-  assert.ok(SKILL_SYSTEMS.includes('condition-duration-scaling'));
-  assert.equal(isSkillReady('endurance'), true);
-  assert.deepEqual(SKILL_CAPABILITY_LIMITS.enduranceRank, [0, 3]);
-  assert.equal(withRank(0).enduranceRank, 0);
-  assert.equal(withRank(1).enduranceRank, 1);
-  assert.equal(withRank(3).enduranceRank, 3);
+/**
+ * «Выносливость» влилась в «Очищение»: оба навыка были про состояния, только
+ * с разных концов — один снимал, другой сокращал. Отдельно сокращение никто
+ * не замечал: минус двадцать процентов к длительности в бою не видно.
+ */
+test('сокращение состояний живёт в «Очищении», а «Выносливости» больше нет', async () => {
+  const { skillById } = await import('../tools/dcss-rpg-skill-content.js');
+  const { SKILL_IMPLEMENTATIONS, SKILL_SYSTEMS } = await import('../tools/dcss-rpg-skills.js');
+  assert.equal(skillById('endurance'), null, 'навык всё ещё в каталоге');
+  assert.equal(SKILL_IMPLEMENTATIONS.endurance, undefined, 'реализация всё ещё на месте');
+  const cleansing = skillById('cleansing');
+  assert.ok(cleansing.requiresSystems.includes('condition-duration-scaling'), 'система осталась без навыка');
+  assert.ok(cleansing.requiresSystems.includes('cleansing-ritual'));
+  for (const system of cleansing.requiresSystems) {
+    assert.ok(SKILL_SYSTEMS.includes(system), system);
+  }
+  // Ранг очищения теперь работает обоими способами сразу.
+  assert.ok(enduranceProfile({ cleansingRank: 3 }).durationPercent > 0);
+  assert.equal(enduranceProfile({ cleansingRank: 0 }).durationPercent, 0);
 });
+
 
 test('only the hero endures; a monster suffers the full duration', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');

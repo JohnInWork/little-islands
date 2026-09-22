@@ -53,11 +53,9 @@ test('production menu exposes implemented trap skills, with no empty categories'
     'cooking',
     'field-medicine',
     'portering',
-    'endurance',
     'poisoncraft',
     'salvaging',
     'taming',
-    'pack-leader',
   ]);
   assert.equal(firstSkill(model).canLearn, true);
   assert.equal(model.points, 7);
@@ -161,10 +159,12 @@ test('storm magic exposes its wet-chain rules and intelligence gate in both lang
   });
   const available = availableModel.groups.flatMap(({ skills }) => skills).find(({ id }) => id === 'storm-magic');
   assert.equal(available.canLearn, true);
+  // Ступень школы теперь первым делом называет заклинание, которое открывает:
+  // ранг больше не усиливает известное, он его выдаёт.
   assert.deepEqual([1, 2, 3].map((rank) => gainsAt(available, rank)), [
-    'targets 1 · damage to them 55% · the arc jumps 2.5 tiles',
-    'targets 2 · damage to them 65% · the arc jumps 3 tiles',
-    'targets 3 · damage to them 75% · the arc jumps 3.5 tiles',
+    'Storm Bolt · targets 1 · damage to them 55% · the arc jumps 2.5 tiles',
+    'Shove, Thunderclap · targets 2 · damage to them 65% · the arc jumps 3 tiles',
+    'Storm Burst · targets 3 · damage to them 75% · the arc jumps 3.5 tiles',
   ]);
 });
 
@@ -373,17 +373,11 @@ test('ни один ранг навыка не молчит, и каждое ч�
   const { SKILL_IMPLEMENTATIONS } = await import('../tools/dcss-rpg-skills.js');
   // Навыки без реализации в меню не показываются — с них и спроса нет.
   const shown = SKILL_CATALOG.filter(({ id }) => SKILL_IMPLEMENTATIONS[id]).map(({ id }) => id);
-  assert.ok(shown.length >= 29, `навыков с реализацией всего ${shown.length}`);
+  assert.ok(shown.length >= 27, `навыков с реализацией всего ${shown.length}`);
   assert.deepEqual(unlabelledRankKeys(shown), [], 'эти числа игра покажет, но назвать не сможет');
-  assert.deepEqual(
-    skillRankProblems(shown),
-    [
-      // Известные дыры баланса, а не UI: на этих ступенях профиль отдаёт ровно
-      // то же, что и на предыдущей. Строка здесь — чтобы они не потерялись.
-      'pack-leader: ранг 2 ничего не обещает',
-    ],
-    'появился новый молчащий ранг',
-  );
+  // Молчащих ступеней больше нет ни одной: «Вожак стаи» был последним, и он
+  // влился в «Приручение», где число спутников теперь растёт с каждым рангом.
+  assert.deepEqual(skillRankProblems(shown), [], 'появился новый молчащий ранг');
   for (const id of shown) {
     const ladder = skillRankLadder({ skillId: id });
     const definition = SKILL_CATALOG.find((skill) => skill.id === id);

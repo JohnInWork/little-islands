@@ -394,7 +394,6 @@ import {
   companionName,
   companionRefusalText,
   companionStats,
-  packProfile,
   tameCreature,
   tamingProfile,
 } from './dcss-rpg-companions.js';
@@ -10067,7 +10066,6 @@ function contextModelTarget(entry = contextTarget) {
     const decision = canTame({
       creature: entry.value,
       profile,
-      pack: packProfile(currentSkillCapabilities()),
       foodCount: tameFoodCount(),
       party: run.companions,
     });
@@ -11177,7 +11175,6 @@ function tameNearbyWildlife(creature) {
   const result = tameCreature({
     creature,
     profile: tamingProfile(currentSkillCapabilities()),
-    pack: packProfile(currentSkillCapabilities()),
     foodCount: tameFoodCount(),
     party: run.companions,
   });

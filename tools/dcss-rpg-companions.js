@@ -37,15 +37,27 @@ export const COMPANION_DAMAGE_PERCENT = Object.freeze([0, 0, 10, 25]);
 export const COMPANION_MODES = Object.freeze(['guard', 'search', 'fetch']);
 export const DEFAULT_COMPANION_MODE = 'guard';
 
-/** How many beasts may follow, and what the next one costs in food. */
-export const COMPANION_LIMIT = Object.freeze([1, 2, 2, 3]);
+/**
+ * Сколько зверей идёт за героем — по рангу «Приручения».
+ *
+ * Было отдельным навыком «Вожак стаи», и половина его молчала: первый и
+ * второй ранг разрешали по двое. Спутников и так ужали с пяти навыков до
+ * двух, а второй существовал ради одного числа — теперь это число растёт
+ * вместе с самим приручением.
+ */
+export const COMPANION_LIMIT = Object.freeze([1, 1, 2, 3]);
 
 const EMPTY_TAMING = Object.freeze({ rank: 0, difficulty: 0, hpPercent: 0, damagePercent: 0 });
-const EMPTY_PACK = Object.freeze({ rank: 0, limit: COMPANION_LIMIT[0] });
 
 function boundedRank(value) {
   if (!Number.isInteger(value)) return 0;
   return Math.max(0, Math.min(3, value));
+}
+
+/** Сколько зверей разрешает этот ранг приручения. */
+export function companionLimit(profile = EMPTY_TAMING) {
+  if (Number.isInteger(profile?.limit)) return profile.limit;
+  return COMPANION_LIMIT[boundedRank(profile?.rank)];
 }
 
 export function tamingProfile(capabilities = {}) {
@@ -55,14 +67,11 @@ export function tamingProfile(capabilities = {}) {
     rank,
     // Rank one handles the meekest beast, rank three anything that grazes here.
     difficulty: rank,
+    // Сколько зверей идёт следом — это тоже приручение, а не отдельный навык.
+    limit: COMPANION_LIMIT[rank],
     hpPercent: COMPANION_HP_PERCENT[rank],
     damagePercent: COMPANION_DAMAGE_PERCENT[rank],
   });
-}
-
-export function packProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.packLeaderRank);
-  return Object.freeze({ rank, limit: COMPANION_LIMIT[rank] });
 }
 
 /** What the beast is worth once it walks beside the hero. */
@@ -134,14 +143,13 @@ export function tameFoodCost(partySize = 0) {
 export function canTame({
   creature = null,
   profile = EMPTY_TAMING,
-  pack = EMPTY_PACK,
   foodCount = 0,
   party = [],
 } = {}) {
   if (profile?.rank === 0) return Object.freeze({ ok: false, reason: 'rank-required' });
   if (!creature || !passiveCreatureById(creature.id)) return Object.freeze({ ok: false, reason: 'not-a-beast' });
   if (creature.defeated || creature.hunted) return Object.freeze({ ok: false, reason: 'frightened' });
-  const limit = pack?.limit ?? COMPANION_LIMIT[0];
+  const limit = companionLimit(profile);
   if (party.length >= limit) return Object.freeze({ ok: false, reason: 'already-bonded', limit });
   const definition = passiveCreatureById(creature.id);
   if (definition.tameDifficulty > profile.difficulty) {

@@ -25,8 +25,8 @@
 
 import { skillRankRequirement } from './dcss-rpg-attributes.js';
 import { cleansingProfile } from './dcss-rpg-cleansing.js';
+import { SPELLS_BY_RANK, spellById } from './dcss-rpg-spells.js';
 import {
-  packProfile,
   tamingProfile,
 } from './dcss-rpg-companions.js';
 import { cookingProfile } from './dcss-rpg-cooking.js';
@@ -55,14 +55,15 @@ const PROFILE_BY_SKILL = Object.freeze({
     baseChillDuration: 4,
   }),
   necromancy: (rank) => necromancyProfile({ necromancyRank: rank }),
-  cleansing: (rank) => cleansingProfile({ cleansingRank: rank }),
   cooking: (rank) => cookingProfile({ cookingRank: rank }),
   'field-medicine': (rank) => fieldMedicineProfile({ fieldMedicineRank: rank }),
-  endurance: (rank) => enduranceProfile({ enduranceRank: rank }),
+  cleansing: (rank) => ({
+    ...cleansingProfile({ cleansingRank: rank }),
+    ...enduranceProfile({ cleansingRank: rank }),
+  }),
   poisoncraft: (rank) => poisonProfile({ poisoncraftRank: rank }),
   salvaging: (rank) => salvageProfile({ salvagingRank: rank }),
   taming: (rank) => tamingProfile({ tamingRank: rank }),
-  'pack-leader': (rank) => packProfile({ packLeaderRank: rank }),
 });
 
 /**
@@ -76,7 +77,28 @@ const SILENT_KEYS = Object.freeze(new Set(['rank', 'trapDetectionTier', 'whipInt
  * ускоряет отдых и не даёт схрона — он позволяет разбить лагерь вообще, и без
  * этой строки первая ступень выглядела бы бесплатной пустышкой.
  */
-const UNLOCKS = Object.freeze({});
+/**
+ * Что ступень школы открывает — словами, а не числом.
+ *
+ * Ранг школы теперь не усиливает известное, а **открывает** заклинания, и
+ * лестница обязана это показывать: игрок выбирает «Пиромантию II» и должен
+ * видеть, что за неё получит. Таблица не заводится руками — она строится из
+ * той же раскладки, по которой заклинания и раздаются.
+ */
+const SPELL_UNLOCKS = Object.freeze(Object.fromEntries(
+  Object.entries(SPELLS_BY_RANK).map(([schoolId, ladder]) => [
+    schoolId,
+    Object.freeze(Object.fromEntries(ladder.map((ids, index) => [
+      index + 1,
+      Object.freeze({
+        ru: ids.map((id) => spellById(id)?.name?.ru ?? id).join(', '),
+        en: ids.map((id) => spellById(id)?.name?.en ?? id).join(', '),
+      }),
+    ]))),
+  ]),
+));
+
+const UNLOCKS = SPELL_UNLOCKS;
 
 const unit = (ru, en, kind = 'count') => Object.freeze({ ru, en, kind });
 
@@ -170,6 +192,7 @@ const LABELS = Object.freeze({
 const LABELS_BY_SKILL = Object.freeze({
   taming: Object.freeze({
     damagePercent: unit('питомец бьёт сильнее на', 'the pet hits harder by', 'percent'),
+    limit: unit('зверей следом', 'beasts at your heel', 'count'),
   }),
 });
 

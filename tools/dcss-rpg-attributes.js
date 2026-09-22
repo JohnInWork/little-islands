@@ -97,9 +97,7 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   'blunt-weapons': 'strength',
   spears: 'strength',
   shield: 'strength',
-  endurance: 'strength',
   portering: 'strength',
-  'pack-leader': 'strength',
 
   // Fingers and feet.
   daggers: 'agility',

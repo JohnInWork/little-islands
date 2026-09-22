@@ -129,15 +129,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ fieldMedicineRank: 3 }),
     ]),
   }),
-  endurance: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ enduranceRank: 1 }),
-      Object.freeze({ enduranceRank: 2 }),
-      Object.freeze({ enduranceRank: 3 }),
-    ]),
-  }),
   'secret-search': Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -282,15 +273,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ tamingRank: 3 }),
     ]),
   }),
-  'pack-leader': Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ packLeaderRank: 1 }),
-      Object.freeze({ packLeaderRank: 2 }),
-      Object.freeze({ packLeaderRank: 3 }),
-    ]),
-  }),
   poisoncraft: Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -389,7 +371,6 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   necromancyRank: Object.freeze([0, 3]),
   cookingRank: Object.freeze([0, 3]),
   fieldMedicineRank: Object.freeze([0, 3]),
-  enduranceRank: Object.freeze([0, 3]),
   secretSearchRank: Object.freeze([0, 3]),
   secretSearchRadius: Object.freeze([0, 8]),
   stealthRank: Object.freeze([0, 3]),
@@ -428,7 +409,6 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   salvagingRank: Object.freeze([0, 3]),
   poisoncraftRank: Object.freeze([0, 3]),
   tamingRank: Object.freeze([0, 3]),
-  packLeaderRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),
   scrollVariantTier: Object.freeze([0, 3]),
 });

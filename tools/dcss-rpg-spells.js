@@ -114,6 +114,30 @@ export const SPELL_CATALOG = Object.freeze([
     },
   }),
   freezeSpell({
+    /*
+     * Третья ступень очищения: свет, который и снимает, и поднимает.
+     *
+     * Иван описывал её так: «третий уровень — это новый скилл, где лечение и
+     * очищение соединены в один, и он очень сильный, и для него надо много
+     * интеллекта». «Очистительный свет» делает то же самое, но вполсилы;
+     * этот лечит впятеро больше, требует восьми интеллекта и откатывается
+     * полминуты — им не лечатся между ударами, им спасаются.
+     */
+    id: 'renewal',
+    schoolId: 'cleansing',
+    kind: 'purge',
+    icon: 'derived/icon/potion-curing.png',
+    color: '#f0e8bd',
+    minimumIntelligence: 8,
+    cooldown: 30,
+    basePower: 34,
+    name: { ru: 'Возрождение', en: 'Renewal' },
+    description: {
+      ru: 'Снимает всё, что на тебе, и возвращает много здоровья. Долгий откат.',
+      en: 'Strips everything you carry and restores a great deal of health. A long cooldown.',
+    },
+  }),
+  freezeSpell({
     id: 'arcane-splinter',
     schoolId: 'arcana',
     kind: 'projectile',
@@ -517,7 +541,7 @@ export const SPELLS_BY_RANK = Object.freeze({
   cleansing: Object.freeze([
     Object.freeze(['purging-light']),
     Object.freeze(['mending-light', 'cleanse-ally']),
-    Object.freeze(['ward', 'unbinding']),
+    Object.freeze(['renewal', 'ward', 'unbinding']),
   ]),
   necromancy: Object.freeze([
     Object.freeze(['raise-skeleton']),

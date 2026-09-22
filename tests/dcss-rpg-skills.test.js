@@ -56,9 +56,9 @@ test('skill state starts neutral and grants exactly one point for each earned le
   assert.ok(Object.isFrozen(SKILL_SYSTEMS));
   assert.deepEqual(Object.keys(SKILL_IMPLEMENTATIONS), [
     'traps', 'lockpicking', 'appraisal', 'swords', 'axes',
-    'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'secret-search', 'stealth',
+    'portering', 'necromancy', 'cooking', 'field-medicine', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
-    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'pack-leader',
+    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming',
     'poisoncraft', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
@@ -209,7 +209,7 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     // Даром и всем: навыков за этими числами больше нет.
     campRank: 3, campRestPercent: 40, campStashSlots: 8,
     lockpickTier: 0, itemIdentificationTier: 0, swordRhythmRank: 0, swordRhythmHitInterval: 0,
-    necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0, enduranceRank: 0,
+    necromancyRank: 0, cookingRank: 0, fieldMedicineRank: 0,
     secretSearchRank: 0, secretSearchRadius: 0,
     stealthRank: 0, stealthVisionPercent: 0, stealthNoisePercent: 0,
     daggerRank: 0, daggerAmbushPercent: 0, daggerBackstabPercent: 0,
@@ -227,7 +227,6 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     cleansingRank: 0, arcanaRank: 0, scrollVariantTier: 0,
     salvagingRank: 0, tamingRank: 0,
     poisoncraftRank: 0,
-    packLeaderRank: 0,
     porterRank: 0, backpackSlots: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);
