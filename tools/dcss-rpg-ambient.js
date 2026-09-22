@@ -361,6 +361,20 @@ export function ambientSmokeScale(id, elapsed) {
  * geometry, this owns the timing — so the same walk reads the same in a wide
  * hall and in a corridor.
  */
+/**
+ * Шаг — тот же, каким ходят живые монстры.
+ *
+ * Актёры сцен ехали по комнате, не переставляя ног: сдвиг по горизонтали и
+ * постоянная высота. Иван про такую сцену: «он не убежал быстро куда-нибудь,
+ * а просто улетел в стену дешёвой анимацией». Настоящий монстр в игре при
+ * ходьбе приседает на `-|sin(шаг × 8)| × 2.2` — здесь то же число и та же
+ * формула, чтобы фоновая сцена двигалась по правилам игры, а не по своим.
+ */
+export function ambientWalkBob(distance) {
+  if (!Number.isFinite(distance)) return 0;
+  return -Math.abs(Math.sin(distance * Math.PI * 8)) * 2.2;
+}
+
 export function ambientActors(id, elapsed, variant = 0) {
   const entry = ambientSceneById(id);
   const phase = ambientPhaseAt(id, elapsed);
@@ -485,7 +499,8 @@ export function ambientActors(id, elapsed, variant = 0) {
         opacity: fade,
         facing: 1,
         size: 74,
-        lift: -10,
+        // Тащит, а не едет: шаг тот же, каким ходят живые монстры.
+        lift: -10 + ambientWalkBob(t),
       }),
       Object.freeze({
         key: 'haul',
@@ -496,7 +511,8 @@ export function ambientActors(id, elapsed, variant = 0) {
         opacity: fade * 0.95,
         facing: 1,
         size: 44,
-        lift: -2,
+        // Короб подпрыгивает вдвое слабее и не в такт: его волокут, он не идёт.
+        lift: -2 + ambientWalkBob(t - 0.075) * 0.5,
       }),
     ]);
   }
