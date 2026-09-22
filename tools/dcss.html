@@ -942,9 +942,14 @@
           <div class="settings-body">
             <section class="settings-block" aria-labelledby="settings-language-title">
               <h3 id="settings-language-title">Язык</h3>
+              <!-- Флаг и подпись: язык узнаётся раньше, чем прочитан. -->
               <div id="main-menu-languages" class="main-menu-languages" role="group" aria-label="Выбор языка">
-                <button type="button" data-language="ru" aria-pressed="true">РУ</button>
-                <button type="button" data-language="en" aria-pressed="false">EN</button>
+                <button type="button" data-language="ru" aria-pressed="true" aria-label="Русский">
+                  <img src="../assets/icons/flags/ru.svg" alt="" aria-hidden="true" /><b>RU</b>
+                </button>
+                <button type="button" data-language="en" aria-pressed="false" aria-label="English">
+                  <img src="../assets/icons/flags/gb.svg" alt="" aria-hidden="true" /><b>ENG</b>
+                </button>
               </div>
             </section>
             <section class="settings-block" aria-labelledby="settings-audio-title">

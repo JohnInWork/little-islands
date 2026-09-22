@@ -737,6 +737,9 @@ const startGameDetail = document.querySelector('#start-game-detail');
 const newRunFromMenuButton = document.querySelector('#restart-from-menu');
 const characterCreation = document.querySelector('#character-creation');
 const creationArchetypes = document.querySelector('#creation-archetypes');
+const confirmCreationLabel = document.querySelector('#confirm-creation-label');
+const creationAttributesTitle = document.querySelector('#creation-attributes-title');
+const creationSkillsTitle = document.querySelector('#creation-skills-title');
 const creationAttributeRows = document.querySelector('#creation-attribute-rows');
 const creationAttributePoints = document.querySelector('#creation-attribute-points');
 const creationSkillGroups = document.querySelector('#creation-skill-groups');
@@ -962,6 +965,7 @@ const runEndTitle = document.querySelector('#run-end-title');
 const runSummaryList = document.querySelector('#run-summary');
 const settingsScreen = document.querySelector('#settings-screen');
 const openSettingsButton = document.querySelector('#open-settings');
+const openOutfitLabel = document.querySelector('#open-outfit-label');
 const openSettingsLabel = document.querySelector('#open-settings-label');
 const closeSettingsButton = document.querySelector('#close-settings');
 const settingsTitle = document.querySelector('#settings-title');
@@ -12096,6 +12100,9 @@ const CREATION_COPY = Object.freeze({
     own: 'Создать своего',
     back: 'Назад',
     cancel: 'Отмена',
+    start: 'Начать',
+    attributes: 'Характеристики',
+    skills: 'Навыки',
   }),
   en: Object.freeze({
     pickTitle: 'Who walks out',
@@ -12106,6 +12113,9 @@ const CREATION_COPY = Object.freeze({
     own: 'Build your own',
     back: 'Back',
     cancel: 'Cancel',
+    start: 'Begin',
+    attributes: 'Attributes',
+    skills: 'Skills',
   }),
 });
 
@@ -12120,6 +12130,9 @@ function renderCharacterCreation() {
   // Подпись ставится в свою вставку, а не в кнопку целиком: `textContent`
   // на кнопке стирает вместе с прежним текстом и значок внутри неё.
   creationOwnButton.querySelector('b').textContent = copy.own;
+  confirmCreationLabel.textContent = copy.start;
+  creationAttributesTitle.textContent = copy.attributes;
+  creationSkillsTitle.textContent = copy.skills;
   cancelCreationButton.textContent = свой ? copy.back : copy.cancel;
   /*
    * На первом шаге «Начать» ждёт выбора.
@@ -13951,6 +13964,9 @@ function renderSettings() {
   const { labels } = currentMainMenuModel();
   settingsTitle.textContent = labels.settings;
   openSettingsLabel.textContent = labels.settings;
+  // Подпись кнопки снаряжения жила только в разметке и оставалась русской на
+  // английском меню. Берётся оттуда же, откуда заголовок самого экрана.
+  openOutfitLabel.textContent = stashCopy(itemDetailLanguage).title;
   openSettingsButton.setAttribute('aria-label', labels.openSettings);
   closeSettingsButton.setAttribute('aria-label', labels.closeSettings);
   settingsScreen.setAttribute('aria-label', labels.settings);
