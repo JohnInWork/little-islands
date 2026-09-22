@@ -1,7 +1,15 @@
 import { cellStepDistance } from './dcss-rpg-geometry.js';
 
+/**
+ * Ящик всегда заперт — разница только в том, что внутри.
+ *
+ * Треть сундуков открывалась касанием, а запертый можно было снести кувалдой:
+ * при таком выборе ни ключ, ни отмычка, ни навык «Взлом» ничего не значили.
+ * Иван: «убираем, что сундук можно разбить и открыть <...> сундуки можно
+ * только взламывать». Теперь замок есть у каждого, и снаружи все ящики
+ * одинаковы: ловушку, проклятие и зубы выдаёт только открытая крышка.
+ */
 export const CHEST_VARIANTS = Object.freeze([
-  'unlocked',
   'locked',
   'trapped',
   'cursed',
@@ -11,6 +19,7 @@ export const CHEST_VARIANTS = Object.freeze([
 export const CHEST_RESOURCE_IDS = Object.freeze({
   key: 'iron-key',
   lockpick: 'lockpick-set',
+  masterKey: 'master-key',
 });
 
 export const CHEST_VISUAL_SKINS = Object.freeze([
@@ -59,20 +68,9 @@ export function chestFramesForSkin(id) {
 
 const COPY = Object.freeze({
   ru: Object.freeze({
-    genericName: 'Древний сундук',
     unlockedName: 'Сундук',
     lockedName: 'Запертый сундук',
-    trappedName: 'Сундук с ловушкой',
-    cursedName: 'Проклятый сундук',
-    mimicName: 'Живой сундук',
-    generic: '',
-    unlockedClosed: 'Не заперт.',
-    lockedClosed: 'Тяжёлый замок.',
-    unlocked: 'Не заперт.',
     locked: (tier) => `Замок ${tier}.`,
-    trapped: (tier) => `Механизм ${tier}.`,
-    cursed: 'На крышке тёмная печать.',
-    mimic: 'Сундук дышит.',
     mimicAwake: 'Это мимик!',
     noKey: 'Нужен железный ключ',
     noLockpickSkill: (tier) => `Нужен навык «Взлом» ${tier}`,
@@ -82,27 +80,16 @@ const COPY = Object.freeze({
     result: Object.freeze({
       open: 'Сундук открыт',
       'use-key': 'Ключ повернулся в замке',
+      'master-key': 'Замок открылся сам',
       'pick-lock': 'Замок аккуратно вскрыт',
       disarm: 'Механизм обезврежен, сундук открыт',
       smash: 'Сундук разбит',
-      attack: 'Мимик пробудился',
     }),
   }),
   en: Object.freeze({
-    genericName: 'Ancient chest',
     unlockedName: 'Chest',
     lockedName: 'Locked chest',
-    trappedName: 'Trapped chest',
-    cursedName: 'Cursed chest',
-    mimicName: 'Living chest',
-    generic: '',
-    unlockedClosed: 'Unlocked.',
-    lockedClosed: 'Heavy lock.',
-    unlocked: 'Unlocked.',
     locked: (tier) => `Lock ${tier}.`,
-    trapped: (tier) => `Mechanism ${tier}.`,
-    cursed: 'A dark seal marks the lid.',
-    mimic: 'The chest breathes.',
     mimicAwake: 'It is a mimic!',
     noKey: 'An iron key is required',
     noLockpickSkill: (tier) => `Lockpicking ${tier} required`,
@@ -112,10 +99,10 @@ const COPY = Object.freeze({
     result: Object.freeze({
       open: 'Chest opened',
       'use-key': 'The key turned in the lock',
+      'master-key': 'The lock opened by itself',
       'pick-lock': 'The lock was picked cleanly',
       disarm: 'Mechanism disarmed and chest opened',
       smash: 'Chest smashed',
-      attack: 'The mimic awakened',
     }),
   }),
 });
@@ -168,25 +155,20 @@ export function chestVisualFrames({ seed = 0, depth, roomIndex, skinIds = null }
   return skins[index].frames;
 }
 
-function weightedVariant(roll, depth, skipPlain = false) {
+function weightedVariant(roll, depth) {
   const pressure = chestPressure(depth);
   // No mimic in the first chapter at all. A creature that eats a hero for
   // opening a box has to be something the player has heard of before they meet
   // it, not the second thing that happens to them.
+  //
+  // Доля бывших незапертых ушла к простому запертому: ящик без начинки — это
+  // по-прежнему самый частый ящик, просто теперь и он на замке.
   const tables = {
-    1: [
-      ['unlocked', 32], ['locked', 34], ['trapped', 21], ['cursed', 13], ['mimic', 0],
-    ],
-    2: [
-      ['unlocked', 18], ['locked', 30], ['trapped', 25], ['cursed', 21], ['mimic', 6],
-    ],
-    3: [
-      ['unlocked', 10], ['locked', 28], ['trapped', 27], ['cursed', 21], ['mimic', 14],
-    ],
+    1: [['locked', 66], ['trapped', 21], ['cursed', 13], ['mimic', 0]],
+    2: [['locked', 48], ['trapped', 25], ['cursed', 21], ['mimic', 6]],
+    3: [['locked', 38], ['trapped', 27], ['cursed', 21], ['mimic', 14]],
   };
-  const table = skipPlain
-    ? tables[pressure].filter(([variant]) => variant !== 'unlocked')
-    : tables[pressure];
+  const table = tables[pressure];
   const span = table.reduce((sum, [, weight]) => sum + weight, 0);
   let cursor = roll % span;
   for (const [variant, weight] of table) {
@@ -200,7 +182,7 @@ function weightedVariant(roll, depth, skipPlain = false) {
  * Chest identity uses its own stable hash instead of the shared find RNG. That
  * keeps rooms and later finds unchanged when new chest variants are added.
  */
-export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold, sealed = false } = {}) {
+export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold } = {}) {
   if (
     !Number.isInteger(seed)
     || seed < 0
@@ -212,13 +194,12 @@ export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold, sea
     || rewardGold < 1
   ) throw new TypeError('Chest profile requires stable floor data and reward');
   const hash = stableHash(seed >>> 0, depth, roomIndex);
-  // A sealed cache is the one the run's artefact was promised to. It must never
-  // come up plain, or the promise turns into a coin flip.
-  const rolled = weightedVariant(hash, depth);
-  const cacheVariant = sealed && rolled === 'unlocked' ? weightedVariant(hash, depth, true) : rolled;
+  // Запертый ящик с обещанным артефактом внутри ничем не отличается от
+  // прочих: даром больше не открывается ни один, и обещание не зависит от
+  // того, что выпало.
+  const cacheVariant = weightedVariant(hash, depth);
   const tier = clampTier(depth);
   const rewardMultipliers = {
-    unlocked: 1,
     locked: 1.3,
     trapped: 1.45,
     cursed: 1.6,
@@ -232,7 +213,8 @@ export function createChestProfile({ seed = 0, depth, roomIndex, rewardGold, sea
     : null;
   return Object.freeze({
     cacheVariant,
-    lockTier: cacheVariant === 'locked' ? tier : 0,
+    // Замок есть у всякого ящика — и у того, что кусается тоже.
+    lockTier: tier,
     trapTier: cacheVariant === 'trapped' ? tier : 0,
     hazardDamage: ['trapped', 'cursed', 'mimic'].includes(cacheVariant) ? hazardBase : 0,
     rewardGold: Math.max(1, Math.round(rewardGold * rewardMultipliers[cacheVariant])),
@@ -262,7 +244,7 @@ export function isChestFind(find) {
     && find.curseDuration <= 10
   );
   if (!structurallyValid) return false;
-  if ((find.cacheVariant === 'locked') !== (find.lockTier >= 1)) return false;
+  if (find.lockTier < 1) return false;
   if ((find.cacheVariant === 'trapped') !== (find.trapTier >= 1)) return false;
   if ((find.cacheVariant === 'cursed') !== (find.curseEffectId !== null && find.curseDuration > 0)) return false;
   const hazardous = ['trapped', 'cursed', 'mimic'].includes(find.cacheVariant);
@@ -274,6 +256,8 @@ function normalizedActor(actor = {}) {
   const capabilities = actor.capabilities ?? {};
   return {
     keyCount: Number.isInteger(resources.keyCount) && resources.keyCount >= 0 ? resources.keyCount : 0,
+    // Ключ от всех сундуков носят, а не тратят: он либо есть, либо нет.
+    masterKey: resources.masterKey === true,
     lockpickCount: Number.isInteger(resources.lockpickCount) && resources.lockpickCount >= 0
       ? resources.lockpickCount
       : 0,
@@ -301,41 +285,30 @@ export function chestActionRules({ find, actor } = {}) {
   const locale = actor?.language === 'en' ? 'en' : 'ru';
   const copy = COPY[locale];
   /*
-   * Ящик открывают, а не изучают.
+   * Ящик отпирают, а не изучают.
    *
-   * Иван: «давай даже с сундуками оставим, что ты только их открываешь и всё,
-   * и потом он либо на тебя нападает, либо нет». Поэтому у всякого сундука,
-   * который вообще открывается, одно действие — «Открыть»: касание его и
-   * открывает, окна не будет. Что внутри — ловушка, проклятие или зубы —
-   * выясняется тем же способом, каким это выясняют в жизни.
-   *
-   * Запертый — исключение, и не ради сложности: там выбор настоящий (ключ,
-   * отмычка, кувалда), и без него ключи с отмычками перестают что-либо
-   * значить. Замок видно и так, поэтому список действий ничего не выдаёт.
+   * Внутрь ведут два пути — железный ключ и отмычка, — и оба чего-то стоят.
+   * Кувалда была третьим и бесплатным: она обесценивала и ключи, и навык.
+   * Что внутри — ловушка, проклятие или зубы — выясняется только после того,
+   * как замок поддался, поэтому список действий у всех ящиков одинаков.
    */
   const actions = [];
-  if (find.cacheVariant === 'unlocked') actions.push(action('open'));
-  if (find.cacheVariant === 'locked') {
-    actions.push(action('use-key', access.keyCount > 0, access.keyCount > 0 ? '' : copy.noKey));
-    const requiredTier = find.lockTier;
-    const cost = lockpickCost(access.lockpickTier);
-    const skilled = access.lockpickTier >= requiredTier;
-    const enoughPicks = access.lockpickCount >= cost;
-    actions.push(action(
-      'pick-lock',
-      skilled && enoughPicks,
-      !skilled ? copy.noLockpickSkill(requiredTier) : enoughPicks ? '' : copy.noLockpicks(cost),
-    ));
-    actions.push(action('smash'));
+  // Ключ от всех сундуков отпирает любой замок и не расходуется. Пока он в
+  // сумке, ни отмычки, ни железные ключи не нужны — и список это показывает.
+  if (access.masterKey) {
+    actions.push(action('master-key'));
+    return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
   }
-  // Обезвреживать ловушку в ящике больше негде — и хорошо: кнопка
-  // «Обезвредить» на нетронутом сундуке сама же и выдавала, что он с
-  // ловушкой. Навык остаётся при деле на напольных ловушках.
-  if (find.cacheVariant === 'trapped') actions.push(action('open'));
-  if (find.cacheVariant === 'cursed') actions.push(action('open'));
-  // То же одно слово, что и у всякого ящика: мимик не должен отличаться от
-  // сундука ничем, пока его не тронули.
-  if (find.cacheVariant === 'mimic') actions.push(action('open'));
+  actions.push(action('use-key', access.keyCount > 0, access.keyCount > 0 ? '' : copy.noKey));
+  const requiredTier = find.lockTier;
+  const cost = lockpickCost(access.lockpickTier);
+  const skilled = access.lockpickTier >= requiredTier;
+  const enoughPicks = access.lockpickCount >= cost;
+  actions.push(action(
+    'pick-lock',
+    skilled && enoughPicks,
+    !skilled ? copy.noLockpickSkill(requiredTier) : enoughPicks ? '' : copy.noLockpicks(cost),
+  ));
   return Object.freeze({ access: Object.freeze(access), actions: Object.freeze(actions) });
 }
 
@@ -355,35 +328,16 @@ export function chestContextPresentation({ find, actor, language = 'ru' } = {}) 
     });
   }
   const rules = chestActionRules({ find, actor: { ...actor, language: locale } });
-  // Осмотра больше нет, и поэтому нетронутый ящик всегда зовётся ящиком:
-  // ловушку, проклятие и зубы выдаёт только само открывание.
-  const visibleVariant = ['unlocked', 'locked'].includes(find.cacheVariant)
-    ? find.cacheVariant
-    : 'generic';
-  const names = {
-    generic: copy.genericName,
-    unlocked: copy.unlockedName,
-    locked: copy.lockedName,
-    trapped: copy.trappedName,
-    cursed: copy.cursedName,
-    mimic: copy.mimicName,
-  };
-  const visibleActions = rules.actions;
-  const accent = {
-    unlocked: '#b5a77d', locked: '#d9bd67', trapped: '#c59663', cursed: '#a96d9d', mimic: '#b45c58',
-  }[find.cacheVariant];
+  // Нетронутый ящик всегда один и тот же запертый ящик: ловушку, проклятие и
+  // зубы выдаёт только открытая крышка, а не имя и не цвет карточки.
   return Object.freeze({
-    name: names[visibleVariant],
-    description: find.cacheVariant === 'locked'
-      ? copy.lockedClosed
-      : find.cacheVariant === 'unlocked'
-        ? copy.unlockedClosed
-        : copy.generic,
+    name: copy.lockedName,
+    description: copy.locked(find.lockTier),
     icon: typeof find.icon === 'string' && find.icon.length > 0
       ? find.icon
       : CHEST_DEFAULT_PATH,
-    accent,
-    actions: Object.freeze([...visibleActions]),
+    accent: '#d9bd67',
+    actions: Object.freeze([...rules.actions]),
   });
 }
 
@@ -425,7 +379,6 @@ export function resolveChestInteraction({
     if (actionId === 'pick-lock') {
       return rejected(rules.access.lockpickTier < find.lockTier ? 'lockpick-skill-required' : 'lockpicks-required');
     }
-    if (actionId === 'disarm') return rejected('disarm-skill-required');
     return rejected('unavailable');
   }
 
@@ -440,38 +393,25 @@ export function resolveChestInteraction({
    */
   const defused = find.cacheVariant === 'trapped'
     && rules.access.trapDisarmTier >= find.trapTier;
+  // Замок поддался — крышка поднята, и дальше решает только то, что внутри.
   let damage = 0;
-  if (find.cacheVariant === 'trapped' && !defused) {
-    if (actionId === 'open') damage = find.hazardDamage;
-    if (actionId === 'smash') damage = Math.ceil(find.hazardDamage / 2);
-  }
-  if (find.cacheVariant === 'cursed') {
-    damage = actionId === 'smash' ? Math.ceil(find.hazardDamage / 2) : find.hazardDamage;
-  }
-  // Guess right and you strike first and take nothing; guess wrong and it is on
-  // you before you have let go of the lid.
-  const struckMimic = find.cacheVariant === 'mimic' && actionId === 'smash';
-  if (find.cacheVariant === 'mimic') damage = struckMimic ? 0 : find.hazardDamage;
+  if (find.cacheVariant === 'trapped' && !defused) damage = find.hazardDamage;
+  if (find.cacheVariant === 'cursed') damage = find.hazardDamage;
+  if (find.cacheVariant === 'mimic') damage = find.hazardDamage;
   if (damage >= hero.hp) return rejected('unsafe');
 
   const awakensMimic = find.cacheVariant === 'mimic' && typeof find.mimicMonsterId === 'string';
-  const damagedLoot = ['smash', 'attack'].includes(actionId) && !awakensMimic;
-  const rewardGold = awakensMimic
-    ? 0
-    : damagedLoot
-      ? Math.ceil(find.rewardGold / 2)
-      : find.rewardGold;
+  // Добычу больше нечем испортить: кувалды нет, а замок ничего не ломает.
+  const rewardGold = awakensMimic ? 0 : find.rewardGold;
   const status = find.cacheVariant === 'cursed'
-    ? Object.freeze({
-        id: find.curseEffectId,
-        duration: actionId === 'smash' ? Math.max(1, Math.ceil(find.curseDuration / 2)) : find.curseDuration,
-      })
+    ? Object.freeze({ id: find.curseEffectId, duration: find.curseDuration })
     : null;
   const consumed = [];
   if (actionId === 'use-key') consumed.push(Object.freeze({ id: CHEST_RESOURCE_IDS.key, amount: 1 }));
   if (actionId === 'pick-lock') {
     consumed.push(Object.freeze({ id: CHEST_RESOURCE_IDS.lockpick, amount: lockpickCost(rules.access.lockpickTier) }));
   }
+  // Ключ от всех сундуков не тратится: он и есть награда за то, что его нашли.
   return Object.freeze({
     ok: true,
     action: actionId,
@@ -479,15 +419,13 @@ export function resolveChestInteraction({
     defused,
     damage,
     rewardGold,
-    destroyedGold: awakensMimic ? 0 : find.rewardGold - rewardGold,
+    destroyedGold: 0,
     deferredRewardGold: awakensMimic ? find.rewardGold : 0,
     rewardPower: 0,
-    noise: awakensMimic ? 8 : actionId === 'smash' ? 7 : actionId === 'attack' ? 5 : 0,
+    noise: awakensMimic ? 8 : 0,
     status,
     activatedMonsterIds: Object.freeze(awakensMimic ? [find.mimicMonsterId] : []),
-    // The blow that landed before it was awake. The runtime deals it with all
-    // the usual weapons and skills; this only says that it happened.
-    struckMonsterIds: Object.freeze(struckMimic && awakensMimic ? [find.mimicMonsterId] : []),
+    struckMonsterIds: Object.freeze([]),
     consumed: Object.freeze(consumed),
     state: Object.freeze({
       hero: Object.freeze({ ...hero, hp: hero.hp - damage }),

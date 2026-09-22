@@ -2719,15 +2719,47 @@ export const LOOT_CATALOG = Object.freeze([
     value: 11,
   },
   {
+    /*
+     * Ключ от одного сундука: один раз повернулся — и всё.
+     *
+     * Иконкой ему служила руна из `item/misc/runes/` — серый камень с синим
+     * знаком, по которому не догадаться, что это ключ. Иван: «почему там
+     * используется какая-то дурацкая непонятная иконка».
+     *
+     * Вес был шестёркой, то есть ключ попадался чаще отмычек. Запертым стал
+     * всякий сундук, и при прежней щедрости замок перестал бы что-либо
+     * значить: ключ — редкая удача, а не расходник.
+     */
     id: 'iron-key',
-    icon: 'item/misc/runes/generic.png',
+    icon: 'licensed/7soul-icons/key-iron.png',
     slot: null,
     kind: 'key',
     rarity: 1,
-    weight: 6,
+    weight: 2,
     minDepth: 1,
     stack: 1,
     interactionResource: 'key',
+  },
+  {
+    /*
+     * Ключ от всех сундуков — находка, а не расходник.
+     *
+     * Иван: «ключ от всех сундуков, вот у нас будет такой артефакт редкий,
+     * классный, прикольный». Он не тратится: пока он в сумке, любой замок
+     * открывается сам, и ни отмычки, ни железные ключи больше не нужны.
+     * Поэтому он лежит глубоко и попадается едва ли раз за забег.
+     */
+    id: 'master-key',
+    icon: 'licensed/7soul-icons/key-master.png',
+    slot: null,
+    kind: 'key',
+    rarity: 3,
+    weight: 1,
+    minDepth: 6,
+    stack: 1,
+    value: 420,
+    merchantStock: false,
+    interactionResource: 'master-key',
   },
   {
     // What a broken piece leaves behind, and what a new affix costs.

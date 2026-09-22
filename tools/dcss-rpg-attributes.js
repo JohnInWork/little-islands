@@ -73,7 +73,7 @@ export const ATTRIBUTE_COPY = Object.freeze({
     intelligence: Object.freeze({
       name: 'Intelligence',
       short: 'INT',
-      description: 'Knowledge and magic. Every school, enchanting and medicine ask for it.',
+      description: 'Knowledge and magic. Every school, the forge and medicine ask for it.',
     }),
     raise: 'Raise',
     pointsLeft: 'Points',
@@ -111,8 +111,6 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   stealth: 'agility',
   lockpicking: 'agility',
   'trap-disarming': 'agility',
-  tracking: 'agility',
-  hunting: 'agility',
   salvaging: 'agility',
 
   // Head.
@@ -126,15 +124,10 @@ export const SKILL_ATTRIBUTES = Object.freeze({
   necromancy: 'intelligence',
   arcana: 'intelligence',
   cleansing: 'intelligence',
-  herbalism: 'intelligence',
   cooking: 'intelligence',
   'field-medicine': 'intelligence',
   poisoncraft: 'intelligence',
-  enchanting: 'intelligence',
   taming: 'intelligence',
-  training: 'intelligence',
-  'animal-care': 'intelligence',
-  'beast-bond': 'intelligence',
 });
 
 function boundedAttribute(value) {

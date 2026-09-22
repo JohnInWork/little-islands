@@ -6,13 +6,13 @@ import {
   skillById,
 } from '../tools/dcss-rpg-skill-content.js';
 
-test('skill catalog has 39 unique stable IDs and resolves its six categories', () => {
+test('skill catalog has 32 unique stable IDs and resolves its six categories', () => {
   assert.equal(SKILL_CATEGORIES.length, 6);
-  assert.equal(SKILL_CATALOG.length, 39);
+  assert.equal(SKILL_CATALOG.length, 32);
   const categories = new Set(SKILL_CATEGORIES.map(({ id }) => id));
   const ids = new Set(SKILL_CATALOG.map(({ id }) => id));
   assert.equal(categories.size, 6);
-  assert.equal(ids.size, 39);
+  assert.equal(ids.size, 32);
   for (const skill of SKILL_CATALOG) {
     assert.match(skill.id, /^[a-z]+(?:-[a-z]+)*$/);
     assert.ok(categories.has(skill.category), `Unknown category of ${skill.id}`);

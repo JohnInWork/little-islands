@@ -26,15 +26,12 @@
 import { skillRankRequirement } from './dcss-rpg-attributes.js';
 import { cleansingProfile } from './dcss-rpg-cleansing.js';
 import {
-  bondProfile,
-  careProfile,
   packProfile,
   tamingProfile,
-  trainingProfile,
 } from './dcss-rpg-companions.js';
 import { cookingProfile } from './dcss-rpg-cooking.js';
 import { cryomancyHitProfile } from './dcss-rpg-cryomancy.js';
-import { enchantProfile, salvageProfile } from './dcss-rpg-crafting.js';
+import { salvageProfile } from './dcss-rpg-crafting.js';
 import { enduranceProfile } from './dcss-rpg-endurance.js';
 import { fieldMedicineProfile } from './dcss-rpg-field-medicine.js';
 import { necromancyProfile } from './dcss-rpg-minions.js';
@@ -67,11 +64,7 @@ const PROFILE_BY_SKILL = Object.freeze({
   weaponsmithing: (rank) => weaponSmithProfile({ weaponsmithingRank: rank }),
   armorsmithing: (rank) => armorSmithProfile({ armorsmithingRank: rank }),
   salvaging: (rank) => salvageProfile({ salvagingRank: rank }),
-  enchanting: (rank) => enchantProfile({ enchantingRank: rank }),
   taming: (rank) => tamingProfile({ tamingRank: rank }),
-  training: (rank) => trainingProfile({ trainingRank: rank }),
-  'animal-care': (rank) => careProfile({ animalCareRank: rank }),
-  'beast-bond': (rank) => bondProfile({ beastBondRank: rank }),
   'pack-leader': (rank) => packProfile({ packLeaderRank: rank }),
 });
 
@@ -176,20 +169,12 @@ const LABELS = Object.freeze({
 
 /**
  * Один и тот же ключ у разных навыков значит разное: `damagePercent` у грозы —
- * урон по перескокам, у приручения — сила питомца; `radius` у пиромантии —
- * разлёт огня, у звериной связи — что видно вокруг зверя; `treats` у полевой
- * медицины — список состояний, а у ухода за животными просто «да». Подпись по
- * ключу тут соврала бы, поэтому такие случаи названы поимённо.
+ * урон по перескокам, а у приручения — сила питомца. Подпись по ключу тут
+ * соврала бы, поэтому такие случаи названы поимённо.
  */
 const LABELS_BY_SKILL = Object.freeze({
   taming: Object.freeze({
     damagePercent: unit('питомец бьёт сильнее на', 'the pet hits harder by', 'percent'),
-  }),
-  'beast-bond': Object.freeze({
-    radius: unit('видно вокруг зверя', 'seen around the beast', 'cells'),
-  }),
-  'animal-care': Object.freeze({
-    treats: unit('снимает состояния питомца', 'treats the pet’s states', 'flag'),
   }),
 });
 

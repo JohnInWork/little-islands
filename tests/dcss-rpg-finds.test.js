@@ -122,13 +122,16 @@ test('find definitions expose bundled visuals and concise RU/EN actions', async 
 });
 
 test('find resolution is atomic, range-bound and cannot duplicate a reward', () => {
-  const find = cacheByVariant('unlocked');
+  const find = cacheByVariant('locked');
   const input = {
     find,
     resolvedFindIds: [],
     runStatus: 'playing',
     hero: { x: find.x + 1, y: find.y, hp: 53, power: 4 },
     gold: 7,
+    // Замок есть у всякого ящика, так что и открыть его нечем, кроме ключа.
+    action: 'use-key',
+    actor: { resources: { keyCount: 1 }, capabilities: {} },
   };
   const before = structuredClone(input);
   const result = resolveFindInteraction(input);
@@ -149,7 +152,12 @@ test('find resolution is atomic, range-bound and cannot duplicate a reward', () 
   assert.equal(resolveFindInteraction({ ...input, runStatus: 'dead' }).reason, 'inactive');
 });
 
-test('a locked chest can use a key intact or be smashed for exactly half its loot', () => {
+/**
+ * Замок открывают ключом или отмычкой — и всё, что было в ящике, достаётся
+ * целым. Кувалды нет: она была бесплатным третьим путём и обесценивала оба
+ * первых. Иван: «сундуки можно только взламывать».
+ */
+test('запертый ящик отдаёт добычу целиком тому, кто открыл замок', () => {
   const find = cacheByVariant('locked');
   const input = {
     find,
@@ -163,16 +171,14 @@ test('a locked chest can use a key intact or be smashed for exactly half its loo
     action: 'use-key',
     actor: { resources: { keyCount: 1 }, capabilities: {} },
   });
-  const smashed = resolveFindInteraction({ ...input, action: 'smash' });
   assert.equal(opened.ok, true);
   assert.equal(opened.rewardGold, find.rewardGold);
   assert.equal(opened.destroyedGold, 0);
   assert.deepEqual(opened.consumed, [{ id: 'iron-key', amount: 1 }]);
-  assert.equal(smashed.ok, true);
-  assert.equal(smashed.rewardGold, Math.ceil(find.rewardGold / 2));
-  assert.equal(smashed.destroyedGold, Math.floor(find.rewardGold / 2));
-  assert.equal(smashed.state.gold, 4 + Math.ceil(find.rewardGold / 2));
-  assert.equal(resolveFindInteraction({ ...input, action: 'defile' }).reason, 'action');
+  assert.equal(opened.state.gold, 4 + find.rewardGold);
+  for (const action of ['smash', 'defile', 'open']) {
+    assert.equal(resolveFindInteraction({ ...input, action }).reason, 'action', action);
+  }
   assert.deepEqual(input.resolvedFindIds, []);
 });
 

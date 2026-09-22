@@ -7,11 +7,11 @@ const ACTION_COPY = Object.freeze({
     open: 'Открыть',
     browse: 'Заглянуть',
     close: 'Закрыть',
-    smash: 'Ударить',
     disarm: 'Обезвредить',
     extract: 'Извлечь',
     defile: 'Осквернить',
     'use-key': 'Ключ',
+    'master-key': 'Отпереть',
     'pick-lock': 'Взломать',
     heal: 'Исцелиться',
     attack: 'Атаковать',
@@ -21,8 +21,6 @@ const ACTION_COPY = Object.freeze({
     hunt: 'Охотиться',
     tame: 'Приручить',
     feed: 'Покормить',
-    treat: 'Перевязать',
-    order: 'Приказ',
     release: 'Отпустить',
     cook: 'Приготовить',
     rest: 'Отдохнуть',
@@ -70,11 +68,11 @@ const ACTION_COPY = Object.freeze({
     open: 'Open',
     browse: 'Browse',
     close: 'Close',
-    smash: 'Strike',
     disarm: 'Disarm',
     extract: 'Extract',
     defile: 'Defile',
     'use-key': 'Use key',
+    'master-key': 'Unlock',
     'pick-lock': 'Pick lock',
     heal: 'Heal',
     attack: 'Attack',
@@ -84,8 +82,6 @@ const ACTION_COPY = Object.freeze({
     hunt: 'Hunt',
     tame: 'Tame',
     feed: 'Feed',
-    treat: 'Bandage',
-    order: 'Order',
     release: 'Release',
     cook: 'Cook',
     rest: 'Rest',
@@ -134,11 +130,11 @@ const GLYPHS = Object.freeze({
   open: '+',
   browse: '▤',
   close: '−',
-  smash: '✕',
   disarm: '✓',
   extract: '✦',
   defile: '!',
   'use-key': '⌑',
+  'master-key': '⌘',
   'pick-lock': '⌁',
   attack: '⚔',
   trade: '●',
@@ -147,8 +143,6 @@ const GLYPHS = Object.freeze({
   hunt: '⚔',
   tame: '♥',
   feed: '◆',
-  treat: '✚',
-  order: '➤',
   release: '↩',
   cook: '♨',
   rest: '☾',
@@ -271,7 +265,6 @@ const COPY = Object.freeze({
       ? '«Оружие в ножны, и я тебя не запомню.»'
       : '«Ходи спокойно, чужак. Здесь за порядком следят.»'),
     companionDescription: 'Идёт за тобой с тех пор, как ты его накормил, и дерётся рядом, пока цел.',
-    companionOrder: (label) => `Приказ: ${label}.`,
     // The status is the city's word («Разыскивается», «Враг города») and will
     // not bend into a sentence; the guard's own words come after it.
     guardWanted: (label, fine) => `${label}. «Плати ${fine} — или ночуешь в камере.»`,
@@ -391,7 +384,6 @@ const COPY = Object.freeze({
       ? '“Sheathe it, and I never saw your face.”'
       : '“Walk easy, stranger. This town is watched.”'),
     companionDescription: 'It has followed you since you fed it, and it fights beside you while it can.',
-    companionOrder: (label) => `Order: ${label}.`,
     guardWanted: (label, fine) => `${label}. “Pay ${fine} or you sleep in a cell.”`,
     gateName: 'The fork',
     gateDescription: 'Three roads from here. Caves below, open sky beyond the gate, or the old vaults under the town.',
@@ -907,22 +899,12 @@ export const INTERACTION_REGISTRY = Object.freeze([
       && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
       name: copy.creatures[target.id] ?? target.id,
-      description: target.modeLabel
-        ? copy.companionOrder(target.modeLabel)
-        : copy.companionDescription,
+      description: copy.companionDescription,
       icon: target.icon,
       accent: '#9ad3b8',
       actions: [
-        ...(target.careKnown
-          ? [{ id: 'feed', enabled: target.canFeed === true, hint: target.canFeed ? '' : target.feedHint ?? '' }]
-          : []),
-        ...(target.treatKnown
-          ? [{ id: 'treat', enabled: target.canTreat === true, hint: target.canTreat ? '' : target.treatHint ?? '' }]
-          : []),
-        ...(target.orderKnown ? [{ id: 'order' }] : []),
-        // Always both, whatever the hero has learned. A companion you can
-        // neither send away nor turn on is a companion you are stuck with —
-        // and with no taming skills the panel had no actions in it at all.
+        // Дрессировки, ухода и связи больше нет: зверь просто идёт рядом и
+        // дерётся. Остаются два слова, без которых он был бы обузой.
         { id: 'release' },
         { id: 'attack' },
       ],

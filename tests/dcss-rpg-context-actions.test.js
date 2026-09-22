@@ -33,18 +33,18 @@ test('one bilingual context model exposes object-specific actions', () => {
   assert.deepEqual(grave.actions.map(({ id }) => id), ['defile']);
 });
 
-test('ящик открывают одним действием, и оно ничего не выдаёт', () => {
+test('ящик отпирают, и список действий ничего не выдаёт', () => {
   const target = {
     kind: 'find', id: 'sealed-cache', rewardGold: 9, rewardPower: 0, riskDamage: 0,
-    cacheVariant: 'trapped', lockTier: 0, trapTier: 2, hazardDamage: 11,
+    cacheVariant: 'trapped', lockTier: 2, trapTier: 2, hazardDamage: 11,
     curseEffectId: null, curseDuration: 0,
   };
   const умелый = contextActionModel({ target, actor: { capabilities: { trapDisarmTier: 2 } }, language: 'ru' });
   const простак = contextActionModel({ target, actor: {}, language: 'ru' });
   // Ни имя, ни список действий не отличают ящик с ловушкой от обычного — и у
   // того, кто умеет её снять, тоже: умение работает молча, при открывании.
-  assert.deepEqual(умелый.actions.map(({ id }) => id), ['open']);
-  assert.deepEqual(простак.actions.map(({ id }) => id), ['open']);
+  assert.deepEqual(умелый.actions.map(({ id }) => id), ['use-key', 'pick-lock']);
+  assert.deepEqual(простак.actions.map(({ id }) => id), ['use-key', 'pick-lock']);
   assert.equal(умелый.name, простак.name);
   assert.doesNotMatch(умелый.description, /9◆|11|награ|урон/i);
   assert.ok(умелый.actions.every(({ command }) => command === 'find-interact'));

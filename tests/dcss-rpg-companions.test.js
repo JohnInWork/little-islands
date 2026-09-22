@@ -3,32 +3,19 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
-  BOND_DISTANCE,
-  CARE_FEED_PERCENT,
   COMPANION_HP_PERCENT,
   COMPANION_LIMIT,
-  COMPANION_MODES,
   DEFAULT_COMPANION_MODE,
   TAME_FOOD_IDS,
-  bondProfile,
-  bondReveal,
-  canFeed,
   canTame,
-  canTreat,
-  careProfile,
-  companionModeLabel,
   companionName,
   companionRefusalText,
   companionStats,
   createCompanionParty,
-  feedCompanion,
-  nextCompanionMode,
   packProfile,
   tameCreature,
   tameFoodCost,
   tamingProfile,
-  trainingProfile,
-  treatCompanion,
   validateCompanionParty,
   validateCompanionState,
 } from '../tools/dcss-rpg-companions.js';
@@ -110,62 +97,31 @@ test('the pack decides how many follow, and every extra beast eats more', () => 
   assert.equal(packProfile({ packLeaderRank: 3 }).limit, COMPANION_LIMIT[3]);
 });
 
-test('training gives orders, and only the ones the handler has learned', () => {
-  const untrained = trainingProfile({});
-  assert.deepEqual(untrained.modes, [], 'an untrained beast simply follows');
-  assert.equal(nextCompanionMode('guard', untrained), null);
-
-  const novice = trainingProfile({ trainingRank: 1 });
-  assert.deepEqual([...novice.modes], ['guard', 'search']);
-  assert.equal(nextCompanionMode('guard', novice), 'search');
-  assert.equal(nextCompanionMode('search', novice), 'guard', 'the orders make a ring');
-  assert.equal(nextCompanionMode('fetch', novice), 'guard', 'an order the handler forgot falls back to the first');
-
-  const adept = trainingProfile({ trainingRank: 2 });
-  assert.deepEqual([...adept.modes], [...COMPANION_MODES]);
-  assert.ok(adept.fetchRange > 0, 'fetching needs a reach');
-  assert.ok(trainingProfile({ trainingRank: 3 }).searchRadius >= adept.searchRadius);
-  for (const mode of COMPANION_MODES) {
-    assert.ok(companionModeLabel(mode, 'ru').length > 0, mode);
-    assert.ok(companionModeLabel(mode, 'en').length > 0, mode);
+/**
+ * Приказов, ухода и связи у зверя больше нет.
+ *
+ * Дрессировка, Уход и Звериная связь были тремя навыками из пяти в этой
+ * ветке: пятнадцать очков из тридцати, которые даёт весь забег, на одну
+ * подсистему. Иван: «Дрессировка, Уход, Звериная связь тоже убираем».
+ * Остались двое — Приручение и Вожак стаи, — а зверь просто идёт рядом.
+ */
+test('дрессировки, ухода и связи нет: зверь идёт рядом и дерётся', async () => {
+  const companions = await import('../tools/dcss-rpg-companions.js');
+  for (const name of [
+    'trainingProfile', 'careProfile', 'bondProfile', 'bondReveal',
+    'canFeed', 'canTreat', 'feedCompanion', 'treatCompanion', 'nextCompanionMode',
+  ]) {
+    assert.equal(name in companions, false, `${name}: осталось в модуле`);
   }
-});
-
-test('care feeds and bandages a beast, and refuses when there is nothing to mend', () => {
-  const beast = { id: 'hog', hp: 10, mode: 'guard' };
-  assert.equal(canFeed({ companion: beast, maxHp: 40, profile: careProfile({}), foodCount: 9 }).reason, 'rank-required');
-
-  const care = careProfile({ animalCareRank: 1 });
-  assert.equal(care.feedPercent, CARE_FEED_PERCENT[1]);
-  assert.equal(care.treats, false, 'bandaging comes later');
-  assert.equal(canFeed({ companion: beast, maxHp: 40, profile: care, foodCount: 0 }).reason, 'no-food');
-  assert.equal(canFeed({ companion: { ...beast, hp: 40 }, maxHp: 40, profile: care, foodCount: 1 }).reason, 'not-hurt');
-  const fed = feedCompanion({ companion: beast, maxHp: 40, profile: care, foodCount: 1 });
-  assert.equal(fed.ok, true);
-  assert.equal(fed.hp, 10 + Math.round((40 * CARE_FEED_PERCENT[1]) / 100));
-  assert.equal(feedCompanion({ companion: { ...beast, hp: 39 }, maxHp: 40, profile: care, foodCount: 1 }).hp, 40, 'never past whole');
-
-  const nurse = careProfile({ animalCareRank: 2 });
-  assert.equal(canTreat({ companion: beast, effects: { burning: 3 }, profile: care, bandageCount: 1 }).reason, 'rank-required');
-  assert.equal(canTreat({ companion: beast, effects: {}, profile: nurse, bandageCount: 1 }).reason, 'nothing-to-treat');
-  assert.equal(canTreat({ companion: beast, effects: { poison: 5 }, profile: nurse, bandageCount: 0 }).reason, 'no-bandage');
-  const treated = treatCompanion({ companion: beast, effects: { poison: 5, wet: 2 }, profile: nurse, bandageCount: 1 });
-  assert.equal(treated.ok, true);
-  assert.deepEqual(treated.effects, { poison: 0, wet: 0 });
-  assert.equal(companionRefusalText('no-bandage'), 'Нужны бинты');
-});
-
-test('the bond shares what a nearby beast sees, and nothing from a distant one', () => {
-  const hero = { x: 10, y: 10 };
-  assert.equal(bondReveal({ hero, beast: { x: 11, y: 10 }, profile: bondProfile({}) }), null);
-
-  const bond = bondProfile({ beastBondRank: 1 });
-  assert.equal(bond.distance, BOND_DISTANCE[1]);
-  const close = bondReveal({ hero, beast: { x: 13, y: 10 }, profile: bond });
-  assert.deepEqual(close, { x: 13, y: 10, radius: bond.radius });
-  assert.equal(bondReveal({ hero, beast: { x: 30, y: 10 }, profile: bond }), null, 'too far to share');
-  assert.ok(bondProfile({ beastBondRank: 3 }).distance > bond.distance);
-  assert.ok(bondProfile({ beastBondRank: 3 }).radius > bond.radius);
+  for (const id of ['training', 'animal-care', 'beast-bond']) {
+    assert.equal(skillById(id), null, `${id}: навык всё ещё в каталоге`);
+    assert.equal(SKILL_IMPLEMENTATIONS[id], undefined, `${id}: реализация всё ещё на месте`);
+  }
+  const source = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  for (const needle of ['feedNearbyCompanion', 'treatNearbyCompanion', 'orderNearbyCompanion',
+    'companionSearch', 'companionFetch', 'revealThroughCompanions']) {
+    assert.equal(source.includes(needle), false, `${needle}: осталось в переходнике`);
+  }
 });
 
 test('a handler makes the beast tougher, and the beast has a body to wear', () => {
@@ -239,8 +195,8 @@ test('no tamed body ever opens a floor as its first creature', async () => {
   }
 });
 
-test('all five companion skills are wired, and the runtime keeps the party', async () => {
-  for (const id of ['taming', 'training', 'animal-care', 'beast-bond', 'pack-leader']) {
+test('both companion skills are wired, and the runtime keeps the party', async () => {
+  for (const id of ['taming', 'pack-leader']) {
     assert.ok(SKILL_IMPLEMENTATIONS[id], id);
     for (const system of skillById(id).requiresSystems) {
       assert.ok(SKILL_SYSTEMS.includes(system), `${system} is connected`);
@@ -261,15 +217,6 @@ test('all five companion skills are wired, and the runtime keeps the party', asy
   uses('function nearbyCompanion(');
   uses('function spendCompanionFood(');
   uses('run.companions = [...run.companions, result.companion];');
-  uses('function searchTargetsFor(');
-  uses('function companionFetch(');
-  uses('function revealThroughCompanions(');
-  uses('function feedNearbyCompanion(');
-  uses('function treatNearbyCompanion(');
-  uses('function orderNearbyCompanion(');
-  // A scout and a fetcher mind the errand instead of chasing a fight they
-  // cannot reach; only a guard runs after it.
-  uses("const chasing = target !== null && !errandMode;");
 });
 
 /**
@@ -287,21 +234,12 @@ test('a companion can always be let go, and can always be turned on', async () =
   assert.ok(ids.includes('attack'), 'nothing turns on it');
   assert.ok(bare.actions.every(({ label }) => (label ?? '').length > 0), 'an action with no name');
 
-  // And the skills only add to that list, never replace it.
-  const skilled = contextActionModel({
-    target: {
-      kind: 'companion', id: 'sheep', icon: 'mon/animals/sheep.png',
-      careKnown: true, canFeed: true, treatKnown: true, canTreat: true, orderKnown: true,
-    },
-  });
-  assert.deepEqual(
-    skilled.actions.map(({ id }) => id),
-    ['feed', 'treat', 'order', 'release', 'attack'],
-  );
+  // Двух слов и достаточно: кормить, лечить и приказывать больше нечем.
+  assert.deepEqual(ids, ['release', 'attack']);
 
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /if \(action\.id === 'release'\) return releaseCompanion\(beast\);/);
-  assert.match(runtime, /if \(action\.id === 'attack'\) return turnOnCompanion\(beast\);/);
+  assert.match(runtime, /return turnOnCompanion\(beast\);/);
   // Turning on it makes it an ordinary enemy that the hero has already hit once.
   const turn = runtime.slice(runtime.indexOf('function turnOnCompanion('));
   const body = turn.slice(0, turn.indexOf('\nfunction '));

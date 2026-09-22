@@ -55,7 +55,7 @@ test('every chest variant materializes a distinct playable room scenario', () =>
     const room = dungeon.rooms[chest.roomIndex];
     seen.add(chest.cacheVariant);
     assert.ok(encounter);
-    assert.equal(encounter.variantId, chest.cacheVariant === 'unlocked' ? 'unguarded' : chest.cacheVariant);
+    assert.equal(encounter.variantId, chest.cacheVariant);
 
     if (chest.cacheVariant === 'locked') {
       assert.equal(encounter.kind, 'guarded');
@@ -90,13 +90,9 @@ test('every chest variant materializes a distinct playable room scenario', () =>
       assert.equal(mimic.x, chest.x);
       assert.equal(mimic.y, chest.y);
     }
-    if (chest.cacheVariant === 'unlocked') {
-      assert.equal(encounter.kind, 'unguarded');
-      assert.deepEqual(encounter.monsterIds, []);
-      assert.deepEqual(encounter.trapEventIds, []);
-    }
   }
-  assert.deepEqual([...seen].sort(), ['cursed', 'locked', 'mimic', 'trapped', 'unlocked']);
+  // Незапертого ящика больше не бывает: замок есть у каждого.
+  assert.deepEqual([...seen].sort(), ['cursed', 'locked', 'mimic', 'trapped']);
 });
 
 test('door treasure and mixed surprises use the same room encounter contract', () => {

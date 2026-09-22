@@ -111,10 +111,10 @@ test('every skill leans on one attribute, the first rank is free and the rest ar
 
   // A school that authored its own ladder keeps it — magic asks from rank one.
   assert.deepEqual(skillRankRequirement(skillById('pyromancy'), 0), { attribute: 'intelligence', value: 4 });
-  // Daggers are fingers, swords are shoulders, enchanting is a head.
+  // Daggers are fingers, swords are shoulders, the scrolls are a head.
   assert.equal(skillRankRequirement(skillById('daggers'), 1).attribute, 'agility');
   assert.equal(skillRankRequirement(skillById('swords'), 1).attribute, 'strength');
-  assert.equal(skillRankRequirement(skillById('enchanting'), 1).attribute, 'intelligence');
+  assert.equal(skillRankRequirement(skillById('arcana'), 1).attribute, 'intelligence');
 
   assert.equal(meetsRequirement(null, {}), true);
   assert.equal(meetsRequirement({ attribute: 'strength', value: 5 }, { strength: 5 }), true);

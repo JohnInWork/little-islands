@@ -268,33 +268,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ tamingRank: 3 }),
     ]),
   }),
-  training: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ trainingRank: 1 }),
-      Object.freeze({ trainingRank: 2 }),
-      Object.freeze({ trainingRank: 3 }),
-    ]),
-  }),
-  'animal-care': Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ animalCareRank: 1 }),
-      Object.freeze({ animalCareRank: 2 }),
-      Object.freeze({ animalCareRank: 3 }),
-    ]),
-  }),
-  'beast-bond': Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ beastBondRank: 1 }),
-      Object.freeze({ beastBondRank: 2 }),
-      Object.freeze({ beastBondRank: 3 }),
-    ]),
-  }),
   'pack-leader': Object.freeze({
     version: 1,
     modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
@@ -329,15 +302,6 @@ export const SKILL_IMPLEMENTATIONS = Object.freeze({
       Object.freeze({ armorsmithingRank: 1 }),
       Object.freeze({ armorsmithingRank: 2 }),
       Object.freeze({ armorsmithingRank: 3 }),
-    ]),
-  }),
-  enchanting: Object.freeze({
-    version: 1,
-    modifiersByRank: Object.freeze([Object.freeze({}), Object.freeze({}), Object.freeze({})]),
-    capabilitiesByRank: Object.freeze([
-      Object.freeze({ enchantingRank: 1 }),
-      Object.freeze({ enchantingRank: 2 }),
-      Object.freeze({ enchantingRank: 3 }),
     ]),
   }),
   arcana: Object.freeze({
@@ -385,16 +349,12 @@ export const SKILL_SYSTEMS = Object.freeze([
   'cleansing-ritual',
   'scroll-variants',
   'component-salvage',
-  'enchantment-transfer',
   'weapon-coatings',
   'poison-bait',
   'weapon-reforging',
   'armor-reforging',
   'animal-taming',
   'companion-limits',
-  'pet-behaviors',
-  'pet-treatment',
-  'companion-shared-vision',
   'companion-upkeep',
 ]);
 
@@ -475,11 +435,7 @@ export const SKILL_CAPABILITY_LIMITS = Object.freeze({
   weaponsmithingRank: Object.freeze([0, 3]),
   armorsmithingRank: Object.freeze([0, 3]),
   tamingRank: Object.freeze([0, 3]),
-  trainingRank: Object.freeze([0, 3]),
-  animalCareRank: Object.freeze([0, 3]),
-  beastBondRank: Object.freeze([0, 3]),
   packLeaderRank: Object.freeze([0, 3]),
-  enchantingRank: Object.freeze([0, 3]),
   arcanaRank: Object.freeze([0, 3]),
   scrollVariantTier: Object.freeze([0, 3]),
 });

@@ -1,10 +1,13 @@
 /**
- * The first honest crafting loop: what the hero breaks down feeds what the
- * hero improves. Salvaging turns unwanted gear into gold and essence,
- * Enchanting spends that essence to put a real affix on a kept item.
+ * Что герой ломает, то и кормит кузню: разбор превращает ненужное снаряжение в
+ * золото и эссенцию, а эссенцию тратит перековка.
  *
- * Both sides are arithmetic over things that already exist — the salvage
- * reward, the affix catalogue — so nothing here invents a second economy.
+ * Зачарование жило здесь же и вешало аффикс на вещь за ту же эссенцию. Иван:
+ * «зачарование точно убираем». Аффиксы никуда не делись — их по-прежнему
+ * приносит сама добыча, — но выбрать их рукой больше нельзя.
+ *
+ * Всё здесь — арифметика над тем, что уже есть: награда за лом и каталог
+ * аффиксов. Второй экономики модуль не выдумывает.
  */
 
 export const ESSENCE_ITEM_ID = 'arcane-essence';
@@ -25,12 +28,6 @@ export function isMagicalPiece(item) {
   return Boolean(item.artifactPowerId) || (item.affixIds?.length ?? 0) > 0;
 }
 
-/** Enchanting: how many affixes a hand can hold, and what the work costs. */
-export const ENCHANT_MAX_AFFIXES = Object.freeze([0, 1, 2, 2]);
-export const ENCHANT_ESSENCE_COST = Object.freeze([0, 2, 3, 2]);
-
-const EMPTY_ENCHANT = Object.freeze({ rank: 0, maxAffixes: 0, essenceCost: 0 });
-
 function boundedRank(value) {
   if (!Number.isInteger(value)) return 0;
   return Math.max(0, Math.min(3, value));
@@ -43,16 +40,6 @@ export function salvageProfile(capabilities = {}) {
     rank,
     bonusPercent: SALVAGE_BONUS_PERCENT[rank],
     essencePerPiece: SALVAGE_ESSENCE_PER_PIECE[rank],
-  });
-}
-
-export function enchantProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.enchantingRank);
-  if (rank === 0) return EMPTY_ENCHANT;
-  return Object.freeze({
-    rank,
-    maxAffixes: ENCHANT_MAX_AFFIXES[rank],
-    essenceCost: ENCHANT_ESSENCE_COST[rank],
   });
 }
 
@@ -71,76 +58,13 @@ export function salvageYield({ reward = 0, items = [], profile = EMPTY_SALVAGE }
   });
 }
 
-/**
- * Whether this item can take another affix, and what it would cost. The list of
- * legal affixes comes from the affix module; this only counts and prices.
- */
-export function canEnchant({
-  item = null,
-  affixIds = [],
-  essence = 0,
-  candidates = [],
-  profile = EMPTY_ENCHANT,
-} = {}) {
-  if (profile?.rank === 0) return Object.freeze({ ok: false, reason: 'rank-required' });
-  if (!item?.slot) return Object.freeze({ ok: false, reason: 'not-equipment' });
-  if (item.artifactPowerId) return Object.freeze({ ok: false, reason: 'artifact' });
-  if (affixIds.length >= profile.maxAffixes) return Object.freeze({ ok: false, reason: 'no-room' });
-  if (candidates.length === 0) return Object.freeze({ ok: false, reason: 'no-affix' });
-  if (essence < profile.essenceCost) {
-    return Object.freeze({ ok: false, reason: 'no-essence', cost: profile.essenceCost });
-  }
-  return Object.freeze({ ok: true, reason: 'ready', cost: profile.essenceCost });
-}
-
-/**
- * The work itself. The chosen affix is picked by a seeded stream, so the same
- * item enchanted in the same run always takes the same turn — reloading the
- * save cannot reroll it.
- */
-export function enchantItem({
-  item = null,
-  affixIds = [],
-  essence = 0,
-  candidates = [],
-  profile = EMPTY_ENCHANT,
-  seed = 0,
-} = {}) {
-  const decision = canEnchant({ item, affixIds, essence, candidates, profile });
-  if (!decision.ok) return decision;
-  const index = Math.abs(Math.trunc(seed)) % candidates.length;
-  const affixId = candidates[index];
-  return Object.freeze({
-    ok: true,
-    reason: 'enchanted',
-    affixId,
-    cost: decision.cost,
-    essence: essence - decision.cost,
-    affixIds: Object.freeze([...affixIds, affixId]),
-  });
-}
-
 const COPY = Object.freeze({
   ru: Object.freeze({
-    'rank-required': 'Нужно «Зачарование»',
-    'not-equipment': 'Зачаровывают только снаряжение',
-    artifact: 'Артефакт не принимает чужую руку',
-    'no-room': 'На предмете больше нет места',
-    'no-affix': 'Нечего наложить на этот предмет',
     'no-essence': 'Не хватает эссенции',
-    enchanted: 'Зачаровано',
-    enchant: (cost) => `Зачаровать · ${cost} ◈`,
     salvage: (gold, essence) => (essence > 0 ? `+${gold} · эссенция ×${essence}` : `+${gold}`),
   }),
   en: Object.freeze({
-    'rank-required': 'Enchanting is required',
-    'not-equipment': 'Only gear can be enchanted',
-    artifact: 'An artifact takes no other hand',
-    'no-room': 'The piece has no room left',
-    'no-affix': 'Nothing left to put on this piece',
     'no-essence': 'Not enough essence',
-    enchanted: 'Enchanted',
-    enchant: (cost) => `Enchant · ${cost} ◈`,
     salvage: (gold, essence) => (essence > 0 ? `+${gold} · essence ×${essence}` : `+${gold}`),
   }),
 });

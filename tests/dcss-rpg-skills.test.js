@@ -57,8 +57,8 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'trap-sense', 'trap-disarming', 'lockpicking', 'appraisal', 'swords', 'axes',
     'portering', 'necromancy', 'cooking', 'field-medicine', 'endurance', 'secret-search', 'stealth',
     'daggers', 'blunt-weapons', 'spears', 'marksmanship', 'mobility', 'whip-control', 'staff-channeling', 'shield',
-    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'training', 'animal-care', 'beast-bond', 'pack-leader',
-    'poisoncraft', 'weaponsmithing', 'armorsmithing', 'enchanting', 'arcana',
+    'pyromancy', 'cryomancy', 'storm-magic', 'cleansing', 'salvaging', 'taming', 'pack-leader',
+    'poisoncraft', 'weaponsmithing', 'armorsmithing', 'arcana',
   ]);
   assert.deepEqual(SKILL_SYSTEMS, [
     'trap-detection', 'camp-rest', 'carrying-capacity', 'summoned-servants', 'cooking-recipes', 'food-buffs', 'medical-treatment',
@@ -68,10 +68,9 @@ test('skill state starts neutral and grants exactly one point for each earned le
     'spear-interception', 'aimed-shots', 'piercing-shots', 'evasion-reward',
     'trap-disarming', 'lockpicking', 'trap-placement', 'item-identification', 'sword-rhythm',
     'weapon-cleave', 'shield-blocking', 'whip-control', 'staff-channeling', 'fire-spread', 'frost-buildup', 'chain-lightning',
-    'cleansing-ritual', 'scroll-variants', 'component-salvage', 'enchantment-transfer',
+    'cleansing-ritual', 'scroll-variants', 'component-salvage',
     'weapon-coatings', 'poison-bait', 'weapon-reforging', 'armor-reforging',
-    'animal-taming', 'companion-limits', 'pet-behaviors', 'pet-treatment',
-    'companion-shared-vision', 'companion-upkeep',
+    'animal-taming', 'companion-limits', 'companion-upkeep',
   ]);
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense']));
   assert.ok(Object.isFrozen(SKILL_IMPLEMENTATIONS['trap-sense'].capabilitiesByRank));
@@ -223,9 +222,9 @@ test('temporarily disabled owned skills survive cloning and have no gameplay eff
     shieldBlockChancePercent: 0, shieldBlockStunMs: 0,
     pyromancyRank: 0, cryomancyRank: 0, stormMagicRank: 0,
     cleansingRank: 0, arcanaRank: 0, scrollVariantTier: 0,
-    salvagingRank: 0, tamingRank: 0, enchantingRank: 0,
+    salvagingRank: 0, tamingRank: 0,
     poisoncraftRank: 0, weaponsmithingRank: 0, armorsmithingRank: 0,
-    trainingRank: 0, animalCareRank: 0, beastBondRank: 0, packLeaderRank: 0,
+    packLeaderRank: 0,
     porterRank: 0, backpackSlots: 0,
   });
   assert.equal(deriveSkillCapabilities(state).trapDetectionRadius, 4);

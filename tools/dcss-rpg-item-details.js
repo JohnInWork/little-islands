@@ -199,6 +199,7 @@ const RUSSIAN_NAMES = Object.freeze({
   'raw-meat': 'Сырое мясо',
   'cooked-meat': 'Жареное мясо',
   'iron-key': 'Железный ключ',
+  'master-key': 'Ключ от всех сундуков',
   'lockpick-set': 'Набор отмычек',
   'hunter-trap': 'Охотничий капкан',
   'coin-cache': 'Тайник с золотом',
@@ -288,6 +289,8 @@ const ENGLISH_NAMES = Object.freeze({
   'rusty-sword': 'Rusty sword',
   'worn-tunic': 'Worn tunic',
   'tide-wand': 'Tide Wand',
+  'iron-key': 'Iron key',
+  'master-key': 'Key to every chest',
 });
 
 const RARITY = Object.freeze({

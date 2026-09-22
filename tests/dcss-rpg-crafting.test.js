@@ -3,19 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
-  ENCHANT_ESSENCE_COST,
-  ENCHANT_MAX_AFFIXES,
   ESSENCE_ITEM_ID,
   SALVAGE_BONUS_PERCENT,
-  canEnchant,
   craftingRefusalText,
   isMagicalPiece,
-  enchantItem,
-  enchantProfile,
   salvageProfile,
   salvageYield,
 } from '../tools/dcss-rpg-crafting.js';
-import { MAX_RANDOM_AFFIXES, eligibleItemAffixes, validateItemAffixIds } from '../tools/dcss-rpg-affixes.js';
+import { eligibleItemAffixes } from '../tools/dcss-rpg-affixes.js';
 import { LOOT_CATALOG, lootById } from '../tools/dcss-rpg-content.js';
 import { SKILL_CAPABILITY_LIMITS, SKILL_IMPLEMENTATIONS, SKILL_SYSTEMS } from '../tools/dcss-rpg-skills.js';
 import { skillById } from '../tools/dcss-rpg-skill-content.js';
@@ -66,60 +61,30 @@ test('the essence is a carried reagent the salvage rules can actually produce', 
   assert.equal(salvageInventoryItems(state, ['a']).ok, true);
 });
 
-test('enchanting adds one legal affix, priced in essence and capped by rank', () => {
-  const item = sword();
-  const candidates = eligibleItemAffixes(item, []).map(({ id }) => id);
-  assert.ok(candidates.length > 0, 'a plain weapon can take something');
-
-  assert.equal(canEnchant({ item, candidates, essence: 9, profile: enchantProfile({}) }).reason, 'rank-required');
-  const novice = enchantProfile({ enchantingRank: 1 });
-  assert.equal(novice.maxAffixes, ENCHANT_MAX_AFFIXES[1]);
-  assert.equal(novice.essenceCost, ENCHANT_ESSENCE_COST[1]);
-  assert.equal(
-    canEnchant({ item, candidates, essence: novice.essenceCost - 1, profile: novice }).reason,
-    'no-essence',
-  );
-  assert.equal(craftingRefusalText('no-essence'), 'Не хватает эссенции');
-  assert.equal(
-    canEnchant({ item: lootById('bandage'), candidates, essence: 9, profile: novice }).reason,
-    'not-equipment',
-  );
-  assert.equal(
-    canEnchant({ item: { ...item, artifactPowerId: 'x' }, candidates, essence: 9, profile: novice }).reason,
-    'artifact',
-  );
-
-  const first = enchantItem({ item, candidates, essence: 5, profile: novice, seed: 12345 });
-  assert.equal(first.ok, true);
-  assert.equal(first.essence, 5 - novice.essenceCost);
-  assert.deepEqual(first.affixIds, [first.affixId]);
-  assert.ok(candidates.includes(first.affixId));
-  assert.equal(validateItemAffixIds(item, [...first.affixIds]), true, 'the save will accept the result');
-  // The same piece in the same run always takes the same turn.
-  assert.equal(enchantItem({ item, candidates, essence: 5, profile: novice, seed: 12345 }).affixId, first.affixId);
-
-  // A novice cannot put a second one on; an adept can, and never a third.
-  assert.equal(canEnchant({ item, affixIds: first.affixIds, candidates, essence: 9, profile: novice }).reason, 'no-room');
-  const adept = enchantProfile({ enchantingRank: 2 });
-  const second = enchantItem({
-    item,
-    affixIds: [...first.affixIds],
-    candidates: eligibleItemAffixes(item, first.affixIds).map(({ id }) => id),
-    essence: 9,
-    profile: adept,
-    seed: 999,
-  });
-  assert.equal(second.ok, true);
-  assert.equal(second.affixIds.length, 2);
-  assert.ok(second.affixIds.length <= MAX_RANDOM_AFFIXES, 'never past the catalogue cap');
-  assert.equal(
-    canEnchant({ item, affixIds: second.affixIds, candidates, essence: 9, profile: enchantProfile({ enchantingRank: 3 }) }).reason,
-    'no-room',
-  );
+/**
+ * Зачарования в игре нет, и вешать аффикс рукой больше нельзя.
+ *
+ * Оно стоило 2–3 эссенции, а эссенцию даёт только второй ранг разбора: два
+ * очка вперёд, прежде чем навык хоть что-то сделает. Иван: «зачарование
+ * точно убираем». Сами аффиксы остались — их приносит добыча.
+ */
+test('зачарования нет: аффиксы приходят с добычей, а не с рук', async () => {
+  const crafting = await import('../tools/dcss-rpg-crafting.js');
+  for (const name of ['canEnchant', 'enchantItem', 'enchantProfile', 'ENCHANT_ESSENCE_COST']) {
+    assert.equal(name in crafting, false, `${name}: зачарование всё ещё в модуле`);
+  }
+  const { skillById } = await import('../tools/dcss-rpg-skill-content.js');
+  assert.equal(skillById('enchanting'), null, 'навык всё ещё в каталоге');
+  // Аффиксы на месте: их вешает генератор добычи, и только он.
+  assert.ok(eligibleItemAffixes(sword(), []).length > 0, 'аффиксы унесли вместе с зачарованием');
+  const source = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  for (const needle of ['enchantSelectedItem', 'enchantDecision', 'enchantProfile']) {
+    assert.equal(source.includes(needle), false, `${needle}: осталось в переходнике`);
+  }
 });
 
-test('Salvaging and Enchanting are wired as skills and performed by the runtime', async () => {
-  for (const id of ['salvaging', 'enchanting']) {
+test('Salvaging is wired as a skill and performed by the runtime', async () => {
+  for (const id of ['salvaging']) {
     assert.ok(SKILL_IMPLEMENTATIONS[id], id);
     for (const system of skillById(id).requiresSystems) {
       assert.ok(SKILL_SYSTEMS.includes(system), `${system} is connected`);
@@ -135,7 +100,6 @@ test('Salvaging and Enchanting are wired as skills and performed by the runtime'
   const uses = (needle) => assert.ok(source.includes(needle), needle);
   uses("from './dcss-rpg-crafting.js'");
   uses('function grantEssence(');
-  uses('function enchantSelectedItem(');
   uses('function secondaryItemAction(');
   uses('salvageYield({');
   uses("consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])");

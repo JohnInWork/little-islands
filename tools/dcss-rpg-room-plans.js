@@ -1084,9 +1084,9 @@ function semanticVariant(level, roomIndex, archetype) {
   const chest = (level.finds ?? []).find(
     (find) => find.roomIndex === roomIndex && find.id === 'sealed-cache',
   );
-  if (chest && archetype.id === 'treasure-vault') {
-    return chest.cacheVariant === 'unlocked' ? 'unguarded' : chest.cacheVariant;
-  }
+  // Незапертых ящиков больше нет, и «без охраны» у сундука не бывает: комната
+  // зовётся по тому, что в ящике, а замок есть у каждого.
+  if (chest && archetype.id === 'treasure-vault') return chest.cacheVariant;
   const surprise = (level.surprises ?? []).find((entry) => entry.roomIndex === roomIndex);
   if (surprise && archetype.id === 'treasure-vault') {
     return surprise.type === 'mixed' ? 'ambush' : 'unguarded';

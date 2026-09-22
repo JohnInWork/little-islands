@@ -49,8 +49,8 @@ const chest = (overrides = {}) => ({
   rewardGold: 12,
   rewardPower: 0,
   riskDamage: 0,
-  cacheVariant: 'unlocked',
-  lockTier: 0,
+  cacheVariant: 'locked',
+  lockTier: 1,
   trapTier: 0,
   hazardDamage: 0,
   curseEffectId: null,
@@ -80,17 +80,24 @@ test('chest profiles are deterministic, depth-scaled and include every authored 
     const second = createChestProfile({ seed, depth, roomIndex: seed % 8, rewardGold: 10 });
     assert.deepEqual(first, second);
     assert.ok(first.rewardGold >= 10);
-    assert.ok(first.lockTier >= 0 && first.lockTier <= 3);
+    assert.ok(first.lockTier >= 1 && first.lockTier <= 3, 'ящик без замка');
     assert.ok(first.trapTier >= 0 && first.trapTier <= 3);
     seen.add(first.cacheVariant);
   }
   assert.deepEqual([...seen].sort(), [...CHEST_VARIANTS].sort());
 });
 
-test('locked chest exposes key, skill-gated lockpicking and destructive fallback', () => {
+/**
+ * Внутрь ведут два пути, и оба чего-то стоят.
+ *
+ * Третьим была кувалда: бесплатная, всегда доступная и потому обесценивавшая
+ * и ключи, и навык «Взлом». Иван: «убираем, что сундук можно разбить и
+ * открыть <...> сундуки можно только взламывать».
+ */
+test('у запертого ящика два пути внутрь: ключ и отмычка', () => {
   const find = chest({ cacheVariant: 'locked', lockTier: 1 });
   const blocked = chestActionRules({ find, actor: { resources: {}, capabilities: {} } });
-  assert.deepEqual(blocked.actions.map(({ id }) => id), ['use-key', 'pick-lock', 'smash']);
+  assert.deepEqual(blocked.actions.map(({ id }) => id), ['use-key', 'pick-lock']);
   assert.equal(blocked.actions.find(({ id }) => id === 'use-key').enabled, false);
   assert.equal(blocked.actions.find(({ id }) => id === 'pick-lock').enabled, false);
   const keyed = chestActionRules({
@@ -105,9 +112,33 @@ test('locked chest exposes key, skill-gated lockpicking and destructive fallback
   assert.equal(lockpickCost(1), 2);
   assert.equal(lockpickCost(2), 1);
   assert.equal(picked.actions.find(({ id }) => id === 'pick-lock').enabled, true);
+  assert.equal(resolveChestInteraction(command(find, 'smash')).reason, 'action', 'кувалда всё ещё работает');
 });
 
-test('key, lockpick and smash outcomes are atomic and economically distinct', () => {
+/**
+ * Ключ от всех сундуков отпирает любой замок и остаётся в сумке.
+ *
+ * Иван: «ключ от всех сундуков, вот у нас будет такой артефакт редкий,
+ * классный, прикольный». Пока он есть, выбирать не из чего — и список
+ * действий это показывает одной строкой вместо двух.
+ */
+test('ключ от всех сундуков открывает любой замок и не тратится', () => {
+  const master = { resources: { masterKey: true }, capabilities: {} };
+  for (const tier of [1, 2, 3]) {
+    const find = chest({ cacheVariant: 'locked', lockTier: tier });
+    const rules = chestActionRules({ find, actor: master });
+    assert.deepEqual(rules.actions.map(({ id }) => id), ['master-key'], `замок ${tier}`);
+    assert.equal(rules.actions[0].enabled, true);
+    const opened = resolveChestInteraction(command(find, 'master-key', { actor: master }));
+    assert.equal(opened.ok, true);
+    assert.deepEqual(opened.consumed, [], 'ключ от всех сундуков израсходовался');
+    assert.equal(opened.rewardGold, find.rewardGold);
+  }
+  // Он и есть ресурс: модуль знает его по имени, как ключ и отмычку.
+  assert.equal(CHEST_RESOURCE_IDS.masterKey, 'master-key');
+});
+
+test('ключ и отмычка тратятся, а награда от способа не зависит', () => {
   const find = chest({ cacheVariant: 'locked', lockTier: 1, rewardGold: 15 });
   const keyed = resolveChestInteraction(command(find, 'use-key', {
     actor: { resources: { keyCount: 1 }, capabilities: {} },
@@ -122,92 +153,86 @@ test('key, lockpick and smash outcomes are atomic and economically distinct', ()
   const before = structuredClone(pickedInput);
   const picked = resolveChestInteraction(pickedInput);
   assert.equal(picked.ok, true);
+  assert.equal(picked.rewardGold, 15, 'вскрытый замок платит столько же, сколько отпертый');
+  assert.equal(picked.destroyedGold, 0, 'портить добычу больше нечем');
   assert.deepEqual(picked.consumed, [{ id: CHEST_RESOURCE_IDS.lockpick, amount: 2 }]);
   assert.deepEqual(pickedInput, before);
-
-  const smashed = resolveChestInteraction(command(find, 'smash'));
-  assert.equal(smashed.ok, true);
-  assert.equal(smashed.rewardGold, 8);
-  assert.equal(smashed.destroyedGold, 7);
-  assert.equal(smashed.noise, 7);
 });
 
 test('traps, curses and mimics trade health for loot while skill creates a safe answer', () => {
+  const opener = { resources: { masterKey: true }, capabilities: {} };
+  const open = (find, overrides = {}) => resolveChestInteraction(command(find, 'master-key', {
+    actor: opener, ...overrides,
+  }));
   const trapped = chest({ cacheVariant: 'trapped', trapTier: 2, hazardDamage: 12 });
-  const opened = resolveChestInteraction(command(trapped, 'open'));
+  const opened = open(trapped);
   assert.equal(opened.ok, true);
   assert.equal(opened.damage, 12);
   assert.equal(opened.state.hero.hp, 28);
-  // Отдельной кнопки «Обезвредить» больше нет: она сама выдавала, что ящик с
-  // ловушкой. Умение работает молча — кто разбирается в механизмах, снимает
-  // крышку тем же одним действием и не получает по рукам.
+  // Отдельной кнопки «Обезвредить» нет: она сама выдавала, что ящик с
+  // ловушкой. Умение работает молча — кто разбирается в механизмах, поднимает
+  // крышку и не получает по рукам.
   assert.equal(opened.defused, false);
-  const disarmed = resolveChestInteraction(command(trapped, 'open', {
-    actor: { resources: {}, capabilities: { trapDisarmTier: 2 } },
-  }));
+  const disarmed = open(trapped, {
+    actor: { resources: { masterKey: true }, capabilities: { trapDisarmTier: 2 } },
+  });
   assert.equal(disarmed.ok, true);
   assert.equal(disarmed.defused, true);
   assert.equal(disarmed.damage, 0);
   assert.equal(disarmed.rewardGold, trapped.rewardGold);
   // А кому не хватает ранга — тому ловушка достаётся целиком.
-  const weak = resolveChestInteraction(command(trapped, 'open', {
-    actor: { resources: {}, capabilities: { trapDisarmTier: 1 } },
-  }));
+  const weak = open(trapped, {
+    actor: { resources: { masterKey: true }, capabilities: { trapDisarmTier: 1 } },
+  });
   assert.equal(weak.defused, false);
   assert.equal(weak.damage, 12);
 
   const cursed = chest({ cacheVariant: 'cursed', hazardDamage: 15 });
   cursed.curseEffectId = 'poison';
   cursed.curseDuration = 6;
-  const cursedResult = resolveChestInteraction(command(cursed, 'open'));
-  assert.deepEqual(cursedResult.status, { id: 'poison', duration: 6 });
-  assert.equal(resolveChestInteraction(command(cursed, 'open', {
-    hero: { x: 5, y: 5, hp: 15, power: 2 },
-  })).reason, 'unsafe');
+  assert.deepEqual(open(cursed).status, { id: 'poison', duration: 6 });
+  assert.equal(open(cursed, { hero: { x: 5, y: 5, hp: 15, power: 2 } }).reason, 'unsafe');
 
-  // Мимик открывается тем же одним словом, что и всякий ящик, и кусает того,
-  // кто открыл: «либо нападает, либо нет» — это и есть вся его загадка.
+  // Мимик открывается тем же способом, что и всякий ящик, и кусает того, кто
+  // открыл: «либо нападает, либо нет» — это и есть вся его загадка.
   const mimic = chest({ cacheVariant: 'mimic', hazardDamage: 14, mimicMonsterId: 'monster-1-4' });
-  const ambush = resolveChestInteraction(command(mimic, 'open'));
+  const ambush = open(mimic);
   assert.equal(ambush.damage, 14);
   assert.deepEqual(ambush.struckMonsterIds, []);
   assert.deepEqual(ambush.activatedMonsterIds, ['monster-1-4']);
   assert.equal(ambush.rewardGold, 0);
   assert.equal(ambush.deferredRewardGold, mimic.rewardGold);
-  // Одно слово у всякого ящика: список действий не выдаёт, что перед тобой.
+
+  // Список действий одинаков у всех: он не выдаёт, что перед тобой.
   for (const find of [
-    chest({ cacheVariant: 'unlocked' }),
-    chest({ cacheVariant: 'trapped', trapTier: 1, hazardDamage: 7 }),
-    chest({ cacheVariant: 'cursed', hazardDamage: 7, curseEffectId: 'poison', curseDuration: 4 }),
-    chest({ cacheVariant: 'mimic', hazardDamage: 7, mimicMonsterId: 'monster-1-4' }),
+    chest({ cacheVariant: 'locked', lockTier: 1 }),
+    chest({ cacheVariant: 'trapped', lockTier: 1, trapTier: 1, hazardDamage: 7 }),
+    chest({ cacheVariant: 'cursed', lockTier: 1, hazardDamage: 7, curseEffectId: 'poison', curseDuration: 4 }),
+    chest({ cacheVariant: 'mimic', lockTier: 1, hazardDamage: 7, mimicMonsterId: 'monster-1-4' }),
   ]) {
     assert.deepEqual(
       chestActionRules({ find }).actions.map(({ id }) => id),
-      ['open'],
-      `${find.cacheVariant} показывает не одно действие`,
+      ['use-key', 'pick-lock'],
+      `${find.cacheVariant} показывает другой список`,
     );
   }
-  // Запертый — единственное исключение: там выбор настоящий.
-  assert.deepEqual(
-    chestActionRules({ find: chest({ cacheVariant: 'locked', lockTier: 1 }) }).actions.map(({ id }) => id),
-    ['use-key', 'pick-lock', 'smash'],
-  );
 });
 
 test('нетронутый ящик ничем не выдаёт, что внутри', () => {
-  const find = chest({ cacheVariant: 'mimic', hazardDamage: 13 });
+  const find = chest({ cacheVariant: 'mimic', lockTier: 1, hazardDamage: 13 });
   const hidden = chestContextPresentation({ find, language: 'ru' });
-  assert.equal(hidden.name, 'Древний сундук');
+  assert.equal(hidden.name, 'Запертый сундук');
   assert.doesNotMatch(hidden.description, /13/);
-  // Осмотра больше нет: ни имя, ни описание, ни единственная кнопка не
-  // отвечают за игрока на вопрос, что перед ним.
-  assert.deepEqual(hidden.actions.map(({ id }) => id), ['open']);
+  // Ни имя, ни описание, ни список действий не отвечают за игрока на вопрос,
+  // что перед ним: запертый ящик выглядит запертым ящиком.
+  assert.deepEqual(hidden.actions.map(({ id }) => id), ['use-key', 'pick-lock']);
   const trapped = chestContextPresentation({
-    find: chest({ cacheVariant: 'trapped', trapTier: 2, hazardDamage: 9 }),
+    find: chest({ cacheVariant: 'trapped', lockTier: 1, trapTier: 2, hazardDamage: 9 }),
     language: 'ru',
   });
   assert.equal(trapped.name, hidden.name, 'ловушка выдаёт себя именем');
-  assert.deepEqual(trapped.actions.map(({ id }) => id), ['open']);
+  assert.equal(trapped.description, hidden.description, 'ловушка выдаёт себя описанием');
+  assert.deepEqual(trapped.actions.map(({ id }) => id), ['use-key', 'pick-lock']);
 
   const opened = chestContextPresentation({
     find: chest({ containerOpened: true }),

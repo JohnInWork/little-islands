@@ -25,35 +25,22 @@ export const TAME_FOOD_IDS = Object.freeze([
 export const COMPANION_HP_PERCENT = Object.freeze([0, 0, 30, 60]);
 export const COMPANION_DAMAGE_PERCENT = Object.freeze([0, 0, 10, 25]);
 
-/** What a trained beast can be told to do. Untrained, it simply follows. */
+/**
+ * Приказов у зверя больше нет: он идёт рядом и дерётся.
+ *
+ * Дрессировка, уход и связь были тремя отдельными навыками — вместе с
+ * приручением и вожаком стаи это пятнадцать очков из тридцати, которые
+ * даёт весь забег, на одну подсистему. Иван: «Дрессировка, Уход, Звериная
+ * связь — убираем». Поле `mode` осталось в сохранении, чтобы вчерашние
+ * забеги не отвергались проверкой, но меняться ему больше нечем.
+ */
 export const COMPANION_MODES = Object.freeze(['guard', 'search', 'fetch']);
 export const DEFAULT_COMPANION_MODE = 'guard';
-const MODES_BY_RANK = Object.freeze([
-  Object.freeze([]),
-  Object.freeze(['guard', 'search']),
-  Object.freeze(['guard', 'search', 'fetch']),
-  Object.freeze(['guard', 'search', 'fetch']),
-]);
-
-/** How far a searching beast lights the floor, and how far it fetches from. */
-export const SEARCH_RADIUS = Object.freeze([0, 2, 2, 3]);
-export const FETCH_RANGE = Object.freeze([0, 0, 4, 6]);
-
-/** Care: a meal on the road, and a dressing for what the meal cannot fix. */
-export const CARE_FEED_PERCENT = Object.freeze([0, 40, 55, 70]);
-export const CARE_TREAT_RANK = 2;
-
-/** The bond: what the beast sees, the hero sees — while it stays close. */
-export const BOND_DISTANCE = Object.freeze([0, 4, 6, 8]);
-export const BOND_RADIUS = Object.freeze([0, 2, 3, 4]);
 
 /** How many beasts may follow, and what the next one costs in food. */
 export const COMPANION_LIMIT = Object.freeze([1, 2, 2, 3]);
 
 const EMPTY_TAMING = Object.freeze({ rank: 0, difficulty: 0, hpPercent: 0, damagePercent: 0 });
-const EMPTY_TRAINING = Object.freeze({ rank: 0, modes: Object.freeze([]), searchRadius: 0, fetchRange: 0 });
-const EMPTY_CARE = Object.freeze({ rank: 0, feedPercent: 0, treats: false });
-const EMPTY_BOND = Object.freeze({ rank: 0, distance: 0, radius: 0 });
 const EMPTY_PACK = Object.freeze({ rank: 0, limit: COMPANION_LIMIT[0] });
 
 function boundedRank(value) {
@@ -71,29 +58,6 @@ export function tamingProfile(capabilities = {}) {
     hpPercent: COMPANION_HP_PERCENT[rank],
     damagePercent: COMPANION_DAMAGE_PERCENT[rank],
   });
-}
-
-export function trainingProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.trainingRank);
-  if (rank === 0) return EMPTY_TRAINING;
-  return Object.freeze({
-    rank,
-    modes: MODES_BY_RANK[rank],
-    searchRadius: SEARCH_RADIUS[rank],
-    fetchRange: FETCH_RANGE[rank],
-  });
-}
-
-export function careProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.animalCareRank);
-  if (rank === 0) return EMPTY_CARE;
-  return Object.freeze({ rank, feedPercent: CARE_FEED_PERCENT[rank], treats: rank >= CARE_TREAT_RANK });
-}
-
-export function bondProfile(capabilities = {}) {
-  const rank = boundedRank(capabilities.beastBondRank);
-  if (rank === 0) return EMPTY_BOND;
-  return Object.freeze({ rank, distance: BOND_DISTANCE[rank], radius: BOND_RADIUS[rank] });
 }
 
 export function packProfile(capabilities = {}) {
@@ -201,84 +165,17 @@ export function tameCreature(options = {}) {
   });
 }
 
-/** The next order in the ring the handler knows; untrained beasts take none. */
-export function nextCompanionMode(mode, profile = EMPTY_TRAINING) {
-  const modes = profile?.modes ?? EMPTY_TRAINING.modes;
-  if (modes.length === 0) return null;
-  const index = modes.indexOf(mode);
-  // An order the handler no longer knows falls back to the first one they do.
-  if (index < 0) return modes[0];
-  return modes[(index + 1) % modes.length];
-}
-
-/** A meal on the road. It is refused when the beast has nothing to mend. */
-export function canFeed({ companion = null, maxHp = 1, profile = EMPTY_CARE, foodCount = 0 } = {}) {
-  if (profile?.rank === 0) return Object.freeze({ ok: false, reason: 'rank-required' });
-  if (!companion) return Object.freeze({ ok: false, reason: 'no-beast' });
-  if (foodCount < 1) return Object.freeze({ ok: false, reason: 'no-food', cost: 1 });
-  if (companion.hp >= maxHp) return Object.freeze({ ok: false, reason: 'not-hurt' });
-  return Object.freeze({ ok: true, reason: 'ready', cost: 1 });
-}
-
-export function feedCompanion(options = {}) {
-  const decision = canFeed(options);
-  if (!decision.ok) return decision;
-  const { companion, maxHp = 1, profile = EMPTY_CARE } = options;
-  const healed = Math.max(1, Math.round((maxHp * profile.feedPercent) / 100));
-  return Object.freeze({
-    ok: true,
-    reason: 'fed',
-    healed: Math.min(healed, maxHp - companion.hp),
-    hp: Math.min(maxHp, companion.hp + healed),
-    cost: decision.cost,
-  });
-}
-
-/** A dressing for what a meal cannot fix: burning, venom, the cold. */
-export function canTreat({ companion = null, effects = {}, profile = EMPTY_CARE, bandageCount = 0 } = {}) {
-  if (!profile?.treats) return Object.freeze({ ok: false, reason: 'rank-required' });
-  if (!companion) return Object.freeze({ ok: false, reason: 'no-beast' });
-  if (bandageCount < 1) return Object.freeze({ ok: false, reason: 'no-bandage', cost: 1 });
-  const carried = Object.entries(effects).filter(([, seconds]) => seconds > 0).map(([id]) => id);
-  if (carried.length === 0) return Object.freeze({ ok: false, reason: 'nothing-to-treat' });
-  return Object.freeze({ ok: true, reason: 'ready', cost: 1, cleared: Object.freeze(carried) });
-}
-
-export function treatCompanion(options = {}) {
-  const decision = canTreat(options);
-  if (!decision.ok) return decision;
-  const next = { ...(options.effects ?? {}) };
-  for (const id of decision.cleared) next[id] = 0;
-  return Object.freeze({ ...decision, reason: 'treated', effects: next });
-}
-
-/** What the hero learns from a beast that is close enough to shout to. */
-export function bondReveal({ hero = null, beast = null, profile = EMPTY_BOND } = {}) {
-  if (!hero || !beast || (profile?.rank ?? 0) === 0) return null;
-  const distance = Math.hypot(beast.x - hero.x, beast.y - hero.y);
-  if (distance > profile.distance) return null;
-  return Object.freeze({ x: beast.x, y: beast.y, radius: profile.radius });
-}
-
 const COPY = Object.freeze({
   ru: Object.freeze({
     tame: 'Приручить',
-    feed: 'Покормить',
-    treat: 'Перевязать',
-    order: 'Приказ',
     'rank-required': 'Нужен навык',
     'not-a-beast': 'Это не зверь',
     frightened: 'Зверь напуган',
     'already-bonded': 'Отряд уже полон',
     'too-wild': 'Слишком дикий для твоего ранга',
     'no-food': 'Нужна еда',
-    'no-bandage': 'Нужны бинты',
     'no-beast': 'Зверя нет',
-    'not-hurt': 'Зверь цел',
-    'nothing-to-treat': 'Лечить нечего',
     tamed: 'Зверь пошёл за тобой',
-    fed: 'Зверь поел',
-    treated: 'Зверь перевязан',
     lost: 'Зверь пал',
     modes: Object.freeze({ guard: 'Защищать', search: 'Искать', fetch: 'Приносить' }),
     names: Object.freeze({
@@ -289,22 +186,14 @@ const COPY = Object.freeze({
   }),
   en: Object.freeze({
     tame: 'Tame',
-    feed: 'Feed',
-    treat: 'Bandage',
-    order: 'Order',
     'rank-required': 'The skill is required',
     'not-a-beast': 'That is not a beast',
     frightened: 'The beast is frightened',
     'already-bonded': 'The party is full',
     'too-wild': 'Too wild for your rank',
     'no-food': 'Food is required',
-    'no-bandage': 'Bandages are required',
     'no-beast': 'There is no beast',
-    'not-hurt': 'The beast is whole',
-    'nothing-to-treat': 'Nothing to treat',
     tamed: 'The beast follows you',
-    fed: 'The beast has eaten',
-    treated: 'The beast is bandaged',
     lost: 'Your beast has fallen',
     modes: Object.freeze({ guard: 'Defend', search: 'Search', fetch: 'Fetch' }),
     names: Object.freeze({
@@ -328,6 +217,3 @@ export function companionName(creatureId, language = 'ru') {
   return companionCopy(language).names[creatureId] ?? creatureId;
 }
 
-export function companionModeLabel(mode, language = 'ru') {
-  return companionCopy(language).modes[mode] ?? '';
-}

@@ -229,33 +229,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['cleansing-ritual'],
   },
   {
-    id: 'tracking', category: 'survival', mode: 'passive',
-    name: { ru: 'Следопыт', en: 'Tracking' },
-    description: {
-      ru: 'Различает следы животных и врагов, помогая понять, кто находится впереди.',
-      en: 'Distinguishes animal and enemy tracks to reveal what may lie ahead.',
-    },
-    requiresSystems: ['creature-tracks'],
-  },
-  {
-    id: 'hunting', category: 'survival', mode: 'contextual',
-    name: { ru: 'Охотник', en: 'Hunting' },
-    description: {
-      ru: 'Извлекает пригодное мясо, шкуры и полезные части из подходящих туш.',
-      en: 'Harvests usable meat, hides and useful parts from suitable carcasses.',
-    },
-    requiresSystems: ['carcass-harvesting'],
-  },
-  {
-    id: 'herbalism', category: 'survival', mode: 'contextual',
-    name: { ru: 'Травничество', en: 'Herbalism' },
-    description: {
-      ru: 'Помогает распознавать и собирать полезные растения и грибы для рецептов.',
-      en: 'Identifies and gathers useful plants and mushrooms for recipes.',
-    },
-    requiresSystems: ['plant-gathering'],
-  },
-  {
     id: 'cooking', category: 'survival', mode: 'contextual',
     name: { ru: 'Кулинария', en: 'Cooking' },
     description: {
@@ -328,15 +301,6 @@ export const SKILL_CATALOG = deepFreeze([
     requiresSystems: ['component-salvage'],
   },
   {
-    id: 'enchanting', category: 'crafting', mode: 'contextual',
-    name: { ru: 'Зачарование', en: 'Enchanting' },
-    description: {
-      ru: 'Переносит совместимое магическое свойство на предмет с затратой ресурсов и ограничением числа свойств.',
-      en: 'Transfers a compatible magical property to an item, consuming resources and respecting its property limit.',
-    },
-    requiresSystems: ['enchantment-transfer'],
-  },
-  {
     id: 'taming', category: 'companions', mode: 'contextual',
     name: { ru: 'Приручение', en: 'Taming' },
     description: {
@@ -344,33 +308,6 @@ export const SKILL_CATALOG = deepFreeze([
       en: 'Tames suitable animals with food. Stronger species require preparation.',
     },
     requiresSystems: ['animal-taming', 'companion-limits'],
-  },
-  {
-    id: 'training', category: 'companions', mode: 'contextual',
-    name: { ru: 'Дрессировка', en: 'Training' },
-    description: {
-      ru: 'Обучает питомца защищать, искать или приносить найденные предметы.',
-      en: 'Trains a pet to defend, search or fetch discovered items.',
-    },
-    requiresSystems: ['pet-behaviors'],
-  },
-  {
-    id: 'animal-care', category: 'companions', mode: 'contextual',
-    name: { ru: 'Уход за животными', en: 'Animal care' },
-    description: {
-      ru: 'Лечит питомца и снимает его состояния кормом и перевязочными средствами.',
-      en: 'Heals a pet and treats its conditions using food and medical dressings.',
-    },
-    requiresSystems: ['pet-treatment'],
-  },
-  {
-    id: 'beast-bond', category: 'companions', mode: 'passive',
-    name: { ru: 'Звериная связь', en: 'Beast bond' },
-    description: {
-      ru: 'Позволяет видеть разведанное питомцем поблизости. Дистанция связи ограничена.',
-      en: 'Shares discoveries made by a nearby pet within a limited bond range.',
-    },
-    requiresSystems: ['companion-shared-vision'],
   },
   {
     id: 'pack-leader', category: 'companions', mode: 'passive',

@@ -171,11 +171,11 @@ export const CREDITS_SECTIONS = Object.freeze([
     license: 'CC0 1.0',
     source: 'https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg',
     ru: {
-      title: 'Монета интерфейса',
+      title: 'Монета и ключи',
       lines: Object.freeze(['Henrique Lazarini (7Soul1)']),
     },
     en: {
-      title: 'The interface coin',
+      title: 'The coin and the keys',
       lines: Object.freeze(['Henrique Lazarini (7Soul1)']),
     },
   }),

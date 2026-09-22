@@ -60,6 +60,8 @@ export const HUD_METER_PATHS = Object.freeze([
   'derived/hud/heart.png',
   // Монета интерфейса: в строке и в кошельке — одна и та же.
   'licensed/7soul-icons/coin-gold.png',
+  'licensed/7soul-icons/key-iron.png',
+  'licensed/7soul-icons/key-master.png',
 ]);
 
 /** Every catalog-driven sprite; `extra` adds per-player visual overrides. */

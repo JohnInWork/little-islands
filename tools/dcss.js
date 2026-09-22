@@ -314,7 +314,6 @@ import {
 import { enduranceProfile, enduredDuration } from './dcss-rpg-endurance.js';
 import {
   MINION_FOLLOW_DISTANCE,
-  MINION_LEASH_DISTANCE,
   isMinionSpell,
   minionBlueprint,
   minionCopy,
@@ -323,7 +322,6 @@ import {
   necromancyProfile,
 } from './dcss-rpg-minions.js';
 import {
-  BANDAGE_ITEM_ID,
   bandageRefusalText,
   fieldMedicineProfile,
   resolveBandage,
@@ -388,24 +386,15 @@ import {
 } from './dcss-rpg-scrolls.js';
 import {
   TAME_FOOD_IDS,
-  bondProfile,
-  bondReveal,
-  canFeed,
+
   canTame,
-  canTreat,
-  careProfile,
   createCompanionParty,
-  companionModeLabel,
   companionName,
   companionRefusalText,
   companionStats,
-  feedCompanion,
-  nextCompanionMode,
   packProfile,
   tameCreature,
   tamingProfile,
-  trainingProfile,
-  treatCompanion,
 } from './dcss-rpg-companions.js';
 import {
   applyReforge,
@@ -420,15 +409,10 @@ import {
 } from './dcss-rpg-smithing.js';
 import {
   ESSENCE_ITEM_ID,
-  canEnchant,
   craftingCopy,
-  craftingRefusalText,
-  enchantItem,
-  enchantProfile,
   salvageProfile,
   salvageYield,
 } from './dcss-rpg-crafting.js';
-import { eligibleItemAffixes } from './dcss-rpg-affixes.js';
 import {
   arrestHero,
   breakOut,
@@ -1898,67 +1882,6 @@ function raiseCompanion(index) {
 }
 
 /**
- * A searching beast has a nose of its own: it finds mechanisms near itself
- * even for a hero who never learned to look for them.
- */
-function companionSearch(ally) {
-  const profile = trainingProfile(currentSkillCapabilities());
-  if (profile.searchRadius === 0) return false;
-  const next = discoverTraps({
-    traps: trapDefinitions,
-    origin: { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) },
-    capabilities: { trapDetectionRadius: profile.searchRadius, trapDetectionTier: profile.rank },
-    detectedTrapIds: [...detectedTrapIds],
-    resolvedEventIds: run.floor.resolved,
-    hasLineOfSight: (from, to) => hasLineOfSight(world, from, to),
-  });
-  const found = next.filter((id) => !detectedTrapIds.has(id));
-  if (found.length === 0) return false;
-  detectedTrapIds = new Set(next);
-  run.floor.detectedTrapIds = [...detectedTrapIds];
-  addCombatGlyph(ally.x, ally.y, '?', '#d8bd68', -58);
-  persistRun();
-  return true;
-}
-
-/**
- * Where a searching beast goes: the nearest dark cell still inside the hero's
- * leash. A beast that only walks where the hero already walked scouts nothing.
- */
-function searchTargetsFor(ally) {
-  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  const reach = MINION_LEASH_DISTANCE;
-  const candidates = [];
-  for (let dy = -reach; dy <= reach; dy += 1) {
-    for (let dx = -reach; dx <= reach; dx += 1) {
-      if (Math.hypot(dx, dy) > reach) continue;
-      const cell = { x: heroCell.x + dx, y: heroCell.y + dy };
-      if (revealed.has(`${cell.x},${cell.y}`) || !isWalkable(cell.x, cell.y)) continue;
-      candidates.push({
-        x: (cell.x + 0.5) * TILE,
-        y: (cell.y + 0.5) * TILE,
-        distance: Math.hypot(cell.x - ally.x / TILE, cell.y - ally.y / TILE),
-      });
-    }
-  }
-  // A handful of the nearest dark cells: one of them will be behind a wall,
-  // and the beast should try the next instead of standing in front of it.
-  return candidates.sort((left, right) => left.distance - right.distance).slice(0, 6);
-}
-
-/** The nearest thing on the floor a fetching beast could carry back. */
-function fetchTargetFor(ally) {
-  const profile = trainingProfile(currentSkillCapabilities());
-  if (profile.fetchRange === 0) return null;
-  const reach = TILE * profile.fetchRange;
-  return lootDefinitions
-    .filter((loot) => !loot.bones && Math.hypot(loot.x - hero.x, loot.y - hero.y) <= reach)
-    .sort((left, right) => (
-      Math.hypot(left.x - ally.x, left.y - ally.y) - Math.hypot(right.x - ally.x, right.y - ally.y)
-    ))[0] ?? null;
-}
-
-/**
  * Взять вещь с пола.
  *
  * Иван: «может быть такое, что игроку что-то выпало, и он сразу это поднял, и
@@ -1998,34 +1921,6 @@ function takeGroundLoot(loot) {
   return true;
 }
 
-/** The beast brings what it stood on straight into the hero's bag. */
-function companionFetch(ally) {
-  const index = lootDefinitions.findIndex(
-    (loot) => !loot.bones && Math.hypot(loot.x - ally.x, loot.y - ally.y) <= TILE * 0.6,
-  );
-  if (index < 0) return false;
-  const loot = lootDefinitions[index];
-  if (loot.definition.gold) {
-    const reward = Math.max(1, loot.amount ?? 1);
-    lootDefinitions.splice(index, 1);
-    run.floor.collected.push(loot.instanceId);
-    gold += reward;
-    playSound('gold');
-    showLootToast(loot.definition, reward);
-    updateHud();
-    persistRun();
-    return true;
-  }
-  if (!addInventoryItem(loot.definition, loot.instanceId)) return false;
-  lootDefinitions.splice(index, 1);
-  run.floor.collected.push(loot.instanceId);
-  playSound('pickup');
-  burst(ally.x, ally.y - 8, '#9ad3b8', 10);
-  showLootToast(loot.definition, 1);
-  renderPack();
-  persistRun();
-  return true;
-}
 
 /** The beast the hero is standing next to, if it is one of their own. */
 const COMPANION_REACH = MINION_FOLLOW_DISTANCE;
@@ -2550,89 +2445,20 @@ function variantForItem(item) {
   return scrollVariant(item.id, arcanaProfile(currentSkillCapabilities()));
 }
 
-/** A stable number for one item's next enchantment, fixed by the run and the piece. */
-function enchantSeed(item, affixCount) {
-  let value = (run.seed ^ (affixCount + 1) * 0x9e3779b1) >>> 0;
-  for (const character of item.uid) {
-    value ^= character.codePointAt(0);
-    value = Math.imul(value, 0x01000193) >>> 0;
-  }
-  return value >>> 0;
-}
-
-/** What the enchanter could do to this piece right now, and what it would cost. */
-function enchantDecision(item) {
-  const affixIds = [...(item?.affixIds ?? [])];
-  return canEnchant({
-    item,
-    affixIds,
-    essence: interactionResourceCount(ESSENCE_ITEM_ID),
-    candidates: item?.slot ? eligibleItemAffixes(item, affixIds).map(({ id }) => id) : [],
-    profile: enchantProfile(currentSkillCapabilities()),
-  });
-}
-
 /**
- * The card's second action. A scroll an arcanist can reread offers the other
- * reading; a piece of gear an enchanter can improve offers the hand.
+ * The card's second action: a scroll an arcanist can reread offers the other
+ * reading. Зачарования здесь больше нет — вторая кнопка осталась одна.
  */
 function secondaryItemAction(selection) {
   if (!selection?.item) return null;
   const variant = selection.source === 'pack' ? variantForItem(selection.item) : null;
-  if (variant) {
-    return {
-      kind: 'variant',
-      label: scrollVariantLabel(selection.item.id, itemDetailLanguage),
-      enabled: true,
-      hint: '',
-    };
-  }
-  const decision = enchantDecision(selection.item);
-  // A hero without the school, or an item that was never gear, gets no button.
-  if (decision.reason === 'rank-required' || decision.reason === 'not-equipment') return null;
+  if (!variant) return null;
   return {
-    kind: 'enchant',
-    label: craftingCopy(itemDetailLanguage).enchant(enchantProfile(currentSkillCapabilities()).essenceCost),
-    enabled: decision.ok,
-    hint: decision.ok ? '' : craftingRefusalText(decision.reason, itemDetailLanguage),
+    kind: 'variant',
+    label: scrollVariantLabel(selection.item.id, itemDetailLanguage),
+    enabled: true,
+    hint: '',
   };
-}
-
-/** Putting one affix on one piece, paid for in essence. */
-function enchantSelectedItem(item) {
-  const affixIds = [...(item?.affixIds ?? [])];
-  const result = enchantItem({
-    item,
-    affixIds,
-    essence: interactionResourceCount(ESSENCE_ITEM_ID),
-    candidates: item?.slot ? eligibleItemAffixes(item, affixIds).map(({ id }) => id) : [],
-    profile: enchantProfile(currentSkillCapabilities()),
-    seed: enchantSeed(item, affixIds.length),
-  });
-  if (!result.ok) return false;
-  if (!consumeInteractionResources([{ id: ESSENCE_ITEM_ID, amount: result.cost }])) return false;
-  const state = currentItemState();
-  applyItemState({
-    ...state,
-    items: state.items.map((entry) => (entry.uid === item.uid
-      ? {
-          id: entry.id,
-          uid: entry.uid,
-          affixIds: [...result.affixIds],
-          artifactPowerId: entry.artifactPowerId ?? null,
-          artifactCurseId: entry.artifactCurseId ?? null,
-        }
-      : entry)),
-  });
-  playerHasActed = true;
-  playSound('spell-toggle');
-  updateGearUi();
-  renderPack();
-  const enchanted = itemInstances.get(item.uid);
-  if (enchanted) renderItemDetail(enchanted);
-  showLootToast(enchanted ?? item, craftingRefusalText('enchanted', itemDetailLanguage));
-  persistRun();
-  return true;
 }
 
 /** The shape a smith would give this piece next, and what it would cost. */
@@ -3986,6 +3812,8 @@ function currentInteractionActor() {
     resources: {
       keyCount: interactionResourceCount(CHEST_RESOURCE_IDS.key),
       lockpickCount: interactionResourceCount(CHEST_RESOURCE_IDS.lockpick),
+      // Ключ от всех сундуков носят, а не тратят: важно только, есть ли он.
+      masterKey: interactionResourceCount(CHEST_RESOURCE_IDS.masterKey) > 0,
       rawMeatCount: interactionResourceCount(RAW_MEAT_ITEM_ID),
     },
     capabilities: currentSkillCapabilities(),
@@ -9791,7 +9619,11 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     gold,
     action,
     actor: magicKey
-      ? { ...currentInteractionActor(), keyCount: 1 }
+      ? (() => {
+          const base = currentInteractionActor();
+          // Заклинание — тот же ключ от всех сундуков, только на один раз.
+          return { ...base, resources: { ...base.resources, masterKey: true } };
+        })()
       : currentInteractionActor(),
   });
   const presentation = findPresentation(find, itemDetailLanguage);
@@ -9865,7 +9697,8 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
   if (find.id === 'sealed-cache') {
     const consumedByMimic = awakened.length > 0;
     const nextContainer = openChestContainerState(findContainer, {
-      damaged: result.action === 'smash' && !consumedByMimic,
+      // Ломать ящик больше нечем: замок либо поддался, либо нет.
+      damaged: false,
       consumedByMimic,
     });
     if (!nextContainer || !replaceChestContainerState(nextContainer)) return false;
@@ -9912,7 +9745,7 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     persistRun();
     return true;
   }
-  const damagedLoot = ['smash', 'attack'].includes(result.action);
+  const damagedLoot = false;
   const chestDanger = find.id === 'sealed-cache' && result.damage > 0;
   burst(
     find.x,
@@ -10280,33 +10113,10 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'companion') {
     const beast = entry.value;
     const record = run.companions[beast.companionIndex];
-    const capabilities = currentSkillCapabilities();
-    const care = careProfile(capabilities);
-    const training = trainingProfile(capabilities);
-    const feed = canFeed({
-      companion: { hp: beast.hp },
-      maxHp: beast.maxHp,
-      profile: care,
-      foodCount: tameFoodCount(),
-    });
-    const treat = canTreat({
-      companion: { hp: beast.hp },
-      effects: beast.effects ?? {},
-      profile: care,
-      bandageCount: interactionResourceCount(BANDAGE_ITEM_ID),
-    });
     return {
       kind: 'companion',
       id: record?.id ?? beast.id.replace(/^(tamed|hired)-/, ''),
       icon: beast.spritePath,
-      modeLabel: training.modes.length > 0 ? companionModeLabel(beast.mode, itemDetailLanguage) : '',
-      careKnown: care.rank > 0,
-      canFeed: feed.ok,
-      feedHint: feed.ok ? '' : companionRefusalText(feed.reason, itemDetailLanguage),
-      treatKnown: care.treats,
-      canTreat: treat.ok,
-      treatHint: treat.ok ? '' : companionRefusalText(treat.reason, itemDetailLanguage),
-      orderKnown: training.modes.length > 0,
     };
   }
   if (entry.kind === 'wildlife') {
@@ -11456,74 +11266,6 @@ function tameNearbyWildlife(creature) {
   return true;
 }
 
-/** A meal for the beast: it mends what a fight took out of it. */
-function feedNearbyCompanion(beast) {
-  const record = run.companions[beast?.companionIndex];
-  if (!record || beast.dead > 0) return false;
-  const result = feedCompanion({
-    companion: { hp: beast.hp },
-    maxHp: beast.maxHp,
-    profile: careProfile(currentSkillCapabilities()),
-    foodCount: tameFoodCount(),
-  });
-  if (!result.ok) {
-    showLootToast({ path: beast.spritePath, rarity: 1 }, companionRefusalText(result.reason, itemDetailLanguage));
-    return false;
-  }
-  if (!spendCompanionFood(result.cost)) return false;
-  beast.hp = result.hp;
-  run.companions[beast.companionIndex] = { ...record, hp: Math.round(result.hp) };
-  playerHasActed = true;
-  playSound('eat');
-  burst(beast.x, beast.y - 8, '#8bc59c', 12);
-  addCombatGlyph(beast.x, beast.y, `+${result.healed}`, '#8bc59c', -58);
-  showLootToast({ path: beast.spritePath, rarity: 2 }, companionRefusalText('fed', itemDetailLanguage));
-  renderPack();
-  persistRun();
-  return true;
-}
-
-/** A dressing for the beast: fire, venom and cold come off with it. */
-function treatNearbyCompanion(beast) {
-  if (!beast || beast.dead > 0) return false;
-  const result = treatCompanion({
-    companion: { hp: beast.hp },
-    effects: beast.effects ?? {},
-    profile: careProfile(currentSkillCapabilities()),
-    bandageCount: interactionResourceCount(BANDAGE_ITEM_ID),
-  });
-  if (!result.ok) {
-    showLootToast({ path: beast.spritePath, rarity: 1 }, companionRefusalText(result.reason, itemDetailLanguage));
-    return false;
-  }
-  if (!consumeInteractionResources([{ id: BANDAGE_ITEM_ID, amount: result.cost }])) return false;
-  beast.effects = createActorEffects(result.effects);
-  playerHasActed = true;
-  playSound('drink');
-  burst(beast.x, beast.y - 8, '#d8c9b4', 12);
-  showLootToast({ path: beast.spritePath, rarity: 2 }, companionRefusalText('treated', itemDetailLanguage));
-  renderPack();
-  persistRun();
-  return true;
-}
-
-/** One tap moves the beast to the next order the handler knows. */
-function orderNearbyCompanion(beast) {
-  const record = run.companions[beast?.companionIndex];
-  if (!record || beast.dead > 0) return false;
-  const mode = nextCompanionMode(beast.mode, trainingProfile(currentSkillCapabilities()));
-  if (!mode) return false;
-  beast.mode = mode;
-  beast.route = [];
-  run.companions[beast.companionIndex] = { ...record, mode };
-  playerHasActed = true;
-  playSound('ui-tap');
-  addCombatGlyph(beast.x, beast.y, '➤', '#9ad3b8', -58);
-  showLootToast({ path: beast.spritePath, rarity: 2 }, companionModeLabel(mode, itemDetailLanguage));
-  persistRun();
-  return true;
-}
-
 /**
  * Let it go. The party record is dropped and the beast walks off the floor —
  * nothing follows the hero down, and nothing has to be killed to be rid of.
@@ -12035,11 +11777,8 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'companion-care'({ target, action }) {
     const beast = target.value;
     closeContextActions();
-    if (action.id === 'feed') return feedNearbyCompanion(beast);
-    if (action.id === 'treat') return treatNearbyCompanion(beast);
     if (action.id === 'release') return releaseCompanion(beast);
-    if (action.id === 'attack') return turnOnCompanion(beast);
-    return orderNearbyCompanion(beast);
+    return turnOnCompanion(beast);
   },
   'hunt-wildlife'({ target, action }) {
     const creature = target.value;
@@ -14810,11 +14549,9 @@ function useConsumable(item, index, effectOverride = null) {
 function performSelectedItemAction({ fromDetail = false, secondary = false, requestedSlot = null } = {}) {
   const selection = selectedUiItem();
   if (!selection) return false;
-  // The card's second button: an arcanist's other reading, or an enchanter's hand.
+  // The card's second button: an arcanist's other reading.
   const second = secondary ? secondaryItemAction(selection) : null;
   if (secondary && !second?.enabled) return false;
-  // Enchanting keeps the card open: the hero should see what changed.
-  if (second?.kind === 'enchant') return enchantSelectedItem(selection.item);
   const variantEffect = secondary ? variantForItem(selection.item)?.effect ?? null : null;
   if (secondary && !variantEffect) return false;
   const appraisal = selection.source === 'pack' ? currentAppraisal(selection.item) : null;
@@ -15753,11 +15490,12 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     spendHunger('spell');
   } else if (usedSpell.kind === 'unlock') {
     const locked = nearbyFind();
-    if (!locked || locked.cacheVariant !== 'locked') {
+    // Заперт теперь всякий сундук, так что заклинанию годится любой.
+    if (!locked || locked.id !== 'sealed-cache' || locked.containerOpened === true) {
       rejectSpellUse(slotIndex, 'purge-refused', spellRefusalCopy(itemDetailLanguage).nothingLocked);
       return false;
     }
-    if (!interactNearbyFind(locked, 'use-key', { magicKey: true })) return false;
+    if (!interactNearbyFind(locked, 'master-key', { magicKey: true })) return false;
     playSound('spell-toggle');
     burst(locked.x, locked.y - 10, usedSpell.color, 20);
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
@@ -16271,33 +16009,7 @@ function damageHero(amount, {
   return result;
 }
 
-/**
- * The bond: what a beast standing close enough can see, the hero sees on the
- * map. Out of bond range the beast keeps its own counsel.
- */
-function revealThroughCompanions() {
-  const profile = bondProfile(currentSkillCapabilities());
-  if (profile.rank === 0) return;
-  const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  let revealedAny = false;
-  for (const ally of allies) {
-    if (!ally.companion || ally.dead > 0) continue;
-    const beastCell = { x: Math.floor(ally.x / TILE), y: Math.floor(ally.y / TILE) };
-    // The beast reports only when it has actually moved somewhere new.
-    const key = `${beastCell.x},${beastCell.y}`;
-    if (ally.bondCell === key) continue;
-    ally.bondCell = key;
-    const shared = bondReveal({ hero: heroCell, beast: beastCell, profile });
-    if (!shared) continue;
-    if (revealAround(revealed, world, { x: shared.x, y: shared.y }, shared.radius)) revealedAny = true;
-  }
-  if (revealedAny) persistRun();
-}
-
 function resolveWorldInteractions() {
-  // A bonded beast paints the map wherever it walks, not only where the hero
-  // does. The pure runtime tests drive this without the companion module.
-  if (typeof revealThroughCompanions === 'function') revealThroughCompanions();
   const heroCell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
   const heroCellKey = `${heroCell.x},${heroCell.y}`;
   if (heroCellKey !== lastHeroCell) {
@@ -18145,24 +17857,10 @@ function updateAllies(delta) {
       }
       continue;
     }
-    // The order decides what the beast does when nothing is already in its
-    // face: a guard chases the fight, a scout and a fetcher mind their errand.
-    const errandMode = ally.companion && (ally.mode === 'search' || ally.mode === 'fetch');
-    const chasing = target !== null && !errandMode;
-    let errands = [];
-    if (errandMode) {
-      if (ally.mode === 'search') {
-        companionSearch(ally);
-        errands = searchTargetsFor(ally);
-      } else {
-        if (companionFetch(ally)) {
-          ally.route = [];
-          continue;
-        }
-        const fetched = fetchTargetFor(ally);
-        errands = fetched ? [fetched] : [];
-      }
-    }
+    // Приказов у зверя больше нет — дрессировку убрали. Он идёт рядом и лезет
+    // в драку: это всё, что он умеет, и всё, чего от него ждут.
+    const chasing = target !== null;
+    const errands = [];
     if (intent.mode === 'hold' && !chasing && errands.length === 0) {
       ally.route = [];
       continue;
