@@ -14,46 +14,50 @@ import {
   isBeyondStory,
   STORY_DEPTH,
   FLOORS_PER_CHAPTER,
-  SANCTUARY_COST,
+  SANCTUARY_COOLDOWN_SECONDS,
   SANCTUARY_HEAL,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
   chapterGuardianForDepth,
   isTerminalRunStatus,
   goldRewardForMonster,
+  sanctuaryReady,
   useSanctuary,
 } from '../tools/dcss-rpg-run.js';
 
-test('three weak victories fund exactly one meaningful sanctuary heal', () => {
-  const income = Array.from({ length: 3 }, () => goldRewardForMonster({ tier: 1 }))
-    .reduce((sum, reward) => sum + reward, 0);
-  assert.equal(income, SANCTUARY_COST);
+/*
+ * Иван: алтарь бесплатный, но с отдыхом, и отдых в игре не пишут — герой
+ * узнаёт лишь, что «волшебные свойства больше не действуют». Отдых меряется
+ * активным временем забега и общий для всех камней.
+ */
+test('the altar heals for free, then rests before it works on the hero again', () => {
+  const first = useSanctuary({ depth: 2, hp: 40, maxHp: 100, activeSeconds: 500, drunkAt: null });
+  assert.equal(first.ok, true);
+  assert.equal(first.healed, SANCTUARY_HEAL);
+  assert.deepEqual(first.state, { depth: 2, hp: 40 + SANCTUARY_HEAL, maxHp: 100, drunkAt: 500 });
+  assert.equal(Object.hasOwn(first.state, 'gold'), false, 'the altar takes no coins');
 
-  const result = useSanctuary({ depth: 2, hp: 40, maxHp: 100, gold: income });
-  assert.equal(result.ok, true);
-  assert.equal(result.healed, SANCTUARY_HEAL);
-  assert.deepEqual(result.state, { depth: 2, hp: 76, maxHp: 100, gold: 0 });
+  const soon = useSanctuary({ depth: 5, hp: 20, maxHp: 100, activeSeconds: 500 + SANCTUARY_COOLDOWN_SECONDS - 1, drunkAt: 500 });
+  assert.equal(soon.ok, false);
+  assert.equal(soon.reason, 'recently-drunk');
+  assert.deepEqual(soon.state, { depth: 5, hp: 20, maxHp: 100, drunkAt: 500 }, 'a refusal changes nothing');
+
+  const later = useSanctuary({ depth: 5, hp: 20, maxHp: 100, activeSeconds: 500 + SANCTUARY_COOLDOWN_SECONDS, drunkAt: 500 });
+  assert.equal(later.ok, true);
+  assert.equal(sanctuaryReady({ activeSeconds: 0, drunkAt: undefined }), true, 'yesterday’s save has never drunk');
 });
 
-test('sanctuary transactions reject full-health and unaffordable use atomically', () => {
-  for (const state of [
-    { depth: 2, hp: 100, maxHp: 100, gold: 9 },
-    { depth: 2, hp: 40, maxHp: 100, gold: SANCTUARY_COST - 1 },
-  ]) {
-    const result = useSanctuary(state);
-    assert.equal(result.ok, false);
-    assert.deepEqual(result.state, state);
-  }
+test('a hero at full health is not charged a drink', () => {
+  const result = useSanctuary({ depth: 0, hp: 100, maxHp: 100, activeSeconds: 900, drunkAt: null });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'full-health');
+  assert.equal(result.state.drunkAt, null, 'the rest does not start');
 });
 
-test('городской камень лечит так же, как подземный', () => {
-  // Город — нулевой этаж, и святилище там стоит. Запрет «не ниже второго»
-  // сторожил пустоту на первом этаже, а бил по городу: раненый игрок с
-  // монетами жал кнопку, и не происходило ничего.
-  const result = useSanctuary({ depth: 0, hp: 40, maxHp: 100, gold: SANCTUARY_COST });
+test('the town stone heals like any other', () => {
+  const result = useSanctuary({ depth: 0, hp: 40, maxHp: 100, activeSeconds: 10, drunkAt: null });
   assert.equal(result.ok, true);
-  assert.equal(result.healed, SANCTUARY_HEAL);
-  assert.deepEqual(result.state, { depth: 0, hp: 40 + SANCTUARY_HEAL, maxHp: 100, gold: 0 });
+  assert.equal(result.state.hp, 40 + SANCTUARY_HEAL);
 });
 
 test('boss rewards are exceptional and the artifact closes only a final run', () => {

@@ -87,7 +87,15 @@ export function guardianDepthForRung(rung) {
  */
 export const FLOORS_PER_MERCHANT = 3;
 
-export const SANCTUARY_COST = 3;
+/**
+ * Алтарь лечит даром, но не чаще раза в десять минут игры.
+ *
+ * Иван: «давай сделаем его бесплатным, но с кулдауном — кулдаун писать в игре
+ * не будем, просто напишем, что вы недавно из него испили и его волшебные
+ * свойства больше не действуют на вас». Отдых общий для всех камней: он
+ * живёт в герое, а не в камне.
+ */
+export const SANCTUARY_COOLDOWN_SECONDS = 10 * 60;
 /**
  * Каменный алтарь в подземелье — редкость, а не колонка у каждой лестницы.
  *
@@ -154,19 +162,28 @@ export function goldRewardForMonster(monster) {
  * Отказывать теперь есть за что только по существу: лечить нечего или платить
  * нечем. Есть ли здесь камень вообще — знает тот, кто рядом с ним стоит.
  */
-export function useSanctuary({ depth, hp, maxHp, gold }) {
-  const unchanged = { depth, hp, maxHp, gold };
+export function useSanctuary({ depth, hp, maxHp, activeSeconds = 0, drunkAt = null }) {
+  const unchanged = { depth, hp, maxHp, drunkAt };
   if (hp >= maxHp) return { ok: false, reason: 'full-health', state: unchanged };
-  if (gold < SANCTUARY_COST) {
-    return { ok: false, reason: 'not-enough-gold', state: unchanged };
+  if (!sanctuaryReady({ activeSeconds, drunkAt })) {
+    return { ok: false, reason: 'recently-drunk', state: unchanged };
   }
   const healed = Math.min(SANCTUARY_HEAL, maxHp - hp);
   return {
     ok: true,
     healed,
-    spent: SANCTUARY_COST,
-    state: { depth, hp: hp + healed, maxHp, gold: gold - SANCTUARY_COST },
+    state: { depth, hp: hp + healed, maxHp, drunkAt: activeSeconds },
   };
+}
+
+/**
+ * Готов ли камень снова помочь этому герою. Отдых меряется активным временем
+ * забега — меню и пауза его не тратят, как и голод. Число игроку не
+ * показывают: он узнаёт только, что сила камня на него пока не действует.
+ */
+export function sanctuaryReady({ activeSeconds = 0, drunkAt = null } = {}) {
+  if (!Number.isFinite(drunkAt)) return true;
+  return activeSeconds - drunkAt >= SANCTUARY_COOLDOWN_SECONDS;
 }
 
 /** The artefact at the end of the written road, offered once, to whoever gets there. */

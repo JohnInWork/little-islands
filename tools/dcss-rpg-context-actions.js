@@ -285,10 +285,10 @@ const COPY = Object.freeze({
     beyondEndTake: 'Забрать руну',
     beyondEndClaim: 'Забег закончен победой',
     sanctuaryName: 'Святилище',
-    sanctuaryDescription: 'Камень, у которого останавливаются перед спуском. Берёт монеты, отдаёт силы.',
-    sanctuaryOffer: (heal, price) => `+${heal} {heal} · −${price} {gold}`,
+    sanctuaryDescription: 'Камень, у которого останавливаются перед спуском. Его вода возвращает силы — даром, но не каждому и не всегда.',
+    sanctuaryOffer: (heal) => `+${heal} {heal}`,
     sanctuaryFull: 'Нечего лечить',
-    sanctuaryPoor: (price) => `Нужно ${price} {gold}`,
+    sanctuaryRested: 'Вы недавно испили из него, и его волшебные свойства больше не действуют на вас',
     priestName: 'Жрец',
     chasmName: 'Провал',
     chasmDescription: (floors, cost) => floors === 1
@@ -399,10 +399,10 @@ const COPY = Object.freeze({
     stairUpClimb: 'To the city',
     roadEndDeeper: 'This stair does not carry anyone back up',
     sanctuaryName: 'Sanctuary',
-    sanctuaryDescription: 'A stone people stop at before going down. It takes coins and gives strength back.',
-    sanctuaryOffer: (heal, price) => `+${heal} {heal} · −${price} {gold}`,
+    sanctuaryDescription: 'A stone people stop at before going down. Its water gives strength back — for free, but not to everyone and not every time.',
+    sanctuaryOffer: (heal) => `+${heal} {heal}`,
     sanctuaryFull: 'Nothing to heal',
-    sanctuaryPoor: (price) => `Needs ${price} {gold}`,
+    sanctuaryRested: 'You drank from it not long ago, and its magic no longer works on you',
     priestName: 'Priest',
     chasmName: 'Chasm',
     chasmDescription: (floors, cost) => floors === 1
@@ -595,7 +595,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
     id: 'sanctuary',
     command: 'sanctuary',
     matches: (target) => target?.kind === 'sanctuary'
-      && Number.isInteger(target.price)
       && Number.isInteger(target.heal),
     present: ({ target, copy }) => ({
       name: copy.sanctuaryName,
@@ -604,14 +603,14 @@ export const INTERACTION_REGISTRY = Object.freeze([
       accent: '#d1c16e',
       actions: [{
         id: 'heal',
-        enabled: target.heal > 0 && target.canPay === true,
-        // Доступное действие обещает, отказанное объясняет — и то, и другое
-        // цифрами: «+28 {heal} · −3{gold}» или «Нужно 3{gold}».
+        enabled: target.heal > 0 && target.ready === true,
+        // Доступное действие обещает «+28 {heal}», отказанное объясняет. Сколько
+        // ждать, камень не говорит: Иван просил без таймеров.
         hint: target.heal <= 0
           ? copy.sanctuaryFull
-          : target.canPay === true
-            ? copy.sanctuaryOffer(target.heal, target.price)
-            : copy.sanctuaryPoor(target.price),
+          : target.ready === true
+            ? copy.sanctuaryOffer(target.heal)
+            : copy.sanctuaryRested,
       }],
     }),
   }),

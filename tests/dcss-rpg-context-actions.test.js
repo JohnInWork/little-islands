@@ -281,3 +281,15 @@ test('маклер продаёт дом через окно, и в окне н�
   assert.equal(бедный.actions[0].enabled, false);
   assert.equal(бедный.actions[0].hint, 'Не хватает золота');
 });
+
+test('the altar card asks no coins and, once drunk from, says so without a timer', () => {
+  const ready = contextActionModel({ target: { kind: 'sanctuary', icon: 'x.png', heal: 28, ready: true }, language: 'ru' });
+  assert.equal(ready.actions[0].enabled, true);
+  assert.equal(ready.actions[0].hint, '+28 {heal}', 'no price any more');
+  const rested = contextActionModel({ target: { kind: 'sanctuary', icon: 'x.png', heal: 28, ready: false }, language: 'ru' });
+  assert.equal(rested.actions[0].enabled, false);
+  assert.match(rested.actions[0].hint, /недавно испили из него/);
+  assert.doesNotMatch(rested.actions[0].hint, /\d/, 'Иван: кулдаун в игре не пишем');
+  const english = contextActionModel({ target: { kind: 'sanctuary', icon: 'x.png', heal: 28, ready: false }, language: 'en' });
+  assert.match(english.actions[0].hint, /no longer works on you/);
+});

@@ -61,7 +61,7 @@ import {
   CHAPTER_END_DEPTHS,
   FLOORS_PER_CHAPTER,
   GUARDIAN_LADDERS,
-  SANCTUARY_COST,
+  SANCTUARY_COOLDOWN_SECONDS,
   STORY_DEPTH,
   chapterGuardianForDepth,
   canLeaveDungeonFloor,
@@ -944,7 +944,7 @@ function economyReport({ branch, runs }) {
   lines.push(`- Merchant shelves in dungeon, floors 1–${lastFloor}: ${fmt(shelfGear.length / runs.length)} gear pieces/run at mean ${fmt(mean(shelfGear), 0)} gold (max ${Math.max(0, ...shelfGear)}), ${fmt(shelfOther.length / runs.length)} other items/run at mean ${fmt(mean(shelfOther), 0)} gold.`);
   const source = (field) => fmt(mean(runs.map((run) => run.floors.reduce((sum, f) => sum + f[field], 0))), 0);
   lines.push(`- Gold sources per run: kills ${source('goldKills')}, floor coins ${source('goldFloor')}, chests opened at Lockpicking 3 ${source('goldChests')}, other finds ${source('goldFinds')} (upper bound: every grave, idol and stash taken whatever its risk).`);
-  lines.push(`- Gold (kills + floor coins + chests + finds, no selling): after floor 6 **${fmt(goldAt(6), 0)}**, 12 **${fmt(goldAt(12), 0)}**, 18 **${fmt(goldAt(Math.min(18, lastFloor)), 0)}**. House ${HOUSE_PRICE}; respec ${RESPEC_RATES.priest}/pt (priest), ${RESPEC_RATES.sage}/pt (sage); sanctuary ${SANCTUARY_COST}; tavern bed ${TAVERN_BED_PRICE}. House affordable by floor: ${depths.find((d) => goldAt(d) >= HOUSE_PRICE) ?? 'never'}.`);
+  lines.push(`- Gold (kills + floor coins + chests + finds, no selling): after floor 6 **${fmt(goldAt(6), 0)}**, 12 **${fmt(goldAt(12), 0)}**, 18 **${fmt(goldAt(Math.min(18, lastFloor)), 0)}**. House ${HOUSE_PRICE}; respec ${RESPEC_RATES.priest}/pt (priest), ${RESPEC_RATES.sage}/pt (sage); sanctuary free, once per ${SANCTUARY_COOLDOWN_SECONDS / 60} min of play; tavern bed ${TAVERN_BED_PRICE}. House affordable by floor: ${depths.find((d) => goldAt(d) >= HOUSE_PRICE) ?? 'never'}.`);
   return lines;
 }
 

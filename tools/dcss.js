@@ -62,7 +62,6 @@ import {
 import {
   DEEPEST_DEPTH,
   roadEndingAt,
-  SANCTUARY_COST,
   SANCTUARY_HEAL,
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
@@ -70,6 +69,7 @@ import {
   chapterGuardianForDepth,
   isTerminalRunStatus,
   goldRewardForMonster,
+  sanctuaryReady,
   useSanctuary,
 } from './dcss-rpg-run.js';
 import {
@@ -9878,9 +9878,8 @@ function contextModelTarget(entry = contextTarget) {
     return {
       kind: 'sanctuary',
       icon: SANCTUARY_PATH,
-      price: SANCTUARY_COST,
       heal: Math.min(SANCTUARY_HEAL, currentHeroStats().maxHp - hero.hp),
-      canPay: gold >= SANCTUARY_COST,
+      ready: sanctuaryReady({ activeSeconds: run.stats.activeSeconds, drunkAt: run.sanctuaryDrunkAt ?? null }),
     };
   }
   if (entry.kind === 'branch-gate') {
@@ -16350,7 +16349,8 @@ function healAtSanctuary() {
     depth: dungeon.depth,
     hp: hero.hp,
     maxHp: currentHeroStats().maxHp,
-    gold,
+    activeSeconds: run.stats.activeSeconds,
+    drunkAt: run.sanctuaryDrunkAt ?? null,
   });
   if (!result.ok) {
     renderContextActions();
@@ -16373,7 +16373,7 @@ function healAtSanctuary() {
     return;
   }
   hero.hp = result.state.hp;
-  gold = result.state.gold;
+  run.sanctuaryDrunkAt = result.state.drunkAt;
   burst(hero.x, hero.y - 8, '#d4c27e', 22);
   playSound('spell-heal');
   showLootToast({ path: SANCTUARY_PATH, rarity: 2 }, result.healed);

@@ -2806,6 +2806,10 @@ export function validateRun(snapshot) {
     !validateLootAbundance(snapshot.lootAbundance)
     || !validateArtifactPowers(snapshot.artifactPowers)
     || !validateGuardianMemory(snapshot.guardians)
+    // Когда герой последний раз пил из алтаря, в секундах активной игры;
+    // у вчерашнего сохранения поля нет — значит, камень готов.
+    || !(snapshot.sanctuaryDrunkAt === undefined || snapshot.sanctuaryDrunkAt === null
+      || (Number.isFinite(snapshot.sanctuaryDrunkAt) && snapshot.sanctuaryDrunkAt >= 0))
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
