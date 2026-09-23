@@ -33,7 +33,7 @@ export const HELP_SECTIONS = Object.freeze([
         entry('Касание', 'Коснись разведанного пола — герой сам дойдёт туда кратчайшим путём.'),
         entry('Крестовина', 'Нажми или удерживай стрелку внизу экрана. Центр крестовины можно тянуть в любую сторону.'),
         entry('Клавиатура', 'WASD или стрелки — шаг. E или пробел — действие рядом. 1, 2, 3 — заклинания. M — карта. Esc — пауза и закрыть окно.'),
-        entry('Бой', 'Бой идёт сам: подойди к врагу, и герой бьёт, пока тот рядом. Предметы подбираются, когда на них наступаешь.'),
+        entry('Бой', 'Бой идёт сам: подойди к врагу, и герой бьёт, пока тот рядом. Вещь с пола берут кнопкой «что рядом» — на ней нарисована сама вещь.'),
       ],
     },
     en: {
@@ -42,7 +42,7 @@ export const HELP_SECTIONS = Object.freeze([
         entry('Tap', 'Tap any explored floor and the hero walks there by the shortest path.'),
         entry('D-pad', 'Press or hold an arrow at the bottom of the screen. The centre of the pad can be dragged in any direction.'),
         entry('Keyboard', 'WASD or arrows to step. E or Space for the action nearby. 1, 2, 3 cast spells. M opens the map. Esc pauses and closes windows.'),
-        entry('Combat', 'Fighting is automatic: walk up to an enemy and the hero keeps striking while it stays close. Items are picked up when you step on them.'),
+        entry('Combat', 'Fighting is automatic: walk up to an enemy and the hero keeps striking while it stays close. Pick an item up with the “what’s nearby” button — it shows the item itself.'),
       ],
     },
   }),

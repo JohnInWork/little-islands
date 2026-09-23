@@ -57,7 +57,7 @@ npm run package:itch   # dist → release/dng-codex-itch.zip
 ### Русский
 
 **DNG Codex** — пиксельный рогалик для телефона, в который играют одним
-пальцем. Герой бьётся и подбирает добычу сам — ты решаешь, куда идти, что
+пальцем. Герой бьётся сам — ты решаешь, куда идти, что поднять, что
 надеть, чему учиться и когда отступить.
 
 - **Восемнадцать этажей в трёх главах**, страж в конце каждой, а за концом
@@ -82,7 +82,7 @@ WASD или стрелки. Всё остальное — в справке «?�
 ### English
 
 **DNG Codex** is a one-thumb pixel roguelike for your phone. The hero fights
-and picks up loot on their own — you decide where to go, what to wear, what to
+on their own — you decide where to go, what to pick up, what to wear, what to
 learn and when to fall back.
 
 - **Eighteen floors in three chapters**, a guardian at the end of each, and six

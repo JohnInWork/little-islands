@@ -173,6 +173,20 @@ async function playRun(browser, runIndex) {
       await page.waitForTimeout(150);
       continue;
     }
+    // Меню и выбор героя: бот начинает или продолжает забег, как игрок.
+    if (st.screen === 'menu') {
+      log.notes.push(`floor ${st.depth}: found the main menu while playing`);
+      if (!(await click('#start-game'))) await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      continue;
+    }
+    if (st.screen === 'creation') {
+      const heroes = await page.$$('#character-creation button');
+      if (heroes[archetype]) await heroes[archetype].click({ timeout: 1500 }).catch(() => {});
+      await click('#confirm-creation');
+      await page.waitForTimeout(800);
+      continue;
+    }
     if (!['game'].includes(st.screen)) {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(150);
@@ -222,6 +236,13 @@ async function playRun(browser, runIndex) {
       await click('#close-item-detail');
       await click('#close-inventory');
       if (index < 0 && hpShare < 0.25) log.notes.push(`floor ${st.depth}: low health (${st.hero.hp}/${st.hero.maxHp}) and nothing to heal with`);
+      continue;
+    }
+
+    // Вещь под ногами берут кнопкой «что рядом», как игрок.
+    if (st.nearby === 'loot') {
+      await page.keyboard.press('KeyE');
+      await page.waitForTimeout(200);
       continue;
     }
 
