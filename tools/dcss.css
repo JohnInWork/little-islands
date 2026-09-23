@@ -8919,3 +8919,16 @@ body {
   text-align: center;
   color: #eadb9b;
 }
+
+/* Нет WebGL: вместо вечной загрузки — объяснение словами (см. dcss.html). */
+[data-state='no-webgl'] .status i {
+  display: none;
+}
+
+[data-state='no-webgl'] .status span {
+  max-width: min(320px, 86vw);
+  color: #e6d9a8;
+  line-height: 1.6;
+  letter-spacing: 0;
+  text-align: center;
+}

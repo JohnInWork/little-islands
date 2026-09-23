@@ -266,8 +266,11 @@ async function playRun(browser, runIndex) {
     if (!goal) { goal = st.exit; reason = 'exit'; }
 
     // Путь и клик по дальней видимой клетке пути.
+    // На вещь наступают — подбор срабатывает только так; к врагу и сундуку
+    // достаточно подойти вплотную.
+    const exact = reason === 'explore' || reason === 'exit' || reason.startsWith('loot');
     const target = (cell) => cell.x === goal.x && cell.y === goal.y
-      || (reason !== 'explore' && reason !== 'exit' && Math.abs(cell.x - goal.x) + Math.abs(cell.y - goal.y) <= 1);
+      || (!exact && Math.abs(cell.x - goal.x) + Math.abs(cell.y - goal.y) <= 1);
     const path = bfs(grid, hero, target, { passable: (x, y) => WALKABLE.has(grid[y]?.[x]) && (revealed.has(key(x, y)) || (x === goal.x && y === goal.y)) });
     if (!path) {
       badTargets.add(key(goal.x, goal.y));

@@ -1126,6 +1126,28 @@
         >CC0</a
       >
     </main>
+    <!--
+      Без WebGL объёмный мир не создаётся, модуль игры падает на первой же
+      строке — и экран загрузки висел бы вечно, не сказав ни слова. Проверка
+      идёт до модуля и объясняет игроку, что случилось.
+    -->
+    <script>
+      (function () {
+        var probe = document.createElement('canvas');
+        var gl = null;
+        try { gl = probe.getContext('webgl2') || probe.getContext('webgl'); } catch (error) { gl = null; }
+        if (gl) return;
+        var saved = null;
+        try { saved = localStorage.getItem('little-islands:2d:item-language:v1'); } catch (error) { saved = null; }
+        var english = saved ? saved === 'en' : !/^ru\b/i.test(navigator.language || '');
+        document.body.dataset.state = 'no-webgl';
+        var status = document.getElementById('status');
+        if (!status) return;
+        status.querySelector('span').textContent = english
+          ? 'This browser cannot draw the game: WebGL is off or unsupported. Turn on hardware acceleration or open the game in another browser.'
+          : 'Этот браузер не может нарисовать игру: WebGL выключен или не поддерживается. Включите аппаратное ускорение или откройте игру в другом браузере.';
+      })();
+    </script>
     <script type="module" src="./dcss.js"></script>
   </body>
 </html>
