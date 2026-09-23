@@ -101,9 +101,11 @@ const CURVES = Object.freeze({
     roadLength: STORY_DEPTH,
     tempoCeiling: TUNED_CLIMB,
     entryRamp: Object.freeze({
-      damage: Object.freeze([0.5, 0.7, 0.85]),
-      hp: Object.freeze([0.6, 0.75, 0.9]),
-      count: Object.freeze([0.75, 0.85, 0.95]),
+      // Первый заход ботом (0.5/0.6/0.75) продлил жизнь втрое, но все восемь
+      // героев всё равно погибли на этажах 1–3: убивает толпа, а не удар.
+      damage: Object.freeze([0.4, 0.6, 0.8]),
+      hp: Object.freeze([0.5, 0.7, 0.85]),
+      count: Object.freeze([0.6, 0.75, 0.9]),
     }),
   }),
 });

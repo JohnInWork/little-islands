@@ -129,6 +129,8 @@ async function playRun(browser, runIndex) {
   let lastCastAt = 0;
   let lastClick = null;
   const pickupTries = new Map();
+  let lastBagUsed = -1;
+  const triedGear = new Set();
 
   const state = () => page.evaluate(() => window.__dngQA.state());
   const click = async (selector) => {
@@ -235,6 +237,29 @@ async function playRun(browser, runIndex) {
         await raise[runIndex % raise.length].click({ timeout: 1500 }).catch(() => {});
       }
       await click('#close-character-sheet');
+      continue;
+    }
+
+    // Найденное снаряжение надевают, как сделал бы любой игрок: ржавый меч до
+    // конца забега — это не стиль игры, а ошибка бота.
+    if (st.bag.used !== lastBagUsed) {
+      lastBagUsed = st.bag.used;
+      await click('#bag');
+      await page.waitForTimeout(250);
+      const labels = await page.$$eval('#pack-grid button', (nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? ''));
+      for (const [index, label] of labels.entries()) {
+        if (!/Оружие|Доспех|Щит|Шлем|Сапоги|Обувь|Перчатки|Плащ|Кольцо|Амулет|Пояс/.test(label)) continue;
+        if (triedGear.has(label)) continue;
+        triedGear.add(label);
+        const buttons = await page.$$('#pack-grid button');
+        await buttons[index]?.click({ timeout: 1500 }).catch(() => {});
+        await page.waitForTimeout(150);
+        const action = await page.$eval('#item-detail-action', (node) => node.innerText).catch(() => '');
+        if (/Надеть/i.test(action)) await click('#item-detail-action');
+        await click('#close-item-detail');
+        break;
+      }
+      await click('#close-inventory');
       continue;
     }
 

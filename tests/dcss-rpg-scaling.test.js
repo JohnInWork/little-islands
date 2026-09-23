@@ -33,7 +33,7 @@ test('one versioned floor profile owns every progression axis', () => {
       loot: shallow.rewards.lootCount,
     },
     // Вход в подземелье (v4): на первом этаже врагов меньше, чем было.
-    { rooms: 9, monsters: 8, tier: 1, loot: 4 },
+    { rooms: 9, monsters: 7, tier: 1, loot: 4 },
   );
   assert.equal(floorScaling(1, 3).encounters.monsterCount, 11, 'version 3 keeps its first floor');
   assert.deepEqual(
