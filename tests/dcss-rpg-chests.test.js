@@ -271,3 +271,15 @@ test('runtime consumes tools through registered world actions, never generic pot
   assert.match(runtime, /if \(selection\.item\.interactionResource\)/);
   assert.match(runtime, /function useConsumable\(item, index, effectOverride = null\) \{[\s\S]{0,120}if \(item\.interactionResource\)/);
 });
+
+/*
+ * Замок крепнет с главой: первый ранг взлома открывает первую главу, второй —
+ * вторую, третий — всё. Раньше уровень замка был номером этажа до трёх, и с
+ * третьего этажа без третьего ранга не открывался ни один сундук.
+ */
+test('a lock is as hard as its chapter, not its floor', () => {
+  const tierAt = (depth) => createChestProfile({ seed: 99, depth, roomIndex: 2, rewardGold: 10 }).lockTier;
+  for (const depth of [1, 3, 6]) assert.equal(tierAt(depth), 1, `floor ${depth}`);
+  for (const depth of [7, 9, 12]) assert.equal(tierAt(depth), 2, `floor ${depth}`);
+  for (const depth of [13, 18, 24]) assert.equal(tierAt(depth), 3, `floor ${depth}`);
+});
