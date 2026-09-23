@@ -128,6 +128,7 @@ async function playRun(browser, runIndex) {
   let lastCareAt = 0;
   let lastCastAt = 0;
   let lastClick = null;
+  const pickupTries = new Map();
 
   const state = () => page.evaluate(() => window.__dngQA.state());
   const click = async (selector) => {
@@ -261,12 +262,20 @@ async function playRun(browser, runIndex) {
       continue;
     }
 
-    // Вещь под ногами берут кнопкой «что рядом», как игрок.
-    if (st.nearby === 'loot') {
-      await page.keyboard.press('KeyE');
-      await page.waitForTimeout(200);
-      continue;
+    // Вещь под ногами берут кнопкой «что рядом», как игрок. С полным рюкзаком
+    // и после двух неудач подряд её оставляют лежать.
+    const bagFull = st.bag.used >= st.bag.capacity;
+    if (st.nearby === 'loot' && !bagFull) {
+      const here = key(st.hero.x, st.hero.y);
+      pickupTries.set(here, (pickupTries.get(here) ?? 0) + 1);
+      if (pickupTries.get(here) <= 2) {
+        await page.keyboard.press('KeyE');
+        await page.waitForTimeout(200);
+        continue;
+      }
+      for (const item of st.loot) if (Math.abs(item.x - st.hero.x) + Math.abs(item.y - st.hero.y) <= 1) badTargets.add(key(item.x, item.y));
     }
+    if (bagFull && !log.notes.some((note) => note.startsWith('backpack full'))) log.notes.push(`backpack full on floor ${st.depth}`);
 
     // Куда идти: страж, враг рядом, вещь, сундук, край тумана, выход.
     const revealed = new Set(st.revealed);
@@ -294,7 +303,7 @@ async function playRun(browser, runIndex) {
     }
     if (near) { goal = near; reason = `fight ${near.id}`; }
     if (!goal) {
-      const loot = st.loot.filter((item) => !badTargets.has(key(item.x, item.y))).sort((a, b) => dist(a) - dist(b))[0];
+      const loot = bagFull ? null : st.loot.filter((item) => !badTargets.has(key(item.x, item.y))).sort((a, b) => dist(a) - dist(b))[0];
       if (loot) { goal = loot; reason = `loot ${loot.id}`; }
     }
     if (!goal) {

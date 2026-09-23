@@ -19851,6 +19851,7 @@ if (qaMode) {
         grid: world.map((row) => row.join('')),
         revealed: [...revealed],
         nearby: nearbyContextTarget()?.kind ?? null,
+        bag: { used: backpackItems.filter(Boolean).length, capacity: currentBackpackCapacity() },
       };
     },
     /** Где на экране центр клетки — туда бот и кликает. */
