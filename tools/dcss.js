@@ -29,6 +29,7 @@ import {
   validateRun,
 } from './dcss-rpg-core.js';
 import { creditsModel } from './dcss-rpg-credits.js';
+import { helpModel } from './dcss-rpg-help.js';
 import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
@@ -964,6 +965,11 @@ const openCreditsLabel = document.querySelector('#open-credits-label');
 const closeCreditsButton = document.querySelector('#close-credits');
 const creditsTitle = document.querySelector('#credits-title');
 const creditsBody = document.querySelector('#credits-body');
+const helpScreen = document.querySelector('#help-screen');
+const openHelpButton = document.querySelector('#open-help');
+const closeHelpButton = document.querySelector('#close-help');
+const helpTitle = document.querySelector('#help-title');
+const helpBody = document.querySelector('#help-body');
 const recordsScreen = document.querySelector('#records-screen');
 const openRecordsButton = document.querySelector('#open-records');
 const openRecordsLabel = document.querySelector('#open-records-label');
@@ -1408,6 +1414,7 @@ let stashState = createStashState(null);
 let recordsReturnScreen = 'menu';
 let settingsReturnScreen = 'menu';
 let creditsReturnScreen = 'menu';
+let helpReturnScreen = 'menu';
 let toastTimer = 0;
 let toastVisible = false;
 let activeLootToastEntry = null;
@@ -1690,6 +1697,7 @@ function renderMainMenu() {
   // переключается в одном месте, а меняется везде.
   renderSettings();
   renderCredits();
+  renderHelp();
   characterSheetButton.setAttribute('aria-label', labels.character);
   moveControl.setAttribute('aria-label', labels.move);
   moveDirectionButtons.forEach((button) => {
@@ -14044,6 +14052,63 @@ function closeCredits() {
   return true;
 }
 
+/**
+ * Справка «Как играть». Иван: обучать не в самой игре, а за кнопкой «?» в
+ * меню. Текст и числа приходят из правил; здесь их только раскладывают.
+ */
+function renderHelp() {
+  const model = helpModel(itemDetailLanguage);
+  helpTitle.textContent = model.title;
+  openHelpButton.setAttribute('aria-label', model.open);
+  openHelpButton.title = model.open;
+  closeHelpButton.setAttribute('aria-label', model.close);
+  helpScreen.setAttribute('aria-label', model.title);
+  helpBody.replaceChildren(...model.sections.map((section) => {
+    const block = document.createElement('section');
+    block.className = 'help-block';
+    const title = document.createElement('h3');
+    title.textContent = section.title;
+    const list = document.createElement('dl');
+    list.className = 'help-entries';
+    for (const item of section.entries) {
+      const row = document.createElement('div');
+      const term = document.createElement('dt');
+      term.textContent = item.term;
+      const text = document.createElement('dd');
+      text.textContent = item.text;
+      row.append(term, text);
+      list.append(row);
+    }
+    block.append(title, list);
+    return block;
+  }));
+}
+
+function openHelp() {
+  if (uiScreen === 'help') return false;
+  helpReturnScreen = uiScreen;
+  renderHelp();
+  uiScreen = 'help';
+  document.body.dataset.screen = uiScreen;
+  helpScreen.inert = false;
+  helpScreen.setAttribute('aria-hidden', 'false');
+  helpBody.scrollTop = 0;
+  playSound('ui-tap');
+  requestAnimationFrame(() => closeHelpButton.focus());
+  return true;
+}
+
+function closeHelp() {
+  if (uiScreen !== 'help') return false;
+  helpScreen.inert = true;
+  helpScreen.setAttribute('aria-hidden', 'true');
+  uiScreen = helpReturnScreen === 'help' ? 'menu' : helpReturnScreen;
+  document.body.dataset.screen = uiScreen;
+  playSound('ui-close');
+  requestAnimationFrame(() => openHelpButton.focus());
+  return true;
+}
+
 function showRunEndScreen(result) {
   if (uiScreen === result) return;
   clearMoveControl();
@@ -19095,13 +19160,17 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Tab' && uiScreen === 'menu') {
     event.preventDefault();
+    // Язык и звук давно живут в настройках; Tab ходит по тому, что видно в меню.
     const controls = [
       startGameButton,
-      editAppearanceButton,
       ...(!newRunFromMenuButton.hidden ? [newRunFromMenuButton] : []),
-      ...mainMenuLanguageButtons,
-      ...audioMenuButtons,
-    ].filter((control) => !control.disabled);
+      editAppearanceButton,
+      openOutfitButton,
+      openRecordsButton,
+      openSettingsButton,
+      openCreditsButton,
+      openHelpButton,
+    ].filter((control) => !control.disabled && !control.hidden);
     const currentIndex = controls.indexOf(document.activeElement);
     const direction = event.shiftKey ? -1 : 1;
     const nextIndex = (currentIndex + direction + controls.length) % controls.length;
@@ -19239,6 +19308,11 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && uiScreen === 'credits') {
     event.preventDefault();
     closeCredits();
+    return;
+  }
+  if (event.code === 'Escape' && uiScreen === 'help') {
+    event.preventDefault();
+    closeHelp();
     return;
   }
   if (event.code === 'Escape' && uiScreen === 'outfit') {
@@ -19607,6 +19681,8 @@ closeSettingsButton.addEventListener('click', closeSettings);
 wipeProgressButton.addEventListener('click', wipeProgress);
 openCreditsButton.addEventListener('click', openCredits);
 closeCreditsButton.addEventListener('click', closeCredits);
+openHelpButton.addEventListener('click', openHelp);
+closeHelpButton.addEventListener('click', closeHelp);
 closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
 contextActionBackdrop.addEventListener('click', () => closeContextActions());
 cancelTrapPlacementButton.addEventListener('click', () => closeTrapPlacement({ returnToInventory: true }));

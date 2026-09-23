@@ -566,6 +566,7 @@ body {
 .records-screen,
 .settings-screen,
 .credits-screen,
+.help-screen,
 .outfit-screen,
 .character-creation,
 .new-run-confirm {
@@ -592,6 +593,7 @@ body {
 [data-screen='records'] .records-screen,
 [data-screen='settings'] .settings-screen,
 [data-screen='credits'] .credits-screen,
+[data-screen='help'] .help-screen,
 [data-screen='outfit'] .outfit-screen,
 [data-screen='creation'] .character-creation,
 [data-screen='restart-confirm'] .new-run-confirm {
@@ -613,7 +615,8 @@ body {
 }
 
 .settings-card,
-.credits-card {
+.credits-card,
+.help-card {
   width: min(460px, 100%);
   max-height: 100%;
   display: grid;
@@ -630,7 +633,8 @@ body {
 
 .records-header,
 .settings-header,
-.credits-header {
+.credits-header,
+.help-header {
   min-height: 56px;
   padding: 6px 10px;
   display: flex;
@@ -643,7 +647,8 @@ body {
 
 .records-header h2,
 .settings-header h2,
-.credits-header h2 {
+.credits-header h2,
+.help-header h2 {
   margin: 0;
   font-size: 12px;
   letter-spacing: 1px;
@@ -653,7 +658,8 @@ body {
 
 #close-records,
 #close-settings,
-#close-credits {
+#close-credits,
+#close-help {
   min-width: 44px;
   min-height: 44px;
   color: #c5d8c4;
@@ -8606,6 +8612,7 @@ body {
 .records-card button,
 .settings-card button,
 .credits-card button,
+.help-card button,
 .outfit-card button,
 .outfit-detail-card button,
 .character-sheet-card button,
@@ -8709,7 +8716,8 @@ body {
  * словами, а не значками, и их видно с полутора метров.
  */
 .settings-body,
-.credits-body {
+.credits-body,
+.help-body {
   min-height: 0;
   padding: 12px;
   display: grid;
@@ -8721,7 +8729,8 @@ body {
 }
 
 .settings-block,
-.credits-block {
+.credits-block,
+.help-block {
   display: grid;
   gap: 8px;
   padding: 10px;
@@ -8730,7 +8739,8 @@ body {
 }
 
 .settings-block h3,
-.credits-block h3 {
+.credits-block h3,
+.help-block h3 {
   margin: 0;
   color: #d6c79c;
   font-size: 12px;
@@ -9228,4 +9238,69 @@ body {
 .character-creation-card[data-step='custom'] .creation-archetypes,
 .character-creation-card[data-step='custom'] .creation-own {
   display: none;
+}
+
+/*
+ * Справка. Кнопка «?» — в правом верхнем углу меню, как просил Иван: её видно
+ * сразу, но она не спорит с «Начать забег». Внутри — пары «что — как», термин
+ * золотом слева, объяснение справа; на узком экране они встают друг под друга.
+ */
+.main-menu-help {
+  /* В углу экрана, а не карточки: карточка бывает выше экрана и уводит угол за край. */
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 2;
+  min-width: 48px;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #e6d9a8;
+  background: #151e20;
+  border: 4px solid #4c5f5f;
+  font: 400 24px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.main-menu-help:hover,
+.main-menu-help:focus-visible {
+  border-color: #b9a96f;
+  outline: none;
+}
+
+[data-screen='menu'] .main-menu-help:active {
+  transform: translateY(2px);
+}
+
+.help-entries {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.help-entries div {
+  display: grid;
+  grid-template-columns: minmax(84px, 30%) 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.help-entries dt {
+  color: #b9a96f;
+  font-size: 12px;
+}
+
+.help-entries dd {
+  margin: 0;
+  color: #d8d0ba;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 340px) {
+  .help-entries div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
 }

@@ -42,6 +42,8 @@
         aria-labelledby="main-menu-title"
         aria-hidden="false"
       >
+        <!-- Справка живёт в меню, а не поверх подземелья: Иван просил не учить в самой игре. -->
+        <button id="open-help" class="main-menu-help" type="button" aria-label="Как играть">?</button>
         <article class="main-menu-card">
           <div class="main-menu-brand">
             <div class="main-menu-emblem" aria-hidden="true">
@@ -1018,6 +1020,24 @@
             <button id="close-credits" type="button" aria-label="Закрыть авторов">×</button>
           </header>
           <div id="credits-body" class="credits-body"></div>
+        </article>
+      </section>
+
+      <section
+        id="help-screen"
+        class="help-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Как играть"
+        aria-hidden="true"
+        inert
+      >
+        <article class="help-card pixel-frame">
+          <header class="help-header">
+            <h2 id="help-title">Как играть</h2>
+            <button id="close-help" type="button" aria-label="Закрыть справку">×</button>
+          </header>
+          <div id="help-body" class="help-body"></div>
         </article>
       </section>
 
