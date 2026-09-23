@@ -859,6 +859,9 @@ if (new URL(document.location.href).searchParams.get('shot') === '1') document.b
  * забег не занимал час. Без параметра режима нет вовсе.
  */
 const qaMode = new URL(document.location.href).searchParams.get('qa') === '1';
+// `&god=1` — только для бота: герой не получает урона, чтобы дойти до
+// поздних этажей и проверить переходы, стражей и город. Баланс так не меряют.
+const qaGod = qaMode && new URL(document.location.href).searchParams.get('god') === '1';
 const qaSpeed = qaMode
   ? Math.max(1, Math.min(8, Number.parseInt(new URL(document.location.href).searchParams.get('speed') ?? '1', 10) || 1))
   : 1;
@@ -16040,6 +16043,7 @@ function damageHero(amount, {
   from = null,
 } = {}) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return null;
+  if (qaGod) return null;
   const combat = currentHeroCombat();
   const magic = currentHeroMagic();
   if (magic.warded && amount > 0) {

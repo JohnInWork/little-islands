@@ -33,6 +33,8 @@ function terminalRuntime({ victory = false } = {}) {
     pendingAttack: null,
   };
   const context = vm.createContext({
+    // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
+    qaGod: false,
     playSound: () => false,
     // Копилка вампиризма живёт во времени; в песочнице времени нет.
     vampiricBudget: () => 0,
@@ -206,6 +208,8 @@ function warningState() {
 
 function movementRuntime() {
   const context = vm.createContext({
+    // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
+    qaGod: false,
     playSound: () => false,
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
     heroVoice: (soundId) => soundId,
@@ -316,6 +320,8 @@ test('runtime navigation avoids discovered traps without revealing hidden traps 
   const grid = ['#######', '#.....#', '#.....#', '#.....#', '#######'].map((row) => [...row]);
   const trap = { instanceId: 'event-1-0', eventId: 'event-1-0', x: 3, y: 2, kind: 'blade', tier: 1 };
   const context = vm.createContext({
+    // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
+    qaGod: false,
     playSound: () => false,
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
     heroVoice: (soundId) => soundId,

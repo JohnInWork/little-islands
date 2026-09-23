@@ -9,7 +9,7 @@
  * со снимком экрана и состоянием героя.
  *
  * Usage:
- *   node scripts/qa-bot.mjs [--runs=3] [--speed=4] [--minutes=20] [--base=http://127.0.0.1:5173]
+ *   node scripts/qa-bot.mjs [--runs=3] [--speed=4] [--minutes=20] [--base=http://127.0.0.1:5173] [--god]
  *                           [--seed=N] [--headed]
  *
  * Нужен глобальный Playwright (`npm i -g playwright`) и запущенный dev-сервер.
@@ -33,6 +33,7 @@ const MINUTES = Number(args.minutes ?? 20);
 const BASE = String(args.base ?? 'http://127.0.0.1:5173');
 const FIRST_SEED = args.seed ? Number(args.seed) : 1000 + Math.floor(Math.random() * 1e6);
 const HEADED = Boolean(args.headed);
+const GOD = Boolean(args.god);
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const outDir = resolve('output/qa', stamp);
@@ -93,7 +94,7 @@ async function playRun(browser, runIndex) {
     if (response.status() >= 400) log.missing.push(`${response.status()} ${response.url()}`);
   });
 
-  const url = `${BASE}/tools/dcss.html?qa=1&speed=${SPEED}&seed=${seed}`;
+  const url = `${BASE}/tools/dcss.html?qa=1&speed=${SPEED}&seed=${seed}${GOD ? '&god=1' : ''}`;
   await page.goto(url);
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('little-islands:2d:item-language:v1', 'ru'); });
   await page.goto(url);
@@ -112,6 +113,8 @@ async function playRun(browser, runIndex) {
   let lastMoveAt = Date.now();
   const badTargets = new Set();
   let wanderNoise = 0;
+  let lastCareAt = 0;
+  let lastCastAt = 0;
 
   const state = () => page.evaluate(() => window.__dngQA.state());
   const click = async (selector) => {
@@ -136,6 +139,7 @@ async function playRun(browser, runIndex) {
 
     if (st.runStatus !== 'playing' || ['dead', 'victory', 'retired'].includes(st.screen)) {
       log.result = st.runStatus;
+      await page.waitForTimeout(2500);
       const file = await shot(`end-${st.runStatus}`);
       if (st.runStatus === 'dead') {
         const cause = await page.$eval('#run-summary', (node) => node.innerText).catch(() => '');
@@ -221,11 +225,13 @@ async function playRun(browser, runIndex) {
 
     // Лечение и еда из рюкзака, когда плохо.
     const hpShare = st.hero.hp / Math.max(1, st.hero.maxHp);
-    if (hpShare < 0.4 || st.hero.hunger < 8 * 60) {
+    // Нечем лечиться — идём дальше раненым, а не открываем рюкзак каждый шаг.
+    if ((hpShare < 0.5 || st.hero.hunger < 8 * 60) && Date.now() - lastCareAt > 20_000) {
+      lastCareAt = Date.now();
       await click('#bag');
       await page.waitForTimeout(250);
       const labels = await page.$$eval('#pack-grid button', (nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? ''));
-      const want = hpShare < 0.4 ? /Лечение/ : /Сытость/;
+      const want = hpShare < 0.5 ? /Лечение/ : /Сытость/;
       const index = labels.findIndex((label) => want.test(label));
       if (index >= 0) {
         const buttons = await page.$$('#pack-grid button');
@@ -235,7 +241,9 @@ async function playRun(browser, runIndex) {
       }
       await click('#close-item-detail');
       await click('#close-inventory');
-      if (index < 0 && hpShare < 0.25) log.notes.push(`floor ${st.depth}: low health (${st.hero.hp}/${st.hero.maxHp}) and nothing to heal with`);
+      if (index < 0 && hpShare < 0.25 && !log.notes.some((note) => note.startsWith(`floor ${st.depth}: low health`))) {
+        log.notes.push(`floor ${st.depth}: low health (${st.hero.hp}/${st.hero.maxHp}) and nothing to heal with`);
+      }
       continue;
     }
 
@@ -255,7 +263,21 @@ async function playRun(browser, runIndex) {
     const dist = (a) => Math.abs(a.x - hero.x) + Math.abs(a.y - hero.y);
     let goal = null;
     let reason = '';
-    const near = hostile.filter((monster) => dist(monster) <= 6).sort((a, b) => dist(a) - dist(b))[0];
+    // Осторожный игрок не бежит на каждого, кого видит: он дерётся с тем, кто
+    // уже рядом, и колдует, пока враг подходит.
+    const near = hostile.filter((monster) => dist(monster) <= 2).sort((a, b) => dist(a) - dist(b))[0];
+    const approaching = hostile.some((monster) => dist(monster) <= 5);
+    if (approaching && Date.now() - lastCastAt > 1500) {
+      lastCastAt = Date.now();
+      for (const keyName of ['Digit1', 'Digit2', 'Digit3']) await page.keyboard.press(keyName);
+      await page.waitForTimeout(80);
+      const aiming = await state();
+      if (aiming.screen === 'ability-targeting') {
+        const foe = hostile.sort((a, b) => dist(a) - dist(b))[0];
+        const point = await page.evaluate(({ x, y }) => window.__dngQA.cellToScreen(x, y), foe);
+        await page.mouse.click(point.x, point.y);
+      }
+    }
     if (near) { goal = near; reason = `fight ${near.id}`; }
     if (!goal) {
       const loot = st.loot.filter((item) => !badTargets.has(key(item.x, item.y))).sort((a, b) => dist(a) - dist(b))[0];
@@ -292,7 +314,14 @@ async function playRun(browser, runIndex) {
     const exact = reason === 'explore' || reason === 'exit' || reason.startsWith('loot');
     const target = (cell) => cell.x === goal.x && cell.y === goal.y
       || (!exact && Math.abs(cell.x - goal.x) + Math.abs(cell.y - goal.y) <= 1);
-    const path = bfs(grid, hero, target, { passable: (x, y) => WALKABLE.has(grid[y]?.[x]) && (revealed.has(key(x, y)) || (x === goal.x && y === goal.y)) });
+    // Касание игрока обходит сундуки и прочие находки — путь бота тоже.
+    const findCells = new Set(st.finds.map((find) => key(find.x, find.y)));
+    const throughDark = reason === 'exit' || reason === 'guardian';
+    const path = bfs(grid, hero, target, {
+      passable: (x, y) => WALKABLE.has(grid[y]?.[x])
+        && !findCells.has(key(x, y))
+        && (throughDark || revealed.has(key(x, y)) || (x === goal.x && y === goal.y)),
+    });
     if (!path) {
       badTargets.add(key(goal.x, goal.y));
       if (reason === 'exit') {
@@ -302,7 +331,7 @@ async function playRun(browser, runIndex) {
       }
       continue;
     }
-    const steps = path.slice(1, 8);
+    const steps = path.slice(1, 8).filter((cell) => revealed.has(key(cell.x, cell.y)));
     let clicked = false;
     for (let i = steps.length - 1; i >= 0; i -= 1) {
       const point = await page.evaluate(({ x, y }) => window.__dngQA.cellToScreen(x, y), steps[i]);

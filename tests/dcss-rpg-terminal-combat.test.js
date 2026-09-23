@@ -31,6 +31,8 @@ function combatRuntime() {
     pendingAttack: { targetId: 'monster-1-0', damage: 50 }, targetAngle: 0,
   };
   const context = vm.createContext({
+    // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
+    qaGod: false,
     playSound: () => false,
     // Убитый вор возвращает украденное; в песочнице красть некому.
     recoverStolenItem: () => {},
