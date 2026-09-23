@@ -3733,12 +3733,6 @@ function refreshVisibleSecrets() {
   }
 }
 
-function combatTempo(cooldown) {
-  if (cooldown <= 0.62) return 3;
-  if (cooldown <= 0.9) return 2;
-  return 1;
-}
-
 function currentItemState() {
   return {
     items: [...itemInstances.values()],
@@ -9340,12 +9334,6 @@ function closeLore() {
   loreReturnFocus = null;
   if (target?.isConnected) requestAnimationFrame(() => target.focus());
   return true;
-}
-
-/** Kept so the one caller that only has a sentence still has somewhere to put it. */
-function showHeroEffectNote(text) {
-  const [title, ...rest] = String(text).split(/\.\s+/);
-  return openLore({ title: title.replace(/\.$/, ''), body: [rest.join('. ')].filter(Boolean) });
 }
 
 function updateHeroEffectNote() {}
@@ -16185,27 +16173,6 @@ function resolveWorldInteractions() {
   descendFloor();
 }
 
-/**
- * The third way a run ends: on purpose, at the gate, with the purse still full.
- * Everything in it goes to the stash, which is the only money the outfitter
- * will ever see — dying banks nothing, and that is what makes going one floor
- * deeper a decision instead of an obligation.
- */
-function retireRun() {
-  if (!canRetireRun({ depth: run.depth, status: runStatus })) return false;
-  runStatus = 'retired';
-  run.status = runStatus;
-  hero.path = [];
-  hero.pendingAttack = null;
-  playSound('victory');
-  stopAmbient();
-  stopMusic();
-  persistRun();
-  // The stash is paid by `showRunEndScreen`, the same as for any other ending.
-  showRunEndScreen('retired');
-  return true;
-}
-
 function completeVictory() {
   if (!artifactAvailable()) return false;
   runStatus = 'victory';
@@ -16846,15 +16813,6 @@ function payWatchFine() {
   return true;
 }
 
-/** True while the hero stands inside their own four walls. */
-function heroInsideHouse() {
-  const plot = cityHousePlot();
-  if (!plot?.interior || !run.house.owned) return false;
-  const cell = { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) };
-  return cell.x >= plot.interior.x && cell.x < plot.interior.x + plot.interior.w
-    && cell.y >= plot.interior.y && cell.y < plot.interior.y + plot.interior.h;
-}
-
 /**
  * The stone works both ways: from the dungeon it opens the door home and
  * remembers the spot, from home it puts the hero back on that spot.
@@ -17054,15 +17012,6 @@ function updateHeroEffects(delta) {
  * cause of death a player can learn from, «неизвестно» is not.
  */
 let starvationCarry = 0;
-/** Is something hostile close enough to interrupt a meal? */
-function heroIsThreatened() {
-  return monsters.some((monster) => (
-    monster.dead === 0
-    && (!monster.neutral || monster.provoked)
-    && Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * 1.6
-  ));
-}
-
 function starve(activeSeconds) {
   if (hero.hunger > 0) {
     starvationCarry = 0;

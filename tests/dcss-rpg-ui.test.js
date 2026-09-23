@@ -37,7 +37,8 @@ test('the 2D RPG interface uses quiet flat pixel blocks instead of ornamental fr
   assert.match(frame, /box-shadow:\s*4px 4px 0 var\(--frame-black\)/);
   assert.doesNotMatch(frame, /background-image|clip-path|inset/);
   assert.match(css, /\.portrait\s*{\s*display:\s*none/);
-  assert.match(css, /\.doll-aura\s*{\s*display:\s*none/);
+  // Свечения за куклой нет вовсе: элемент ушёл вместе со старой куклой героя.
+  assert.doesNotMatch(css, /\.doll-aura/);
   assert.match(css, /\.inventory\s*{[^}]*background:\s*rgb\(3 5 6 \/ 96%\)/s);
   assert.doesNotMatch(css, /border-radius\s*:/);
 });
