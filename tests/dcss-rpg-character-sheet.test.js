@@ -27,7 +27,8 @@ test('character sheet explains the complete derived build in both languages', ()
   assert.equal(russian.statRows.find(({ id }) => id === 'movement').value, '3.42 кл/с');
   assert.equal(russian.statRows.find(({ id }) => id === 'intelligence').value, '7');
   assert.equal(russian.statRows.find(({ id }) => id === 'hunger').value, 'Сыт · 100%');
-  assert.match(english.statRows.find(({ id }) => id === 'hunger').description, /never deals direct damage/);
+  // Голод убивает с 19.09 («Голод стал часами»); подсказка долго обещала обратное.
+  assert.match(english.statRows.find(({ id }) => id === 'hunger').description, /drains health until you eat/);
   assert.equal(english.combatRows.find(({ id }) => id === 'rate').value, '2');
   assert.equal(english.combatRows.find(({ id }) => id === 'style').value, 'Spear');
   assert.equal(russian.experienceProgress, 10 / 54);

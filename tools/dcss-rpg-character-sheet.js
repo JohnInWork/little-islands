@@ -15,7 +15,7 @@ const COPY = Object.freeze({
       movement: ['Движение', 'Реальная скорость перемещения по подземелью.'],
       tempo: ['Темп атаки', 'Экипировка сокращает паузу между автоатаками.'],
       intelligence: ['Интеллект', 'Открывает заклинания и усиливает их действие.'],
-      hunger: ['Сытость', 'Голод ослабляет героя, но никогда не наносит прямой урон.'],
+      hunger: ['Сытость', 'Голод ослабляет героя, а пустой желудок отнимает здоровье, пока не поешь.'],
     }),
     combatStats: Object.freeze({
       style: 'Стиль',
@@ -46,7 +46,7 @@ const COPY = Object.freeze({
       movement: ['Movement', 'Actual movement speed through the dungeon.'],
       tempo: ['Attack speed', 'Equipment shortens the pause between auto-attacks.'],
       intelligence: ['Intelligence', 'Unlocks spells and increases their power.'],
-      hunger: ['Satiety', 'Hunger weakens the hero but never deals direct damage.'],
+      hunger: ['Satiety', 'Hunger weakens the hero, and an empty stomach drains health until you eat.'],
     }),
     combatStats: Object.freeze({
       style: 'Style',
