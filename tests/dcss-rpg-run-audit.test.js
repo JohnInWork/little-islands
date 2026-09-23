@@ -83,3 +83,20 @@ test('a chasm is no way round a guardian: the runtime locks the jump and stops a
   assert.match(runtime, /survivable: hero\.hp > cost && dungeon\.depth < DEEPEST_DEPTH && !guarded/);
   assert.match(runtime, /if \(chapterGuardianForDepth\(floor, run\.branch\)\) \{\s*target = floor;/);
 });
+
+test('a guardian the run has beaten stays beaten when its floor is rebuilt', async () => {
+  const core = await import('../tools/dcss-rpg-core.js');
+  const seed = 1007922;
+  let run = core.createRun(seed, core.generateDungeon({ seed, depth: 1 }));
+  while (run.depth < 6) run = core.advanceRunFloor(run);
+  const bossId = core.generateDungeon({ seed, depth: 6 }).objective.bossInstanceId;
+  run = { ...run, guardians: core.rememberGuardian(run.guardians, run.branch, 6), floor: { ...run.floor, defeated: [...run.floor.defeated, bossId] } };
+  while (run.depth < 13) run = core.advanceRunFloor(run);
+  while (run.depth > 6) run = core.retreatRunFloor(run);
+  assert.equal(run.floor.defeated.includes(bossId), false, 'the floor really was forgotten and rebuilt');
+  assert.equal(core.hydrateDungeon(run).monsters.some((monster) => monster.instanceId === bossId), false);
+  assert.ok(core.validateRun(run));
+  assert.equal(core.validateGuardianMemory(['deep:6', 'deep:6']), false, 'no duplicates');
+  assert.equal(core.validateGuardianMemory('deep:6'), false, 'a string is not a list');
+  assert.equal(core.validateGuardianMemory(undefined), true, 'yesterday’s save has none');
+});

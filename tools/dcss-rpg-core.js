@@ -2721,6 +2721,40 @@ export function adoptRun(snapshot) {
  * сил без повторов: строка в этом поле разлетелась бы по буквам, и каждая
  * буква стала бы «уже выданной силой».
  */
+/**
+ * Стражи, которых этот забег уже одолел: «дорога:этаж».
+ *
+ * Этаж, ушедший из памяти подземелья, строится заново из зерна — и раньше
+ * вместе со всеми, кто на нём жил. Для стража это было нечестно: убил его на
+ * шестом, спустился до тринадцатого, поднялся — а он снова стоит у лестницы,
+ * и путь вниз опять заперт (аудит забега). Поле необязательное: у вчерашнего
+ * сохранения его нет, и это значит лишь «никого пока не запомнили».
+ */
+export const GUARDIAN_MEMORY_LIMIT = 128;
+const GUARDIAN_KEY = /^[a-z]+:\d{1,3}$/;
+
+export function guardianKey(branch, depth) {
+  return `${branch ?? DEFAULT_RUN_BRANCH}:${depth}`;
+}
+
+export function validateGuardianMemory(list) {
+  if (list === undefined || list === null) return true;
+  if (!Array.isArray(list) || list.length > GUARDIAN_MEMORY_LIMIT) return false;
+  if (new Set(list).size !== list.length) return false;
+  return list.every((entry) => typeof entry === 'string' && GUARDIAN_KEY.test(entry));
+}
+
+export function rememberGuardian(list, branch, depth) {
+  const current = Array.isArray(list) ? list : [];
+  const entry = guardianKey(branch, depth);
+  if (current.includes(entry) || current.length >= GUARDIAN_MEMORY_LIMIT) return current;
+  return [...current, entry];
+}
+
+export function guardianRemembered(list, branch, depth) {
+  return Array.isArray(list) && list.includes(guardianKey(branch, depth));
+}
+
 export function validateArtifactPowers(powers) {
   if (powers === undefined || powers === null) return true;
   if (!Array.isArray(powers) || powers.length > 64) return false;
@@ -2761,6 +2795,7 @@ export function validateRun(snapshot) {
     snapshot.difficulty > MAX_DIFFICULTY ||
     !validateLootAbundance(snapshot.lootAbundance)
     || !validateArtifactPowers(snapshot.artifactPowers)
+    || !validateGuardianMemory(snapshot.guardians)
   ) return false;
   if (
     !isFiniteInteger(snapshot.seed, 0, 0xffffffff) ||
@@ -2967,6 +3002,10 @@ export function hydrateDungeon(snapshot) {
     throw new Error('Saved hero position is blocked');
   }
   const defeated = new Set(snapshot.floor.defeated);
+  // Страж, которого забег уже одолел, не встаёт с заново построенным этажом.
+  if (dungeon.objective && guardianRemembered(snapshot.guardians, snapshot.branch, snapshot.depth)) {
+    defeated.add(dungeon.objective.bossInstanceId);
+  }
   const collected = new Set(snapshot.floor.collected);
   const resolved = new Set(snapshot.floor.resolved);
   const resolvedFindIds = new Set(snapshot.floor.resolvedFindIds);

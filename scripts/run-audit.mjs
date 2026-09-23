@@ -50,6 +50,9 @@ import {
   createRun,
   enterBranchThroughGate,
   generateDungeon,
+  guardianRemembered,
+  hydrateDungeon,
+  rememberGuardian,
   retreatRunFloor,
   switchRunBranch,
 } from '../tools/dcss-rpg-core.js';
@@ -535,14 +538,24 @@ export function auditTransitions(seed) {
     let run = createRun(seed, generateDungeon({ seed, depth: 1 }));
     while (run.depth < CHAPTER_END_DEPTHS[0]) run = advanceRunFloor(run);
     const bossId = generateDungeon({ seed, depth: run.depth }).objective.bossInstanceId;
-    run = { ...run, floor: { ...run.floor, defeated: [...run.floor.defeated, bossId] } };
+    // The runtime writes the kill into the floor and into the run's guardian
+    // memory (`rememberGuardian`, dcss.js on the boss's death); so does this.
+    run = {
+      ...run,
+      guardians: rememberGuardian(run.guardians, run.branch, run.depth),
+      floor: { ...run.floor, defeated: [...run.floor.defeated, bossId] },
+    };
     const far = CHAPTER_END_DEPTHS[0] + FLOORS_PER_CHAPTER + 1;
     while (run.depth < far) run = advanceRunFloor(run);
     while (run.depth > CHAPTER_END_DEPTHS[0]) run = retreatRunFloor(run);
-    const locked = !canLeaveDungeonFloor({
+    // `replaceFloor` puts a remembered guardian back into `floor.defeated`,
+    // and `hydrateDungeon` leaves it out of the rebuilt floor's monsters.
+    const remembered = guardianRemembered(run.guardians, run.branch, run.depth);
+    const standing = hydrateDungeon(run).monsters.some((monster) => monster.instanceId === bossId);
+    const locked = standing || !canLeaveDungeonFloor({
       depth: run.depth,
       status: run.status,
-      guardianDefeated: run.floor.defeated.includes(bossId),
+      guardianDefeated: run.floor.defeated.includes(bossId) || remembered,
     });
     if (locked) {
       issue(issues, 'design', 'guardian-revives-on-backtrack', where,

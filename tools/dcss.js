@@ -23,6 +23,8 @@ import {
   generateDungeon,
   hasLineOfSight,
   hydrateDungeon,
+  guardianRemembered,
+  rememberGuardian,
   migrateLegacyRun,
   revealAround,
   rollBonesReward,
@@ -15986,6 +15988,7 @@ function defeatMonster(monster) {
     burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
     updateBossHud();
     claimGuardianTrophy(monster);
+    run.guardians = rememberGuardian(run.guardians, run.branch, dungeon.depth);
   }
   persistRun();
 }
@@ -16585,6 +16588,12 @@ function resolveGraveyard() {
 function replaceFloor(nextDepth, arrival = null) {
   run.depth = nextDepth;
   dungeon = hydrateDungeon(run);
+  // Этаж отстроен заново, а страж на нём уже побеждён: запись об этом
+  // возвращается на этаж, и лестница вниз остаётся открытой.
+  const bossId = dungeon.objective?.bossInstanceId;
+  if (bossId && guardianRemembered(run.guardians, run.branch, run.depth) && !run.floor.defeated.includes(bossId)) {
+    run.floor.defeated.push(bossId);
+  }
   world = dungeon.grid;
   resolveGraveyard();
   // Дорога могла смениться вратами — мелодия спрашивается заново. Бой со
