@@ -65,6 +65,7 @@ import {
   canClaimFinalArtifact,
   canLeaveDungeonFloor,
   canRetireRun,
+  chapterGuardianForDepth,
   isTerminalRunStatus,
   goldRewardForMonster,
   useSanctuary,
@@ -470,6 +471,7 @@ import {
   CHASM_FALL_PERCENT,
   chasmCopy,
   chasmFallFloors,
+  chasmLandingCell as pickChasmLanding,
 } from './dcss-rpg-chasm.js';
 import { EFFECT_PATHS, WATER_PATHS, requiredAssetPaths } from './dcss-rpg-required-assets.js';
 import {
@@ -4720,10 +4722,32 @@ function updateHeroFooting() {
  * The bottom of the written road is still the bottom: at the deepest floor
  * the shaft has nowhere to lead, and the fall is a hard landing in place.
  */
+/**
+ * Пропасть на этаже стража — не обходная лестница. Аудит забега нашёл её на
+ * каждом двадцатом таком этаже: прыжок уводил вниз мимо живого стража, хотя
+ * лестница была заперта. Пока лестница заперта, заперт и провал.
+ */
+function chasmGuarded() {
+  return !canLeaveDungeonFloor({
+    depth: dungeon.depth,
+    status: runStatus,
+    guardianDefeated: objectiveBossDefeated(),
+  });
+}
+
 function fallIntoChasm(cell) {
   const floors = Math.max(1, chasmFallFloors(world, cell, dungeon.seed));
   const damage = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT * floors / 100));
-  const target = Math.min(DEEPEST_DEPTH, dungeon.depth + floors);
+  // Полёт кончился над провалом на этаже стража: удар есть, спуска нет.
+  let target = chasmGuarded() ? dungeon.depth : Math.min(DEEPEST_DEPTH, dungeon.depth + floors);
+  // Двойное падение не перелетает логово: кто падает мимо этажа стража, тот
+  // приземляется у него.
+  for (let floor = dungeon.depth + 1; floor < target; floor += 1) {
+    if (chapterGuardianForDepth(floor, run.branch)) {
+      target = floor;
+      break;
+    }
+  }
   addCombatGlyph(hero.x, hero.y, chasmCopy(itemDetailLanguage).fell, '#9aa4ad', -64);
   burst(hero.x, hero.y, '#6f6a63', 18);
   // `hurt` в каталоге нет — герой стонет голосом своего пола.
@@ -4759,20 +4783,9 @@ function chasmLandingCell(depth) {
     difficulty: run.difficulty,
     lootAbundance: run.lootAbundance,
   });
-  const taken = new Set([
-    ...level.monsters.map(({ x, y }) => `${x},${y}`),
-    ...level.finds.map(({ x, y }) => `${x},${y}`),
-    ...level.events.map(({ x, y }) => `${x},${y}`),
-  ]);
-  const open = [];
-  for (let y = 0; y < level.grid.length; y += 1) {
-    for (let x = 0; x < level.grid[y].length; x += 1) {
-      if (level.grid[y][x] === '.' && !taken.has(`${x},${y}`)) open.push({ x, y });
-    }
-  }
-  if (open.length === 0) return undefined;
-  const pick = Math.abs(Math.imul(run.seed + depth, 0x9e3779b1)) % open.length;
-  return open[pick];
+  // Только туда, откуда пешком доходят до лестницы: островок за пропастью
+  // был ловушкой без выхода.
+  return pickChasmLanding(level, run.seed, depth);
 }
 
 /** The closest cell that is actually floor, searched outwards from the hole. */
@@ -9878,16 +9891,18 @@ function contextModelTarget(entry = contextTarget) {
   if (entry.kind === 'chasm') {
     const floors = Math.max(1, chasmFallFloors(world, entry.value, dungeon.seed));
     const cost = Math.max(1, Math.round(currentHeroStats().maxHp * CHASM_FALL_PERCENT * floors / 100));
+    const guarded = chasmGuarded();
     return {
       kind: 'chasm',
       floors,
       cost,
       // A jump that kills is not a shortcut, and the game says so instead of
-      // taking the hero's last three points of health for a staircase.
-      survivable: hero.hp > cost && dungeon.depth < DEEPEST_DEPTH,
+      // taking the hero's last three points of health for a staircase. Nor is
+      // a hole a way round the guardian: the stair is locked, so is the shaft.
+      survivable: hero.hp > cost && dungeon.depth < DEEPEST_DEPTH && !guarded,
       hint: dungeon.depth >= DEEPEST_DEPTH
         ? chasmCopy(itemDetailLanguage).bottom
-        : chasmCopy(itemDetailLanguage).tooHurt,
+        : guarded ? chasmCopy(itemDetailLanguage).guarded : chasmCopy(itemDetailLanguage).tooHurt,
     };
   }
   if (entry.kind === 'portal') {
@@ -11743,7 +11758,7 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   },
   'chasm-jump'({ target }) {
     closeContextActions();
-    if (!target?.value) return false;
+    if (!target?.value || chasmGuarded()) return false;
     fallIntoChasm(target.value);
     return true;
   },

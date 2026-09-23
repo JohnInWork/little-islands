@@ -99,6 +99,34 @@ export function walkableFrom(grid, start, { flying = false } = {}) {
 }
 
 /**
+ * Куда падает герой, прыгнувший в пропасть сверху.
+ *
+ * Раньше — на любую свободную клетку пола этажа ниже, в том числе на островок
+ * за пропастью, откуда до лестниц не дойти: без полёта, камня дома или
+ * портала забег на этом кончался (аудит забега нашёл 12 таких падений на
+ * 20 597). Теперь выбор идёт только среди клеток, от которых пешком можно
+ * дойти до лестницы наверх. Формула выбора прежняя — одинаковое падение для
+ * одинакового зерна, — меняется лишь список, из которого выбирают.
+ */
+export function chasmLandingCell(level, runSeed, depth) {
+  const taken = new Set([
+    ...level.monsters.map(({ x, y }) => `${x},${y}`),
+    ...level.finds.map(({ x, y }) => `${x},${y}`),
+    ...level.events.map(({ x, y }) => `${x},${y}`),
+  ]);
+  const onFoot = walkableFrom(level.grid, level.spawn);
+  const open = [];
+  for (let y = 0; y < level.grid.length; y += 1) {
+    for (let x = 0; x < level.grid[y].length; x += 1) {
+      const key = `${x},${y}`;
+      if (level.grid[y][x] === '.' && !taken.has(key) && onFoot.has(key)) open.push({ x, y });
+    }
+  }
+  if (open.length === 0) return undefined;
+  return open[Math.abs(Math.imul(runSeed + depth, 0x9e3779b1)) % open.length];
+}
+
+/**
  * Cuts a hole across a room and leaves an island on the far side.
  *
  * The hole is a band, because a scatter of single holes reads as damage
@@ -478,6 +506,7 @@ const COPY = Object.freeze({
     fell: 'Падение',
     bottom: 'Ниже уже некуда',
     tooHurt: 'Такого падения не пережить',
+    guarded: 'Страж держит этаж: вниз только после него',
   }),
   en: Object.freeze({
     name: 'Chasm',
@@ -487,6 +516,7 @@ const COPY = Object.freeze({
     fell: 'A fall',
     bottom: 'Nothing below this',
     tooHurt: 'That fall would kill you',
+    guarded: 'The guardian holds this floor: no way down until it falls',
   }),
 });
 

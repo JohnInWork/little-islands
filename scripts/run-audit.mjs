@@ -75,7 +75,7 @@ import {
   monsterById,
   monsterSuitsBranch,
 } from '../tools/dcss-rpg-content.js';
-import { CHASM_CELL, chasmFallFloors } from '../tools/dcss-rpg-chasm.js';
+import { CHASM_CELL, chasmFallFloors, chasmLandingCell as runtimeChasmLanding } from '../tools/dcss-rpg-chasm.js';
 import { lockpickCost } from '../tools/dcss-rpg-chests.js';
 import { createDungeonEnvironment } from '../tools/dcss-rpg-environment.js';
 import { isSecretFind } from '../tools/dcss-rpg-finds.js';
@@ -102,7 +102,14 @@ import { trapsFromDungeon } from '../tools/dcss-rpg-traps.js';
  * dcss-rpg-chasm.js and importing it here instead of the mirror below. Then
  * delete these entries — the test will say so.
  */
-export const KNOWN_SOFTLOCKS = Object.freeze([
+export const KNOWN_SOFTLOCKS = Object.freeze([]);
+
+/**
+ * The twelve strandings the first audit found, kept as a regression list: the
+ * landing rule now keeps only cells reachable from the stair up, so each of
+ * these must land somewhere the hero can walk out of.
+ */
+export const FIXED_SOFTLOCKS = Object.freeze([
   { code: 'chasm-landing-stranded', seed: 483009368, branch: 'deep', depth: 7 },
   { code: 'chasm-landing-stranded', seed: 407009140, branch: 'vaults', depth: 14 },
   { code: 'chasm-landing-stranded', seed: 452009275, branch: 'vaults', depth: 21 },
@@ -187,21 +194,9 @@ function badValues(value, path = 'level', out = [], depth = 0) {
   return out;
 }
 
-/** The runtime's `chasmLandingCell` (dcss.js ~l.4710), verbatim in logic. */
+/** The runtime's own landing rule, imported rather than mirrored since it moved to dcss-rpg-chasm.js. */
 export function chasmLandingCell(level, runSeed, depth) {
-  const taken = new Set([
-    ...level.monsters.map(({ x, y }) => key(x, y)),
-    ...level.finds.map(({ x, y }) => key(x, y)),
-    ...level.events.map(({ x, y }) => key(x, y)),
-  ]);
-  const open = [];
-  for (let y = 0; y < level.grid.length; y += 1) {
-    for (let x = 0; x < level.grid[y].length; x += 1) {
-      if (level.grid[y][x] === '.' && !taken.has(key(x, y))) open.push({ x, y });
-    }
-  }
-  if (open.length === 0) return undefined;
-  return open[Math.abs(Math.imul(runSeed + depth, 0x9e3779b1)) % open.length];
+  return runtimeChasmLanding(level, runSeed, depth);
 }
 
 /**
@@ -460,17 +455,19 @@ export function auditFloor({ seed, branch, depth, levelAbove = null, levelTwoAbo
       `(${cell}) ${meaningful.join(' + ')}`);
   }
 
-  // 6b. A hole the hero can jump into (the 'chasm-jump' context action,
-  // dcss.js ~l.11706, offered beside any revealed chasm cell) is a way down
-  // that ignores `canLeaveDungeonFloor`: on a guardian floor, or when a
-  // two-floor drop passes over one, it skips the chapter guardian.
+  // 6b. A hole the hero can jump into on a guardian floor, or one whose
+  // two-floor drop passes over a guardian floor. The runtime now closes both
+  // (`chasmGuarded` refuses the jump while the stair is locked, and
+  // `fallIntoChasm` stops a fall at the first guardian floor it would pass),
+  // so this is reported as info: the layout still has the hole, the rules
+  // no longer let it skip anyone.
   if (depth >= 1) {
     const { cells: jumpable, drops } = jumpableChasms(level, onFoot);
     if (jumpable.length > 0) {
       const skipped = [...drops].flatMap((floors) => Array.from({ length: floors }, (_, step) => depth + step))
         .filter((floor) => chapterGuardianForDepth(floor, branch));
       if (skipped.length > 0) {
-        issue(issues, 'design', 'guardian-bypass-by-chasm', where,
+        issue(issues, 'info', 'guardian-bypass-by-chasm', where,
           `jumpable chasm at (${jumpable[0].x},${jumpable[0].y}) drops ${[...drops].join('/')} floor(s), skipping the guardian of floor ${[...new Set(skipped)].join(', ')}`);
       }
     }

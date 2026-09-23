@@ -4,6 +4,7 @@ import test from 'node:test';
 import { generateDungeon } from '../tools/dcss-rpg-core.js';
 import {
   AUDIT_BRANCHES,
+  FIXED_SOFTLOCKS,
   KNOWN_SOFTLOCKS,
   MAX_AUDIT_DEPTH,
   auditFloor,
@@ -59,22 +60,26 @@ test('the audit notices a stranded hero: a landing cut off from the stairs is re
   assert.equal(floodFrom(level.grid, level.spawn).has(`${level.exit.x},${level.exit.y}`), true);
 });
 
-test('every known soft-lock still reproduces — remove it from KNOWN_SOFTLOCKS once fixed', () => {
-  assert.ok(KNOWN_SOFTLOCKS.length > 0);
-  for (const known of KNOWN_SOFTLOCKS) {
-    assert.equal(known.code, 'chasm-landing-stranded', 'only chasm landings are expected here');
+test('the twelve chasm strandings the audit found now land where the hero can walk out', () => {
+  assert.equal(KNOWN_SOFTLOCKS.length, 0, 'no soft-lock is tolerated any more');
+  for (const known of FIXED_SOFTLOCKS) {
     const floor = (depth) => generateDungeon({ seed: known.seed, depth, branch: known.branch });
     const { issues, level } = auditFloor({
       ...known,
       levelAbove: floor(known.depth - 1),
       levelTwoAbove: floor(known.depth - 2),
     });
-    assert.ok(
-      issues.some((entry) => entry.code === known.code && isKnownSoftlock(entry)),
-      `${known.branch}/${known.depth} seed ${known.seed} no longer strands the hero: drop it from the list`,
-    );
-    // And the stranding is real: from the landing neither stair can be walked to.
-    const reach = floodFrom(level.grid, chasmLandingCell(level, known.seed, known.depth));
-    assert.equal(reach.has(`${level.exit.x},${level.exit.y}`) || reach.has(`${level.spawn.x},${level.spawn.y}`), false);
+    assert.equal(issues.some((entry) => entry.code === known.code), false, `${known.branch}/${known.depth} seed ${known.seed} still strands`);
+    const landing = chasmLandingCell(level, known.seed, known.depth);
+    const reach = floodFrom(level.grid, landing);
+    assert.ok(reach.has(`${level.spawn.x},${level.spawn.y}`), 'the stair up is walkable from the landing');
   }
+});
+
+test('a chasm is no way round a guardian: the runtime locks the jump and stops a fall at the lair', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.match(runtime, /'chasm-jump'\(\{ target \}\) \{\s*closeContextActions\(\);\s*if \(!target\?\.value \|\| chasmGuarded\(\)\) return false;/);
+  assert.match(runtime, /survivable: hero\.hp > cost && dungeon\.depth < DEEPEST_DEPTH && !guarded/);
+  assert.match(runtime, /if \(chapterGuardianForDepth\(floor, run\.branch\)\) \{\s*target = floor;/);
 });
