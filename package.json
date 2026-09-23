@@ -9,6 +9,7 @@
     "prebuild": "npm run sprites:manifest",
     "build": "vite build",
     "test": "node --test tests/dcss-rpg-*.test.js",
+    "audit:run": "node scripts/run-audit.mjs",
     "check": "npm test && npm run build",
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
     "package:itch": "npm run build && node scripts/package-itch.mjs",

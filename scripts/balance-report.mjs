@@ -11,7 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createRun, generateDungeon } from '../tools/dcss-rpg-core.js';
-import { FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
+import { STORY_DEPTH as FINAL_DEPTH } from '../tools/dcss-rpg-run.js';
 import { CITY_DEPTH } from '../tools/dcss-rpg-city.js';
 import { LOOT_CATALOG, lootById, monsterById } from '../tools/dcss-rpg-content.js';
 import { HUNGER_MAX } from '../tools/dcss-rpg-hunger.js';
@@ -47,7 +47,9 @@ function floorFacts(seed, depth) {
     xp: threat.xp,
     loot: loot.length,
     gold: loot.reduce((sum, { entry, item }) => sum + (item.gold ? entry.amount ?? 0 : 0), 0),
-    food: loot.reduce((sum, { entry }) => sum + (FOOD_BY_ID.get(entry.id) ?? 0), 0),
+    // A pickup is a whole stack (`addInventoryItem` gives `definition.stack`):
+    // one jerky on the floor is three in the bag.
+    food: loot.reduce((sum, { entry, item }) => sum + (FOOD_BY_ID.get(entry.id) ?? 0) * (item.stack ?? 1), 0),
     gear: loot.filter(({ item }) => item.slot).length,
     // Artefacts left the open floor and moved into sealed caches, so counting
     // `level.loot` now always reports zero. Read the caches the way the game
