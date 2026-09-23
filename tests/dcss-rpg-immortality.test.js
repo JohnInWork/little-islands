@@ -82,7 +82,7 @@ test('лечение никогда не обгоняет одного монс�
     const броня = 6 + depth;
     const доля = mitigateDamage(удар.заУдар, броня) / удар.заУдар;
     const входящее = удар.вСекунду * доля;
-    const лечение = vampiricBudget(maxHp, depth);
+    const лечение = vampiricBudget(maxHp, depth, generateDungeon({ seed: 11, depth }).scaling.entry.pressure);
     assert.ok(входящее > 0, `этаж ${depth}: по герою не попадают вовсе`);
     assert.ok(
       лечение < входящее,
@@ -99,7 +99,9 @@ test('лечение никогда не обгоняет одного монс�
  * чём Иван и просил не забывать.
  */
 test('потолок остаётся заметной величиной, а не формальностью', () => {
-  for (const depth of [1, 9, 18]) {
+  // Вход в подземелье (этажи 1–3) нарочно тише — там и потолок ниже; заметным
+  // он обязан быть с того этажа, где бой идёт в полную силу.
+  for (const depth of [4, 9, 18]) {
     const maxHp = здоровьеГероя(depth);
     const доля = vampiricBudget(maxHp, depth) / maxHp;
     assert.ok(доля >= 0.06, `этаж ${depth}: вампиризм лечит всего ${(доля * 100).toFixed(0)}% в секунду`);

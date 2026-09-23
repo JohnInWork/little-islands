@@ -32,8 +32,10 @@ test('one versioned floor profile owns every progression axis', () => {
       tier: shallow.encounters.maxMonsterTier,
       loot: shallow.rewards.lootCount,
     },
-    { rooms: 9, monsters: 11, tier: 1, loot: 4 },
+    // Вход в подземелье (v4): на первом этаже врагов меньше, чем было.
+    { rooms: 9, monsters: 8, tier: 1, loot: 4 },
   );
+  assert.equal(floorScaling(1, 3).encounters.monsterCount, 11, 'version 3 keeps its first floor');
   assert.deepEqual(
     {
       count: final.encounters.monsterCount,
@@ -109,8 +111,9 @@ test('one persisted difficulty value scales the complete combat pressure', () =>
 });
 
 test('the default profile is more than twice the previous combat pressure without double-scaling bosses', () => {
-  const previous = floorScaling(1, SCALING_VERSION, 1);
-  const current = floorScaling(1);
+  // Сравнение за пределами входа: на этажах 1–3 v4 нарочно тише (см. ниже).
+  const previous = floorScaling(4, SCALING_VERSION, 1);
+  const current = floorScaling(4);
   assert.equal(DEFAULT_DIFFICULTY, 2.4);
   assert.ok(current.encounters.monsterCount > previous.encounters.monsterCount);
   assert.ok(current.monsters.hpMultiplier >= previous.monsters.hpMultiplier * 2.4);
@@ -244,11 +247,37 @@ test('a longer road stretches the climb instead of steepening it', () => {
   for (const knob of Object.keys(tuned)) {
     assert.equal(ending[knob], tuned[knob], `${knob} ends somewhere else than the tuned run did`);
   }
-  // And the first floor is untouched: the game starts where it always started.
-  assert.deepEqual(floorScaling(1).monsters, floorScaling(1, 2).monsters);
+  // Version 3 started where version 2 did; version 4 adds only the entry.
+  assert.deepEqual(floorScaling(1, 3).monsters, floorScaling(1, 2).monsters);
   // Version two is a promise about the past and does not move when the road
   // does: its chapters stay three floors long, whatever a chapter is now.
   assert.equal(floorScaling(3, 2).chapterEnd, true);
   assert.equal(floorScaling(3).chapterEnd, false, 'a chapter is six floors now');
   assert.equal(floorScaling(FLOORS_PER_CHAPTER).chapterEnd, true);
+});
+
+/*
+ * Вход в подземелье. Бот, игравший осторожно, в семи забегах из восьми
+ * погибал на первом этаже за полминуты: герой бьёт на 2, монстр — на 12–15.
+ * Версия 4 делает первые три этажа входом — слабее и малолюднее, — а с
+ * четвёртого этажа совпадает с версией 3 до последней цифры.
+ */
+test('the first three floors are an entry, and from the fourth the road is unchanged', () => {
+  const entry = [1, 2, 3].map((depth) => [floorScaling(depth), floorScaling(depth, 3)]);
+  for (const [soft, hard] of entry) {
+    assert.ok(soft.monsters.damageMultiplier < hard.monsters.damageMultiplier);
+    assert.ok(soft.monsters.hpMultiplier < hard.monsters.hpMultiplier);
+    assert.ok(soft.encounters.monsterCount <= hard.encounters.monsterCount);
+  }
+  const [first] = entry[0];
+  assert.ok(first.monsters.damageMultiplier <= floorScaling(1, 3).monsters.damageMultiplier * 0.5 + 0.001);
+  // Сила растёт от этажа к этажу и на входе, без провала на четвёртом.
+  const damage = [1, 2, 3, 4, 5].map((depth) => floorScaling(depth).monsters.damageMultiplier);
+  for (let index = 1; index < damage.length; index += 1) assert.ok(damage[index] > damage[index - 1]);
+  for (const depth of [4, 6, 12, 18, 24]) {
+    const { version, entry: newEntry, ...rest } = floorScaling(depth);
+    const { version: oldVersion, entry: oldEntry, ...old } = floorScaling(depth, 3);
+    assert.deepEqual(rest, old, `floor ${depth} moved`);
+    assert.equal(newEntry.pressure, 1);
+  }
 });

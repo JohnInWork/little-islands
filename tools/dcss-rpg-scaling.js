@@ -4,7 +4,7 @@ import {
 } from './dcss-rpg-loot-economy.js';
 import { STORY_DEPTH, FLOORS_PER_CHAPTER } from './dcss-rpg-run.js';
 
-export const SCALING_VERSION = 3;
+export const SCALING_VERSION = 4;
 
 // Единственный общий регулятор сложности новых забегов. Значение 1 оставлено
 // контрольной точкой прежнего баланса; 2.4 — новый основной профиль игры.
@@ -75,8 +75,43 @@ const CURVES = Object.freeze({
     tierCurve: 'road',
     roadLength: STORY_DEPTH,
     tempoCeiling: TUNED_CLIMB,
+    entryRamp: null,
+  }),
+  /*
+   * Вход в подземелье.
+   *
+   * Бот, игравший в игру осторожно — колдовал, лечился, не бросался на всех,
+   * — в семи забегах из восьми погибал на первом этаже за 17–38 секунд
+   * игрового времени: герой первого уровня бьёт на 2, монстр — на 12–15, и
+   * второй враг рядом означает смерть. Иван: «делай как лучше». Первые три
+   * этажа теперь — вход: монстры слабее, их меньше, а с четвёртого этажа всё
+   * как было. Прежние забеги остаются на версии 3 — у них ничего не меняется.
+   */
+  4: Object.freeze({
+    floorsPerChapter: FLOORS_PER_CHAPTER,
+    maximumMonsterCount: 24,
+    maximumMonsterTier: 9,
+    maximumLootCount: 9,
+    baseMonsterCount: 8,
+    monsterCountPerFloor: 2,
+    baseRoomCount: 9,
+    roomEveryFloors: 2,
+    maximumRoomCount: 15,
+    tierCurve: 'road',
+    roadLength: STORY_DEPTH,
+    tempoCeiling: TUNED_CLIMB,
+    entryRamp: Object.freeze({
+      damage: Object.freeze([0.5, 0.7, 0.85]),
+      hp: Object.freeze([0.6, 0.75, 0.9]),
+      count: Object.freeze([0.75, 0.85, 0.95]),
+    }),
   }),
 });
+
+/** Доля силы монстров на входе в подземелье: 1 — за пределами входа. */
+function entryShare(curve, depth, axis) {
+  return curve.entryRamp?.[axis]?.[depth - 1] ?? 1;
+}
 
 export function scalingVersionSupported(version) {
   return Object.hasOwn(CURVES, version);
@@ -145,7 +180,7 @@ export function floorScaling(
   // опасность должна исходить от читаемых противников, а не от визуальной свалки.
   const monsterCount = Math.min(
     curve.maximumMonsterCount,
-    Math.round(baseMonsterCount * (0.72 + difficulty * 0.28)),
+    Math.round(baseMonsterCount * (0.72 + difficulty * 0.28) * entryShare(curve, depth, 'count')),
   );
   // The deepest creature the game owns stands at the end of the road, and the
   // pool has nothing deeper to offer after that: the tier ladder tops out and
@@ -220,6 +255,15 @@ export function floorScaling(
     chapter,
     floorInChapter,
     chapterEnd,
+    // Доля силы входа (1 — полная): её же берут правила, которые меряются
+    // уроном этажа, например потолок вампиризма.
+    entry: {
+      // Давление этажа на героя: каждый бьёт слабее, и их меньше.
+      pressure: round(entryShare(curve, depth, 'damage') * entryShare(curve, depth, 'count')),
+      damage: entryShare(curve, depth, 'damage'),
+      hp: entryShare(curve, depth, 'hp'),
+      count: entryShare(curve, depth, 'count'),
+    },
     dangerRating: round(
       (1 + climb * 0.62 + climb ** 1.18 * 0.08) * difficulty,
       2,
@@ -239,8 +283,8 @@ export function floorScaling(
     monsters: {
       // These are the numbers, and they never stop: sooner or later the deep
       // wins, and how far down that happened is the score.
-      hpMultiplier: round((1.18 + climb * 0.2) * difficultyHp),
-      damageMultiplier: round((1.28 + climb * 0.18) * difficultyDamage),
+      hpMultiplier: round((1.18 + climb * 0.2) * difficultyHp * entryShare(curve, depth, 'hp')),
+      damageMultiplier: round((1.28 + climb * 0.18) * difficultyDamage * entryShare(curve, depth, 'damage')),
       xpMultiplier: round(1 + climb * 0.12),
       // And this is the tempo, which does stop. A creature eleven times faster
       // than the hero is not difficult, it is unreadable — you cannot flee it,

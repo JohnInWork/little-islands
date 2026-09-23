@@ -35,6 +35,9 @@ function terminalRuntime({ victory = false } = {}) {
   const context = vm.createContext({
     // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
     qaGod: false,
+    // Передышка помнит, когда по герою били (см. dcss-rpg-recovery.js).
+    heroThreatAt: 0,
+    elapsed: 0,
     playSound: () => false,
     // Копилка вампиризма живёт во времени; в песочнице времени нет.
     vampiricBudget: () => 0,
@@ -210,6 +213,9 @@ function movementRuntime() {
   const context = vm.createContext({
     // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
     qaGod: false,
+    // Передышка помнит, когда по герою били (см. dcss-rpg-recovery.js).
+    heroThreatAt: 0,
+    elapsed: 0,
     playSound: () => false,
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
     heroVoice: (soundId) => soundId,
@@ -322,6 +328,9 @@ test('runtime navigation avoids discovered traps without revealing hidden traps 
   const context = vm.createContext({
     // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
     qaGod: false,
+    // Передышка помнит, когда по герою били (см. dcss-rpg-recovery.js).
+    heroThreatAt: 0,
+    elapsed: 0,
     playSound: () => false,
     // The hero's own voice: the sandbox has no appearance, so it stays itself.
     heroVoice: (soundId) => soundId,

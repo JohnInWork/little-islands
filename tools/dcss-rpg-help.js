@@ -76,7 +76,7 @@ export const HELP_SECTIONS = Object.freeze([
       entries: [
         entry('Голод', `Сытость тратится, пока ты действуешь. Голодный герой слабеет, а с пустым желудком теряет ${STARVATION_DAMAGE_PERCENT}% здоровья каждые ${STARVATION_TICK_SECONDS} с, пока не поест. Еда ещё и лечит.`),
         entry('Бодрость', 'Уставший герой видит хуже и не может вкладывать очки. Выспаться можно у костра со спальником, в таверне или в своём доме.'),
-        entry('Лечение', 'Зелья, еда и заклинания очищения. Каменный алтарь лечит даром, но выпить из него снова можно не сразу. Он есть в городе, а в подземелье попадается редко.'),
+        entry('Лечение', 'Зелья, еда и заклинания очищения. Каменный алтарь лечит даром, но выпить из него снова можно не сразу. Он есть в городе, а в подземелье попадается редко. В тишине, когда за героем никто не гонится, раны понемногу затягиваются сами.'),
       ],
     },
     en: {
@@ -84,7 +84,7 @@ export const HELP_SECTIONS = Object.freeze([
       entries: [
         entry('Hunger', `Satiety drains while you act. A hungry hero weakens, and on an empty stomach loses ${STARVATION_DAMAGE_PERCENT}% health every ${STARVATION_TICK_SECONDS}s until they eat. Food heals, too.`),
         entry('Rest', 'A tired hero sees less and cannot spend points. Sleep at a campfire with a bedroll, at the tavern or in your own house.'),
-        entry('Healing', 'Potions, food and cleansing spells. The stone altar heals for free, but not again straight away. There is one in town, and they are rare below.'),
+        entry('Healing', 'Potions, food and cleansing spells. The stone altar heals for free, but not again straight away. There is one in town, and they are rare below. In quiet, with nothing chasing the hero, wounds slowly close by themselves.'),
       ],
     },
   }),

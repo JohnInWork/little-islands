@@ -33,6 +33,9 @@ function combatRuntime() {
   const context = vm.createContext({
     // Бессмертие бота (?qa=1&god=1) в обычной игре выключено.
     qaGod: false,
+    // Передышка помнит, когда по герою били (см. dcss-rpg-recovery.js).
+    heroThreatAt: 0,
+    elapsed: 0,
     playSound: () => false,
     // Убитый вор возвращает украденное; в песочнице красть некому.
     recoverStolenItem: () => {},

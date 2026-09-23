@@ -181,10 +181,18 @@ export function resolveKillRecovery({ hp, maxHp, magic, newlyDefeated }) {
   return Object.freeze({ hp: hp + healed, healed });
 }
 
-/** Сколько вампиризм способен вернуть за секунду этому герою на этой глубине. */
-export function vampiricBudget(maxHp, depth = 1) {
+/**
+ * Сколько вампиризм способен вернуть за секунду этому герою на этой глубине.
+ *
+ * `entryShare` — доля давления на входе в подземелье (первые этажи бьют
+ * слабее и врагов там меньше, см. кривую сложности v4). Потолок меряется тем
+ * давлением, что приходит, поэтому на входе он опускается той же долей:
+ * иначе вампир с первого этажа лечился бы быстрее, чем по нему бьют.
+ */
+export function vampiricBudget(maxHp, depth = 1, entryShare = 1) {
   if (!Number.isFinite(maxHp) || maxHp <= 0) return 0;
-  return Math.max(1, Math.floor(maxHp * vampiricRate(depth)));
+  const share = Number.isFinite(entryShare) && entryShare > 0 ? Math.min(1, entryShare) : 1;
+  return Math.max(1, Math.floor(maxHp * vampiricRate(depth) * share));
 }
 
 /**

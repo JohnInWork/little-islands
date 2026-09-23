@@ -33,6 +33,7 @@ import {
 import { creditsModel } from './dcss-rpg-credits.js';
 import { helpModel } from './dcss-rpg-help.js';
 import { floorArrivalModel } from './dcss-rpg-floor-arrival.js';
+import { calmRecovery } from './dcss-rpg-recovery.js';
 import {
   DISPLAY_SETTINGS_KEY,
   createDisplaySettings,
@@ -1545,6 +1546,9 @@ let activeMerchant = null;
 let merchantTab = 'buy';
 let activeChestFindId = null;
 let hungerAccumulator = 0;
+/** Когда по герою последний раз били или за ним гнались — для передышки. */
+let heroThreatAt = Number.NEGATIVE_INFINITY;
+let calmCarry = 0;
 let hungerAutosaveElapsed = 0;
 let currentHungerStageId = hungerStage(hero.hunger).id;
 let trapPlacementState = null;
@@ -16043,6 +16047,7 @@ function damageHero(amount, {
   from = null,
 } = {}) {
   if (hero.dead || hero.hp <= 0 || runStatus !== 'playing') return null;
+  if (amount > 0) heroThreatAt = elapsed;
   if (qaGod) return null;
   const combat = currentHeroCombat();
   const magic = currentHeroMagic();
@@ -17082,6 +17087,34 @@ function spendHunger(action) {
   hungerAccumulator += HUNGER_COST[action] ?? 0;
 }
 
+/**
+ * Передышка: раны затягиваются, пока вокруг тихо (см. dcss-rpg-recovery.js).
+ * Тихо — никто не гонится за героем ближе восьми клеток и по нему шесть
+ * секунд не били.
+ */
+function recoverInQuiet(activeSeconds) {
+  const chased = monsters.some((monster) => (
+    monster.dead === 0
+    && (!monster.neutral || monster.provoked)
+    && monster.alerted > 0
+    && Math.hypot(monster.x - hero.x, monster.y - hero.y) <= TILE * 8
+  ));
+  if (chased) heroThreatAt = elapsed;
+  const recovery = calmRecovery({
+    hp: hero.hp,
+    maxHp: currentHeroStats().maxHp,
+    seconds: activeSeconds,
+    calmSeconds: elapsed - heroThreatAt,
+    hungerStageId: hungerStage(hero.hunger).id,
+    carry: calmCarry,
+  });
+  calmCarry = recovery.carry;
+  if (recovery.healed > 0) {
+    hero.hp += recovery.healed;
+    updateHud();
+  }
+}
+
 function updateHunger(delta) {
   if (!playerHasActed || runStatus !== 'playing' || hero.dead) return;
   hungerAccumulator += delta;
@@ -17104,6 +17137,7 @@ function updateHunger(delta) {
     ),
   );
   starve(activeSeconds);
+  recoverInQuiet(activeSeconds);
   // Rest runs off the same seconds hunger does — it is the same road walked,
   // not a second thing to watch — but it never touches health.
   const wasRested = restStage(hero.rest).id;
@@ -17144,7 +17178,7 @@ function updateHero(delta) {
    * залпом — ровно то бессмертие, от которого потолок и ставился.
    */
   {
-    const запас = vampiricBudget(currentHeroStats().maxHp, dungeon.depth);
+    const запас = vampiricBudget(currentHeroStats().maxHp, dungeon.depth, dungeon.scaling?.entry?.pressure ?? 1);
     vampiricPool = Math.min(запас, vampiricPool + запас * delta);
   }
   hero.hurt = Math.max(0, hero.hurt - delta);
