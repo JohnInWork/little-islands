@@ -23,6 +23,11 @@
   <body data-state="loading" data-screen="menu">
     <main>
       <canvas id="world-3d" aria-hidden="true"></canvas>
+      <!-- Заставка прибытия: экран гаснет, называет этаж и открывает его. -->
+      <div id="floor-arrival" class="floor-arrival" role="status" aria-live="polite">
+        <b id="floor-arrival-title"></b>
+        <span id="floor-arrival-subtitle"></span>
+      </div>
       <canvas
         id="scene"
         aria-label="Подземелье. Коснись открытого пола, чтобы переместить героя."

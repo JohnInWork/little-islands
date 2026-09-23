@@ -89,7 +89,8 @@ test('main menu owns input until play and keeps language selection persistent', 
   assert.match(runtime, /function startGameFromMenu\(\)/);
   assert.match(runtime, /function setInterfaceLanguage\(language\)/);
   assert.match(runtime, /localStorage\.setItem\(ITEM_LANGUAGE_KEY, itemDetailLanguage\)/);
-  assert.match(runtime, /if \(uiScreen === 'game'\) \{\s*if \(hitStop > 0\)/);
+  // Мир идёт только на экране игры; заставка прибытия и хит-стоп лишь придерживают его.
+  assert.match(runtime, /if \(uiScreen === 'game'\) \{\s*if \(arrivalHold > 0\) \{[\s\S]{0,120}\} else if \(hitStop > 0\)/);
   assert.match(runtime, /framePhase\('hero', \(\) => updateHero\(delta\)\);\s*if \(hitStop === 0\) framePhase\('world'/);
   assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'menu'/);
   assert.match(runtime, /event\.code === 'Tab' && uiScreen === 'appearance'/);

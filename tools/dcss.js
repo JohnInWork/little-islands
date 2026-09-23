@@ -30,6 +30,7 @@ import {
 } from './dcss-rpg-core.js';
 import { creditsModel } from './dcss-rpg-credits.js';
 import { helpModel } from './dcss-rpg-help.js';
+import { floorArrivalModel } from './dcss-rpg-floor-arrival.js';
 import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
@@ -970,6 +971,9 @@ const openHelpButton = document.querySelector('#open-help');
 const closeHelpButton = document.querySelector('#close-help');
 const helpTitle = document.querySelector('#help-title');
 const helpBody = document.querySelector('#help-body');
+const floorArrival = document.querySelector('#floor-arrival');
+const floorArrivalTitle = document.querySelector('#floor-arrival-title');
+const floorArrivalSubtitle = document.querySelector('#floor-arrival-subtitle');
 const recordsScreen = document.querySelector('#records-screen');
 const openRecordsButton = document.querySelector('#open-records');
 const openRecordsLabel = document.querySelector('#open-records-label');
@@ -1415,6 +1419,11 @@ let recordsReturnScreen = 'menu';
 let settingsReturnScreen = 'menu';
 let creditsReturnScreen = 'menu';
 let helpReturnScreen = 'menu';
+/**
+ * Сколько секунд мир ещё стоит, пока экран не открыл новый этаж. Монстры не
+ * должны бить героя, пока игрок смотрит на чёрный экран с цифрой.
+ */
+let arrivalHold = 0;
 let toastTimer = 0;
 let toastVisible = false;
 let activeLootToastEntry = null;
@@ -4710,7 +4719,7 @@ function fallIntoChasm(cell) {
   hero.path = [];
   hero.pendingAttack = null;
   playSound('hit-heavy');
-  showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
+  announceFloor();
 }
 
 /** Where a fall puts you: not the stairs — somewhere the floor had room. */
@@ -11553,7 +11562,7 @@ function stepThroughPortal() {
   // `replaceFloor` is the one place that knows how to land a hero on a floor.
   replaceFloor(run.depth, arrival ?? undefined);
   playSound('portal');
-  showLootToast({ path: PORTAL_PATH, rarity: 2 }, romanDepth(run.depth));
+  announceFloor();
   updatePortalButton();
   persistRun();
   return true;
@@ -16788,7 +16797,7 @@ function useHomeStone() {
     run = travelRunToDepth(captureRun(), back.anchor.depth, { x: back.anchor.x, y: back.anchor.y });
     replaceFloor(run.depth, { x: back.anchor.x, y: back.anchor.y });
     playSound('portal');
-    showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
+    announceFloor();
     return '';
   }
   const cityDepth = CITY_DEPTHS[0];
@@ -16809,6 +16818,7 @@ function useHomeStone() {
   // inside their own walls after the floor is built, not before.
   const arrival = houseArrivalCell(cityHousePlot());
   if (arrival) placeHeroAtCell(arrival);
+  announceFloor();
   playSound('spell-toggle');
   burst(hero.x, hero.y - 12, '#d8bf68', 24);
   return '';
@@ -16827,8 +16837,26 @@ function enterBranch(branch) {
   replaceFloor(run.depth);
   playerHasActed = true;
   playSound('descend');
+  announceFloor();
   persistRun();
   return true;
+}
+
+/**
+ * Экран гаснет, называет этаж и открывает его. Смена самого этажа уже
+ * случилась: заставка — только то, как игрок её видит, поэтому мир на это
+ * время стоит, а правила ничего не ждут.
+ */
+function announceFloor() {
+  const model = floorArrivalModel({ depth: run.depth, branch: run.branch, language: itemDetailLanguage });
+  floorArrivalTitle.textContent = model.title;
+  floorArrivalSubtitle.textContent = model.subtitle;
+  floorArrival.dataset.guardian = String(model.guardian);
+  floorArrival.classList.remove('is-on');
+  // Перезапуск анимации: без чтения размера класс вернётся в том же кадре.
+  void floorArrival.offsetWidth;
+  floorArrival.classList.add('is-on');
+  arrivalHold = reducedMotion ? 0.2 : 0.65;
 }
 
 function descendFloor() {
@@ -16839,7 +16867,7 @@ function descendFloor() {
   hero.hunger = run.hero.hunger;
   replaceFloor(run.depth);
   playSound('descend');
-  showLootToast({ path: exitVisual().path, rarity: 2 }, romanDepth(run.depth));
+  announceFloor();
 }
 
 /** The way back up. The floor above is the one the hero left, not a new one. */
@@ -16857,7 +16885,7 @@ function climbFloor() {
     placeHeroAtCell(run.cityGate ?? воротаДороги ?? dungeon.exit);
   }
   playSound('descend');
-  showLootToast({ path: ascentVisual().path, rarity: 2 }, romanDepth(run.depth));
+  announceFloor();
 }
 
 function restartRun(seed = null, build = null) {
@@ -18808,7 +18836,9 @@ function animate(time) {
     if (!document.hidden && ready) {
       framePhase('pads', () => pollGamepads(delta));
       if (uiScreen === 'game') {
-        if (hitStop > 0) {
+        if (arrivalHold > 0) {
+          arrivalHold = Math.max(0, arrivalHold - delta);
+        } else if (hitStop > 0) {
           hitStop = Math.max(0, hitStop - delta);
         } else {
           framePhase('hero', () => updateHero(delta));

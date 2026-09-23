@@ -9304,3 +9304,67 @@ body {
     gap: 2px;
   }
 }
+
+/*
+ * Прибытие на этаж. Экран сразу чёрный, держится, пока читается цифра, и
+ * открывается ступенями — пиксельно, без плавной вуали. Сверху ничего не
+ * нажать: заставка не ловит касания.
+ */
+.floor-arrival {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: #050708;
+  color: var(--bone);
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.floor-arrival.is-on {
+  visibility: visible;
+  animation: floor-arrival 1150ms steps(6, end) forwards;
+}
+
+.floor-arrival b {
+  font-size: 72px;
+  line-height: 1;
+  color: #e6d9a8;
+  text-shadow: 4px 4px 0 #1b1408;
+}
+
+.floor-arrival span {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #b9a96f;
+}
+
+.floor-arrival[data-guardian='true'] span {
+  color: #d99a95;
+}
+
+@keyframes floor-arrival {
+  0%,
+  50% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor-arrival.is-on {
+    animation-duration: 450ms;
+  }
+}
