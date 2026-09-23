@@ -298,3 +298,32 @@ test('the way down is stone, stands on its cell and does not hover', async () =>
     assert.doesNotMatch(entry, /Math\.sin\(elapsed/, `${marker} hovers`);
   }
 });
+
+/*
+ * Ничто неподвижное не парит — раз и навсегда.
+ *
+ * Левитация возвращалась поштучно: сначала саркофаг, потом лестница вниз,
+ * потом святилище, фонтан и кровавый алтарь, и вещи на полу. Иван: «это
+ * алтарь, он должен стоять на месте… такое правило для всего, что стоит на
+ * месте». Поэтому проверяется не каждый объект, а сам способ: сдвиг спрайта по
+ * вертикали, зависящий от времени, разрешён только живым — через их `bob`.
+ * Свет, блики и частицы могут пульсировать; спрайт камня — нет.
+ */
+test('nothing that stands still hovers: only living things bob', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const content = await readFile(new URL('../tools/dcss-rpg-content.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(content, /\bhover:\s*true/, 'a catalogue entry asks to float');
+  const lines = runtime.split('\n');
+  const offenders = lines
+    .map((line, index) => ({ line: line.trim(), at: index + 1 }))
+    .filter(({ line }) => /\b(?:screenOffsetY|offsetY)\s*:/.test(line))
+    .filter(({ line }) => /Math\.sin|\bpulse\b|\bsway\b|\bfloat\w*\b|elapsed/.test(line))
+    // Живые качаются своим `bob` (герой, монстры, спутники, призраки, звери),
+    // торговец за прилавком дышит на полпикселя — он тоже живой.
+    .filter(({ line }) => !/\bbob\b/.test(line) && !/Math\.sin\(elapsed \* 1\.5\) \* 0\.6/.test(line));
+  assert.deepEqual(offenders, [], 'a sprite rides a time-based vertical offset without being alive');
+  // И вызовы отрисовки не прячут качание в переменную с другим именем.
+  const worldMarkers = runtime.slice(runtime.indexOf('function worldMarkers3D()'));
+  const markersBody = worldMarkers.slice(0, worldMarkers.indexOf('\nfunction '));
+  assert.doesNotMatch(markersBody, /screenOffsetY:[^\n]*(?:Math\.sin|pulse)/);
+});

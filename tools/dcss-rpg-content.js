@@ -3443,8 +3443,6 @@ export const EVENT_CATALOG = Object.freeze([
     path: 'dngn/sparkling_fountain.png',
     effect: 'heal',
     value: 24,
-    // Вода бликует — ей качание к лицу. Камню нет: см. отрисовку событий.
-    hover: true,
     status: { id: 'wet', duration: 9 },
     weight: 8,
   },
@@ -3453,8 +3451,6 @@ export const EVENT_CATALOG = Object.freeze([
     path: 'dngn/altars/makhleb_flame5.png',
     effect: 'power',
     value: 2,
-    // Пламя дышит.
-    hover: true,
     status: { id: 'burning', duration: 5 },
     weight: 5,
   },

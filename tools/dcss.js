@@ -6058,7 +6058,9 @@ function groundLift(size) {
 function worldMarkers3D() {
   const markers = [];
   if (dungeon.sanctuary && revealed.has(`${dungeon.sanctuary.x},${dungeon.sanctuary.y}`)) {
-    const pulse = reducedMotion ? 0 : Math.sin(elapsed * 2.1) * 2;
+    // Камень стоит. Святилище качалось на синусе, и Иван спросил, почему
+    // алтарь левитирует. Правило для всего мира держит тест «ничто
+    // неподвижное не парит»: по вертикали качаются только живые.
     markers.push({
       id: 'marker:sanctuary',
       path: sanctuaryVisual.path,
@@ -6066,7 +6068,7 @@ function worldMarkers3D() {
       y: (dungeon.sanctuary.y + 0.5) * TILE,
       size: 68 * sanctuaryVisual.scale,
       facing: 1,
-      screenOffsetY: sanctuaryVisual.offsetY + pulse,
+      screenOffsetY: sanctuaryVisual.offsetY,
       opacity: 1,
       hit: false,
       shadowScale: 0.7,
@@ -7481,10 +7483,11 @@ function drawLoot() {
     }
     context.restore();
     const isBelt = displayItem.slot === 'belt';
-    if (isBelt) drawGroundBelt(position, rarity, pulse);
+    // Вещь лежит на полу, а не висит над ним: дышит только её свечение.
+    if (isBelt) drawGroundBelt(position, rarity, 0);
     const material = materialSpriteFilter(displayItem);
     drawSprite(spriteForItem(displayItem), x, y, (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1), {
-      offsetY: (displayItem.visualOffsetY ?? -7) + pulse,
+      offsetY: displayItem.visualOffsetY ?? -7,
       ...(material ? { filter: `${VISIBILITY_TUNING.spriteFilter} ${material}` } : {}),
       trim: true,
     });
@@ -7515,22 +7518,20 @@ function drawEvents() {
       continue;
     }
     /*
-     * Качается то, что и должно качаться.
+     * Ничто неподвижное не парит.
      *
-     * Покачивание стояло на всём, что лежит на этаже, и каменный саркофаг
-     * плавал над полом, как воздушный шар. Иван прислал скриншот: «гробница
-     * эта — она почему-то левитирует». Вода бликует, пламя дышит, камень
-     * стоит.
+     * Сперва качалось всё, что лежит на этаже, и саркофаг плыл над полом.
+     * Потом качание оставили воде и пламени — и вместе с ними поплыли
+     * каменный фонтан и кровавый алтарь. Иван: «это алтарь, он должен стоять
+     * на месте… такое правило для всего, что стоит на месте». Спрайт события
+     * стоит; вода и огонь живут светом, а не прыжками камня.
      */
-    const pulse = reducedMotion || !event.definition.hover
-      ? 0
-      : Math.sin(elapsed * 2.2 + gridX) * 2;
     drawSprite(
       event.definition.path,
       event.x,
       event.y,
       62 * (event.definition.visualScale ?? 1),
-      { offsetY: (event.definition.visualOffsetY ?? -5) + pulse },
+      { offsetY: event.definition.visualOffsetY ?? -5 },
     );
   }
   for (const trap of trapDefinitions) {

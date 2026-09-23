@@ -53,7 +53,8 @@ test('runtime trims every floor-loot sprite by alpha instead of special-casing i
   assert.match(source, /floorLootSpritePaths = new Set/);
   assert.match(source, /opaquePixelBounds\(readbackContext\.getImageData/);
   assert.match(source, /const isBelt = displayItem\.slot === 'belt'/);
-  assert.match(source, /if \(isBelt\) drawGroundBelt\(position, rarity, pulse\)/);
+  // Пояс лежит на полу: качание ему не передаётся (см. «ничто неподвижное не парит»).
+  assert.match(source, /if \(isBelt\) drawGroundBelt\(position, rarity, 0\)/);
   assert.match(source, /drawSprite\(spriteForItem\(displayItem\), x, y, \(isBelt \? 18 : 44\)/);
   assert.doesNotMatch(source, /displayItem\.id === ['"](?:regeneration-ring|iron-belt)['"]/);
 });
