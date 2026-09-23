@@ -850,6 +850,18 @@ const padDebug = new URL(document.location.href).searchParams.get('pad') === '1'
  * Игра при этом та же самая; прячется только интерфейс, и только в этом режиме.
  */
 if (new URL(document.location.href).searchParams.get('shot') === '1') document.body.dataset.shot = 'true';
+/*
+ * `?qa=1` — глаза и касание для бота, который играет в игру целиком.
+ *
+ * Бот видит состояние героя и этажа, узнаёт, где на экране клетка, и жмёт
+ * туда мышью — касание идёт тем же путём, что у игрока. Всё остальное он
+ * делает кнопками интерфейса. `&speed=N` прогоняет мир N шагами за кадр, чтобы
+ * забег не занимал час. Без параметра режима нет вовсе.
+ */
+const qaMode = new URL(document.location.href).searchParams.get('qa') === '1';
+const qaSpeed = qaMode
+  ? Math.max(1, Math.min(8, Number.parseInt(new URL(document.location.href).searchParams.get('speed') ?? '1', 10) || 1))
+  : 1;
 let padLastStep = '—';
 /** Что сейчас выбрано стиком на экране игры. Хранится по селектору, не по узлу:
  *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
@@ -1239,7 +1251,10 @@ let world = dungeon.grid;
 const selected = { ...run.equipment };
 let itemInstances = new Map(run.items.map((record) => [record.uid, materializeInventoryItem(record)]));
 let backpackItems = run.inventory.map((uid) => itemInstances.get(uid)).filter(Boolean);
-const revealed = new Set(run.floor.revealed);
+// Только целые клетки: сохранения успели набрать дробных ключей «3.8,8.8»
+// (см. revealAround), и тащить их дальше незачем.
+const isCellKey = (key) => /^\d+,\d+$/.test(key);
+const revealed = new Set(run.floor.revealed.filter(isCellKey));
 revealAround(revealed, world, { x: run.hero.x, y: run.hero.y }, 4);
 /**
  * Комната этажа, ставшая кладбищем, и смерть, которую она хоронит.
@@ -16639,7 +16654,7 @@ function replaceFloor(nextDepth, arrival = null) {
   // Этаж успел собраться — можно сказать, что на нём не так.
   showOmenNote(dungeon.rareEncounter?.omen);
   revealed.clear();
-  for (const cell of run.floor.revealed) revealed.add(cell);
+  for (const cell of run.floor.revealed) if (isCellKey(cell)) revealed.add(cell);
   hero.x = (dungeon.spawn.x + 0.5) * TILE;
   hero.y = (dungeon.spawn.y + 0.5) * TILE;
   if (arrival && isWalkable(arrival.x, arrival.y)) {
@@ -18890,8 +18905,10 @@ function animate(time) {
         } else if (hitStop > 0) {
           hitStop = Math.max(0, hitStop - delta);
         } else {
-          framePhase('hero', () => updateHero(delta));
-          if (hitStop === 0) framePhase('world', () => updateWorld(delta));
+          for (let step = 0; step < qaSpeed && hitStop === 0 && arrivalHold === 0 && uiScreen === 'game'; step += 1) {
+            framePhase('hero', () => updateHero(delta));
+            if (hitStop === 0) framePhase('world', () => updateWorld(delta));
+          }
         }
         framePhase('onboarding', () => updateOnboarding(time));
       }
@@ -19782,6 +19799,67 @@ window.addEventListener('pageshow', () => {
 
 frameId = requestAnimationFrame(animate);
 initialize();
+
+if (qaMode) {
+  const cellOf = (actor) => ({ x: Math.floor(actor.x / TILE), y: Math.floor(actor.y / TILE) });
+  window.__dngQA = Object.freeze({
+    state() {
+      const stats = currentHeroStats();
+      return {
+        ready,
+        screen: uiScreen,
+        runStatus,
+        seed: run.seed,
+        depth: dungeon.depth,
+        branch: run.branch,
+        gold,
+        hero: {
+          ...cellOf(hero),
+          hp: Math.round(hero.hp),
+          maxHp: stats.maxHp,
+          level: hero.level,
+          hunger: hero.hunger,
+          rest: hero.rest,
+          dead: hero.dead,
+          skillPoints: hero.skills.points,
+          pathLength: hero.path.length,
+        },
+        exit: { ...dungeon.exit },
+        spawn: { ...dungeon.spawn },
+        guardianAlive: Boolean(dungeon.objective) && !objectiveBossDefeated(),
+        canLeave: canLeaveDungeonFloor({ depth: dungeon.depth, status: runStatus, guardianDefeated: objectiveBossDefeated() }),
+        artifact: artifactAvailable(),
+        monsters: monsters
+          .filter((monster) => monster.dead === 0 && revealed.has(`${cellOf(monster).x},${cellOf(monster).y}`))
+          .map((monster) => ({
+            id: monster.id,
+            ...cellOf(monster),
+            hp: Math.round(monster.hp),
+            neutral: Boolean(monster.neutral && !monster.provoked),
+            boss: monster.instanceId === dungeon.objective?.bossInstanceId,
+          })),
+        loot: lootDefinitions
+          .filter((loot) => revealed.has(`${cellOf(loot).x},${cellOf(loot).y}`))
+          .map((loot) => ({ id: loot.definition.id, ...cellOf(loot) })),
+        finds: findDefinitions
+          .filter((find) => findIsInteractable(find) && revealed.has(`${cellOf(find).x},${cellOf(find).y}`))
+          .map((find) => ({ id: find.id, ...cellOf(find) })),
+        grid: world.map((row) => row.join('')),
+        revealed: [...revealed],
+        nearby: nearbyContextTarget()?.kind ?? null,
+      };
+    },
+    /** Где на экране центр клетки — туда бот и кликает. */
+    cellToScreen(x, y) {
+      const point = worldToScreen((x + 0.5) * TILE, (y + 0.5) * TILE);
+      return { x: point.x, y: point.y, onScreen: point.x > 8 && point.y > 8 && point.x < innerWidth - 8 && point.y < innerHeight - 8 };
+    },
+    /** Длина пешего пути до клетки по правилам героя; 0 — не дойти. */
+    pathLength(x, y) {
+      return findPath(x, y, { heroMovement: true, allowHidden: true }).length;
+    },
+  });
+}
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

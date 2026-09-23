@@ -941,3 +941,18 @@ test('the healing altar is rare below and always in town', () => {
   const share = altars / floors;
   assert.ok(share > 0.04 && share < 0.12, `altar on ${(share * 100).toFixed(1)}% of floors`);
 });
+
+/*
+ * Радиус зрения дробный (5,2). Разведка обязана отмечать целые клетки: иначе
+ * касание не находит пути, а карта этажа пуста. Бот нашёл это на первом шаге.
+ */
+test('revealing around the hero marks whole cells even with a fractional sight radius', () => {
+  const grid = Array.from({ length: 21 }, () => '.'.repeat(21));
+  const revealed = new Set();
+  revealAround(revealed, grid, { x: 10, y: 10 }, 5.2);
+  assert.ok(revealed.size > 60);
+  for (const key of revealed) assert.match(key, /^\d+,\d+$/, `${key} is not a cell`);
+  assert.ok(revealed.has('10,10'), 'the hero’s own cell');
+  assert.ok(revealed.has('15,10'), 'five cells away, inside 5.2');
+  assert.equal(revealed.has('16,10'), false, 'six cells away is out of sight');
+});

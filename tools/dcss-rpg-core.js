@@ -554,13 +554,24 @@ function pickRoomSpawnCells(rng, grid, room, count, occupied) {
   return picked;
 }
 
+/**
+ * Разведать клетки вокруг героя.
+ *
+ * Перебор идёт только по целым клеткам. Радиус зрения дробный (5,2), и цикл
+ * «от центра минус радиус» шёл по 8.8, 9.8, 10.8…: в разведанное попадали
+ * ключи вроде «3.8,8.8», а настоящие клетки — нет. Касание по полу не
+ * находило пути, карта этажа писала «ничего не разведано» — бот, играющий в
+ * игру, упёрся в это на первом же шаге.
+ */
 export function revealAround(revealed, grid, center, radius = 4) {
   let changed = false;
-  for (let y = center.y - radius; y <= center.y + radius; y += 1) {
-    for (let x = center.x - radius; x <= center.x + radius; x += 1) {
+  const origin = { x: Math.floor(center.x), y: Math.floor(center.y) };
+  const reach = Math.ceil(radius);
+  for (let y = origin.y - reach; y <= origin.y + reach; y += 1) {
+    for (let x = origin.x - reach; x <= origin.x + reach; x += 1) {
       if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) continue;
-      if (Math.hypot(x - center.x, y - center.y) > radius + 0.35) continue;
-      if (!hasLineOfSight(grid, center, { x, y })) continue;
+      if (Math.hypot(x - origin.x, y - origin.y) > radius + 0.35) continue;
+      if (!hasLineOfSight(grid, origin, { x, y })) continue;
       const key = `${x},${y}`;
       if (revealed.has(key)) continue;
       revealed.add(key);
