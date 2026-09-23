@@ -115,6 +115,7 @@ async function playRun(browser, runIndex) {
   let wanderNoise = 0;
   let lastCareAt = 0;
   let lastCastAt = 0;
+  let lastClick = null;
 
   const state = () => page.evaluate(() => window.__dngQA.state());
   const click = async (selector) => {
@@ -338,6 +339,7 @@ async function playRun(browser, runIndex) {
       if (!point.onScreen) continue;
       await page.mouse.click(point.x, point.y);
       clicked = true;
+      lastClick = { cell: steps[i], point };
       break;
     }
     if (!clicked && path.length <= 1 && reason === 'exit') {
@@ -351,7 +353,17 @@ async function playRun(browser, runIndex) {
       lastMoveAt = Date.now();
     } else if (Date.now() - lastMoveAt > 12_000 && !near) {
       const file = await shot(`stuck-d${st.depth}-${st.stuck?.length ?? log.stuck.length}`);
-      log.stuck.push({ depth: st.depth, cell: hero, reason, goal, screen: st.screen, screenshot: file });
+      // Что видит игра: есть ли у неё путь к кликнутой клетке и идёт ли герой.
+      const diag = lastClick
+        ? await page.evaluate(({ x, y }) => ({
+          gamePath: window.__dngQA.pathLength(x, y),
+          heroPath: window.__dngQA.state().hero.pathLength,
+          nearby: window.__dngQA.state().nearby,
+          under: document.elementFromPoint(window.__dngQA.cellToScreen(x, y).x, window.__dngQA.cellToScreen(x, y).y)?.id
+            || document.elementFromPoint(window.__dngQA.cellToScreen(x, y).x, window.__dngQA.cellToScreen(x, y).y)?.className,
+        }), lastClick.cell)
+        : null;
+      log.stuck.push({ depth: st.depth, cell: hero, reason, goal, clicked: lastClick, diag, screen: st.screen, screenshot: file });
       badTargets.add(key(goal.x, goal.y));
       lastMoveAt = Date.now();
       wanderNoise += 1;
@@ -391,7 +403,7 @@ for (const [index, log] of runs.entries()) {
   for (const death of log.deaths) lines.push(`- death on ${death.depth} at level ${death.level}: ${death.summary.replace(/\n/g, ' · ')} (${death.screenshot})`);
   for (const error of log.errors) lines.push(`- ERROR: ${error.message}`);
   for (const missing of [...new Set(log.missing)]) lines.push(`- MISSING: ${missing}`);
-  for (const stall of log.stuck) lines.push(`- stall on ${stall.depth} at ${stall.cell.x},${stall.cell.y} going for ${stall.reason} (${stall.screenshot})`);
+  for (const stall of log.stuck) lines.push(`- stall on ${stall.depth} at ${stall.cell.x},${stall.cell.y} going for ${stall.reason}; clicked ${stall.clicked ? `${stall.clicked.cell.x},${stall.clicked.cell.y}` : 'nothing'}; game path ${stall.diag?.gamePath ?? '-'}, hero path ${stall.diag?.heroPath ?? '-'}, under the pointer ${stall.diag?.under ?? '-'}, nearby ${stall.diag?.nearby ?? '-'} (${stall.screenshot})`);
   for (const note of log.notes) lines.push(`- note: ${note}`);
   lines.push('');
 }

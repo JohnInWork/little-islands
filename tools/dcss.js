@@ -19856,7 +19856,10 @@ if (qaMode) {
     /** Где на экране центр клетки — туда бот и кликает. */
     cellToScreen(x, y) {
       const point = worldToScreen((x + 0.5) * TILE, (y + 0.5) * TILE);
-      return { x: point.x, y: point.y, onScreen: point.x > 8 && point.y > 8 && point.x < innerWidth - 8 && point.y < innerHeight - 8 };
+      const inside = point.x > 8 && point.y > 8 && point.x < innerWidth - 8 && point.y < innerHeight - 8;
+      // Клетка под крестовиной или кнопкой видна, но касание достанется им.
+      const under = inside ? document.elementFromPoint(point.x, point.y) : null;
+      return { x: point.x, y: point.y, onScreen: inside && under === canvas };
     },
     /** Длина пешего пути до клетки по правилам героя; 0 — не дойти. */
     pathLength(x, y) {
