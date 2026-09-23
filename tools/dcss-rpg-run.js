@@ -88,6 +88,16 @@ export function guardianDepthForRung(rung) {
 export const FLOORS_PER_MERCHANT = 3;
 
 export const SANCTUARY_COST = 3;
+/**
+ * Каменный алтарь в подземелье — редкость, а не колонка у каждой лестницы.
+ *
+ * Он стоял на каждом этаже со второго и за три монеты лечил 36: игроки
+ * говорили Ивану, что алтарей слишком много и лечат они даром. Иван: «надо
+ * сделать их супер редкими (один оставить в городе)». Городской камень на
+ * месте всегда; в подземелье алтарь встречается примерно на одном этаже из
+ * двенадцати — полтора раза за всю дорогу.
+ */
+export const SANCTUARY_FLOOR_CHANCE_PERCENT = 8;
 export const SANCTUARY_HEAL = 36;
 
 /** Which chapter a floor belongs to, counting from one and never stopping. */

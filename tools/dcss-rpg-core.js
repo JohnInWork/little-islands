@@ -36,6 +36,7 @@ import {
 import {
   FINAL_BOSS_ID,
   DEEPEST_DEPTH,
+  SANCTUARY_FLOOR_CHANCE_PERCENT,
   STORY_CHAPTERS,
   STORY_DEPTH,
   chapterForDepth,
@@ -751,8 +752,17 @@ export function generateDungeon({
   if (route.length === 0) throw new Error('Generated dungeon has no route to the exit');
   const occupied = new Set([`${spawn.x},${spawn.y}`, `${exit.x},${exit.y}`]);
 
-  const sanctuary = depth > 1 ? { ...route[0] } : null;
-  if (sanctuary) occupied.add(`${sanctuary.x},${sanctuary.y}`);
+  // Клетка у лестницы остаётся занятой на любом этаже со второго, даже когда
+  // алтаря на ней нет: так раскладка остального этажа не сдвигается ни на
+  // клетку, и сохранённые этажи строятся так же, как вчера. Есть ли сам
+  // алтарь, решает отдельный хеш зерна — общий генератор случайности им не
+  // тратится.
+  const sanctuaryCell = depth > 1 ? { ...route[0] } : null;
+  if (sanctuaryCell) occupied.add(`${sanctuaryCell.x},${sanctuaryCell.y}`);
+  const sanctuary = sanctuaryCell
+    && (mixSeed(floorSeed, 0x53414e43) % 100) < SANCTUARY_FLOOR_CHANCE_PERCENT
+    ? sanctuaryCell
+    : null;
   const chapterGuardian = chapterGuardianForDepth(depth, branch);
   const bossCell = chapterGuardian ? route.at(-2) : null;
   const objective = bossCell
@@ -772,7 +782,7 @@ export function generateDungeon({
     rooms,
     spawn,
     exit,
-    sanctuary,
+    sanctuary: sanctuaryCell,
     objective,
     depth,
     floorSeed,
@@ -1114,7 +1124,7 @@ export function generateDungeon({
         || room === surpriseRoom
         || roomHolds(room, spawn)
         || roomHolds(room, exit)
-        || roomHolds(room, sanctuary)
+        || roomHolds(room, sanctuaryCell)
         || roomHolds(room, objective?.boss))
       .map(({ index }) => index),
   );
@@ -1217,7 +1227,7 @@ export function generateDungeon({
     rooms,
     spawn,
     exit,
-    sanctuary,
+    sanctuary: sanctuaryCell,
     objective,
     doors: doorPlan.doors,
     surprises: doorPlan.surprise ? [doorPlan.surprise] : [],
@@ -1241,7 +1251,7 @@ export function generateDungeon({
   {
     const chasmRng = createRng(mixSeed(floorSeed, 0x43484153));
     const standing = [
-      spawn, exit, sanctuary, objective?.boss, rareSpot,
+      spawn, exit, sanctuaryCell, objective?.boss, rareSpot,
       ...events, ...monsters, ...passiveCreatures, ...finds, ...loot,
       ...doorPlan.doors,
       ...(doorPlan.surprise ? [doorPlan.surprise] : []),
@@ -1362,7 +1372,7 @@ export function generateDungeon({
     rooms,
     spawn,
     exit,
-    sanctuary,
+    sanctuary: sanctuaryCell,
     objective,
     doors: doorPlan.doors,
     surprises: doorPlan.surprise ? [doorPlan.surprise] : [],

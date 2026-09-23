@@ -692,7 +692,6 @@ test('each three-floor chapter ends with a reachable guardian and only floor nin
   for (let seed = 1; seed <= 200; seed += 1) {
     for (const expected of CHAPTER_GUARDIANS) {
       const dungeon = generateDungeon({ seed, depth: expected.depth });
-      assert.ok(dungeon.sanctuary);
       assert.equal(dungeon.objective.bossId, expected.monsterId);
       assert.deepEqual(dungeon.objective.gate, dungeon.exit);
       assert.deepEqual(dungeon.objective.artifact, expected.final ? dungeon.exit : null);
@@ -921,4 +920,24 @@ test('приём забега выдаёт пустое значение каж�
   // И уже заполненное приём не трогает.
   const сразговором = adoptRun({ ...run, floor: { ...run.floor, spoken: ['monster-1-rare'] } });
   assert.deepEqual(сразговором.floor.spoken, ['monster-1-rare']);
+});
+
+/*
+ * Иван: алтарей «очень много в игре и они очень дешёвые — надо сделать их
+ * супер редкими (один оставить в городе)». Городской камень есть всегда, в
+ * подземелье алтарь — примерно на одном этаже из двенадцати.
+ */
+test('the healing altar is rare below and always in town', () => {
+  let floors = 0;
+  let altars = 0;
+  for (let seed = 1; seed <= 120; seed += 1) {
+    assert.ok(generateDungeon({ seed, depth: 0 }).sanctuary, 'the town keeps its stone');
+    assert.equal(generateDungeon({ seed, depth: 1 }).sanctuary, null, 'never on the first floor');
+    for (let depth = 2; depth <= 18; depth += 1) {
+      floors += 1;
+      if (generateDungeon({ seed, depth }).sanctuary) altars += 1;
+    }
+  }
+  const share = altars / floors;
+  assert.ok(share > 0.04 && share < 0.12, `altar on ${(share * 100).toFixed(1)}% of floors`);
 });
