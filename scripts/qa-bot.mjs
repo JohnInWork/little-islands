@@ -34,6 +34,7 @@ const BASE = String(args.base ?? 'http://127.0.0.1:5173');
 const FIRST_SEED = args.seed ? Number(args.seed) : 1000 + Math.floor(Math.random() * 1e6);
 const HEADED = Boolean(args.headed);
 const GOD = Boolean(args.god);
+const CLASS = args.class === undefined ? null : Number(args.class);
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const outDir = resolve('output/qa', stamp);
@@ -74,7 +75,7 @@ function bfs(grid, from, goal, { passable = (x, y) => WALKABLE.has(grid[y]?.[x])
 
 async function playRun(browser, runIndex) {
   const seed = FIRST_SEED + runIndex * 7919;
-  const archetype = runIndex % 4;
+  const archetype = CLASS ?? runIndex % 4;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const log = {
@@ -86,7 +87,18 @@ async function playRun(browser, runIndex) {
     await page.screenshot({ path: join(outDir, file) }).catch(() => {});
     return file;
   };
-  page.on('pageerror', (error) => log.errors.push({ at: Date.now(), message: error.message }));
+  let currentDepth = 0;
+  const firstSeen = new Set();
+  page.on('pageerror', (error) => {
+    const entry = { at: Date.now(), message: error.message, depth: currentDepth };
+    // Стек и снимок — только у первой такой ошибки: остальные — её эхо.
+    if (!firstSeen.has(error.message)) {
+      firstSeen.add(error.message);
+      entry.stack = String(error.stack ?? '').split('\n').slice(0, 6).join(' | ');
+      shot(`error-${firstSeen.size}`).then((file) => { entry.screenshot = file; });
+    }
+    log.errors.push(entry);
+  });
   page.on('console', (message) => {
     if (message.type() === 'error') log.errors.push({ at: Date.now(), message: message.text() });
   });
@@ -135,6 +147,7 @@ async function playRun(browser, runIndex) {
       await sleep(500);
       continue;
     }
+    currentDepth = st.depth;
     log.depthReached = Math.max(log.depthReached, st.depth);
     log.level = st.hero.level;
 
@@ -382,30 +395,47 @@ async function playRun(browser, runIndex) {
 }
 
 // Без GPU безголовый браузер не создаёт WebGL, и игра стоит на загрузке —
-// программный рендер SwiftShader это обходит.
-const browser = await chromium.launch({
+// программный рендер SwiftShader это обходит. Браузер свой на каждый забег:
+// упавший забег не должен унести с собой остальные.
+const launch = () => chromium.launch({
   headless: !HEADED,
   args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist'],
 });
 const runs = [];
 for (let index = 0; index < RUNS; index += 1) {
-  const log = await playRun(browser, index);
+  const browser = await launch();
+  let log;
+  try {
+    log = await playRun(browser, index);
+  } catch (error) {
+    log = { seed: FIRST_SEED + index * 7919, archetype: CLASS ?? index % 4, result: 'crashed', depthReached: 0, level: 0, minutes: 0,
+      errors: [{ at: Date.now(), message: `bot crashed: ${error.message}` }], missing: [], stuck: [], floors: [], deaths: [], notes: [] };
+  }
+  await browser.close().catch(() => {});
   runs.push(log);
   console.log(`run ${index}: seed ${log.seed} class ${log.archetype} → ${log.result} at floor ${log.depthReached}, level ${log.level}, ${log.minutes} min; errors ${log.errors.length}, 404 ${log.missing.length}, stalls ${log.stuck.length}`);
+  writeReport();
 }
-await browser.close();
 
+function writeReport() {
 writeFileSync(join(outDir, 'report.json'), JSON.stringify(runs, null, 2));
 const lines = [`# QA bot — ${stamp}`, '', `speed ×${SPEED}, ${MINUTES} min cap per run`, ''];
 for (const [index, log] of runs.entries()) {
   lines.push(`## Run ${index}: seed ${log.seed}, class #${log.archetype} → **${log.result}** at floor ${log.depthReached}, level ${log.level}, ${log.minutes} min`);
   if (log.floors.length) lines.push(`- seconds per floor: ${log.floors.map((floor) => `${floor.depth}:${floor.seconds}`).join(' ')}`);
   for (const death of log.deaths) lines.push(`- death on ${death.depth} at level ${death.level}: ${death.summary.replace(/\n/g, ' · ')} (${death.screenshot})`);
-  for (const error of log.errors) lines.push(`- ERROR: ${error.message}`);
+  const counted = new Map();
+  for (const error of log.errors) counted.set(error.message, (counted.get(error.message) ?? 0) + 1);
+  for (const [message, count] of counted) {
+    const first = log.errors.find((error) => error.message === message);
+    lines.push(`- ERROR ×${count} (first on floor ${first.depth ?? '?'}${first.screenshot ? `, ${first.screenshot}` : ''}): ${message.slice(0, 300)}`);
+    if (first.stack) lines.push(`  - stack: ${first.stack.slice(0, 600)}`);
+  }
   for (const missing of [...new Set(log.missing)]) lines.push(`- MISSING: ${missing}`);
   for (const stall of log.stuck) lines.push(`- stall on ${stall.depth} at ${stall.cell.x},${stall.cell.y} going for ${stall.reason}; clicked ${stall.clicked ? `${stall.clicked.cell.x},${stall.clicked.cell.y}` : 'nothing'}; game path ${stall.diag?.gamePath ?? '-'}, hero path ${stall.diag?.heroPath ?? '-'}, under the pointer ${stall.diag?.under ?? '-'}, nearby ${stall.diag?.nearby ?? '-'} (${stall.screenshot})`);
   for (const note of log.notes) lines.push(`- note: ${note}`);
   lines.push('');
 }
 writeFileSync(join(outDir, 'report.md'), lines.join('\n'));
+}
 console.log(`report → ${join(outDir, 'report.md')}`);
