@@ -998,6 +998,16 @@
                 <button id="music-volume-up" type="button" aria-label="Громче">+</button>
               </div>
             </section>
+            <!-- Подземелье тёмное нарочно; на телефоне днём его можно высветлить. -->
+            <section class="settings-block" aria-labelledby="settings-brightness-title">
+              <h3 id="settings-brightness-title">Яркость</h3>
+              <div id="settings-brightness" class="main-menu-audio" role="group" aria-label="Яркость">
+                <span class="settings-brightness-glyph" aria-hidden="true">☼</span>
+                <button id="brightness-down" type="button" aria-label="Темнее">−</button>
+                <output id="brightness-value" aria-live="polite">100%</output>
+                <button id="brightness-up" type="button" aria-label="Светлее">+</button>
+              </div>
+            </section>
             <section class="settings-block settings-danger" aria-labelledby="settings-wipe-title">
               <h3 id="settings-wipe-title">Начать всё сначала</h3>
               <p id="settings-wipe-note">Удалит записи, рекорды и текущий забег. Отменить нельзя.</p>

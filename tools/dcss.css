@@ -9457,3 +9457,40 @@ body {
     animation: none;
   }
 }
+
+/* Режим скриншотов для магазина (`?shot=1`): мир остаётся, интерфейс уходит. */
+[data-shot='true'][data-screen='game'] .hud,
+[data-shot='true'][data-screen='game'] .depth,
+[data-shot='true'][data-screen='game'] .open-portal,
+[data-shot='true'][data-screen='game'] .pause-game,
+[data-shot='true'][data-screen='game'] .move-control,
+[data-shot='true'][data-screen='game'] .spell-bar,
+[data-shot='true'][data-screen='game'] .loot-toast,
+[data-shot='true'][data-screen='game'] .ambient-note,
+[data-shot='true'][data-screen='game'] .bag-button,
+[data-shot='true'][data-screen='game'] .interact-actions,
+[data-shot='true'][data-screen='game'] .boss-hud,
+[data-shot='true'][data-screen='game'] .level-up-celebration,
+[data-shot='true'] .status,
+[data-shot='true'] .source {
+  display: none !important;
+}
+
+/* Яркость мира: фильтр живёт только когда игрок его включил (см. dcss-rpg-display.js). */
+[data-bright='true'] #world-3d,
+[data-bright='true'] #scene,
+[data-bright='true'] #void-sky {
+  filter: brightness(var(--world-brightness, 1));
+}
+
+.settings-brightness-glyph {
+  display: grid;
+  place-items: center;
+  color: #d6c79c;
+  font-size: 24px;
+}
+
+#brightness-value {
+  text-align: center;
+  color: #eadb9b;
+}

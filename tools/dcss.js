@@ -32,6 +32,12 @@ import { creditsModel } from './dcss-rpg-credits.js';
 import { helpModel } from './dcss-rpg-help.js';
 import { floorArrivalModel } from './dcss-rpg-floor-arrival.js';
 import {
+  DISPLAY_SETTINGS_KEY,
+  createDisplaySettings,
+  displayMenuModel,
+  stepBrightness,
+} from './dcss-rpg-display.js';
+import {
   HERO_BASE_MOVE_SPEED,
   canMonsterAdvance,
   canWeaponAttack,
@@ -835,6 +841,11 @@ const padReportLine = document.querySelector('#pad-report');
 /** `?pad=1` показывает, что именно шлёт геймпад: в киоске консоли нет, и
  *  «у меня не работает» без этой строки — гадание. */
 const padDebug = new URL(document.location.href).searchParams.get('pad') === '1';
+/*
+ * `?shot=1` — кадр для страницы магазина: мир без единой кнопки поверх.
+ * Игра при этом та же самая; прячется только интерфейс, и только в этом режиме.
+ */
+if (new URL(document.location.href).searchParams.get('shot') === '1') document.body.dataset.shot = 'true';
 let padLastStep = '—';
 /** Что сейчас выбрано стиком на экране игры. Хранится по селектору, не по узлу:
  *  колонка взаимодействия перестраивается сама, и ссылка на узел протухает. */
@@ -973,6 +984,11 @@ const closeHelpButton = document.querySelector('#close-help');
 const helpTitle = document.querySelector('#help-title');
 const helpBody = document.querySelector('#help-body');
 const floorArrival = document.querySelector('#floor-arrival');
+const settingsBrightnessTitle = document.querySelector('#settings-brightness-title');
+const settingsBrightnessGroup = document.querySelector('#settings-brightness');
+const brightnessDownButton = document.querySelector('#brightness-down');
+const brightnessUpButton = document.querySelector('#brightness-up');
+const brightnessValue = document.querySelector('#brightness-value');
 const floorArrivalTitle = document.querySelector('#floor-arrival-title');
 const floorArrivalSubtitle = document.querySelector('#floor-arrival-subtitle');
 const recordsScreen = document.querySelector('#records-screen');
@@ -1453,6 +1469,13 @@ let audioSettings = (() => {
   }
 })();
 let itemDetailLanguage = loadItemDetailLanguage();
+let displaySettings = (() => {
+  try {
+    return createDisplaySettings(JSON.parse(localStorage.getItem(DISPLAY_SETTINGS_KEY) ?? 'null'));
+  } catch {
+    return createDisplaySettings();
+  }
+})();
 let playerAppearance = loadPlayerAppearance();
 let appearanceDraft = playerAppearance;
 let menuMode = 'title';
@@ -13892,7 +13915,42 @@ function closeRecords() {
  * того, ради чего меню и открывают, и в паузе висели поверх игры. Здесь они
  * стоят там, где их ищут, и подписаны словами, а не значками.
  */
+/**
+ * Яркость ложится фильтром на оба холста мира. При 100% фильтра нет вовсе:
+ * на слабом телефоне полноэкранный фильтр стоит кадров, и платить за него
+ * должен только тот, кто его включил.
+ */
+function applyDisplaySettings() {
+  const model = displayMenuModel(displaySettings, itemDetailLanguage);
+  if (model.filter == null) {
+    delete document.body.dataset.bright;
+    document.body.style.removeProperty('--world-brightness');
+  } else {
+    document.body.dataset.bright = 'true';
+    document.body.style.setProperty('--world-brightness', String(model.filter));
+  }
+  settingsBrightnessTitle.textContent = model.groupLabel;
+  settingsBrightnessGroup.setAttribute('aria-label', model.groupLabel);
+  brightnessValue.textContent = model.valueText;
+  brightnessDownButton.setAttribute('aria-label', model.darkerLabel);
+  brightnessUpButton.setAttribute('aria-label', model.brighterLabel);
+  brightnessDownButton.disabled = !model.canLower;
+  brightnessUpButton.disabled = !model.canRaise;
+}
+
+function changeBrightness(direction) {
+  displaySettings = stepBrightness(displaySettings, direction);
+  try {
+    localStorage.setItem(DISPLAY_SETTINGS_KEY, JSON.stringify(displaySettings));
+  } catch {
+    // Без хранилища яркость живёт до перезагрузки — это не повод ломать меню.
+  }
+  applyDisplaySettings();
+  playSound('ui-tap');
+}
+
 function renderSettings() {
+  applyDisplaySettings();
   const { labels } = currentMainMenuModel();
   settingsTitle.textContent = labels.settings;
   openSettingsLabel.textContent = labels.settings;
@@ -19720,6 +19778,8 @@ wipeProgressButton.addEventListener('click', wipeProgress);
 openCreditsButton.addEventListener('click', openCredits);
 closeCreditsButton.addEventListener('click', closeCredits);
 openHelpButton.addEventListener('click', openHelp);
+brightnessDownButton.addEventListener('click', () => changeBrightness(-1));
+brightnessUpButton.addEventListener('click', () => changeBrightness(1));
 closeHelpButton.addEventListener('click', closeHelp);
 closeContextActionsButton.addEventListener('click', () => closeContextActions({ restoreFocus: true }));
 contextActionBackdrop.addEventListener('click', () => closeContextActions());
