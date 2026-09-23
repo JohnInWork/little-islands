@@ -146,6 +146,9 @@ export const SAVE_VERSION = 51;
 export const SAVE_KEY = 'dng-codex:rpg:v51';
 export const LEGACY_SAVE_KEY = 'little-islands:dcss-rpg:v1';
 export const LEGACY_SAVE_KEYS = Object.freeze([
+  // v49 и v50 прожили по дню и сюда не попали: их забеги молча терялись.
+  'dng-codex:rpg:v50',
+  'dng-codex:rpg:v49',
   'dng-codex:rpg:v48',
   'dng-codex:rpg:v47',
   'dng-codex:rpg:v46',
@@ -1937,10 +1940,10 @@ function normalizedFloorArchive(source, currentDepth, anchors = []) {
 }
 
 export function migrateLegacyRun(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47].includes(snapshot.version)) {
+  if (!snapshot || typeof snapshot !== 'object' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50].includes(snapshot.version)) {
     throw new Error('Not a supported legacy RPG save');
   }
-  if ([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47].includes(snapshot.version)) {
+  if (snapshot.version >= 31) {
     // v32 activates Storm Magic. v33 turns each generated chest into a real
     // persisted container. A previously resolved chest migrates as an empty,
     // already-open container so an update can never duplicate its old reward.
@@ -1991,6 +1994,16 @@ export function migrateLegacyRun(snapshot) {
     // Every migrated run gets the camp fields v38 introduced: no pitched camp
     // on the floor and an empty stash in the run.
     // v40 adds the cooked-dish timer; a migrated hero simply has not eaten one.
+    // v51 turns the lone Intelligence into three attributes. Without this a
+    // v31–v50 hero fails the attribute check and the whole run is dropped.
+    if (!validateAttributeState(migrated.hero.attributes)) {
+      migrated.hero.attributes = createAttributeState({
+        intelligence: Number.isInteger(snapshot.hero.intelligence)
+          ? snapshot.hero.intelligence
+          : createStartingMagic(LEGACY_BUILD_PRESET_ID).intelligence,
+      });
+    }
+    delete migrated.hero.intelligence;
     migrated.hero.meal = migrated.hero.meal ?? null;
     migrated.hero.rest = validateRest(migrated.hero.rest) ? migrated.hero.rest : REST_MAX;
     migrated.hero.coating = createCoatingState(migrated.hero.coating);
@@ -2018,8 +2031,7 @@ export function migrateLegacyRun(snapshot) {
         restPercent: LEGACY_CAMP_REST_PERCENT[migrated.floor.camp.rank] ?? 0,
       };
     }
-    if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
-    return migrated;
+    return settleLegacyRun(migrated, snapshot.version);
   }
   if ([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(snapshot.version)) {
     // v15 adds explicitly targeted player traps; v16 makes long weapons truly
@@ -2148,7 +2160,7 @@ export function migrateLegacyRun(snapshot) {
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
-    if (!validateRun(migrated)) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
+    if (!validateRun(adoptRun(migrated))) throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
     const dungeon = generateDungeon({
       seed: migrated.seed,
       depth: migrated.depth,
@@ -2304,10 +2316,7 @@ export function migrateLegacyRun(snapshot) {
     // v43 lets the city keep a record; a migrated hero has none.
     migrated.crime = createCrimeState(migrated.crime);
     migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
-    if (!validateRun(migrated)) {
-      throw new Error(`Cannot migrate invalid version ${snapshot.version} RPG save`);
-    }
-    return migrated;
+    return settleLegacyRun(migrated, snapshot.version);
   }
   const used = new Set();
   const items = [];
@@ -2431,8 +2440,20 @@ export function migrateLegacyRun(snapshot) {
   migrated.crime = createCrimeState(migrated.crime);
   // v44 lets a beast walk with the hero; a migrated run walks alone.
   migrated.companions = createCompanionParty(migrated.companions ?? migrated.companion);
-  if (!validateRun(migrated)) throw new Error('Cannot migrate invalid version 1 RPG save');
-  return migrated;
+  return settleLegacyRun(migrated, 1);
+}
+
+/**
+ * Последний шаг любой миграции — тот же приём, что у сегодняшнего сейва.
+ *
+ * Старый забег мог вложить очки в навык, которого больше нет, или носить
+ * кольцо с убранной силой. Сегодняшний сейв это лечит в `adoptRun`, а
+ * миграция раньше проверяла результат без него — и отвергала забег целиком.
+ */
+function settleLegacyRun(migrated, version) {
+  const adopted = adoptRun(migrated);
+  if (!validateRun(adopted)) throw new Error(`Cannot migrate invalid version ${version} RPG save`);
+  return adopted;
 }
 
 function isFiniteInteger(value, min, max) {

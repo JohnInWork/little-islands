@@ -78,7 +78,8 @@ test('the summary lists floor, time, kills, gold, level and seed, plus the cause
 test('run statistics are a strict persisted field of save v35', () => {
   assert.equal(SAVE_VERSION, 51);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v51');
-  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v48');
+  // Предыдущая версия — первой: v49 и v50 когда-то выпали из списка.
+  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v50');
   assert.deepEqual(createRunStats(), { kills: 0, activeSeconds: 0, killerId: null });
   assert.deepEqual(createRunStats({ kills: 3, activeSeconds: 12.5, killerId: 'goblin', extra: 1 }), { kills: 3, activeSeconds: 12.5, killerId: 'goblin' });
   assert.deepEqual(createRunStats({ kills: -1, activeSeconds: 'x', killerId: 42 }), { kills: 0, activeSeconds: 0, killerId: null });

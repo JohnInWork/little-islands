@@ -235,7 +235,8 @@ test('the floor map paints water and save v37 regenerates older floors with the 
   assert.equal(model.cells[0].kind, 'water');
   assert.equal(SAVE_VERSION, 51);
   assert.equal(SAVE_KEY, 'dng-codex:rpg:v51');
-  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v48');
+  // Предыдущая версия — первой: v49 и v50 когда-то выпали из списка.
+  assert.equal(LEGACY_SAVE_KEYS[0], 'dng-codex:rpg:v50');
   assert.equal(GENERATOR_VERSION, 16);
   const run = createRun(36035);
   assert.equal(validateRun(run), true);
