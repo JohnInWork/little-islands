@@ -1085,10 +1085,19 @@ const atlasRoot = new URL('../assets/atlas/', document.baseURI);
  * файлов игре больше не нужно вовсе.
  */
 const uiSpriteUrls = new Map();
+/**
+ * Пока лист не разрезан, картинке интерфейса нечего показать. Раньше она
+ * просила отдельный файл — а в сборке для itch.io отдельных файлов нет, и
+ * первые кадры сыпали ошибками 404. Прозрачная точка честнее: после загрузки
+ * атласа интерфейс перерисовывается целиком.
+ */
+let spriteSheetSettled = false;
+const EMPTY_PICTURE = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function spriteUrl(path) {
   const готовый = uiSpriteUrls.get(path);
   if (готовый) return готовый;
   const вырезанный = images.get(path);
+  if (!вырезанный && !spriteSheetSettled) return EMPTY_PICTURE;
   if (typeof вырезанный?.toDataURL !== 'function') return assetUrl(path);
   const адрес = вырезанный.toDataURL();
   uiSpriteUrls.set(path, адрес);
@@ -19178,6 +19187,7 @@ async function initialize() {
       if (!atlas || !sliceFromAtlas(atlas, path)) порознь.push(path);
     }
     await loadImageQueue(порознь);
+    spriteSheetSettled = true;
     rebuildDungeonWorld3D();
     ready = true;
     discoverNearbyTraps({ feedback: false });

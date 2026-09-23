@@ -289,6 +289,7 @@ export const CREDITS_SECTIONS = Object.freeze([
     // Магазины спрашивают, что игра делает с данными игрока. Ответ короткий,
     // и он должен быть в самой игре, а не только в описании на витрине.
     id: 'privacy',
+    notice: 'privacy.html',
     ru: {
       title: 'Приватность',
       lines: Object.freeze([
@@ -314,6 +315,7 @@ const COPY = Object.freeze({
     close: 'Закрыть авторов',
     licenseLabel: 'Лицензия',
     noticeLabel: 'Полный список авторов',
+    privacyLabel: 'Политика конфиденциальности',
     codeNoticeLabel: 'Тексты лицензий',
   }),
   en: Object.freeze({
@@ -321,6 +323,7 @@ const COPY = Object.freeze({
     close: 'Close credits',
     licenseLabel: 'Licence',
     noticeLabel: 'Full credits',
+    privacyLabel: 'Privacy policy',
     codeNoticeLabel: 'Licence texts',
   }),
 });
@@ -350,7 +353,9 @@ export function creditsModel(language = 'ru') {
       notice: entry.notice,
       noticeLabel: entry.notice
         // Паки LPC ведут к списку авторов, шрифт и код — к тексту лицензии.
-        ? (/CREDITS|README/.test(entry.notice) ? copy.noticeLabel : copy.codeNoticeLabel)
+        ? (/CREDITS|README/.test(entry.notice)
+          ? copy.noticeLabel
+          : entry.notice === 'privacy.html' ? copy.privacyLabel : copy.codeNoticeLabel)
         : '',
     }))),
   });
