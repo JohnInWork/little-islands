@@ -76,3 +76,15 @@ sound ids to files; a missing or undecodable file simply stays silent.
 
 Сборка вырезает лицензионные комментарии из кода, поэтому оба уведомления MIT
 лежат отдельным файлом рядом с игрой, и экран «Авторы» на него ссылается.
+
+## Font: Fusion Pixel Font 12px (SIL OFL 1.1)
+
+- Source: [TakWolf/fusion-pixel-font](https://github.com/TakWolf/fusion-pixel-font), release `2026.09.01`
+- File: `public/assets/fonts/fusion-pixel-12px/fusion-pixel-12px-proportional-latin.otf.woff2`, unmodified
+- License: SIL Open Font License 1.1, © 2022 TakWolf; the licence text and the
+  notices of the fonts it is built from (Ark Pixel, Cubic 11, Galmuri) travel
+  next to the file and are linked from the in-game Credits screen.
+
+Весь интерфейс набран этим шрифтом: латиница, кириллица, греческий и китайский,
+японский, корейский в одном файле. Шрифт не подрезается — OFL не разрешает
+называть изменённую версию прежним именем.

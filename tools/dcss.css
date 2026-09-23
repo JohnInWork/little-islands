@@ -1,7 +1,27 @@
+@font-face {
+  font-family: 'Fusion Pixel 12px';
+  src: url('../assets/fonts/fusion-pixel-12px/fusion-pixel-12px-proportional-latin.otf.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* Короткая пауза лучше, чем прыжок всего интерфейса со старого шрифта на новый. */
+  font-display: block;
+}
+
 :root {
   color-scheme: dark;
-  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', monospace;
-  font-weight: 700;
+  /*
+   * Один шрифт на всю игру: Fusion Pixel нарисован на сетке 12 px и чёток
+   * только на 12, 24, 36 и 48 px — других размеров в стилях нет. Жирного
+   * начертания у него нет, а поддельное размазывает пиксели, поэтому
+   * синтез выключен и акцент делается цветом и размером.
+   */
+  --font-ui: 'Fusion Pixel 12px', ui-monospace, 'SFMono-Regular', monospace;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
   color: #d8d0ba;
   background: #070a0c;
   -webkit-tap-highlight-color: transparent;
@@ -256,9 +276,9 @@ body {
   max-width: 100%;
   margin: 0;
   color: #e2dbc5;
-  font-size: clamp(26px, 8vw, 38px);
+  font-size: 36px;
   line-height: 1.04;
-  letter-spacing: 0.025em;
+  letter-spacing: 0;
   text-transform: uppercase;
   text-wrap: balance;
 }
@@ -316,8 +336,8 @@ body {
 }
 
 .main-menu-languages button b {
-  font: 700 11px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.06em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 1px;
 }
 
 /* Невыбранный язык приглушён целиком — и подпись, и флаг. */
@@ -340,8 +360,8 @@ body {
 .main-menu-state {
   margin: 0;
   color: #d9ca89;
-  font-size: 11px;
-  letter-spacing: 0.22em;
+  font-size: 12px;
+  letter-spacing: 3px;
   text-align: center;
 }
 
@@ -361,8 +381,8 @@ body {
   background: #c4a956;
   border: 4px solid #e1cd86;
   box-shadow: 0 8px 0 #66572e;
-  font-size: 16px;
-  letter-spacing: 0.07em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -379,8 +399,8 @@ body {
 .start-game small {
   flex-basis: 100%;
   color: #3a3218;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
   text-align: center;
   text-transform: none;
 }
@@ -417,7 +437,7 @@ body {
 
 .start-game span {
   color: #111718;
-  font-size: 18px;
+  font-size: 24px;
 }
 
 .start-game:active:not(:disabled) {
@@ -453,7 +473,7 @@ body {
   background: #11191b;
   border: 4px solid #596668;
   box-shadow: 0 4px 0 #020405;
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -481,7 +501,7 @@ body {
 
 .main-menu-secondary span {
   color: #cbb96f;
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .main-menu-languages button:focus-visible,
@@ -498,8 +518,8 @@ body {
   justify-content: center;
   gap: 12px;
   color: #6f7b79;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -511,7 +531,7 @@ body {
  * собственный: строчные буквы, нормальный интервал, одна строка.
  */
 #app-version {
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   text-transform: none;
   white-space: nowrap;
 }
@@ -530,9 +550,9 @@ body {
   min-height: 13px;
   margin: 0;
   color: #84908f;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.3;
-  letter-spacing: 0.1em;
+  letter-spacing: 1px;
   text-align: center;
   text-transform: uppercase;
 }
@@ -625,8 +645,8 @@ body {
 .settings-header h2,
 .credits-header h2 {
   margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #d6c79c;
 }
@@ -659,8 +679,8 @@ body {
   background: #1d2a24;
   border: 3px solid #4f6b58;
   font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  letter-spacing: 0;
   text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
@@ -669,8 +689,8 @@ body {
 .records-daily {
   margin: 0;
   padding: 6px 10px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 1px;
   color: #8fa7a0;
 }
 
@@ -683,8 +703,8 @@ body {
 
 .records-block h3 {
   margin: 0 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #8fa7a0;
 }
@@ -703,7 +723,7 @@ body {
   gap: 8px;
   align-items: baseline;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: #d7d2c4;
   background: #141c1e;
   border: 2px solid #263134;
@@ -715,13 +735,13 @@ body {
 
 .records-best li span {
   color: #90a39c;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 /* The first span is the floor the run reached — the score, so it reads first. */
 .records-best li span:first-of-type {
   color: #d7d2c4;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .records-best li[data-result='victory'] span:first-of-type {
@@ -741,7 +761,7 @@ body {
 .records-empty {
   margin: 0;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
   color: #7d8f8a;
 }
@@ -751,7 +771,7 @@ body {
   display: grid;
   grid-template-columns: 1fr auto 1fr auto;
   gap: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .records-totals dt {
@@ -776,7 +796,7 @@ body {
   display: grid;
   grid-template-columns: 18px 1fr;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: #5f6d6a;
 }
 
@@ -790,7 +810,7 @@ body {
 
 .records-milestones li span {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: #6f7f7b;
 }
 
@@ -822,7 +842,7 @@ body {
 
 .appearance-header h2 {
   color: var(--bone);
-  font-size: 18px;
+  font-size: 24px;
   text-align: center;
 }
 
@@ -906,7 +926,7 @@ body {
   background: #c4a956;
   border: 4px solid #e1cd86;
   box-shadow: 0 6px 0 #66572e;
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -948,18 +968,18 @@ body {
 
 .new-run-confirm-card > span {
   color: #d0b45e;
-  font-size: 44px;
+  font-size: 48px;
   line-height: 1;
 }
 
 .new-run-confirm h2 {
   color: var(--bone);
-  font-size: 18px;
+  font-size: 24px;
 }
 
 .new-run-confirm p {
   color: #aeb7b3;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -1161,19 +1181,19 @@ body {
 
 .frame-failure strong {
   color: #f0938a;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .frame-failure p {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .frame-failure small {
   color: #c7a9a4;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .frame-failure button {
@@ -1204,9 +1224,7 @@ body {
 }
 
 .portrait span {
-  font:
-    28px/1 Georgia,
-    serif;
+  font: 400 24px/1 var(--font-ui);
   text-shadow: 2px 2px #050708;
 }
 
@@ -1398,7 +1416,7 @@ body {
 .purse b {
   /* Four digits without the row jumping. */
   min-width: 44px;
-  font-size: 15px;
+  font-size: 12px;
   line-height: 1;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
@@ -1447,13 +1465,13 @@ body {
 }
 
 .hero-effect-standing b {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--effect-color);
 }
 
 .hero-effect-standing i {
   font-style: normal;
-  font-size: 10px;
+  font-size: 12px;
   color: #d6cdb8;
   white-space: nowrap;
 }
@@ -1488,7 +1506,7 @@ body {
   background: #12191c;
   border: 3px solid #687577;
   box-shadow: 2px 2px 0 #020405;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -1514,8 +1532,8 @@ body {
   display: grid;
   place-items: center;
   color: #f0d576;
-  font: 900 15px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.14em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 2px;
   cursor: default;
   border-color: #8d7938;
 }
@@ -1579,8 +1597,8 @@ body {
 /* Портал стоит третьим в той же колонке, под паузой: карта, пауза, портал. */
 /* Пять римских букв в значок на три не влезают: XVIII, XXIII, XXVIII. */
 #floor-map-button[data-long='true'] > span {
-  font-size: 11px;
-  letter-spacing: -0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .open-portal {
@@ -1727,7 +1745,7 @@ body {
   border: 0;
   border-left: 4px solid #899594;
   box-shadow: none;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 16px;
 }
 
@@ -1838,7 +1856,7 @@ body {
   color: #101619;
   background: var(--context-accent);
   border: 4px solid #030506;
-  font-size: 18px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -1957,7 +1975,7 @@ body {
   display: block;
   color: #cdc6bb;
   font-style: italic;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.3;
   text-align: center;
   border-color: color-mix(in srgb, var(--ambient-colour) 62%, #2a2f38);
@@ -2015,21 +2033,21 @@ body {
 .onboarding-hint > b {
   grid-row: 1 / span 2;
   color: var(--gold);
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
   text-align: center;
 }
 
 .onboarding-hint > strong {
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--gold);
 }
 
 .onboarding-hint > p {
   margin: 0;
-  font-size: clamp(12px, 3.4vw, 14px);
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -2045,7 +2063,7 @@ body {
   padding: 0 12px;
   color: #b7b0a0;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   background: #1a2326;
   border: 4px solid #5e6a6c;
   box-shadow: inset 0 -4px #101619;
@@ -2106,7 +2124,7 @@ body {
   z-index: 1;
   top: -22px;
   color: #e5c965;
-  font: 900 38px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 36px/1 var(--font-ui);
   font-style: normal;
 }
 
@@ -2122,8 +2140,8 @@ body {
   background: #151b1d;
   border: 4px solid #b59b4c;
   box-shadow: 4px 4px 0 #020405;
-  font: 900 12px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.08em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 1px;
   text-align: center;
   transform: translateX(-50%);
 }
@@ -2132,7 +2150,7 @@ body {
   position: relative;
   z-index: 1;
   color: #f4e5a5;
-  font: 900 clamp(42px, 13vw, 64px)/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 72px/1 var(--font-ui);
   text-shadow: 4px 0 #493d1e, -4px 0 #493d1e, 0 4px #493d1e, 0 -4px #493d1e;
 }
 
@@ -2151,7 +2169,7 @@ body {
   background: #151b1d;
   border: 4px solid #b59b4c;
   box-shadow: 4px 4px 0 #020405;
-  font: 900 15px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 12px/1 var(--font-ui);
 }
 
 .level-up-mark > b em {
@@ -2227,7 +2245,7 @@ body {
 
 .loot-copy strong {
   color: var(--bone);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -2238,9 +2256,9 @@ body {
   align-items: center;
   gap: 7px;
   color: #95a09d;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -2258,9 +2276,9 @@ body {
 
 .loot-copy em {
   color: #c0baaa;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.25;
   display: -webkit-box;
   overflow: hidden;
@@ -2280,7 +2298,7 @@ body {
   color: var(--rarity);
   background: #20292c;
   border-left: 4px solid var(--rarity);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
   text-align: center;
 }
@@ -2387,7 +2405,7 @@ body {
   padding: 1px 2px;
   color: #d7d5c8;
   background: #080d0ee6;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 13px;
   text-align: center;
 }
@@ -2399,7 +2417,7 @@ body {
   place-items: center;
   color: #f1e8d1;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 400;
   text-shadow: 2px 2px #050708;
   pointer-events: none;
 }
@@ -2655,7 +2673,7 @@ body {
   color: var(--bone);
   background: #202a2e;
   border: 4px solid #697577;
-  font: 900 20px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 24px/1 var(--font-ui);
   cursor: pointer;
 }
 
@@ -2672,7 +2690,7 @@ body {
 
 .character-sheet-header h2 {
   color: var(--bone);
-  font-size: clamp(17px, 4vw, 22px);
+  font-size: 24px;
   line-height: 1.15;
 }
 
@@ -2682,7 +2700,7 @@ body {
   align-items: center;
   gap: 8px;
   color: #aeb9b7;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .character-sheet-header p i {
@@ -2728,8 +2746,8 @@ body {
 
 .character-experience b {
   color: var(--bone);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .character-experience div {
@@ -2778,13 +2796,13 @@ body {
 
 .character-spells h3 {
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .character-spells p {
   margin-top: 3px;
   color: #98a5a4;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 #character-spells-intelligence {
@@ -2793,7 +2811,7 @@ body {
   color: #cfe1df;
   background: #182125;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 400;
 }
 
 .character-spell-slots {
@@ -2853,12 +2871,12 @@ body {
 
 .character-spell-slot strong {
   color: #cbd4d2;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .character-spell-slot small {
   color: #8f9c9b;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .character-spell-slot > b {
@@ -2867,7 +2885,7 @@ body {
   top: 3px;
   color: #d5c476;
   background: #0a0f11e8;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .character-known-spells {
@@ -2897,12 +2915,12 @@ body {
 
 .known-spell small {
   color: #98a5a4;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .known-spell > b {
   color: #d5c476;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .known-spell[data-locked='true'] {
@@ -2934,7 +2952,7 @@ body {
   overflow: hidden;
   padding: 4px 8px;
   color: #d5c77f;
-  font: 700 12px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 12px/1 var(--font-ui);
 }
 
 .inventory-vitals .vital {
@@ -2998,7 +3016,7 @@ body {
 .character-sheet-actions button {
   padding: 0;
   color: var(--bone);
-  font: 900 24px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 24px/1 var(--font-ui);
   cursor: pointer;
 }
 
@@ -3027,25 +3045,25 @@ body {
 .character-stat-row > b {
   grid-row: 1 / -1;
   color: #c6b56d;
-  font-size: 19px;
+  font-size: 24px;
   text-align: center;
 }
 
 .character-stat-row strong {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .character-stat-row output {
   color: #f0e7cf;
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .character-stat-row p {
   grid-column: 2 / -1;
   margin: 2px 0 0;
   color: #9faaa8;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -3058,9 +3076,9 @@ body {
 .character-combat h3 {
   margin-bottom: 8px;
   color: #c6b56d;
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
 }
 
 #character-combat-grid {
@@ -3080,7 +3098,7 @@ body {
 .character-combat-stat span {
   overflow: hidden;
   color: #8f9b99;
-  font-size: 9px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3114,7 +3132,7 @@ body {
 .character-attributes h3 {
   margin: 0;
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #character-attribute-points {
@@ -3158,13 +3176,13 @@ body {
 .character-attribute-row > b {
   grid-area: name;
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .character-attribute-row > span {
   grid-area: text;
   color: #9aa7ab;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -3172,7 +3190,7 @@ body {
   grid-area: value;
   min-width: 26px;
   color: #e6d9a8;
-  font-size: 15px;
+  font-size: 24px;
   text-align: right;
 }
 
@@ -3184,7 +3202,7 @@ body {
   background: #24313a;
   color: var(--bone);
   font: inherit;
-  font-size: 15px;
+  font-size: 24px;
   line-height: 1;
   border: 2px solid #3c4d58;
   cursor: pointer;
@@ -3214,7 +3232,7 @@ body {
 .character-skills h4 {
   margin: 0;
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #character-skill-points {
@@ -3269,7 +3287,7 @@ body {
   grid-row: 1 / span 2;
   margin: 0;
   color: #8d9794;
-  font-size: 11px;
+  font-size: 12px;
   text-align: right;
   white-space: nowrap;
 }
@@ -3285,7 +3303,7 @@ body {
 
 .character-skill-row strong {
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -3503,7 +3521,7 @@ body {
 
 .character-skill-detail strong {
   color: var(--bone);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .character-skill-detail p {
@@ -3515,7 +3533,7 @@ body {
 
 .character-skill-detail small {
   color: #8d9794;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .character-skill-detail-actions {
@@ -3613,7 +3631,7 @@ body {
 }
 
 #close-inventory {
-  font-size: 30px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -3673,7 +3691,7 @@ body {
   border: 0;
   border-left: 4px solid var(--ward);
   box-shadow: none;
-  font-size: 15px;
+  font-size: 12px;
 }
 
 .currency span {
@@ -3684,8 +3702,8 @@ body {
 .inventory-capacity {
   margin-left: 8px;
   color: #8d9a99;
-  font: 700 12px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.04em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 0;
 }
 
 .inventory-body {
@@ -3961,7 +3979,7 @@ body {
   color: #d66454;
   background: #170808a6;
   border: 3px solid #9b3d35;
-  font-size: 30px;
+  font-size: 24px;
 }
 
 .pack-item.empty {
@@ -3981,7 +3999,7 @@ body {
   border: 0;
   border-left: 4px solid #707a77;
   box-shadow: none;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 14px;
 }
 
@@ -4044,21 +4062,21 @@ body {
 
 .pack-item-copy strong {
   color: var(--bone);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
 .pack-item-copy span {
   color: var(--rarity);
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.2;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .pack-item-copy small {
   color: #9fa9a5;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
@@ -4066,7 +4084,7 @@ body {
   max-width: 32px;
   display: block;
   color: var(--rarity);
-  font-size: 7px;
+  font-size: 12px;
   line-height: 1.25;
   text-align: right;
 }
@@ -4133,9 +4151,9 @@ body {
   flex-wrap: wrap;
   gap: 4px;
   color: #899593;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.15;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -4161,7 +4179,7 @@ body {
   border: 0;
   border-left: 4px solid var(--gold);
   box-shadow: none;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -4171,7 +4189,7 @@ body {
 
 .combat-badge b {
   color: #c7b363;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .combat-badge em {
@@ -4204,7 +4222,7 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .comparison span {
@@ -4227,14 +4245,14 @@ body {
 .comparison span small {
   min-width: 0;
   color: #aeb7b3;
-  font-size: 8px;
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .comparison span b {
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .comparison .item-effect-summary {
@@ -4247,7 +4265,7 @@ body {
 }
 
 .comparison .item-effect-summary small {
-  font-size: 9px;
+  font-size: 12px;
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
@@ -4273,9 +4291,9 @@ body {
   gap: 6px;
   color: #a9c6a8;
   border-color: #66806b;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -4293,7 +4311,7 @@ body {
 
 #equip-item > span {
   color: var(--gold);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #equip-item:disabled,
@@ -4384,7 +4402,7 @@ body {
 .lore-heading h2 {
   margin: 0;
   color: var(--bone);
-  font-size: 19px;
+  font-size: 24px;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -4404,7 +4422,7 @@ body {
 .lore-body p {
   margin: 0 0 12px;
   color: #cdd6d3;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -4415,8 +4433,8 @@ body {
 .lore-body h3 {
   margin: 0 0 6px;
   color: #9fb0ac;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -4434,7 +4452,7 @@ body {
   background: #2a353a;
   color: var(--bone);
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -4527,7 +4545,7 @@ body {
   background: #202a2e;
   border: 4px solid #697577;
   box-shadow: none;
-  font-size: 30px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -4539,9 +4557,9 @@ body {
 .item-detail-heading h2 {
   margin: 0 0 7px;
   color: var(--bone);
-  font-size: 18px;
+  font-size: 24px;
   line-height: 1.15;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
@@ -4551,7 +4569,7 @@ body {
   align-items: center;
   gap: 8px;
   color: #98a4a1;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -4607,8 +4625,8 @@ body {
 #item-detail-description {
   margin: 0 0 18px;
   color: #c1bcad;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
   line-height: 1.55;
 }
 
@@ -4616,9 +4634,9 @@ body {
 .item-detail-comparison h3 {
   margin: 0 0 8px;
   color: #808c8b;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.16em;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -4649,7 +4667,7 @@ body {
 .item-detail-effects li b,
 .item-detail-comparison li b {
   color: var(--rarity);
-  font-size: 18px;
+  font-size: 24px;
   line-height: 1;
   text-align: center;
 }
@@ -4692,8 +4710,8 @@ body {
   background: #202a2e;
   border: 4px solid #66806b;
   font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  letter-spacing: 0;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -4735,7 +4753,7 @@ body {
 
 .inventory-actions button strong {
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -4801,8 +4819,8 @@ body {
   gap: 14px;
   color: #9ca6a2;
   background: var(--ink);
-  font: 900 11px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.26em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 3px;
   transition: opacity 160ms steps(4, end);
 }
 
@@ -4978,7 +4996,7 @@ body {
   margin: 0 0 7px;
   overflow: hidden;
   color: #f0e4c5;
-  font-size: clamp(17px, 4.5vw, 23px);
+  font-size: 24px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4995,7 +5013,7 @@ body {
   align-items: center;
   gap: 6px;
   color: #e0c568;
-  font-size: 16px;
+  font-size: 12px;
 }
 
 #merchant-shop-funds {
@@ -5009,7 +5027,7 @@ body {
   color: #dfd7c1;
   background: #202a2e;
   border: 4px solid #697577;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -5035,7 +5053,7 @@ body {
   background: #182124;
   border: 4px solid #465255;
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -5097,7 +5115,7 @@ body {
   padding: 2px 5px;
   color: #d4c273;
   background: #302d1d;
-  font-size: 9px;
+  font-size: 12px;
   font-style: normal;
   line-height: 1;
   text-transform: uppercase;
@@ -5112,12 +5130,12 @@ body {
 
 .merchant-item-copy strong {
   color: #eee3c8;
-  font-size: clamp(13px, 3.7vw, 16px);
+  font-size: 12px;
 }
 
 .merchant-item-copy small {
   color: #9eaaa5;
-  font-size: clamp(10px, 2.8vw, 12px);
+  font-size: 12px;
 }
 
 .merchant-item-price {
@@ -5127,7 +5145,7 @@ body {
   justify-content: flex-end;
   gap: 4px;
   color: #e2c967;
-  font-size: 15px;
+  font-size: 12px;
 }
 
 .merchant-item:disabled {
@@ -5150,7 +5168,7 @@ body {
   margin: 4px 4px 0;
   overflow: hidden;
   color: #d0b861;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 20px;
   text-align: center;
   text-overflow: ellipsis;
@@ -5239,7 +5257,7 @@ body {
 
 .trap-placement-prompt strong {
   white-space: nowrap;
-  font-size: clamp(12px, 3.6vw, 16px);
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -5301,7 +5319,7 @@ body {
   color: #d9d2bf;
   background: rgb(15 21 23 / 92%);
   border-color: #707b7b;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
   pointer-events: auto;
@@ -5350,7 +5368,7 @@ body {
 
 .ability-targeting-prompt strong {
   white-space: nowrap;
-  font-size: clamp(12px, 3.6vw, 16px);
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -5408,7 +5426,7 @@ body {
   color: #d9d2bf;
   background: rgb(15 21 23 / 94%);
   border-color: #707b7b;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
   pointer-events: auto;
@@ -5445,14 +5463,14 @@ body {
 
 .context-action-header h2 {
   color: #efe4c8;
-  font-size: clamp(16px, 4.4vw, 21px);
+  font-size: 24px;
   line-height: 1.1;
 }
 
 .context-action-header p {
   margin-top: 5px;
   color: #aeb8b5;
-  font-size: clamp(11px, 3.25vw, 14px);
+  font-size: 12px;
   line-height: 1.25;
 }
 
@@ -5467,7 +5485,7 @@ body {
   color: var(--bone);
   background: #202a2e;
   border: 4px solid #697577;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -5505,13 +5523,13 @@ body {
 
 .context-action-button > b {
   color: var(--context-accent, #d0b45e);
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .context-action-button > span {
   overflow: hidden;
-  font-size: clamp(12px, 3.2vw, 14px);
+  font-size: 12px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5526,7 +5544,7 @@ body {
   display: -webkit-box;
   overflow: hidden;
   color: #8d9794;
-  font-size: clamp(11px, 2.8vw, 12px);
+  font-size: 12px;
   line-height: 1.1;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -5639,7 +5657,7 @@ body {
 
 .death-rune {
   color: #a9b2ae;
-  font-size: clamp(58px, 18vw, 86px);
+  font-size: 72px;
   line-height: 1;
   filter: none;
 }
@@ -5655,7 +5673,7 @@ body {
 /* Walking away is not dying: the skull has no business on that screen. */
 .retired-rune {
   display: none;
-  font-size: 56px;
+  font-size: 48px;
   line-height: 1;
   color: #e6c86a;
   text-shadow: 0 0 10px #e6c86a55;
@@ -5682,7 +5700,7 @@ body {
   display: flex;
   gap: 18px;
   color: #96a2a0;
-  font-size: 17px;
+  font-size: 24px;
 }
 
 .run-summary span:first-child,
@@ -5698,7 +5716,7 @@ body {
   padding: 0;
   color: #d5c77f;
   background: #11191b;
-  font: 700 42px/1 monospace;
+  font: 400 36px/1 var(--font-ui);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -5729,9 +5747,9 @@ body {
 #inventory-title {
   justify-self: center;
   color: var(--bone);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.12em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -5779,7 +5797,7 @@ body {
 }
 
 .inventory-filters button > span:not(.filter-all) {
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -5848,9 +5866,9 @@ body {
   background: #090d0f;
   border-top: 4px solid #313d40;
   border-bottom: 4px solid #313d40;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.1em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -5937,22 +5955,22 @@ body {
 
 .pack-item-copy span {
   color: var(--rarity);
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.2;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .pack-item-copy small {
   color: #abb5b1;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.25;
 }
 
 .pack-item-value {
   max-width: 46px;
   color: var(--rarity);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
   text-align: right;
 }
@@ -5964,7 +5982,7 @@ body {
   display: grid;
   place-items: center;
   color: #7f8b89;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
   text-align: center;
 }
@@ -6218,9 +6236,9 @@ body {
   justify-content: space-between;
   gap: 8px;
   color: #8e9a98;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.12em;
+  letter-spacing: 1px;
 }
 
 .inventory-equipped > header b {
@@ -6354,7 +6372,7 @@ body {
   padding: 2px 3px;
   color: var(--rarity);
   background: #080d0fe8;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -6399,7 +6417,7 @@ body {
   max-width: 46px;
   padding: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -6430,7 +6448,7 @@ body {
 
   #inventory-title {
     font-size: 12px;
-    letter-spacing: 0.06em;
+    letter-spacing: 1px;
   }
 
   .inventory-view-switcher {
@@ -6587,8 +6605,8 @@ body {
   left: max(13px, env(safe-area-inset-left));
   bottom: max(10px, env(safe-area-inset-bottom));
   color: #b9b39f54;
-  font-size: 8px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 2px;
   text-decoration: none;
 }
 
@@ -6697,7 +6715,7 @@ body {
   }
 
   .comparison {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .item-detail-body {
@@ -6761,12 +6779,12 @@ body {
   }
 
   .selection-copy > strong {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .selection-copy > span,
   .comparison span small {
-    font-size: 7px;
+    font-size: 12px;
   }
 }
 
@@ -6844,7 +6862,7 @@ body {
   }
 
   .main-menu-card h1 {
-    font-size: clamp(24px, 4.2vw, 34px);
+    font-size: 24px;
   }
 
   .main-menu-card .game-wordmark {
@@ -6966,7 +6984,7 @@ body {
   }
 
   .comparison {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .bag-button {
@@ -7072,7 +7090,7 @@ body {
   }
 
   .character-stat-row p {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   #character-combat-grid {
@@ -7246,7 +7264,7 @@ body {
 
 .chest-container-header h2 {
   color: #f0e4c5;
-  font-size: clamp(17px, 4.5vw, 23px);
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -7254,7 +7272,7 @@ body {
   min-height: 16px;
   margin-top: 7px;
   color: #a69a7c;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .chest-container-body {
@@ -7287,9 +7305,9 @@ body {
   color: #b7ad94;
   background: #182124;
   border-bottom: 4px solid #303b3e;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -7362,14 +7380,14 @@ body {
 
 .chest-transfer-copy small {
   color: #9eaaa5;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .chest-transfer-arrow {
   display: grid;
   place-items: center;
   color: #dec664;
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .chest-transfer-item:disabled,
@@ -7384,7 +7402,7 @@ body {
   display: grid;
   place-items: center;
   color: #6f7b79;
-  font-size: 11px;
+  font-size: 12px;
   text-align: center;
 }
 
@@ -7393,7 +7411,7 @@ body {
   margin: 0;
   overflow: hidden;
   color: #d0b861;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 20px;
   text-align: center;
   text-overflow: ellipsis;
@@ -7416,7 +7434,7 @@ body {
   background: #202a2e;
   border: 4px solid #697577;
   font: inherit;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -7929,15 +7947,15 @@ body {
 .floor-map-header h2 {
   margin: 0;
   color: var(--bone);
-  font: 900 15px/1.2 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.08em;
+  font: 400 12px/1.2 var(--font-ui);
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .floor-map-header p {
   margin: 0;
   color: #8d9794;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.3;
 }
 
@@ -8008,7 +8026,7 @@ body {
   min-height: 48px;
   padding: 0;
   color: var(--bone);
-  font: 900 24px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 24px/1 var(--font-ui);
   cursor: pointer;
 }
 
@@ -8043,8 +8061,8 @@ body {
 .run-end-title {
   margin: 0;
   color: var(--bone);
-  font: 900 18px/1.2 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.08em;
+  font: 400 24px/1.2 var(--font-ui);
+  letter-spacing: 1px;
   text-transform: uppercase;
   text-align: center;
 }
@@ -8061,14 +8079,14 @@ body {
   gap: 6px 16px;
   align-items: baseline;
   color: #96a2a0;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .run-summary dt {
   margin: 0;
   color: #8d9794;
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -8076,7 +8094,7 @@ body {
   margin: 0;
   overflow: hidden;
   color: #d5c77f;
-  font: 700 16px/1.2 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 12px/1.2 var(--font-ui);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8104,7 +8122,7 @@ body {
   }
 
   .death-rune {
-    font-size: 40px;
+    font-size: 36px;
   }
 
   .victory-rune {
@@ -8114,7 +8132,7 @@ body {
 
   .run-summary {
     gap: 3px 14px;
-    font-size: 13px;
+    font-size: 12px;
   }
 }
 
@@ -8136,7 +8154,7 @@ body {
   color: #d8d0ba;
   background: rgb(9 14 16 / 72%);
   border: 4px solid #4b5658;
-  font: 900 20px/1 ui-monospace, 'SFMono-Regular', monospace;
+  font: 400 24px/1 var(--font-ui);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -8160,8 +8178,8 @@ body {
 
 .main-menu-audio output {
   color: #d9ca89;
-  font: 700 14px/1 ui-monospace, 'SFMono-Regular', monospace;
-  letter-spacing: 0.08em;
+  font: 400 12px/1 var(--font-ui);
+  letter-spacing: 1px;
   text-align: center;
 }
 
@@ -8269,14 +8287,14 @@ body {
 }
 
 .main-menu-conditions b {
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 1px;
   color: #d8bf68;
   text-transform: uppercase;
 }
 
 .main-menu-conditions span {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
   color: #9c9384;
 }
@@ -8341,8 +8359,8 @@ body {
 
 .outfit-basket {
   margin: 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
   color: #8fa39c;
 }
 
@@ -8353,14 +8371,14 @@ body {
 }
 
 .outfit-wallet-label {
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #8fa39c;
 }
 
 .outfit-wallet {
-  font-size: 16px;
+  font-size: 12px;
   color: #e6c86a;
 }
 
@@ -8374,8 +8392,8 @@ body {
 
 .outfit-row h3 {
   margin: 0 0 4px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #d6c79c;
 }
@@ -8414,12 +8432,12 @@ body {
 
 .outfit-good b {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 
 .outfit-price {
-  font-size: 11px;
+  font-size: 12px;
   color: #e6c86a;
 }
 
@@ -8433,7 +8451,7 @@ body {
   top: -6px;
   right: -4px;
   padding: 0 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
   color: #0a1012;
   background: #9ec37a;
@@ -8453,8 +8471,8 @@ body {
 .outfit-start {
   width: 100%;
   min-height: 52px;
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #10161a;
   background: #d6b95f;
@@ -8509,19 +8527,19 @@ body {
 
 #outfit-detail-name {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--bone);
 }
 
 #outfit-detail-kind {
   margin: 3px 0 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
   color: #8fa39c;
 }
 
 #outfit-detail-price {
-  font-size: 15px;
+  font-size: 12px;
   color: var(--gold);
 }
 
@@ -8550,7 +8568,7 @@ body {
 
 .outfit-detail-owned {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: #9ec37a;
 }
 
@@ -8575,7 +8593,7 @@ body {
   color: #10161a;
   background: #d6b95f;
   border-color: #f0dda0;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /*
@@ -8716,7 +8734,7 @@ body {
   margin: 0;
   color: #d6c79c;
   font-size: 12px;
-  letter-spacing: 0.06em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -8776,8 +8794,8 @@ body {
 .credits-license {
   margin: 0;
   color: #b9a96f;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .credits-line {
@@ -8791,7 +8809,7 @@ body {
 
 .credits-source {
   color: #7fb0c7;
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -9007,7 +9025,7 @@ body {
 
 .character-creation-card p {
   color: #8d9a99;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .creation-archetypes {
@@ -9042,7 +9060,7 @@ body {
 .creation-archetype b {
   grid-area: name;
   align-self: end;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /*
@@ -9062,7 +9080,7 @@ body {
 .creation-archetype i {
   grid-area: skills;
   color: #a8b3a4;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -9102,8 +9120,8 @@ body {
   background: #c4a956;
   border: 4px solid #e1cd86;
   box-shadow: 0 6px 0 #66572e;
-  font-size: 14px;
-  letter-spacing: 0.07em;
+  font-size: 12px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -9139,7 +9157,7 @@ body {
   border: 4px solid #596668;
   box-shadow: 0 4px 0 #020405;
   font-size: 12px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -9167,8 +9185,8 @@ body {
 
 .creation-archetype-stats em {
   font-style: normal;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .creation-archetype-stats em[data-attribute='strength'] {

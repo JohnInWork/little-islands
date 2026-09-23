@@ -121,3 +121,30 @@ test('файлы, на которые ссылаются титры, дейст�
   assert.match(code, /Panayiotis Lipiridis/);
   assert.match(code, /Permission is hereby granted/);
 });
+
+/*
+ * Шрифт выбран один на всю игру, и чёток он только на своей сетке. Стоит
+ * вернуть 15 px или `clamp(…vw…)` — буквы расплывутся, а тесты правил этого
+ * не заметят. Поэтому сетку держит этот тест.
+ */
+test('весь интерфейс набран одним пиксельным шрифтом на его сетке', async () => {
+  const css = await readFile(new URL('../tools/dcss.css', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../tools/dcss.html', import.meta.url), 'utf8');
+  const fontFile = 'assets/fonts/fusion-pixel-12px/fusion-pixel-12px-proportional-latin.otf.woff2';
+  assert.ok(css.includes(`url('../${fontFile}')`), 'шрифт не подключён в стилях');
+  assert.ok(html.includes(`href="../${fontFile}"`), 'шрифт не загружается заранее');
+  await readFile(new URL(`../public/${fontFile}`, import.meta.url));
+  assert.match(css, /font-synthesis: none;/);
+  const sizes = [...css.matchAll(/font(?:-size)?:[^;]*?(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]));
+  assert.ok(sizes.length > 100, 'размеры шрифта не найдены');
+  for (const size of sizes) {
+    assert.ok([12, 24, 36, 48, 72].includes(size), `размер ${size}px вне сетки шрифта`);
+  }
+  assert.doesNotMatch(css, /font-size:\s*clamp/, 'размер по vw размывает пиксельный шрифт');
+  assert.doesNotMatch(css, /font-weight:\s*(?:[5-9]00|bold)/, 'у шрифта нет жирного начертания');
+  assert.doesNotMatch(css, /letter-spacing:\s*-?[0-9.]+em/, 'межбуквенный интервал в em даёт дробные пиксели');
+  const families = [...css.matchAll(/font-family:\s*([^;]+);/g)].map((m) => m[1].trim());
+  for (const family of families) {
+    assert.ok(family === 'var(--font-ui)' || family === "'Fusion Pixel 12px'", `чужое семейство: ${family}`);
+  }
+});

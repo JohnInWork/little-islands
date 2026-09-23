@@ -953,6 +953,7 @@ const openSettingsLabel = document.querySelector('#open-settings-label');
 const closeSettingsButton = document.querySelector('#close-settings');
 const settingsTitle = document.querySelector('#settings-title');
 const settingsLanguageTitle = document.querySelector('#settings-language-title');
+const settingsMusicTitle = document.querySelector('#settings-music-title');
 const settingsAudioTitle = document.querySelector('#settings-audio-title');
 const settingsWipeTitle = document.querySelector('#settings-wipe-title');
 const settingsWipeNote = document.querySelector('#settings-wipe-note');
@@ -8681,6 +8682,8 @@ function renderAudioMenu() {
 function renderMusicMenu() {
   const model = musicMenuModel(audioSettings, itemDetailLanguage);
   mainMenuMusic.setAttribute('aria-label', model.groupLabel);
+  // Заголовок блока жил только в разметке и оставался русским в английском меню.
+  settingsMusicTitle.textContent = model.groupLabel;
   musicMuteButton.setAttribute('aria-pressed', String(model.muted));
   musicMuteButton.setAttribute('aria-label', model.muteLabel);
   musicMuteButton.title = model.muteLabel;

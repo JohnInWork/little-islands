@@ -35,6 +35,7 @@ export const LICENSE_DEEDS = Object.freeze({
   'CC-BY-SA 3.0': 'https://creativecommons.org/licenses/by-sa/3.0/',
   'CC-BY-SA 3.0+': 'https://creativecommons.org/licenses/by-sa/3.0/',
   'CC-BY-SA 4.0': 'https://creativecommons.org/licenses/by-sa/4.0/',
+  'OFL 1.1': 'https://openfontlicense.org/open-font-license-official-text/',
   MIT: THIRD_PARTY_NOTICES_PATH,
 });
 
@@ -249,6 +250,22 @@ export const CREDITS_SECTIONS = Object.freeze([
     },
   }),
   section({
+    // OFL требует, чтобы текст лицензии ехал вместе со шрифтом: он и едет,
+    // рядом с файлом, а титры на него ссылаются.
+    id: 'font',
+    license: 'OFL 1.1',
+    source: 'https://github.com/TakWolf/fusion-pixel-font',
+    notice: 'assets/fonts/fusion-pixel-12px/OFL.txt',
+    ru: {
+      title: 'Шрифт',
+      lines: Object.freeze(['Fusion Pixel Font — © 2022 TakWolf; на основе Ark Pixel, Cubic 11 и Galmuri.']),
+    },
+    en: {
+      title: 'Font',
+      lines: Object.freeze(['Fusion Pixel Font — © 2022 TakWolf; built on Ark Pixel, Cubic 11 and Galmuri.']),
+    },
+  }),
+  section({
     id: 'code',
     license: 'MIT',
     source: 'https://threejs.org',
@@ -332,7 +349,8 @@ export function creditsModel(language = 'ru') {
       source: entry.source,
       notice: entry.notice,
       noticeLabel: entry.notice
-        ? (entry.notice === THIRD_PARTY_NOTICES_PATH ? copy.codeNoticeLabel : copy.noticeLabel)
+        // Паки LPC ведут к списку авторов, шрифт и код — к тексту лицензии.
+        ? (/CREDITS|README/.test(entry.notice) ? copy.noticeLabel : copy.codeNoticeLabel)
         : '',
     }))),
   });
