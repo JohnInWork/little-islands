@@ -19,17 +19,39 @@
 export const LICENSED_ASSET_ROOT = 'public/assets/dcss-preview/licensed';
 
 /**
+ * Где прочитать саму лицензию.
+ *
+ * CC-BY и CC-BY-SA требуют не только имени автора, но и названия лицензии со
+ * ссылкой на её текст. Имена в титрах были всегда, ссылок не было — этот
+ * словарь их и даёт. MIT живёт не на сайте, а в файле уведомлений рядом с
+ * игрой: её условие — чтобы текст путешествовал вместе с каждой копией.
+ */
+export const THIRD_PARTY_NOTICES_PATH = 'THIRD-PARTY-NOTICES.txt';
+
+export const LICENSE_DEEDS = Object.freeze({
+  'CC0 1.0': 'https://creativecommons.org/publicdomain/zero/1.0/',
+  'CC BY 3.0': 'https://creativecommons.org/licenses/by/3.0/',
+  'CC-BY 3.0+': 'https://creativecommons.org/licenses/by/3.0/',
+  'CC-BY-SA 3.0': 'https://creativecommons.org/licenses/by-sa/3.0/',
+  'CC-BY-SA 3.0+': 'https://creativecommons.org/licenses/by-sa/3.0/',
+  'CC-BY-SA 4.0': 'https://creativecommons.org/licenses/by-sa/4.0/',
+  MIT: THIRD_PARTY_NOTICES_PATH,
+});
+
+/**
  * Раздел титров.
  *
  * `id` — ключ раздела, `packDir` — папка пакета, если раздел про неё (по ней
  * тест и сверяет каталог с диском). `license` — та же строка, что в файле,
  * дословно: лицензия не пересказывается своими словами.
  */
-const section = ({ id, packDir = null, license = null, source = null, ru, en }) => Object.freeze({
+const section = ({ id, packDir = null, license = null, source = null, notice = null, ru, en }) => Object.freeze({
   id,
   packDir,
   license,
+  licenseUrl: license ? LICENSE_DEEDS[license] ?? null : null,
   source,
+  notice,
   ru: Object.freeze(ru),
   en: Object.freeze(en),
 });
@@ -56,6 +78,7 @@ export const CREDITS_SECTIONS = Object.freeze([
   section({
     id: 'lpc-floors',
     packDir: 'lpc-floors',
+    notice: 'assets/dcss-preview/licensed/lpc-floors/CREDITS-floors.txt',
     license: 'CC-BY-SA 4.0',
     source: 'https://opengameart.org/content/lpc-floors',
     ru: {
@@ -82,6 +105,7 @@ export const CREDITS_SECTIONS = Object.freeze([
   section({
     id: 'lpc-tavern',
     packDir: 'lpc-tavern',
+    notice: 'assets/dcss-preview/licensed/lpc-tavern/CREDITS-tavern.txt',
     license: 'CC-BY-SA 3.0',
     source: 'https://opengameart.org/content/lpc-tavern',
     ru: {
@@ -102,6 +126,7 @@ export const CREDITS_SECTIONS = Object.freeze([
   section({
     id: 'lpc-village',
     packDir: 'lpc-village',
+    notice: 'assets/dcss-preview/licensed/lpc-village/CREDITS-decorations-medieval.txt',
     license: 'CC-BY-SA 3.0+',
     source: 'https://opengameart.org/content/lpc-medieval-village-decorations',
     ru: {
@@ -128,6 +153,7 @@ export const CREDITS_SECTIONS = Object.freeze([
   section({
     id: 'lpc-lamps',
     packDir: 'lpc-lamps',
+    notice: 'assets/dcss-preview/licensed/lpc-lamps/README.txt',
     license: 'CC-BY 3.0+',
     source: 'https://opengameart.org/content/lpc-lamp-posts-rework',
     ru: {
@@ -206,7 +232,8 @@ export const CREDITS_SECTIONS = Object.freeze([
           + 'Galacti-Chron, голос — Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'OpenGameArt: JaggedStone, Paul Wortmann, RandomMind, cynicmusic, '
-          + 'Brandon75689, pauliuw, josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
+          + 'Brandon75689, pauliuw, EmoPreben, Joth, Cleyton Kauffman; '
+          + 'Kevin MacLeod — «Ancient Power of Serpents».',
       ]),
     },
     en: {
@@ -216,7 +243,49 @@ export const CREDITS_SECTIONS = Object.freeze([
           + 'Galacti-Chron, voice by Sky Rae.',
         'Freesound: JoeDinesSound, Mythmazter, RMSound, Za-Games, TRP; Ogrebane.',
         'OpenGameArt: JaggedStone, Paul Wortmann, RandomMind, cynicmusic, '
-          + 'Brandon75689, pauliuw, josepharaoh99, Joth, Cleyton Kauffman, Kevin MacLeod.',
+          + 'Brandon75689, pauliuw, EmoPreben, Joth, Cleyton Kauffman; '
+          + 'Kevin MacLeod — “Ancient Power of Serpents”.',
+      ]),
+    },
+  }),
+  section({
+    id: 'code',
+    license: 'MIT',
+    source: 'https://threejs.org',
+    notice: THIRD_PARTY_NOTICES_PATH,
+    ru: {
+      title: 'Код',
+      lines: Object.freeze([
+        'three.js — © 2010–2026 three.js authors.',
+        'Флаги языков: flag-icons — © 2013 Panayiotis Lipiridis.',
+      ]),
+    },
+    en: {
+      title: 'Code',
+      lines: Object.freeze([
+        'three.js — © 2010–2026 three.js authors.',
+        'Language flags: flag-icons — © 2013 Panayiotis Lipiridis.',
+      ]),
+    },
+  }),
+  section({
+    // Магазины спрашивают, что игра делает с данными игрока. Ответ короткий,
+    // и он должен быть в самой игре, а не только в описании на витрине.
+    id: 'privacy',
+    ru: {
+      title: 'Приватность',
+      lines: Object.freeze([
+        'Игра ничего не собирает и никуда не отправляет. Сохранения, рекорды и '
+          + 'настройки лежат только на этом устройстве, в памяти браузера. '
+          + 'Стереть их можно в настройках.',
+      ]),
+    },
+    en: {
+      title: 'Privacy',
+      lines: Object.freeze([
+        'The game collects nothing and sends nothing anywhere. Saves, records '
+          + 'and settings stay on this device, in the browser’s storage. '
+          + 'You can erase them in Settings.',
       ]),
     },
   }),
@@ -227,11 +296,15 @@ const COPY = Object.freeze({
     title: 'Авторы',
     close: 'Закрыть авторов',
     licenseLabel: 'Лицензия',
+    noticeLabel: 'Полный список авторов',
+    codeNoticeLabel: 'Тексты лицензий',
   }),
   en: Object.freeze({
     title: 'Credits',
     close: 'Close credits',
     licenseLabel: 'Licence',
+    noticeLabel: 'Full credits',
+    codeNoticeLabel: 'Licence texts',
   }),
 });
 
@@ -248,7 +321,6 @@ export function creditsModel(language = 'ru') {
   return Object.freeze({
     language: locale,
     title: copy.title,
-    intro: copy.intro,
     close: copy.close,
     sections: Object.freeze(CREDITS_SECTIONS.map((entry) => Object.freeze({
       id: entry.id,
@@ -256,7 +328,12 @@ export function creditsModel(language = 'ru') {
       lines: entry[locale].lines,
       license: entry.license,
       licenseLabel: entry.license ? `${copy.licenseLabel}: ${entry.license}` : '',
+      licenseUrl: entry.licenseUrl,
       source: entry.source,
+      notice: entry.notice,
+      noticeLabel: entry.notice
+        ? (entry.notice === THIRD_PARTY_NOTICES_PATH ? copy.codeNoticeLabel : copy.noticeLabel)
+        : '',
     }))),
   });
 }

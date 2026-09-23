@@ -13978,7 +13978,9 @@ function renderCredits() {
     if (entry.licenseLabel) {
       const license = document.createElement('p');
       license.className = 'credits-license';
-      license.textContent = entry.licenseLabel;
+      // CC-BY и CC-BY-SA требуют ссылку на текст лицензии, а не только её имя.
+      if (entry.licenseUrl) license.append(creditsLink(entry.licenseUrl, entry.licenseLabel));
+      else license.textContent = entry.licenseLabel;
       block.append(license);
     }
     for (const line of entry.lines) {
@@ -13996,8 +13998,23 @@ function renderCredits() {
       link.textContent = entry.source.replace(/^https?:\/\//, '');
       block.append(link);
     }
+    if (entry.notice) {
+      const notice = creditsLink(entry.notice, entry.noticeLabel);
+      notice.classList.add('credits-source');
+      block.append(notice);
+    }
     return block;
   }));
+}
+
+/** Ссылка титров: внешняя — как есть, файл рядом с игрой — от корня сборки. */
+function creditsLink(path, label) {
+  const link = document.createElement('a');
+  link.href = /^https?:\/\//.test(path) ? path : new URL(`../${path}`, document.baseURI).href;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  link.textContent = label;
+  return link;
 }
 
 function openCredits() {

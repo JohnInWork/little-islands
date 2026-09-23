@@ -65,3 +65,14 @@ sound ids to files; a missing or undecodable file simply stays silent.
 Только записанный материал: синтезированные голоса убраны после игрового теста
 («писки»). Карта id → файлы живёт в `tools/dcss-rpg-audio.js`; отсутствующий
 или нечитаемый файл просто молчит.
+
+## Code: three.js and flag-icons (MIT)
+
+- three.js 0.186.0 — © 2010–2026 three.js authors, MIT.
+- flag-icons — © 2013 Panayiotis Lipiridis, MIT (two language flags).
+- The minifier strips licence comments from the bundle, so both MIT notices
+  ship as `public/THIRD-PARTY-NOTICES.txt` and are linked from the in-game
+  Credits screen.
+
+Сборка вырезает лицензионные комментарии из кода, поэтому оба уведомления MIT
+лежат отдельным файлом рядом с игрой, и экран «Авторы» на него ссылается.

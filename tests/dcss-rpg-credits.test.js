@@ -6,6 +6,7 @@ import {
   CREDITED_PACK_DIRS,
   CREDITS_SECTIONS,
   LICENSED_ASSET_ROOT,
+  THIRD_PARTY_NOTICES_PATH,
   creditsCopy,
   creditsModel,
 } from '../tools/dcss-rpg-credits.js';
@@ -91,4 +92,32 @@ test('модель экрана готова к отрисовке и перек
 
   assert.equal(creditsCopy('en').title, 'Credits');
   assert.equal(creditsCopy().title, 'Авторы');
+});
+
+/*
+ * Имени лицензии мало. CC-BY и CC-BY-SA требуют ссылку на её текст, а MIT —
+ * чтобы сам текст путешествовал с каждой копией игры. Раньше в титрах были
+ * только имена, а уведомление three.js минификатор вырезал из сборки.
+ */
+test('у каждой открытой лицензии в титрах есть ссылка на её текст', () => {
+  for (const entry of CREDITS_SECTIONS) {
+    if (!entry.license || entry.license.startsWith('Cmski')) continue;
+    assert.ok(entry.licenseUrl, `${entry.id}: «${entry.license}» без ссылки на текст`);
+  }
+  assert.ok(CREDITS_SECTIONS.some(({ id }) => id === 'code'), 'three.js не назван в титрах');
+  assert.ok(CREDITS_SECTIONS.some(({ id }) => id === 'privacy'), 'нет слова о приватности');
+});
+
+test('файлы, на которые ссылаются титры, действительно едут с игрой', async () => {
+  const publicRoot = new URL('../public/', import.meta.url);
+  const notices = CREDITS_SECTIONS.map(({ notice }) => notice).filter(Boolean);
+  assert.ok(notices.includes(THIRD_PARTY_NOTICES_PATH));
+  for (const path of notices) {
+    const text = await readFile(new URL(path, publicRoot), 'utf8');
+    assert.ok(text.length > 100, `${path}: пустой файл`);
+  }
+  const code = await readFile(new URL(THIRD_PARTY_NOTICES_PATH, publicRoot), 'utf8');
+  assert.match(code, /three\.js authors/);
+  assert.match(code, /Panayiotis Lipiridis/);
+  assert.match(code, /Permission is hereby granted/);
 });

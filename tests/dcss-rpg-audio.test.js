@@ -316,7 +316,8 @@ test('титры называют авторов фона и мелодий', as
   const notice = await readFile(new URL('../public/assets/audio/LICENSE.md', import.meta.url), 'utf8');
   for (const author of [
     'RandomMind', 'cynicmusic', 'Brandon75689', 'pauliuw', 'Paul Wortmann', 'JaggedStone',
-    'josepharaoh99', 'Joth', 'Cleyton Kauffman',
+    // Склеповую тему написал EmoPreben; josepharaoh99 только собрал подборку.
+    'EmoPreben', 'Joth', 'Cleyton Kauffman', 'Kevin MacLeod',
   ]) {
     assert.ok(notice.includes(author), `${author}: нет в лицензии рядом с файлами`);
     for (const locale of ['ru', 'en']) {

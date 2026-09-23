@@ -202,8 +202,10 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
   Спуск.
 - `music/town.mp3` — «Town Theme RPG», cynicmusic (The Cynic Project).
   <https://opengameart.org/content/town-theme-rpg> (CC0). Хранилища.
-- `music/crypt.mp3` — «Oldschool Horror Theme», josepharaoh99.
-  <https://opengameart.org/content/cc0-dark-music> (CC0). Склепы.
+- `music/crypt.mp3` — «Oldschool Horror Theme», EmoPreben.
+  <https://opengameart.org/content/oldschool-horror-theme> (CC0). Склепы.
+  Взято из подборки josepharaoh99 <https://opengameart.org/content/cc0-dark-music>,
+  но автор трека — EmoPreben: подборка лишь собирает чужие работы.
 - `music/hell.mp3` — «The Depths of Hell», Joth.
   <https://opengameart.org/content/ambience-pack-1-sci-fi-horror> (CC0). Ад.
 - `music/boss.mp3` — «Boss Battle Theme», Cleyton Kauffman.
@@ -213,6 +215,9 @@ CC0, взяты с OpenGameArt, сведены в моно 44,1 кГц MP3 48 к
   На странице сказано: указание авторства не требуется, но если указывать — то
   Kevin MacLeod. Указываем: игра продаётся, и лишняя строчка в титрах дешевле
   любого спора об авторстве.
+  Первоисточник — FreePD.com, сайт Маклауда с музыкой в общественном достоянии;
+  на 2026-09-23 он закрыт, и проверить трек там больше нельзя. Поэтому в
+  титрах назван не только автор, но и сам трек.
 
 Бой со стражем — не дорога, а событие: эта запись громче остальных и сведена на
 два децибела выше, потому что она обязана перебить всё, что звучало до неё.
