@@ -5716,10 +5716,12 @@ body {
 
 .restart-run {
   display: grid;
+  grid-auto-flow: column;
   place-items: center;
-  width: 84px;
-  height: 76px;
-  padding: 0;
+  gap: 12px;
+  min-width: 200px;
+  height: 64px;
+  padding: 0 20px;
   color: #d5c77f;
   background: #11191b;
   font: 400 36px/1 var(--font-ui);
@@ -9366,5 +9368,92 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .floor-arrival.is-on {
     animation-duration: 450ms;
+  }
+}
+
+/*
+ * Конец забега — сцена, а не табличка. Фон окрашивается исходом: у смерти
+ * он тёмно-красный, у победы золотой. Руна, заголовок, строки итога и кнопка
+ * проявляются по очереди, ступенями, как всё в игре.
+ */
+.restart-run b {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+[data-screen='dead'] .run-end-screen {
+  background: radial-gradient(circle at 50% 38%, rgb(74 10 12 / 90%) 0, rgb(18 4 5 / 94%) 46%, rgb(2 4 5 / 97%) 78%);
+}
+
+[data-screen='victory'] .run-end-screen {
+  background: radial-gradient(circle at 50% 38%, rgb(92 70 18 / 88%) 0, rgb(26 20 6 / 94%) 46%, rgb(2 4 5 / 97%) 78%);
+}
+
+[data-screen='retired'] .run-end-screen {
+  background: radial-gradient(circle at 50% 38%, rgb(40 48 44 / 88%) 0, rgb(8 12 12 / 94%) 50%, rgb(2 4 5 / 97%) 80%);
+}
+
+[data-screen='dead'] .run-end-card > *,
+[data-screen='victory'] .run-end-card > *,
+[data-screen='retired'] .run-end-card > *,
+[data-screen='dead'] .run-summary > *,
+[data-screen='victory'] .run-summary > *,
+[data-screen='retired'] .run-summary > * {
+  animation: run-end-rise 360ms steps(4, end) both;
+}
+
+[data-screen='dead'] .run-end-card > .death-rune,
+[data-screen='victory'] .run-end-card > .victory-rune,
+[data-screen='retired'] .run-end-card > .retired-rune {
+  animation: run-end-rune 520ms steps(5, end) both;
+}
+
+.run-end-card > .run-end-title {
+  animation-delay: 380ms;
+}
+
+.run-end-card > .run-summary {
+  animation: none;
+}
+
+/* Селектор с экраном: иначе общее правило выше обнулит задержку строк. */
+.run-end-screen .run-summary > * {
+  animation-delay: calc(620ms + var(--row, 0) * 110ms);
+}
+
+.run-end-card > .restart-run {
+  animation-delay: calc(760ms + var(--rows, 6) * 110ms);
+}
+
+@keyframes run-end-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes run-end-rune {
+  from {
+    opacity: 0;
+    transform: scale(2);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-screen='dead'] .run-end-card *,
+  [data-screen='victory'] .run-end-card *,
+  [data-screen='retired'] .run-end-card * {
+    animation: none;
   }
 }

@@ -946,6 +946,7 @@ const floorMapZoomOutButton = document.querySelector('#floor-map-zoom-out');
 const pauseGameButton = document.querySelector('#pause-game');
 const runEndScreen = document.querySelector('#run-end-screen');
 const restartRunButton = document.querySelector('#restart-run');
+const restartRunLabel = document.querySelector('#restart-run-label');
 const runEndTitle = document.querySelector('#run-end-title');
 const runSummaryList = document.querySelector('#run-summary');
 const settingsScreen = document.querySelector('#settings-screen');
@@ -14141,12 +14142,15 @@ function showRunEndScreen(result) {
   });
   runEndScreen.setAttribute('aria-label', summary.ariaLabel);
   runEndTitle.textContent = summary.title;
-  runSummaryList.replaceChildren(...summary.rows.flatMap((row) => {
+  // Строки итога проявляются по одной: номер строки задаёт её задержку в CSS.
+  runSummaryList.replaceChildren(...summary.rows.flatMap((row, index) => {
     const label = document.createElement('dt');
     const value = document.createElement('dd');
     label.textContent = row.label;
     value.textContent = row.value;
     value.dataset.row = row.id;
+    label.style.setProperty('--row', String(index));
+    value.style.setProperty('--row', String(index));
     return [label, value];
   }));
   // A run that stands above every run before it says so, right on the screen.
@@ -14156,9 +14160,13 @@ function showRunEndScreen(result) {
     label.textContent = metaCopy(itemDetailLanguage).record;
     value.textContent = '★';
     value.dataset.row = 'record';
+    label.style.setProperty('--row', String(summary.rows.length));
+    value.style.setProperty('--row', String(summary.rows.length));
     runSummaryList.append(label, value);
   }
+  runEndScreen.style.setProperty('--rows', String(summary.rows.length + (outcome?.isRecord ? 1 : 0)));
   restartRunButton.setAttribute('aria-label', summary.restart);
+  restartRunLabel.textContent = itemDetailLanguage === 'en' ? 'New run' : 'Новый забег';
   bagButton.disabled = true;
   characterSheetButton.disabled = true;
   pauseGameButton.disabled = true;
