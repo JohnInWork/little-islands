@@ -83,6 +83,7 @@ import {
 } from './dcss-rpg-character-creation.js';
 import {
   PARLEY_SOUL_POWER,
+  PARLEY_WARES,
   PARLEY_SOUL_PRIZE,
   parleyFor,
   parleyModel,
@@ -97,6 +98,7 @@ import {
   THIEF_MONSTER_ID,
 } from './dcss-rpg-rare-encounters.js';
 import { claimTrophy, trophyCopy, trophyModel } from './dcss-rpg-trophies.js';
+import { feedbackCopy, feedbackFor, formatDeltas, parleyFeedbackKind } from './dcss-rpg-feedback.js';
 import {
   STASH_KEY,
   createStashState,
@@ -1416,6 +1418,10 @@ const COMBAT_GLYPH_PATTERNS = Object.freeze({
   '8': ['111', '101', '111', '101', '111'],
   '9': ['111', '101', '111', '001', '111'],
   '+': ['000', '010', '111', '010', '000'],
+  // Потеря со знаком: без него «−6» над героем читалось как «6» — то ли удар,
+  // то ли лечение.
+  '\u2212': ['000', '000', '111', '000', '000'],
+  '-': ['000', '000', '111', '000', '000'],
   '!': ['010', '010', '010', '000', '010'],
   '*': ['101', '010', '111', '010', '101'],
 });
@@ -1980,7 +1986,7 @@ function takeGroundLoot(loot) {
     34 + displayItem.rarity * 10,
     displayItem.rarity >= 3 ? 2 : 0,
   );
-  showLootToast(loot.definition, 1);
+  showLootToast(loot.definition, 1, 'item');
   playerHasActed = true;
   updateInteractionUi();
   renderPack();
@@ -2064,7 +2070,7 @@ function damageAlly(ally, amount) {
     run.companions = run.companions.filter((_, index) => index !== ally.companionIndex);
     // The party closed ranks, so the beasts still standing are raised afresh.
     allies = allies.filter((other) => !other.companion);
-    showLootToast({ path: ally.spritePath, rarity: 2 }, `${name}: ${companionRefusalText('lost', itemDetailLanguage)}`);
+    showLootToast({ path: ally.spritePath, rarity: 2 }, `${name}: ${companionRefusalText('lost', itemDetailLanguage)}`, 'loss');
     persistRun();
     return;
   }
@@ -3117,18 +3123,22 @@ function triggerFloorEvent(event) {
     const healed = Math.min(value, currentHeroStats().maxHp - hero.hp);
     if (healed > 0) hero.hp += healed;
     playSound('spell-heal');
-    showLootToast({ icon: 'derived/hud/heart.png', rarity: 1 }, `+${healed}`);
+    showLootToast(
+      { icon: 'derived/hud/heart.png', rarity: 1 },
+      healed > 0 ? formatDeltas({ heal: healed }) : consumableReport().healedFull,
+      healed > 0 ? 'heal' : 'info',
+    );
   } else if (effect === 'maxHp') {
     raiseHeroMaxHp(value);
     playSound('spell-toggle');
-    showLootToast({ icon: 'derived/hud/heart.png', rarity: 3 }, consumableReport().maxHp(value));
+    showLootToast({ icon: 'derived/hud/heart.png', rarity: 3 }, formatDeltas({ maxhp: value }), 'buff');
   } else if (effect === 'damage') {
     if (event.id === 'blade-trap') {
       detectedTrapIds.add(event.instanceId);
       burst(event.x, event.y - 4, '#b4a597', 12);
       addImpactWave(event.x, event.y, '#aa6954', 38, 1);
     }
-    showLootToast({ path, rarity: 0 }, -value);
+    showLootToast({ path, rarity: 0 }, formatDeltas({ heal: -value }), 'trap');
     playSound('trap');
     damageHero(value, { source: `trap:${event.id}` });
   } else {
@@ -3137,7 +3147,7 @@ function triggerFloorEvent(event) {
     const reward = eventGold(event);
     gold += reward;
     playSound('gold');
-    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, reward);
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, formatDeltas({ gold: reward }));
   }
   if (event.definition.status && !hero.dead) {
     applyHeroStatus(event.definition.status.id, event.definition.status.duration);
@@ -3234,7 +3244,7 @@ function sleepOnIt() {
   renderCharacterSheet();
   updateHud();
   persistRun();
-  showLootToast({ path: CAMP_BEDROLL_PATH, rarity: 2 }, restCopy(itemDetailLanguage).slept);
+  showLootToast({ path: CAMP_BEDROLL_PATH, rarity: 2 }, restCopy(itemDetailLanguage).slept, 'restore');
   return true;
 }
 
@@ -3345,6 +3355,7 @@ function answerParley(target, option) {
     showLootToast(
       { path: monster.spritePath, rarity: 0 },
       itemDetailLanguage === 'en' ? 'Your pack is full' : 'Рюкзак полон',
+      'refused',
     );
     return false;
   }
@@ -3353,7 +3364,7 @@ function answerParley(target, option) {
   // Плата кровью берётся сразу и никогда не убивает: разговор — не ловушка.
   if (result.hpCost > 0) {
     hero.hp = Math.max(1, hero.hp - result.hpCost);
-    addCombatGlyph(hero.x, hero.y, `−${result.hpCost}`, '#c2453c', -60);
+    addCombatGlyph(hero.x, hero.y, `\u2212${result.hpCost}{heal}`, '#c2453c', -60);
   }
   if (result.grantsItemId) {
     grantItem(
@@ -3401,7 +3412,11 @@ function answerParley(target, option) {
   else if (!run.floor.spoken.includes(monster.instanceId)) run.floor.spoken.push(monster.instanceId);
   playerHasActed = true;
   playSound(result.goldDelta !== 0 ? 'gold' : result.heal > 0 ? 'spell-heal' : 'ui-tap');
-  showLootToast({ path: monster.spritePath, rarity: result.hostile ? 0 : 2 }, result.message);
+  showLootToast(
+    { path: monster.spritePath, rarity: result.hostile ? 0 : 2 },
+    result.message,
+    parleyFeedbackKind(result, { junk: result.grantsItemId === PARLEY_WARES.junk }),
+  );
   updateHud();
   renderPack();
   persistRun();
@@ -3438,7 +3453,7 @@ function claimPendingPrize() {
     return;
   }
   run.prize = null;
-  showLootToast({ id: prize.id, rarity: 3 }, PRIZE_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru']);
+  showLootToast({ id: prize.id, rarity: 3 }, PRIZE_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru'], 'item');
 }
 
 const THIEF_COPY = Object.freeze({
@@ -3500,6 +3515,7 @@ function robHero(monster) {
   showLootToast(
     { path: monster.spritePath, rarity: 0 },
     thiefCopy().robbed(itemPresentation(presentedItem(record), itemDetailLanguage).name),
+    'loss',
   );
   // Уходит он не «своей дорогой», а с добычей: в `floor.defeated` его пишет
   // тот же `sendNamedAway`, а `run.thief` переносит его на следующий этаж.
@@ -3525,7 +3541,7 @@ function recoverStolenItem(monster) {
   if (monster.id !== THIEF_MONSTER_ID || !run.thief) return;
   const record = run.thief.record;
   if (backpackItems.filter(Boolean).length >= currentBackpackCapacity()) {
-    showLootToast({ path: monster.spritePath, rarity: 1 }, thiefCopy().full);
+    showLootToast({ path: monster.spritePath, rarity: 1 }, thiefCopy().full, 'refused');
     return;
   }
   const state = currentItemState();
@@ -3539,6 +3555,7 @@ function recoverStolenItem(monster) {
   showLootToast(
     { path: monster.spritePath, rarity: 2 },
     thiefCopy().recovered(вещь ? itemPresentation(presentedItem(вещь), itemDetailLanguage).name : ''),
+    'item',
   );
 }
 
@@ -3561,6 +3578,7 @@ function payPriestForForgetting() {
     itemDetailLanguage === 'en'
       ? 'The priest lays a palm on your brow. The points are yours again.'
       : 'Жрец кладёт ладонь на лоб. Очки снова твои.',
+    'restore',
   );
   updateHud();
   persistRun();
@@ -3698,7 +3716,7 @@ function restAtHouse() {
   hungerAutosaveElapsed = 0;
   playerHasActed = true;
   burst(hero.x, hero.y - 10, '#9db4c8', 16);
-  addCombatGlyph(hero.x, hero.y, `+${result.healed}`, '#8bc59c', -70);
+  addCombatGlyph(hero.x, hero.y, `+${result.healed}{heal}`, '#8bc59c', -70);
   playSound('spell-heal');
   updateHud();
   persistRun();
@@ -3725,7 +3743,7 @@ function restAtCamp() {
   hungerAutosaveElapsed = 0;
   playerHasActed = true;
   burst(hero.x, hero.y - 10, '#9db4c8', 14);
-  addCombatGlyph(hero.x, hero.y, `+${result.healed}`, '#8bc59c', -70);
+  addCombatGlyph(hero.x, hero.y, `+${result.healed}{heal}`, '#8bc59c', -70);
   playSound('spell-heal');
   updateHud();
   persistRun();
@@ -3804,11 +3822,12 @@ function applyGameEvents(events) {
       showLootToast(
         definition,
         event.payload.stored ? event.payload.amount : 'full',
+        event.payload.stored ? 'item' : 'refused',
       );
       continue;
     }
     if (event.type === 'meat-cooked') {
-      showLootToast(lootById(event.payload.itemId), event.payload.amount);
+      showLootToast(lootById(event.payload.itemId), event.payload.amount, 'item');
     }
   }
 }
@@ -5278,7 +5297,7 @@ function interactNearbyTrap(preferredTrap = null) {
         ? presentation.toolRequired
         : presentation.unavailable;
       addCombatGlyph((trap.x + 0.5) * TILE, (trap.y + 0.5) * TILE, '!', '#dec982', -36);
-      showLootToast({ path: TRAP_PATH, rarity: 1 }, result.reason === 'tool-required' ? '⌁' : ['I', 'II', 'III'][trap.tier - 1]);
+      showLootToast({ path: TRAP_PATH, rarity: 1 }, trapAnnouncement.textContent, 'refused');
     }
     return false;
   }
@@ -5299,7 +5318,7 @@ function interactNearbyTrap(preferredTrap = null) {
   burst(x, y, '#9db0a6', 12);
   addImpactWave(x, y, '#7e9188', 42, 1);
   addCombatGlyph(x, y, '✓', '#c9d4c7', -34);
-  showLootToast({ path: DISARMED_TRAP_PATH, rarity: 1 }, '✓');
+  showLootToast({ path: DISARMED_TRAP_PATH, rarity: 1 }, feedbackCopy(itemDetailLanguage).trapDisarmed, 'restore');
   trapAnnouncement.textContent = presentation.success;
   updateHud();
   persistRun();
@@ -5379,7 +5398,7 @@ function discoverNearbyTraps({ feedback = true } = {}) {
     addCombatGlyph(x, y, '!', '#dec982', -36);
   }
   if (feedback) {
-    showLootToast({ path: TRAP_PATH, rarity: 1 }, '!');
+    showLootToast({ path: TRAP_PATH, rarity: 1 }, feedbackCopy(itemDetailLanguage).trapDetected);
     trapAnnouncement.textContent = itemDetailLanguage === 'ru' ? 'Чутьё: ловушка обнаружена' : 'Trap Sense: trap detected';
   }
   persistRun();
@@ -5389,7 +5408,7 @@ function discoverNearbyTraps({ feedback = true } = {}) {
 function warnTrapStep(cell) {
   const [x, y] = cell.split(',').map(Number);
   addCombatGlyph((x + 0.5) * TILE, (y + 0.5) * TILE, '!', '#dec982', -36);
-  showLootToast({ path: TRAP_PATH, rarity: 1 }, '!');
+  showLootToast({ path: TRAP_PATH, rarity: 1 }, feedbackCopy(itemDetailLanguage).trapWarning);
   trapAnnouncement.textContent = itemDetailLanguage === 'ru'
     ? 'Ловушка. Отпусти управление и нажми снова, если хочешь наступить.'
     : 'Trap. Release the control and press again to step on it deliberately.';
@@ -7935,17 +7954,36 @@ function drawBloodDrops() {
   context.restore();
 }
 
-function drawPixelGlyphText(text, x, y, color, alpha) {
+/**
+ * Число над героем с тем, ЧЕГО оно: «+12» и сердце, «+1» и меч.
+ *
+ * Метка в конце строки — та же, что в подписях (`{heal}`, `{maxhp}`,
+ * `{attack}`), только здесь вместо слова рисуется сам значок: пиксельный
+ * шрифт над головой знает одни цифры, а слово скажет всплывающая строка.
+ */
+const GLYPH_ICON_SIZE = 18;
+const GLYPH_ICON_SUFFIX = /\{([a-z]+)\}$/;
+
+function drawPixelGlyphText(source, x, y, color, alpha) {
   const block = 3;
   const glyphWidth = block * 3;
   const advance = glyphWidth + block;
+  const iconMatch = GLYPH_ICON_SUFFIX.exec(source);
+  const iconPath = iconMatch ? TEXT_ICONS[iconMatch[1]]?.path : null;
+  const text = iconMatch ? source.slice(0, iconMatch.index) : source;
+  const icon = iconPath ? image(iconPath) : null;
   const characters = [...text];
-  const width = characters.length * advance - block;
+  const textWidth = characters.length * advance - block;
+  const width = textWidth + (icon ? GLYPH_ICON_SIZE + block : 0);
   context.save();
   context.translate(pixelRound(x - width / 2), pixelRound(y));
   context.globalAlpha = alpha;
   context.fillStyle = '#050708';
   context.fillRect(-3, -3, width + 6, 21);
+  if (icon) {
+    context.imageSmoothingEnabled = false;
+    context.drawImage(icon, textWidth + block, -2, GLYPH_ICON_SIZE, GLYPH_ICON_SIZE);
+  }
   context.fillStyle = color;
   for (const [characterIndex, character] of characters.entries()) {
     const pattern = COMBAT_GLYPH_PATTERNS[character];
@@ -8619,7 +8657,7 @@ function focusSelectedInventoryRow() {
   });
 }
 
-function renderLootToast({ item, value }) {
+function renderLootToast({ item, value, feedback = feedbackFor({ value }) }) {
   const definition = item?.id ? lootById(item.id) : null;
   const displayItem = definition ? presentedItem({ ...definition, ...item }) : item;
   const informative = Boolean(definition || displayItem?.unidentified);
@@ -8640,6 +8678,9 @@ function renderLootToast({ item, value }) {
   // one small line changed — so the player read «taken» and then found the
   // thing still lying there. Ivan hit it twice before saying so.
   lootToast.dataset.refused = String(value === 'full');
+  // Тон решает `feedbackFor` — здесь его только показывают.
+  lootToast.dataset.tone = feedback.tone;
+  lootToast.dataset.accent = feedback.accent ?? '';
 
   if (informative) {
     const presentation = itemPresentation(displayItem, itemDetailLanguage);
@@ -8648,32 +8689,42 @@ function renderLootToast({ item, value }) {
     lootRarity.textContent = presentation.rarityMarks;
     lootRarity.setAttribute('aria-label', presentation.rarity);
     lootSlot.textContent = `${presentation.rarity} · ${presentation.slot}`;
-    lootEffect.textContent = value === 'equipped'
+    const effectText = value === 'equipped'
       ? labels.equipped
       : value === 'full'
         ? labels.inventoryFullShort
-        // A plain sentence means the runtime has something to say about this
-        // very use, which beats repeating what the item always does.
-        : typeof value === 'string' && value !== ''
-          ? value
-          : presentation.primaryEffect.text;
-    if (definition?.gold && typeof value === 'number') lootValue.textContent = `+${value}`;
-    else if (typeof value === 'number' && value > 1) lootValue.textContent = `+${value}`;
+        // «−1» было голым числом: вещь ушла, и это надо сказать словами.
+        : value === '\u22121'
+          ? feedbackCopy(itemDetailLanguage).spent
+          // A plain sentence means the runtime has something to say about this
+          // very use, which beats repeating what the item always does.
+          : typeof value === 'string' && value !== ''
+            ? value
+            : presentation.primaryEffect.text;
+    fillTextWithIcons(lootEffect, effectText, { words: true });
+    if (typeof value === 'number' && value > 1) lootValue.textContent = `+${value}`;
     else if ((item.stack ?? 0) > 1) lootValue.textContent = `×${item.stack}`;
     else lootValue.textContent = '';
     lootToast.setAttribute(
       'aria-label',
-      `${presentation.name}. ${presentation.rarity}. ${presentation.slot}. ${lootEffect.textContent}`,
+      `${presentation.name}. ${presentation.rarity}. ${presentation.slot}. ${textIconsToWords(effectText)}`,
     );
     return;
   }
 
-  lootName.textContent = typeof value === 'number' ? `${value >= 0 ? '+' : ''}${value}` : String(value);
+  /*
+   * Итог без карточки вещи: картинка слева говорит, откуда он, а строка —
+   * что именно пришло или ушло. Голое число сюда больше не попадает: места,
+   * что приносят золото или здоровье, пишут «+5 {gold}», и метка становится
+   * монетой со словом.
+   */
+  const text = typeof value === 'number' ? `${value >= 0 ? '+' : ''}${value}` : String(value);
+  fillTextWithIcons(lootName, text, { words: true });
   lootRarity.textContent = '';
   lootSlot.textContent = '';
   lootEffect.textContent = '';
   lootValue.textContent = '';
-  lootToast.setAttribute('aria-label', lootName.textContent);
+  lootToast.setAttribute('aria-label', textIconsToWords(text));
 }
 
 function showNextLootToast() {
@@ -8683,6 +8734,11 @@ function showNextLootToast() {
   activeLootToastEntry = entry;
   renderLootToast(entry);
   lootToast.classList.add('visible');
+  // Появление проигрывается заново для каждого итога, даже подряд.
+  lootToast.classList.remove('announce');
+  void lootToast.offsetWidth;
+  lootToast.classList.add('announce');
+  if (entry.feedback.sound) playFeedbackSound(entry.feedback.sound);
   const informative = Boolean(entry.item?.id && lootById(entry.item.id));
   toastTimer = window.setTimeout(() => {
     lootToast.classList.remove('visible');
@@ -8694,8 +8750,15 @@ function showNextLootToast() {
   }, informative ? 2100 : 1250);
 }
 
-function showLootToast(item, value = 12) {
-  lootToastQueue.push({ item, value });
+/**
+ * Сказать игроку, что с ним случилось.
+ *
+ * `kind` — что это было (см. `FEEDBACK_KINDS`): «gold», «heal», «skill-down»…
+ * Хорошо это или плохо, как выглядит и как звучит — решает `feedbackFor`, в
+ * одном месте на всю игру, а не каждое место по-своему.
+ */
+function showLootToast(item, value = 12, kind = null) {
+  lootToastQueue.push({ item, value, feedback: feedbackFor({ kind, value }) });
   if (lootToastQueue.length > 6) lootToastQueue.shift();
   showNextLootToast();
 }
@@ -8859,7 +8922,21 @@ function playSampleBuffer(audio, buffer, gainValue, start) {
 
 /** A loaded sample shadows the synth recipe; anything else falls back to the voices. */
 /** Plays one recorded variation; nothing is substituted while a file is still loading. */
+/** Когда какой звук звучал в последний раз: итог не повторяет звук действия. */
+const recentSoundAt = new Map();
+
+/**
+ * Звук итога. Если то же самое прозвучало только что — монеты при подборе,
+ * лечение у источника, — второй раз его не играют: это одно событие.
+ */
+function playFeedbackSound(id) {
+  const now = performance.now();
+  if (now - (recentSoundAt.get(id) ?? -Infinity) < 400) return false;
+  return playSound(id);
+}
+
 function playSound(id, { volume = 1 } = {}) {
+  recentSoundAt.set(id, performance.now());
   const audio = levelUpAudio;
   if (!audio || audio.state !== 'running' || effectiveVolume(audioSettings) === 0) return false;
   const sample = soundSample(id);
@@ -9684,7 +9761,7 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     if (result.reason === 'unsafe') {
       findAnnouncement.textContent = resultPresentation?.unsafe || presentation.unsafe;
       addCombatGlyph(find.x, find.y, '!', presentation.color, -38);
-      showLootToast({ path: presentation.path, rarity: 0 }, '!');
+      showLootToast({ path: presentation.path, rarity: 0 }, findAnnouncement.textContent, 'refused');
     }
     return false;
   }
@@ -9773,25 +9850,30 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     if (restored) {
       burst(hero.x, hero.y - 8, result.cleansed.length > 0 ? '#87cad0' : '#7fbd86', 16);
       addImpactWave(hero.x, hero.y - 8, '#7fbd86', 48, 0);
-      if (result.heal > 0) addCombatGlyph(hero.x, hero.y, `+${result.heal}`, '#8fd08c', -62);
+      if (result.heal > 0) addCombatGlyph(hero.x, hero.y, `+${result.heal}{heal}`, '#8fd08c', -62);
     }
     if (result.rewardMaxHp > 0) {
       burst(hero.x, hero.y - 8, '#e0c778', 18);
       addImpactWave(hero.x, hero.y - 8, '#e0c778', 54, 1);
-      addCombatGlyph(hero.x, hero.y, `+${result.rewardMaxHp} ♥`, '#e0c778', -74);
+      addCombatGlyph(hero.x, hero.y, `+${result.rewardMaxHp}{maxhp}`, '#e0c778', -74);
     }
     burst(find.x, find.y - 10, result.damage > 0 ? '#b45c58' : presentation.color, 20);
     addImpactWave(find.x, find.y, presentation.color, 54, 1);
     if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
+    /*
+     * Всё, что источник или алтарь дал и взял, — одной строкой с метками:
+     * «+3 [сердце] к пределу здоровья · −10 [сердце] здоровья». Раньше здесь
+     * было одно число без единицы, а если ничего не пришло — галочка.
+     */
+    const landmarkDeltas = formatDeltas({
+      gold: (result.rewardGold ?? 0) - (result.costGold ?? 0),
+      maxhp: result.rewardMaxHp,
+      heal: (result.heal ?? 0) - (result.damage ?? 0),
+    });
     showLootToast(
       { path: presentation.path, rarity: result.damage > 0 ? 2 : 1 },
-      result.rewardGold > 0
-        ? result.rewardGold
-        : result.rewardMaxHp > 0
-          ? `+${result.rewardMaxHp} ♥`
-          : result.heal > 0
-            ? result.heal
-            : '✓',
+      landmarkDeltas || resultPresentation?.message || presentation.result,
+      landmarkDeltas ? null : result.cleansed.length > 0 ? 'restore' : 'info',
     );
     findAnnouncement.textContent = resultPresentation?.summary
       ? `${resultPresentation.message}. ${resultPresentation.summary}`
@@ -9816,18 +9898,24 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     : '';
   if (attributeGain) {
     addCombatGlyph(hero.x, hero.y, attributeGain, presentation.color, -62);
-    playSound('spell-toggle');
     renderCharacterAttributes();
   }
+  /*
+   * Иван: кристалл дал ему «+5», и он не понял, чего. Строка была
+   * «+1 · 5●»: единица скрытой силы без слова и золото типографским
+   * кружком. Теперь кристалл говорит «Ловкость +1», а золото — «+5 [монета]
+   * золота».
+   */
+  const findDeltas = formatDeltas({
+    gold: result.rewardGold,
+    heal: -(result.damage ?? 0),
+  });
   showLootToast(
     { path: presentation.path, rarity: find.id === 'forgotten-grave' ? 2 : find.id === 'crystal-vein' ? 3 : 1 },
     awakened.length > 0
-      ? '!'
-      : attributeGain
-      ? attributeGain
-      : damagedLoot
-        ? `${result.rewardGold}● −${result.destroyedGold}`
-        : result.rewardGold,
+      ? feedbackCopy(itemDetailLanguage).findGuarded
+      : attributeGain || findDeltas || feedbackCopy(itemDetailLanguage).nothingFound,
+    awakened.length > 0 ? 'hostile' : attributeGain ? 'buff' : null,
   );
   if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
   // Плита отъехала, и хозяин гробницы встаёт (`dcss-rpg-tomb.js`).
@@ -10333,9 +10421,19 @@ const GOLD_ICON_PATH = 'licensed/7soul-icons/coin-gold.png';
 const TEXT_ICONS = Object.freeze({
   gold: Object.freeze({ path: GOLD_ICON_PATH, ru: 'золота', en: 'gold' }),
   heal: Object.freeze({ path: 'derived/hud/heart.png', ru: 'здоровья', en: 'health' }),
+  /*
+   * Всё, что не золото и не здоровье, одной картинкой не объяснить: меч рядом
+   * с «+1» можно прочитать и как «меч», и как «удар». Иван: кристалл дал ему
+   * «+5», и он не понял, чего. Поэтому у этих меток слово идёт за значком
+   * всегда (`spoken`), а не только во всплывающей подписи.
+   */
+  maxhp: Object.freeze({ path: 'derived/hud/heart.png', ru: 'к пределу здоровья', en: 'max health', spoken: true }),
+  attack: Object.freeze({ path: 'item/weapon/long_sword1.png', ru: 'к силе удара', en: 'attack', spoken: true }),
+  food: Object.freeze({ path: 'item/food/bread_ration.png', ru: 'мин сытости', en: 'min fed', spoken: true }),
+  map: Object.freeze({ path: 'derived/icon/scroll-magic_mapping.png', ru: 'клеток карты', en: 'map tiles', spoken: true }),
 });
 
-const TEXT_ICON_PATTERN = /\{(gold|heal)\}/g;
+const TEXT_ICON_PATTERN = new RegExp(`\\{(${Object.keys(TEXT_ICONS).join('|')})\\}`, 'g');
 
 /** Та же строка словами: для чтения вслух и всплывающей подписи. */
 function textIconsToWords(text) {
@@ -10343,19 +10441,28 @@ function textIconsToWords(text) {
   return text.replace(TEXT_ICON_PATTERN, (_, id) => TEXT_ICONS[id][itemDetailLanguage === 'en' ? 'en' : 'ru']);
 }
 
-/** Разложить строку с метками в узел: куски текста и картинки между ними. */
-function fillTextWithIcons(node, text) {
+/**
+ * Разложить строку с метками в узел: куски текста и картинки между ними.
+ *
+ * `words` — итог, а не обещание: во всплывающем сообщении за значком всегда
+ * идёт слово («+5 [монета] золота»), потому что читают его на бегу и один раз.
+ */
+function fillTextWithIcons(node, text, { words = false } = {}) {
   const source = typeof text === 'string' ? text : '';
   const parts = [];
   let last = 0;
   for (const match of source.matchAll(TEXT_ICON_PATTERN)) {
     if (match.index > last) parts.push(document.createTextNode(source.slice(last, match.index)));
+    const entry = TEXT_ICONS[match[1]];
     const icon = document.createElement('img');
     icon.className = 'text-icon';
-    icon.src = spriteUrl(TEXT_ICONS[match[1]].path);
+    icon.src = spriteUrl(entry.path);
     icon.alt = '';
     icon.setAttribute('aria-hidden', 'true');
     parts.push(icon);
+    if (words || entry.spoken) {
+      parts.push(document.createTextNode(` ${entry[itemDetailLanguage === 'en' ? 'en' : 'ru']}`));
+    }
     last = match.index + match[0].length;
   }
   if (last < source.length) parts.push(document.createTextNode(source.slice(last)));
@@ -11206,7 +11313,7 @@ function openMerchantShop(merchant) {
   if (!merchant || uiScreen !== 'game' || hero.dead || runStatus !== 'playing') return false;
   // Nobody sells to a face on the watch's list.
   if (isWanted(run.crime)) {
-    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage));
+    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage), 'hostile');
     return false;
   }
   clearMoveControl();
@@ -11305,6 +11412,7 @@ function tameNearbyWildlife(creature) {
     showLootToast(
       { path: creature.spritePath, rarity: 1 },
       companionRefusalText(result.reason, itemDetailLanguage),
+      'refused',
     );
     return false;
   }
@@ -11322,6 +11430,7 @@ function tameNearbyWildlife(creature) {
   showLootToast(
     { path: creature.spritePath, rarity: 2 },
     companionRefusalText('tamed', itemDetailLanguage),
+    'ally',
   );
   updateHud();
   renderPack();
@@ -11629,7 +11738,7 @@ function openHeroPortal() {
   });
   if (!result.ok) {
     const refusal = portalCopy(itemDetailLanguage).refusal[result.reason] ?? '';
-    if (refusal) showLootToast({ path: PORTAL_PATH, rarity: 0 }, refusal);
+    if (refusal) showLootToast({ path: PORTAL_PATH, rarity: 0 }, refusal, 'refused');
     return false;
   }
   const copy = portalCopy(itemDetailLanguage);
@@ -11919,11 +12028,15 @@ function triggerDoorSurprise(door) {
   }
   if (surprise.type === 'horde') {
     const monster = monsters.find((candidate) => surprise.monsterIds.includes(candidate.instanceId));
-    showLootToast({ path: monster?.spritePath ?? 'dngn/doors/closed_door.png', rarity: 0 }, '!');
+    showLootToast(
+      { path: monster?.spritePath ?? 'dngn/doors/closed_door.png', rarity: 0 },
+      feedbackCopy(itemDetailLanguage).ambush,
+      'hostile',
+    );
   } else if (surprise.type === 'treasure') {
-    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, '●●●');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 2 }, feedbackCopy(itemDetailLanguage).treasure);
   } else {
-    showLootToast({ icon: GOLD_ICON_PATH, rarity: 3 }, '!?');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 3 }, feedbackCopy(itemDetailLanguage).strange);
   }
 }
 
@@ -11939,7 +12052,7 @@ function toggleNearbyDoor() {
 function beginDoorTransition(door, targetOpen) {
   // The cell door does not answer to hands, only to the fine or the lockpick.
   if (run.crime.jailed && door && door.instanceId === cityJailDoor()?.instanceId) {
-    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('lock-too-good', itemDetailLanguage));
+    showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('lock-too-good', itemDetailLanguage), 'refused');
     return false;
   }
   if (!ready || uiScreen !== 'game' || hero.dead || !door || openingDoor || runStatus !== 'playing') return false;
@@ -11974,7 +12087,7 @@ function beginDoorTransition(door, targetOpen) {
   })) {
     doorAnnouncement.textContent = currentMainMenuModel().labels.doorBlocked;
     addCombatGlyph((door.x + 0.5) * TILE, (door.y + 0.5) * TILE, '!', '#dec982', -36);
-    showLootToast({ path: 'dngn/doors/open_door.png', rarity: 0 }, '!');
+    showLootToast({ path: 'dngn/doors/open_door.png', rarity: 0 }, doorAnnouncement.textContent, 'refused');
     return false;
   }
   hero.path = [];
@@ -13936,7 +14049,7 @@ function closeOutfitDetail() {
 function toggleOutfitGood(id, wantsReturn) {
   const result = wantsReturn ? stashReturn(stashState, id) : stashBuy(stashState, id);
   if (!result.ok) {
-    showLootToast({ icon: GOLD_ICON_PATH, rarity: 0 }, stashCopy(itemDetailLanguage).refusal[result.reason] ?? '');
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: 0 }, stashCopy(itemDetailLanguage).refusal[result.reason] ?? '', 'refused');
     playSound('ui-close');
     return false;
   }
@@ -14352,12 +14465,13 @@ function consumeBackpackItem(item, index) {
  */
 const CONSUMABLE_REPORTS = Object.freeze({
   ru: Object.freeze({
-    healed: (amount) => `Исцеление +${amount}`,
+    // Метки рисуют сердце и меч со словом: «Исцеление +12 [♥] здоровья».
+    healed: (amount) => `Исцеление +${amount} {heal}`,
     healedFull: 'Уже полное здоровье',
-    maxHp: (amount) => `Здоровье навсегда +${amount}`,
+    maxHp: (amount) => `+${amount} {maxhp}`,
     cleansed: 'Состояния сняты',
     nothingToCleanse: 'Снимать было нечего',
-    venom: (damage, seconds) => `Яд: −${damage} и отравление на ${Math.round(seconds)} с`,
+    venom: (damage, seconds) => `Яд: −${damage} {heal} · отравление на ${Math.round(seconds)} с`,
     learned: (name) => `Изучено: ${name}`,
     /*
      * Книга обязана сказать, что в ней было.
@@ -14370,19 +14484,21 @@ const CONSUMABLE_REPORTS = Object.freeze({
     skillUp: (name) => `Изучено: ${name} +1`,
     skillDown: (name) => `Забыто: ${name} −1`,
     spellKnown: (name) => `Это уже знакомо: ${name}`,
+    newSpell: (name) => `новое заклинание: ${name}`,
   }),
   en: Object.freeze({
-    healed: (amount) => `Healed +${amount}`,
+    healed: (amount) => `Healed +${amount} {heal}`,
     healedFull: 'Already at full health',
-    maxHp: (amount) => `Max health +${amount}`,
+    maxHp: (amount) => `+${amount} {maxhp}`,
     cleansed: 'Conditions cleared',
     nothingToCleanse: 'Nothing to clear',
-    venom: (damage, seconds) => `Venom: −${damage} and poisoned for ${Math.round(seconds)}s`,
+    venom: (damage, seconds) => `Venom: −${damage} {heal} · poisoned for ${Math.round(seconds)}s`,
     learned: (name) => `Learned: ${name}`,
     blankBook: 'The pages are blank. There was nothing in them.',
     skillUp: (name) => `Learned: ${name} +1`,
     skillDown: (name) => `Forgotten: ${name} −1`,
     spellKnown: (name) => `Already known: ${name}`,
+    newSpell: (name) => `new spell: ${name}`,
   }),
 });
 
@@ -14400,6 +14516,14 @@ function raiseHeroMaxHp(amount) {
   hero.maxHp += amount;
   hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + amount);
 }
+
+/** Что случилось от зелья — для `feedbackFor`, который решит, хорошо ли это. */
+const POTION_FEEDBACK_KINDS = Object.freeze({
+  heal: 'heal',
+  maxHp: 'buff',
+  cleanse: 'restore',
+  venom: 'poison',
+});
 
 function applyIdentifiablePotion(item) {
   const outcome = potionOutcome(item);
@@ -14459,20 +14583,28 @@ function applyBook(item) {
   if (!adjustment) {
     // Пустая книга: сказать словами, а не нулём в углу экрана.
     burst(hero.x, hero.y - 8, '#929b94', 10);
-    return consumableReport().blankBook;
+    return { text: consumableReport().blankBook, kind: 'info' };
   }
   const { skillId, direction } = adjustment.payload;
+  const knownBefore = new Set(hero.spells.knownSpellIds);
   // Ранг школы мог открыть или закрыть заклинания — панель узнаёт об этом тут.
   syncKnownSpells();
+  const newSpellNames = hero.spells.knownSpellIds
+    .filter((id) => !knownBefore.has(id))
+    .map((id) => spellById(id)?.name?.[itemDetailLanguage] ?? id);
   const skillName = skillById(skillId)?.name?.[itemDetailLanguage] ?? skillId;
   const color = direction > 0 ? '#d8c76c' : '#9b6d9f';
   burst(hero.x, hero.y - 8, color, 18);
   addImpactWave(hero.x, hero.y - 8, color, 54, direction > 0 ? 1 : 0);
   discoverNearbyTraps();
   // Названием навыка, а не знаком с цифрой: «−1 Мечи» читается как урон.
-  return direction > 0
-    ? consumableReport().skillUp(skillName)
-    : consumableReport().skillDown(skillName);
+  if (direction <= 0) return { text: consumableReport().skillDown(skillName), kind: 'skill-down' };
+  // Ранг, который открыл заклинание, говорит и о нём: это и есть награда.
+  const spells = newSpellNames.map((name) => consumableReport().newSpell(name));
+  return {
+    text: [consumableReport().skillUp(skillName), ...spells].join(' · '),
+    kind: spells.length > 0 ? 'spell' : 'skill-up',
+  };
 }
 
 /** Everything the hero can see within a radius, in cells, and still alive. */
@@ -14506,7 +14638,7 @@ function burnAroundHero(effect) {
       monster.effects = applyActorEffect(monster.effects, 'burning', effect.burnSeconds).effects;
     }
   }
-  return targets.length > 0 ? `×${targets.length}` : '0';
+  return feedbackCopy(itemDetailLanguage).struck(targets.length);
 }
 
 /** The scroll of frost: the same circle, but it holds instead of hurting. */
@@ -14519,7 +14651,7 @@ function bindAroundHero(effect) {
     monster.effects = applyActorEffect(monster.effects, statusId, effect.duration).effects;
     addCombatGlyph(monster.x, monster.y, '❄', ACTOR_EFFECTS[statusId].color, -60);
   }
-  return targets.length > 0 ? `×${targets.length}` : '0';
+  return feedbackCopy(itemDetailLanguage).held(targets.length);
 }
 
 /** The scroll of insight: the floor around, or the whole floor for a scholar. */
@@ -14537,7 +14669,7 @@ function revealFromScroll(effect) {
   }
   discoverNearbyTraps();
   burst(hero.x, hero.y - 10, '#d8d2a8', 16);
-  return `+${revealed.size - before}`;
+  return formatDeltas({ map: revealed.size - before }) || feedbackCopy(itemDetailLanguage).nothingFound;
 }
 
 function useConsumable(item, index, effectOverride = null) {
@@ -14548,12 +14680,16 @@ function useConsumable(item, index, effectOverride = null) {
   }
   const maxHp = currentHeroStats().maxHp;
   let feedback = 1;
+  // Что случилось; хорошо это или плохо, решит `feedbackFor`.
+  let feedbackKind = null;
   const identifiable = isIdentifiableItem(item);
   if (identifiable) {
     run.knowledge = identifyItem(run.knowledge, item.id, IDENTIFIABLE_LOOT_IDS);
   }
   if (item.identification?.group === 'potion') {
+    feedbackKind = POTION_FEEDBACK_KINDS[potionOutcome(item)?.type] ?? null;
     feedback = applyIdentifiablePotion(item);
+    if (feedback === consumableReport().healedFull) feedbackKind = 'info';
     playSound('drink');
   } else if (item.identification?.group === 'book') {
     if (heroWading()) {
@@ -14562,11 +14698,13 @@ function useConsumable(item, index, effectOverride = null) {
       addCombatGlyph(hero.x, hero.y, '~', '#63b8ca', -62);
       return;
     }
-    feedback = applyBook(item);
-    if (feedback === null) {
+    const reading = applyBook(item);
+    if (reading === null) {
       showLootToast(item, 0);
       return;
     }
+    feedback = reading.text;
+    feedbackKind = reading.kind;
     playSound('read');
   } else if (effect?.type === 'heal') {
     feedback = Math.min(effect.amount, maxHp - hero.hp);
@@ -14575,6 +14713,8 @@ function useConsumable(item, index, effectOverride = null) {
       return;
     }
     hero.hp += feedback;
+    feedback = consumableReport().healed(feedback);
+    feedbackKind = 'heal';
     playSound('drink');
   } else if (effect?.type === 'food') {
     // Еда лечит и в драке: зелье в забеге одно, и без этого лечиться в бою
@@ -14584,6 +14724,7 @@ function useConsumable(item, index, effectOverride = null) {
       showLootToast(item, hungerCopy(itemDetailLanguage).threatened);
       return;
     }
+    const hpBeforeMeal = hero.hp;
     const result = consumeFood({
       hunger: hero.hunger,
       hp: hero.hp,
@@ -14608,7 +14749,9 @@ function useConsumable(item, index, effectOverride = null) {
       renderHeroEffectsHud();
       burst(hero.x, hero.y - 12, activeMeal(meal, itemDetailLanguage).color, 16);
     }
-    feedback = `+${Math.ceil(result.restored / 60)}′`;
+    // Сытость в минутах и здоровье — каждое со своим значком и словом.
+    feedback = formatDeltas({ food: Math.ceil(result.restored / 60), heal: result.state.hp - hpBeforeMeal });
+    feedbackKind = 'food';
   } else if (effect?.type === 'unbind') {
     const slots = boundSlots(selected, itemInstances);
     if (slots.length === 0) {
@@ -14618,11 +14761,13 @@ function useConsumable(item, index, effectOverride = null) {
     }
     // Read plainly it frees one thing; read by a scholar, everything at once.
     const chosen = effect.whole ? slots : [slots[0]];
-    feedback = liftBindings(chosen.map((slot) => selected[slot]).filter(Boolean));
-    if (feedback === 0) {
+    const lifted = liftBindings(chosen.map((slot) => selected[slot]).filter(Boolean));
+    if (lifted === 0) {
       showLootToast(item, 0);
       return;
     }
+    feedback = feedbackCopy(itemDetailLanguage).curseLifted(lifted);
+    feedbackKind = 'restore';
     playSound('read');
   } else if (effect?.type === 'camp') {
     const refusal = pitchCamp();
@@ -14637,7 +14782,7 @@ function useConsumable(item, index, effectOverride = null) {
       return;
     }
     // The stone is the deed's companion: it is spent on nothing and stays.
-    showLootToast(item, '\u2302');
+    showLootToast(item, feedbackCopy(itemDetailLanguage).homeStone);
     updateHud();
     persistRun();
     return;
@@ -14661,6 +14806,7 @@ function useConsumable(item, index, effectOverride = null) {
     burst(hero.x, hero.y - 10, '#d8c9b4', 18);
     addImpactWave(hero.x, hero.y - 8, '#d8c9b4', 58, 0);
     feedback = consumableReport().healed(treatment.healed);
+    feedbackKind = 'heal';
   } else if (effect?.type === 'coat') {
     const result = coatWeapon({
       weapon: itemInstances.get(selected.hand1) ?? null,
@@ -14676,6 +14822,7 @@ function useConsumable(item, index, effectOverride = null) {
     playSound('drink');
     burst(hero.x, hero.y - 10, '#86b84f', 16);
     feedback = poisonRefusalText('coated', itemDetailLanguage);
+    feedbackKind = 'buff';
   } else if (effect?.type === 'cleanse-ritual') {
     const ritual = resolveCleansing({
       effects: hero.effects,
@@ -14695,25 +14842,28 @@ function useConsumable(item, index, effectOverride = null) {
     burst(hero.x, hero.y - 10, '#cfe6ea', 18);
     addImpactWave(hero.x, hero.y - 8, '#cfe6ea', 58, 0);
     feedback = cleansingReport(ritual, itemDetailLanguage);
+    feedbackKind = 'restore';
   } else if (effect?.type === 'flame-burst') {
     feedback = burnAroundHero(effect);
+    feedbackKind = feedback === feedbackCopy(itemDetailLanguage).struck(0) ? 'info' : 'strike';
     playSound('spell-fire');
   } else if (effect?.type === 'frost-bind') {
     feedback = bindAroundHero(effect);
+    feedbackKind = feedback === feedbackCopy(itemDetailLanguage).held(0) ? 'info' : 'strike';
     playSound('spell-ice');
   } else if (effect?.type === 'insight') {
     feedback = revealFromScroll(effect);
     playSound('read');
   } else if (effect?.type === 'maxHp') {
     raiseHeroMaxHp(effect.amount);
-    playSound('spell-heal');
     feedback = consumableReport().maxHp(effect.amount);
+    feedbackKind = 'buff';
   } else {
     throw new Error(`Unsupported consumable effect: ${item.id}`);
   }
   playerHasActed = true;
   consumeBackpackItem(item, index);
-  showLootToast(item, feedback);
+  showLootToast(item, feedback, feedbackKind);
   updateHud();
   updateGearUi();
   selectedPackIndex = Math.max(0, Math.min(index, backpackItems.length - 1));
@@ -14741,7 +14891,7 @@ function performSelectedItemAction({ fromDetail = false, secondary = false, requ
     void itemDetailCard.offsetWidth;
     itemDetailCard.classList.add('identification-reveal');
     window.setTimeout(() => itemDetailCard.classList.remove('identification-reveal'), 420);
-    showLootToast(selection.item, '✓');
+    showLootToast(selection.item, feedbackCopy(itemDetailLanguage).identified, 'reveal');
     persistRun();
     itemDetailAction.focus();
     return true;
@@ -14943,7 +15093,7 @@ function showEffectRelief(id) {
 
 function showWardPulse(id) {
   showEffectRelief(id);
-  showLootToast({ icon: ACTOR_EFFECTS[id].icon, rarity: 1 }, '◇');
+  showLootToast({ icon: ACTOR_EFFECTS[id].icon, rarity: 1 }, feedbackCopy(itemDetailLanguage).wardHeld, 'restore');
 }
 
 function cleanseEquippedWards() {
@@ -15007,7 +15157,7 @@ function damageWildlife(
     });
     hero.hp = recovery.hp;
     vampiricPool = recovery.budget;
-    if (recovery.healed > 0) addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#d97873');
+    if (recovery.healed > 0) addCombatGlyph(hero.x, hero.y, `+${recovery.healed}{heal}`, '#d97873');
   }
   if (lethal) {
     const recovery = resolveKillRecovery({
@@ -15116,7 +15266,7 @@ function damageMonster(
     vampiricPool = recovery.budget;
     if (recovery.healed > 0) {
       burst(hero.x, hero.y - 12, '#b94d55', 6);
-      addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#d97873');
+      addCombatGlyph(hero.x, hero.y, `+${recovery.healed}{heal}`, '#d97873');
       updateHud();
     }
   }
@@ -15475,7 +15625,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
         burst(standing.x, standing.y - 8, usedSpell.color, 12);
       }
       const copy = minionCopy(usedSpell.id, itemDetailLanguage);
-      if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called);
+      if (copy) showLootToast({ icon: usedSpell.icon, rarity: 2 }, copy.called, 'ally');
     }
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     spendHunger('spell');
@@ -15611,7 +15761,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     renderHeroEffectsHud();
     playSound('spell-fire');
     burst(hero.x, hero.y - 12, usedSpell.color, 24);
-    addCombatGlyph(hero.x, hero.y, `-${cost}`, usedSpell.color, -62);
+    addCombatGlyph(hero.x, hero.y, `\u2212${cost}{heal}`, usedSpell.color, -62);
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     spendHunger('spell');
   } else if (usedSpell.kind === 'share-life') {
@@ -15638,10 +15788,10 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     for (const ally of wounded) {
       ally.hp = Math.min(ally.maxHp, ally.hp + share);
       burst(ally.x, ally.y - 8, usedSpell.color, 12);
-      addCombatGlyph(ally.x, ally.y, `+${share}`, usedSpell.color, -54);
+      addCombatGlyph(ally.x, ally.y, `+${share}{heal}`, usedSpell.color, -54);
     }
     playSound('spell-heal');
-    addCombatGlyph(hero.x, hero.y, `-${cost}`, usedSpell.color, -62);
+    addCombatGlyph(hero.x, hero.y, `\u2212${cost}{heal}`, usedSpell.color, -62);
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
     spendHunger('spell');
   } else if (usedSpell.kind === 'cleanse-ally') {
@@ -15660,7 +15810,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
       ally.effects = clearActorEffects(ally.effects).effects;
       ally.hp = Math.min(ally.maxHp, ally.hp + mended);
       burst(ally.x, ally.y - 8, usedSpell.color, 14);
-      addCombatGlyph(ally.x, ally.y, `+${mended}`, usedSpell.color, -54);
+      addCombatGlyph(ally.x, ally.y, `+${mended}{heal}`, usedSpell.color, -54);
     }
     playSound('spell-heal');
     spellCooldowns[usedSpell.id] = heroSpellCooldown(usedSpell);
@@ -15712,7 +15862,7 @@ function castPreparedSpell(slotIndex, explicitTarget = null) {
     playSound('spell-heal');
     burst(hero.x, hero.y - 12, usedSpell.color, 22);
     addImpactWave(hero.x, hero.y - 8, usedSpell.color, 66, 1);
-    addCombatGlyph(hero.x, hero.y, `+${amount}`, usedSpell.color, -62);
+    addCombatGlyph(hero.x, hero.y, `+${amount}{heal}`, usedSpell.color, -62);
   } else {
     playSound(SPELL_CAST_SOUNDS[usedSpell.id] ?? 'spell-fire');
     hero.path = [];
@@ -15939,7 +16089,9 @@ function gainExperience(monster) {
     burst(hero.x, hero.y - 10, '#d4c27e', 18);
   }
   showLevelUpCelebration(progression);
-  showLootToast({ icon: GOLD_ICON_PATH, rarity: Math.min(3, monster.tier >> 1) }, goldReward);
+  if (goldReward > 0) {
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: Math.min(3, monster.tier >> 1) }, formatDeltas({ gold: goldReward }));
+  }
   updateHud();
 }
 
@@ -15986,6 +16138,7 @@ function reviveNamed(monster) {
   showLootToast(
     { path: monster.spritePath, rarity: 1 },
     REVIVE_COPY[itemDetailLanguage === 'en' ? 'en' : 'ru'],
+    'ally',
   );
   return true;
 }
@@ -16047,7 +16200,7 @@ function defeatMonster(monster) {
   gainExperience(monster);
   if (monster.vaultRewardGold > 0) {
     gold += monster.vaultRewardGold;
-    showLootToast({ path: monster.spritePath, rarity: 3 }, monster.vaultRewardGold);
+    showLootToast({ path: monster.spritePath, rarity: 3 }, formatDeltas({ gold: monster.vaultRewardGold }));
     findAnnouncement.textContent = itemDetailLanguage === 'ru'
       ? `Мимик повержен · ${monster.vaultRewardGold} золота`
       : `Mimic defeated · ${monster.vaultRewardGold} gold`;
@@ -16062,15 +16215,16 @@ function defeatMonster(monster) {
   if (recovery.healed > 0) {
     burst(hero.x, hero.y - 12, '#8bc59c', 9);
     addImpactWave(hero.x, hero.y - 4, '#8bc59c', 38, 0);
-    addCombatGlyph(hero.x, hero.y, `+${recovery.healed}`, '#8bc59c');
-    showLootToast({ icon: 'derived/icon/ring-regeneration.png', rarity: 2 }, `+${recovery.healed} ♥`);
+    addCombatGlyph(hero.x, hero.y, `+${recovery.healed}{heal}`, '#8bc59c');
+    showLootToast({ icon: 'derived/icon/ring-regeneration.png', rarity: 2 }, formatDeltas({ heal: recovery.healed }));
     updateHud();
   }
   if (monster.instanceId === dungeon.objective?.bossInstanceId) {
     const finalGuardian = roadEndingAt(dungeon.depth) !== null;
     showLootToast(
       { path: finalGuardian ? roadPrize().path : exitVisual().path, rarity: 3 },
-      finalGuardian ? '◆' : romanDepth(dungeon.depth),
+      `${feedbackCopy(itemDetailLanguage).guardianDown} · ${finalGuardian ? '◆' : romanDepth(dungeon.depth)}`,
+      'victory',
     );
     burst(monster.x, monster.y - 8, finalGuardian ? '#d83e82' : '#d4b653', 28);
     updateBossHud();
@@ -16218,7 +16372,8 @@ function resolveWorldInteractions() {
     playSound('gold');
     burst(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 16);
     addImpactWave(loot.x, loot.y - 8, rarityGlow[loot.definition.rarity], 52, 1);
-    showLootToast(loot.definition, reward);
+    // Монета и слово, а не имя кучки: «+5 [монета] золота».
+    showLootToast({ icon: GOLD_ICON_PATH, rarity: loot.definition.rarity }, formatDeltas({ gold: reward }));
     updateHud();
     persistRun();
   }
@@ -16285,7 +16440,7 @@ function completeVictory() {
   playSound('victory');
   stopAmbient();
   stopMusic();
-  showLootToast({ path: roadPrize().path, rarity: 3 }, 'III');
+  showLootToast({ path: roadPrize().path, rarity: 3 }, feedbackCopy(itemDetailLanguage).roadPrize, 'victory');
   persistRun();
   showRunEndScreen('victory');
   return true;
@@ -16311,7 +16466,7 @@ function liftBindings(uids) {
   burst(hero.x, hero.y - 10, '#e8dcc0', 26);
   addCombatGlyph(hero.x, hero.y, '⛓', '#e8dcc0', -70);
   playSound('spell-toggle');
-  showLootToast({ icon: 'derived/icon/scroll-remove_curse.png', rarity: 2 }, curseCopy(itemDetailLanguage).lifted);
+  showLootToast({ icon: 'derived/icon/scroll-remove_curse.png', rarity: 2 }, curseCopy(itemDetailLanguage).lifted, 'restore');
   updateGearUi();
   renderPack();
   updateHud();
@@ -16349,6 +16504,7 @@ function hireIntoParty(mercenaryId) {
   showLootToast(
     { path: mercenaryById(mercenaryId).path, rarity: 2 },
     mercenaryCopy(itemDetailLanguage).hired(mercenaryName(mercenaryId, itemDetailLanguage)),
+    'ally',
   );
   updateHud();
   persistRun();
@@ -16448,14 +16604,18 @@ function healAtSanctuary() {
           language: itemDetailLanguage,
               }).actions[0]?.hint
       : null;
-    if (hint) showLootToast({ path: SANCTUARY_PATH, rarity: 0 }, hint);
+    if (hint) showLootToast({ path: SANCTUARY_PATH, rarity: 0 }, hint, 'refused');
     return;
   }
   hero.hp = result.state.hp;
   run.sanctuaryDrunkAt = result.state.drunkAt;
   burst(hero.x, hero.y - 8, '#d4c27e', 22);
   playSound('spell-heal');
-  showLootToast({ path: SANCTUARY_PATH, rarity: 2 }, result.healed);
+  showLootToast(
+    { path: SANCTUARY_PATH, rarity: 2 },
+    formatDeltas({ heal: result.healed }) || consumableReport().healedFull,
+    result.healed > 0 ? 'heal' : 'restore',
+  );
   updateHud();
   persistRun();
   // Окно остаётся открытым: лечение повторяемое, и закрывать его после каждой
@@ -16643,7 +16803,7 @@ function wakeFloorGhost() {
   claimFloorBones();
   burst(ghost.x, ghost.y - 10, '#9fc7d8', 22);
   addImpactWave(ghost.x, ghost.y - 6, '#9fc7d8', 58, 0);
-  showLootToast({ path: ghost.spritePath, rarity: 2 }, bonesCopy(itemDetailLanguage).woken);
+  showLootToast({ path: ghost.spritePath, rarity: 2 }, bonesCopy(itemDetailLanguage).woken, 'hostile');
   playSound('spell-toggle');
 }
 
@@ -16809,7 +16969,7 @@ function noteCrime(deed) {
   const result = recordCrime(run.crime, deed);
   if (!result.ok) return false;
   run.crime = result.crime;
-  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage));
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, wantedLabel(run.crime, itemDetailLanguage), 'hostile');
   persistRun();
   return true;
 }
@@ -16854,7 +17014,7 @@ function jailHero() {
   placeHeroAtCell(anchor);
   closeContextActions();
   playSound('door');
-  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('arrested', itemDetailLanguage));
+  showLootToast({ path: CRIME_TOAST_ICON, rarity: 3 }, crimeRefusalText('arrested', itemDetailLanguage), 'loss');
   updateHud();
   persistRun();
   return true;
@@ -19855,7 +20015,7 @@ playDailyButton.addEventListener('click', () => {
   closeRecords();
   if (uiScreen === 'menu') startGameFromMenu();
   restartRun(seed);
-  showLootToast({ path: exitVisual().path, rarity: 2 }, String(seed));
+  showLootToast({ path: exitVisual().path, rarity: 2 }, feedbackCopy(itemDetailLanguage).dailySeed(seed));
 });
 openOutfitButton.addEventListener('click', openOutfit);
 closeOutfitButton.addEventListener('click', closeOutfit);
@@ -19962,6 +20122,16 @@ if (qaMode) {
     /** Длина пешего пути до клетки по правилам героя; 0 — не дойти. */
     pathLength(x, y) {
       return findPath(x, y, { heroMovement: true, allowHidden: true }).length;
+    },
+    /** Положить вещь в рюкзак: проверить книгу или зелье, не ища их по этажам. */
+    grant(id) {
+      return grantItem(id, `qa-${id}-${Math.round(elapsed * 1000)}`);
+    },
+    /** Ранить героя, не убивая: проверить, как выглядит лечение. */
+    wound(amount) {
+      hero.hp = Math.max(1, hero.hp - Math.max(0, Number(amount) || 0));
+      updateHud();
+      return Math.round(hero.hp);
     },
   });
 }

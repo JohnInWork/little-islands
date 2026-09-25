@@ -101,5 +101,6 @@ export function cleansingReport(result, language = 'ru') {
   if (!result?.ok) return cleansingRefusalText(result?.reason, language);
   const table = cleansingCopy(language);
   const names = result.cleared.map((id) => table[id] ?? id).join(', ');
-  return result.healed > 0 ? `${names} · +${result.healed}` : names;
+  // Метка `{heal}` — сердце и слово у переходника, а не голое «+6».
+  return result.healed > 0 ? `${names} · +${result.healed} {heal}` : names;
 }

@@ -42,10 +42,10 @@ export function salvageYield({ reward = 0, profile = EMPTY_SALVAGE } = {}) {
 
 const COPY = Object.freeze({
   ru: Object.freeze({
-    salvage: (gold) => `+${gold}`,
+    salvage: (gold) => `+${gold} {gold}`,
   }),
   en: Object.freeze({
-    salvage: (gold) => `+${gold}`,
+    salvage: (gold) => `+${gold} {gold}`,
   }),
 });
 

@@ -6,6 +6,7 @@ import { canCloseDoor } from '../tools/dcss-rpg-doors.js';
 import { cellStepDistance } from '../tools/dcss-rpg-geometry.js';
 import { createHazardInputState } from '../tools/dcss-rpg-hazard-input.js';
 import { mainMenuModel } from '../tools/dcss-rpg-menu.js';
+import { feedbackCopy } from '../tools/dcss-rpg-feedback.js';
 
 const source = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
 function runtimeFunction(name) {
@@ -87,6 +88,7 @@ function fixture({ open = false } = {}) {
     burst: () => {}, addImpactWave: () => {}, addCombatGlyph: () => {},
     revealAround: () => {}, discoverNearbyTraps: () => {}, updateHud: () => {},
     showLootToast: (item, text) => records.feedback.push(text),
+    feedbackCopy, itemDetailLanguage: 'ru',
   });
   vm.runInContext([
     'nearbyDoor', 'nearbyClosedDoor', 'beginDoorTransition',
@@ -108,7 +110,7 @@ test('runtime open-close-open retains the door and never repeats its one-shot su
   assert.equal(c.doorDefinitions.length, 1);
   assert.equal(c.dungeon.doors.length, 1);
   assert.deepEqual(Array.from(c.run.floor.triggered), ['surprise-1-0']);
-  assert.equal(records.feedback.filter((text) => text === '●●●').length, 1);
+  assert.equal(records.feedback.filter((text) => text === feedbackCopy('ru').treasure).length, 1);
   assert.equal(c.toggleNearbyDoor(), true);
   assert.equal(c.world[2][2], 'D', 'closing reserves threshold before any actor advances');
   assert.equal(c.run.floor.opened.length, 1, 'save still has old state until commit');
@@ -117,7 +119,7 @@ test('runtime open-close-open retains the door and never repeats its one-shot su
   assert.equal(c.beginOpenDoor(door), true);
   c.updateDoorOpening(1);
   assert.equal(c.world[2][2], '.');
-  assert.equal(records.feedback.filter((text) => text === '●●●').length, 1);
+  assert.equal(records.feedback.filter((text) => text === feedbackCopy('ru').treasure).length, 1);
   assert.equal(records.saves, 3);
 });
 
