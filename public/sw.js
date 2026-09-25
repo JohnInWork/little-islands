@@ -1,6 +1,6 @@
 const APP_ROOT = new URL('./', self.location.href);
 const CACHE_PREFIX = `dng-codex-static:${APP_ROOT.pathname}:`;
-const CACHE = `${CACHE_PREFIX}v36-recorded-audio`;
+const CACHE = `${CACHE_PREFIX}v37-fresh-pages`;
 const inScope = url => url.origin === APP_ROOT.origin && url.pathname.startsWith(APP_ROOT.pathname);
 self.addEventListener('install', event => {
   const shell = ['./', 'icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'manifest.webmanifest', 'manifest.en.webmanifest'].map(path => new URL(path, APP_ROOT).href);
@@ -22,7 +22,11 @@ self.addEventListener('fetch', event => {
     // make a warmed URL miss when a module is later requested with CORS mode.
     if (request.mode !== 'navigate') { const cached = await cache.match(request, { ignoreVary: true }); if (cached) return cached; }
     try {
-      const response = await fetch(request);
+      // The page itself always asks the server: HTTP caching kept a stale page
+      // (and its stale styles) for ten minutes after every release.
+      const response = request.mode === 'navigate'
+        ? await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' })
+        : await fetch(request);
       if (response.ok) await cache.put(request, response.clone());
       return response;
     } catch (error) {

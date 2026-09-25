@@ -1,3 +1,11 @@
+/**
+ * «Этаж VII», но не «Этаж ГОРОД»: у города нет номера, и подпись называет его
+ * по имени. Метка этажа приходит римской цифрой или словом города.
+ */
+const where = (depth, floorWord, townWord) => (
+  /^[IVXLC]+$|^\d+$/.test(String(depth)) ? `${floorWord} ${depth}` : townWord
+);
+
 const COPY = Object.freeze({
   ru: Object.freeze({
     title: 'DNG Codex',
@@ -5,13 +13,13 @@ const COPY = Object.freeze({
     newRun: 'Начать забег',
     continueRun: 'Продолжить',
     restartRun: 'Начать заново',
-    whoYouAre: ({ level, weapon, depth }) => [`Уровень ${level}`, weapon, `Этаж ${depth}`]
+    whoYouAre: ({ level, weapon, depth }) => [`Уровень ${level}`, weapon, where(depth, 'Этаж', 'Город')]
       .filter(Boolean)
       .join(' · '),
     pause: 'Пауза',
     freshHint: 'Случайное подземелье',
-    progress: ({ depth, level }) => `Этаж ${depth} · Уровень ${level}`,
-    ended: ({ depth, level }) => `Забег завершён · Этаж ${depth} · Уровень ${level}`,
+    progress: ({ depth, level }) => `${where(depth, 'Этаж', 'Город')} · Уровень ${level}`,
+    ended: ({ depth, level }) => `Забег завершён · ${where(depth, 'Этаж', 'Город')} · Уровень ${level}`,
     labels: Object.freeze({
       menu: 'Главное меню',
       conditions: 'Условия забега',
@@ -139,13 +147,13 @@ const COPY = Object.freeze({
     newRun: 'Start run',
     continueRun: 'Continue',
     restartRun: 'Start over',
-    whoYouAre: ({ level, weapon, depth }) => [`Level ${level}`, weapon, `Floor ${depth}`]
+    whoYouAre: ({ level, weapon, depth }) => [`Level ${level}`, weapon, where(depth, 'Floor', 'Town')]
       .filter(Boolean)
       .join(' · '),
     pause: 'Paused',
     freshHint: 'Random dungeon',
-    progress: ({ depth, level }) => `Floor ${depth} · Level ${level}`,
-    ended: ({ depth, level }) => `Run complete · Floor ${depth} · Level ${level}`,
+    progress: ({ depth, level }) => `${where(depth, 'Floor', 'Town')} · Level ${level}`,
+    ended: ({ depth, level }) => `Run complete · ${where(depth, 'Floor', 'Town')} · Level ${level}`,
     labels: Object.freeze({
       menu: 'Main menu',
       conditions: 'Run conditions',
