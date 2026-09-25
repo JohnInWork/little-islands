@@ -224,8 +224,16 @@ async function playRun(browser, runIndex) {
     if (st.hero.skillPoints > 0 && Math.random() < 0.3) {
       await click('#character-sheet-button');
       await page.waitForTimeout(250);
-      const raise = await page.$$('.character-attribute-raise:not([disabled])');
-      const skills = await page.$$('#character-skill-groups button:not([disabled])');
+      /*
+       * Урон растёт только от характеристики оружия (26.09.2026), поэтому
+       * бот, как живой игрок, через очко кладёт её: воин — сила, маг —
+       * интеллект, лучник и разведчик — ловкость. Остальное — в навыки.
+       */
+      const weaponAttribute = ['strength', 'intelligence', 'agility', 'agility'][archetype] ?? 'strength';
+      const raise = await page.$$(`.character-attribute-raise[data-attribute="${weaponAttribute}"]:not([disabled])`);
+      const skills = st.hero.level % 2 === 0 && raise.length
+        ? []
+        : await page.$$('#character-skill-groups button:not([disabled])');
       let spent = false;
       for (const button of skills) {
         await button.click({ timeout: 1500 }).catch(() => {});
@@ -234,7 +242,7 @@ async function playRun(browser, runIndex) {
         await click('#character-skill-cancel');
       }
       if (!spent && raise.length) {
-        await raise[runIndex % raise.length].click({ timeout: 1500 }).catch(() => {});
+        await raise[0].click({ timeout: 1500 }).catch(() => {});
       }
       await click('#close-character-sheet');
       continue;
