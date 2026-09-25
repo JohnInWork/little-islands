@@ -109,8 +109,11 @@ test('у запертого ящика два пути внутрь: ключ и
     find,
     actor: { resources: { lockpickCount: 2 }, capabilities: { lockpickTier: 1 } },
   });
-  assert.equal(lockpickCost(1), 2);
+  // Иван: «одна отмычка на сундук, всегда» — ранг больше не меняет цену.
+  assert.equal(lockpickCost(0), 0);
+  assert.equal(lockpickCost(1), 1);
   assert.equal(lockpickCost(2), 1);
+  assert.equal(lockpickCost(3), 1);
   assert.equal(picked.actions.find(({ id }) => id === 'pick-lock').enabled, true);
   assert.equal(resolveChestInteraction(command(find, 'smash')).reason, 'action', 'кувалда всё ещё работает');
 });
@@ -155,7 +158,8 @@ test('ключ и отмычка тратятся, а награда от спо
   assert.equal(picked.ok, true);
   assert.equal(picked.rewardGold, 15, 'вскрытый замок платит столько же, сколько отпертый');
   assert.equal(picked.destroyedGold, 0, 'портить добычу больше нечем');
-  assert.deepEqual(picked.consumed, [{ id: CHEST_RESOURCE_IDS.lockpick, amount: 2 }]);
+  // Одна отмычка на сундук на любом ранге (прежде первый ранг ломал две).
+  assert.deepEqual(picked.consumed, [{ id: CHEST_RESOURCE_IDS.lockpick, amount: 1 }]);
   assert.deepEqual(pickedInput, before);
 });
 

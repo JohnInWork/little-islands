@@ -116,16 +116,18 @@ export const HELP_SECTIONS = Object.freeze([
     ru: {
       title: 'Сундуки и ловушки',
       entries: [
-        entry('Сундуки', 'Каждый сундук заперт. Открывают отмычки или редкий ключ; мастер-ключ открывает любой. Бывают ловушки, проклятия и мимики.'),
+        entry('Сундуки', 'Каждый сундук заперт. Открывает одна отмычка или редкий ключ; мастер-ключ открывает любой. Бывают ловушки, проклятия и мимики.'),
         entry('Ловушки', 'Обезвредить ловушку можно набором сапёра. На третьем ранге навыка «Ловушки» набор не нужен.'),
+        entry('Гробницы', 'Осквернённая гробница отдаёт золото, но печать ранит, а иногда из неё встаёт мумия. На первых этажах от неё лучше бежать.'),
         entry('Уникальные силы', 'Полёт, невидимость и другие силы артефактов выпадают не больше одного раза за забег.'),
       ],
     },
     en: {
       title: 'Chests and traps',
       entries: [
-        entry('Chests', 'Every chest is locked. Lockpicks or a rare key open it; the master key opens any. Some are trapped, cursed or mimics.'),
+        entry('Chests', 'Every chest is locked. One lockpick or a rare key opens it; the master key opens any. Some are trapped, cursed or mimics.'),
         entry('Traps', 'A sapper kit disarms a trap. At the third rank of the Traps skill you no longer need the kit.'),
+        entry('Tombs', 'A defiled tomb gives up its gold, but the seal wounds and sometimes a mummy rises. On the first floors, run.'),
         entry('Unique powers', 'Flight, invisibility and the other artifact powers turn up no more than once per run.'),
       ],
     },

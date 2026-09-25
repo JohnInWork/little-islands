@@ -279,9 +279,16 @@ function normalizedActor(actor = {}) {
   };
 }
 
+/*
+ * Одна отмычка на сундук — всегда.
+ *
+ * Прежде первый ранг Взлома ломал две отмычки, а второй и третий — одну.
+ * Иван после игры: «одна отмычка на сундук, всегда». Ранг решает, какой
+ * замок поддаётся, а не сколько железа уходит на каждый.
+ */
 export function lockpickCost(lockpickTier) {
   if (!Number.isInteger(lockpickTier) || lockpickTier < 1 || lockpickTier > 3) return 0;
-  return lockpickTier === 1 ? 2 : 1;
+  return 1;
 }
 
 function action(id, enabled = true, hint = '') {

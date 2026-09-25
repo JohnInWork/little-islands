@@ -131,6 +131,26 @@ export const MONSTER_CATALOG = Object.freeze([
     threat: { attackRate: 1.12, vision: 7, windup: 0.2, pursuit: 6.5 },
   },
   {
+    // Хозяин гробницы (`dcss-rpg-tomb.js`). `spawn: 'tomb'` держит её вне
+    // любого пула: она не водится, её будят. `statFloorDepth` — сила не ниже
+    // шестого этажа, мимо смягчения входа: на первых этажах от неё бегут,
+    // глубже это обычная драка. Медленная нарочно — убежать можно.
+    // Спрайт — кукла «мумия» из набора героя: отдельной мумии-монстра в
+    // библиотеке нет, варианты лежат в output/visual-choices/mummy.png.
+    id: 'tomb-mummy', habitat: 'any', kin: 'undead',
+    path: 'player/base/mummy_m.png',
+    tier: 4,
+    hp: 28,
+    damage: 11,
+    speed: 0.7,
+    xp: 30,
+    unique: true,
+    spawn: 'tomb',
+    statFloorDepth: 6,
+    bloodColor: '#b9a67e',
+    threat: { attackRate: 0.74, vision: 6.2, windup: 0.34, pursuit: 7.5 },
+  },
+  {
     id: 'zombie-rat', habitat: 'deep', kin: 'undead',
     path: 'mon/undead/zombies/zombie_rat.png',
     tier: 1,

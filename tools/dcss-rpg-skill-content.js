@@ -49,8 +49,8 @@ export const SKILL_CATALOG = deepFreeze([
     id: 'lockpicking', category: 'exploration', mode: 'contextual',
     name: { ru: 'Взлом', en: 'Lockpicking' },
     description: {
-      ru: 'Открывает замки отмычками и бережнее расходует инструменты.',
-      en: 'Opens locks with lockpicks and uses tools more efficiently.',
+      ru: 'Открывает замки отмычками: одна отмычка на сундук, ранг решает, какой замок поддастся.',
+      en: 'Opens locks with lockpicks: one pick per chest, rank decides which lock gives way.',
     },
     requiresSystems: ['lockpicking'],
   },
