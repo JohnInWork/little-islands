@@ -288,6 +288,12 @@ const COPY = Object.freeze({
     stairUpName: 'Лестница наверх',
     stairUpDescription: 'Ведёт обратно в город. Этаж останется как есть и дождётся.',
     stairUpClimb: 'В город',
+    stairUpFloorDescription: 'Ведёт на этаж выше. Этот останется как есть и дождётся.',
+    stairUpFloorClimb: 'Подняться',
+    stairDownName: 'Лестница вниз',
+    stairDownDescription: 'Ведёт на этаж ниже, глубже в подземелье.',
+    stairDownGo: 'Спуститься',
+    stairDownLocked: 'Путь вниз держит страж этажа',
     roadEndDeeper: 'Обратно эта лестница уже не поднимет',
     beyondEndName: 'Конец неписаной дороги',
     beyondEndDescription: 'Дальше лестница идёт вниз без конца и без счёта. Эта руна — последнее, что здесь ещё кому-то принадлежит.',
@@ -406,6 +412,12 @@ const COPY = Object.freeze({
     stairUpName: 'Stairs up',
     stairUpDescription: 'Back to the city. The floor stays as it is and waits.',
     stairUpClimb: 'To the city',
+    stairUpFloorDescription: 'Leads one floor up. This one stays as it is and waits.',
+    stairUpFloorClimb: 'Climb',
+    stairDownName: 'Stairs down',
+    stairDownDescription: 'Leads one floor down, deeper into the dungeon.',
+    stairDownGo: 'Go down',
+    stairDownLocked: 'The floor guardian holds the way down',
     roadEndDeeper: 'This stair does not carry anyone back up',
     sanctuaryName: 'Sanctuary',
     sanctuaryDescription: 'A stone people stop at before going down. Its water gives strength back — for free, but not to everyone and not every time.',
@@ -451,24 +463,18 @@ const commandAction = ({ id, enabled = true, hint = '', label = null, glyph = nu
 });
 
 /**
- * Окно — только там, где есть выбор.
+ * Сначала карточка, потом действие.
  *
- * Иван: «если я нажимаю на дверь и в ней только одна точка взаимодействия —
- * открыть, — то мы не предлагаем окно, оно сразу её открывает. Давай сделаем
- * игру максимально простой». Одно действие исполняется от касания, и окно
- * не появляется вовсе.
+ * Было правило «одно действие — окна нет»: касание кнопки сразу лечило у
+ * алтаря, жарило мясо у костра, открывало дверь. Иван после игры попросил
+ * вернуть окно: игрок должен увидеть, что это за вещь, что она сделает и
+ * почём, — и только потом нажать. Поэтому по умолчанию открывается карточка
+ * всегда, даже над одной кнопкой.
  *
- * `confirm` — исключение из правила: касание не должно бить живое и не должно
- * ронять героя в яму. Стражник назван Иваном прямо («это важная механика»),
- * зверь и провал — та же природа: удар и прыжок вниз.
- *
- * `terse` — обратное исключение: единственное недоступное действие отвечает
- * всплывающей строкой, а окно не открывается. Ставится по одному, а не всем
- * подряд, и вот почему. Костру сказать нечего, кроме «нужно сырое мясо», —
- * окно ради этой строки лишнее. А участок под дом на такой же отказ отвечает
- * «не хватает золота», и игрок остаётся без главного: что здесь продаётся и
- * почём. Иван: «я не понимаю, что я покупаю… модалку надо оставить». Поэтому
- * по умолчанию окно, и только помеченные молчат.
+ * `instant` — единственное исключение: вещь с пола. Подобрать её — одно
+ * касание, объяснять тут нечего, а окно над каждой монеткой добычи стало бы
+ * стеной лишних экранов. Если подобрать нельзя (рюкзак полон), карточка всё
+ * же открывается: там написана причина.
  */
 const defineInteraction = (definition) => Object.freeze(definition);
 
@@ -481,7 +487,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'campfire',
     command: 'cook-meat',
-    terse: true,
     matches: (target) => target?.kind === 'campfire' && Number.isInteger(target.rawMeatCount),
     present: ({ target, copy }) => ({
       name: copy.campfireName,
@@ -540,7 +545,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * должен быть виден.
      */
     id: 'house-deed',
-    confirm: true,
     command: 'buy-house',
     matches: (target) => target?.kind === 'house-deed'
       && Number.isInteger(target.price)
@@ -631,11 +635,10 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * из `dcss-rpg-parley.js`, потому что у каждого именного они свои. Здесь
      * только рамка, в которую это вставляется.
      *
-     * `confirm` обязателен. Единственный доступный ответ игра выполнила бы
-     * сразу — и герой отдал бы меч, не увидев, что у него просили меч.
+     * Окно здесь обязательно. Единственный доступный ответ, выполненный от
+     * касания, отдал бы меч, не показав, что у него просили меч.
      */
     id: 'parley',
-    confirm: true,
     command: 'parley',
     matches: (target) => target?.kind === 'parley'
       && typeof target.name === 'string'
@@ -657,7 +660,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     id: 'guard',
-    confirm: true,
     command: 'provoke-guard',
     matches: (target) => target?.kind === 'guard'
       && typeof target.id === 'string'
@@ -727,23 +729,55 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     /**
-     * Лестница наверх — шаг обратно в город, и его нельзя сделать нечаянно.
+     * Лестница наверх — шаг обратно, и его нельзя сделать нечаянно.
      *
      * Клетка, на которой герой появился, и есть эта лестница, и раньше шаг на
      * неё молча уводил наверх: игрок, обходя вход, терял этаж без единого
-     * вопроса. Действие обычное, но помечено `confirm`: одним касанием с
-     * этажа не уходят.
+     * вопроса. Теперь только карточка и кнопка в ней.
+     *
+     * В город она ведёт лишь с первого этажа; ниже — на этаж выше, и карточка
+     * говорит именно это, а не «В город» с пятого этажа.
      */
     id: 'stair-up',
-    confirm: true,
     command: 'stair-up',
     matches: (target) => target?.kind === 'stair-up' && typeof target.icon === 'string',
     present: ({ target, copy }) => ({
       name: copy.stairUpName,
-      description: copy.stairUpDescription,
+      description: target.toCity === false ? copy.stairUpFloorDescription : copy.stairUpDescription,
       icon: target.icon,
       accent: '#9fb0a8',
-      actions: [{ id: 'climb', label: copy.stairUpClimb, glyph: '\u25B2' }],
+      actions: [{
+        id: 'climb',
+        label: target.toCity === false ? copy.stairUpFloorClimb : copy.stairUpClimb,
+        glyph: '\u25B2',
+      }],
+    }),
+  }),
+  defineInteraction({
+    /**
+     * Лестница вниз — такая же вещь на этаже, как дверь или сундук.
+     *
+     * Шаг на неё уводил этажом ниже сразу, без вопроса: Иван, проходя мимо
+     * спуска за добычей, проваливался дальше, не собравшись. Теперь шаг на
+     * лестницу только ставит её в колонку «что рядом», а спуск — кнопка в
+     * карточке. Пока страж этажа жив, кнопка серая и говорит почему, вместо
+     * того чтобы молча не пускать.
+     */
+    id: 'stair-down',
+    command: 'stair-down',
+    matches: (target) => target?.kind === 'stair-down' && typeof target.icon === 'string',
+    present: ({ target, copy }) => ({
+      name: copy.stairDownName,
+      description: copy.stairDownDescription,
+      icon: target.icon,
+      accent: '#8fbf7a',
+      actions: [{
+        id: 'go-down',
+        label: copy.stairDownGo,
+        glyph: '\u25BC',
+        enabled: target.locked !== true,
+        hint: target.locked === true ? copy.stairDownLocked : '',
+      }],
     }),
   }),
   defineInteraction({
@@ -920,7 +954,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
   }),
   defineInteraction({
     id: 'wildlife',
-    confirm: true,
     command: 'hunt-wildlife',
     matches: (target) => target?.kind === 'wildlife'
       && typeof target.id === 'string'
@@ -953,6 +986,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
    */
   defineInteraction({
     id: 'ground-loot',
+    // Единственное, что делается одним касанием без карточки: подобрать.
+    instant: true,
     command: 'pick-up',
     matches: (target) => target?.kind === 'loot'
       && typeof target.icon === 'string'
@@ -980,15 +1015,11 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'floor-event',
     /*
-     * Окно показывается всегда, даже когда действие одно.
-     *
-     * Обычно единственное действие выполняется сразу — окно над одной кнопкой
-     * лишний экран. Здесь наоборот: весь смысл в том, чтобы игрок прочитал,
-     * что это и чем кончится, прежде чем трогать. Иван: «почему мы не можем
-     * нормальную модалку сделать для всех таких случаев, чтобы игра объясняла,
-     * что происходит».
+     * Окно показывается всегда, даже когда действие одно: весь смысл в том,
+     * чтобы игрок прочитал, что это и чем кончится, прежде чем трогать. Иван:
+     * «почему мы не можем нормальную модалку сделать для всех таких случаев,
+     * чтобы игра объясняла, что происходит».
      */
-    confirm: true,
     command: 'floor-event',
     matches: (target) => target?.kind === 'event'
       && typeof target.id === 'string'
@@ -1067,7 +1098,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * without choosing to, and choosing to is a real option.
      */
     id: 'chasm',
-    confirm: true,
     command: 'chasm-jump',
     matches: (target) => target?.kind === 'chasm' && Number.isInteger(target.floors),
     present: ({ target, copy }) => ({
@@ -1138,9 +1168,8 @@ export const INTERACTION_REGISTRY = Object.freeze([
      * вовсе: подошёл к саркофагу, нажал — и получил золото пополам с раной,
      * не поняв, за что. Иван: «когда мы с ним взаимодействуем, нам не сразу
      * что-то даётся, а мы видим модалку, которая объясняет, что это и что оно
-     * даёт». Дверь и сундук остаются мгновенными — там нечего объяснять.
+     * даёт».
      */
-    confirm: true,
     matches: (target) => validFind(target, 'crystal-vein'),
     present: ({ copy }) => ({
       name: copy.crystalName,
@@ -1161,7 +1190,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'buried-stash',
     command: 'find-interact',
-    confirm: true,
     matches: (target) => validFind(target, 'buried-stash'),
     present: ({ copy }) => ({
       name: copy.stashName,
@@ -1174,7 +1202,6 @@ export const INTERACTION_REGISTRY = Object.freeze([
   defineInteraction({
     id: 'forgotten-grave',
     command: 'find-interact',
-    confirm: true,
     matches: (target) => validFind(target, 'forgotten-grave'),
     present: ({ copy }) => ({
       name: copy.graveName,
@@ -1235,10 +1262,9 @@ export function contextActionModel({ target, actor = {}, language = 'ru' } = {})
   }));
   return Object.freeze({
     interactionId: definition.id,
-    // Спрашивать ли, даже когда действие всего одно.
-    confirm: definition.confirm === true,
-    // Отвечать ли отказ строкой вместо окна.
-    terse: definition.terse === true,
+    // Исполнять ли единственное доступное действие без карточки. Только вещь
+    // с пола; всё остальное сначала показывает, что это и что будет.
+    instant: definition.instant === true,
     name: view.name,
     description: view.description,
     icon: view.icon,

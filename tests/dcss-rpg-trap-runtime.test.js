@@ -199,6 +199,19 @@ test('the last stair asks instead of ending the run under the hero', () => {
   assert.equal(context.descents, 0, 'and it did not walk them down either');
 });
 
+/**
+ * Шаг на лестницу вниз никуда не уводит — даже открытую, без артефакта и со
+ * стражем, которого уже нет. Спуск теперь только кнопка в карточке.
+ */
+test('standing on an open down stair does not change the floor', () => {
+  const context = terminalRuntime({ victory: true });
+  context.artifactAvailable = () => false;
+  context.resolveWorldInteractions();
+  context.resolveWorldInteractions();
+  assert.equal(context.descents, 0, 'the step walked the hero down');
+  assert.equal(context.runStatus, 'playing');
+});
+
 const hazardOrigin = { x: 1, y: 2 };
 const hazardTarget = { x: 2, y: 2 };
 const hazardCells = new Set(['2,2']);

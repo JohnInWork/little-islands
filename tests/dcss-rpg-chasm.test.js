@@ -229,9 +229,9 @@ test('the hole offers the jump, and refuses the one that would kill', async () =
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   const registry = await readFile(new URL('../tools/dcss-rpg-context-actions.js', import.meta.url), 'utf8');
   // The card exists and says how far down and what it costs.
-  // Между именем и командой стоит `confirm: true`: в яму не прыгают одним
-  // касанием, даже когда действие у провала всего одно.
-  assert.match(registry, /id: 'chasm',\s*\n\s*confirm: true,\s*\n\s*command: 'chasm-jump',/);
+  // В яму не прыгают одним касанием: карточка теперь открывается у всего,
+  // кроме вещи с пола, и у провала нет пометки `instant`.
+  assert.match(registry, /id: 'chasm',\s*\n\s*command: 'chasm-jump',/);
   assert.match(registry, /chasmDescription\(target\.floors, target\.cost\)/);
   // Standing next to one is what puts it in the column, and flying past it
   // does not — somebody in the air is not looking for a way down.
