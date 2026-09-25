@@ -9897,7 +9897,8 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
     ? `${attributeCopy(itemDetailLanguage)[result.rewardAttribute].name} +1`
     : '';
   if (attributeGain) {
-    addCombatGlyph(hero.x, hero.y, attributeGain, presentation.color, -62);
+    // Над героем — только число: цифровой шрифт брызг слов не рисует, слово в итоге.
+    addCombatGlyph(hero.x, hero.y, '+1', presentation.color, -62);
     renderCharacterAttributes();
   }
   /*
