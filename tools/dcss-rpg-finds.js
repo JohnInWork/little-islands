@@ -668,14 +668,10 @@ const landmarkAction = (id, enabled = true, hint = '') => Object.freeze({ id, en
 
 const OUTCOME_COPY = Object.freeze({
   ru: Object.freeze({
-    power: 'сила удара',
-    limit: 'к пределу здоровья',
     cleanse: 'снимает эффекты',
     noise: 'шум на весь этаж',
   }),
   en: Object.freeze({
-    power: 'attack',
-    limit: 'to the health cap',
     cleanse: 'clears effects',
     noise: 'heard across the floor',
   }),
@@ -708,8 +704,10 @@ export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = f
   const cost = outcome.costGold ?? 0;
   if (cost > 0 && !onlyGains) parts.push(`\u2212${cost} {gold}`);
   if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold} {gold}`);
-  if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} ${copy.power}`);
-  if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} ${copy.limit}`);
+  // Сила удара и предел здоровья — тоже метками: значок и слово ставит
+  // переходник, и в карточке, и во всплывающем итоге они выглядят одинаково.
+  if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} {attack}`);
+  if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} {maxhp}`);
   // A share of the cap reads as a share; a flat number reads as a number.
   if ((outcome.healRatio ?? 0) > 0) parts.push(`+${Math.round(outcome.healRatio * 100)}% {heal}`);
   if ((outcome.heal ?? 0) > 0) parts.push(`+${outcome.heal} {heal}`);

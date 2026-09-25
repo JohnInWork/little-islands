@@ -1879,8 +1879,19 @@ body {
 
 .loot-toast {
   --rarity: var(--rare);
+  /* Сдвиг к центру, общий для покоя и для анимации появления. */
+  --toast-x: -50%;
   position: fixed;
-  z-index: 5;
+  /*
+   * Итог — поверх всего, что открыто.
+   *
+   * Иван прочитал книгу из рюкзака, и сказанное книгой легло под окно
+   * рюкзака: он его так и не увидел. Все окна игры живут на 20–30 (рюкзак 20,
+   * лист героя 22, действия 24, торговец 26, сундук 27, карточка вещи 28,
+   * книга 30); строка итога стоит над ними и под экраном конца забега (40).
+   * Нажатий она не ловит, поэтому ничего не загораживает для пальца.
+   */
+  z-index: 35;
   left: 50%;
   /* Below the HUD and the guardian bar, never inside the thumb dock. */
   top: max(158px, calc(env(safe-area-inset-top) + 150px));
@@ -1909,6 +1920,109 @@ body {
 .loot-toast.visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/*
+ * Хорошее хлопает, плохое бьёт.
+ *
+ * Хорошо это или плохо, решает `feedbackFor` (dcss-rpg-feedback.js) и
+ * пишет в `data-tone`; здесь только внешний вид. Анимация ступенчатая, как
+ * всё в пиксельной игре: рамка вспыхивает золотом (или зеленью лечения),
+ * карточка подпрыгивает и садится. Беда — красная вспышка и встряска.
+ * `.pixel-frame` в селекторе — чтобы перебить волосяную рамку панелей.
+ */
+.loot-toast.pixel-frame[data-tone='good'] {
+  --tone: #f0d060;
+  border-color: var(--tone);
+  box-shadow:
+    4px 4px 0 var(--frame-black),
+    0 0 0 2px var(--tone);
+}
+
+.loot-toast[data-tone='good'][data-accent='green'] {
+  --tone: #8fe08a;
+}
+
+.loot-toast.pixel-frame[data-tone='bad'] {
+  --tone: #e0503f;
+  border-color: var(--tone);
+  color: #f0c8c0;
+  box-shadow:
+    4px 4px 0 var(--frame-black),
+    0 0 0 2px var(--tone);
+}
+
+.loot-toast.visible.announce[data-tone='good'] {
+  animation: loot-toast-pop 480ms both;
+  animation-timing-function: steps(3, end);
+}
+
+.loot-toast.visible.announce[data-tone='bad'] {
+  animation: loot-toast-hit 480ms both;
+  animation-timing-function: steps(2, end);
+}
+
+@keyframes loot-toast-pop {
+  0% {
+    transform: translate(var(--toast-x), 0) scale(0.7);
+    filter: brightness(1.8);
+    box-shadow: 4px 4px 0 var(--frame-black), 0 0 0 0 var(--tone);
+  }
+
+  30% {
+    transform: translate(var(--toast-x), -6px) scale(1.12);
+    filter: brightness(1.5);
+    box-shadow: 4px 4px 0 var(--frame-black), 0 0 0 8px var(--tone);
+  }
+
+  60% {
+    transform: translate(var(--toast-x), 0) scale(0.96);
+    filter: brightness(1.15);
+    box-shadow: 4px 4px 0 var(--frame-black), 0 0 0 4px var(--tone);
+  }
+
+  100% {
+    transform: translate(var(--toast-x), 0) scale(1);
+    filter: none;
+    box-shadow: 4px 4px 0 var(--frame-black), 0 0 0 2px var(--tone);
+  }
+}
+
+@keyframes loot-toast-hit {
+  0% {
+    transform: translate(var(--toast-x), 0);
+    background: rgb(150 28 20 / 96%);
+  }
+
+  15% {
+    transform: translate(calc(var(--toast-x) - 8px), 0);
+  }
+
+  30% {
+    transform: translate(calc(var(--toast-x) + 8px), 0);
+    background: rgb(110 22 16 / 96%);
+  }
+
+  45% {
+    transform: translate(calc(var(--toast-x) - 4px), 0);
+  }
+
+  60% {
+    transform: translate(calc(var(--toast-x) + 4px), 0);
+    background: rgb(60 18 16 / 96%);
+  }
+
+  100% {
+    transform: translate(var(--toast-x), 0);
+    background: rgb(12 18 20 / 96%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Цвет и рамка остаются — движения нет. */
+  .loot-toast.visible.announce[data-tone] {
+    animation: none;
+  }
 }
 
 /* The one toast that says no. Red edge, struck-through name, dimmed icon:
@@ -7715,6 +7829,7 @@ body {
 
   /* The loot toast moves off the hero and out of the hint's band. */
   .loot-toast {
+    --toast-x: 0px;
     left: max(12px, env(safe-area-inset-left));
     width: min(380px, calc(50vw - 52px));
     transform: translate(0, -12px);
@@ -8311,6 +8426,14 @@ body {
   height: 1.15em;
   vertical-align: -0.2em;
   image-rendering: pixelated;
+}
+
+/* Во всплывающем итоге значок стоит в строке, а не в колонке картинки. */
+.loot-toast .text-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+  filter: drop-shadow(1px 1px #000);
 }
 
 /*

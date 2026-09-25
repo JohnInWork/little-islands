@@ -56,7 +56,7 @@ test('the ritual takes off only what the school knows how to take off', () => {
   });
   assert.deepEqual(master.cleared, ['poison', 'burning', 'chilled']);
   assert.equal(master.hp, 16);
-  assert.equal(cleansingReport(master), 'Отравление, Горение, Озноб · +6');
+  assert.equal(cleansingReport(master), 'Отравление, Горение, Озноб · +6 {heal}');
 });
 
 test('a clean hero never spends the salt', () => {

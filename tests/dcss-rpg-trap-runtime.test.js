@@ -10,6 +10,7 @@ import { cellStepDistance } from '../tools/dcss-rpg-geometry.js';
 import { createHazardInputState, hazardMoveIntent } from '../tools/dcss-rpg-hazard-input.js';
 import { combatDamage, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
 import { createSwordRhythmState } from '../tools/dcss-rpg-swords.js';
+import { feedbackCopy, formatDeltas } from '../tools/dcss-rpg-feedback.js';
 import { activeDetectedTrapCells } from '../tools/dcss-rpg-traps.js';
 
 const source = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
@@ -147,6 +148,7 @@ function terminalRuntime({ victory = false } = {}) {
     addBloodImpact: () => {},
     beginHitStop: () => {},
     showLootToast: () => {},
+    feedbackCopy, formatDeltas, itemDetailLanguage: 'ru',
     updateHud: () => {},
     // Столбик кнопок пересобирается после всего, что меняет пол; рисовать его
     // в песочнице нечем и незачем.

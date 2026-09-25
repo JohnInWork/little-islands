@@ -100,14 +100,14 @@ const COPY = Object.freeze({
     empty: 'Ещё ни одного',
     roads: Object.freeze({ deep: 'Вниз', surface: 'Наружу' }),
     floor: (depth) => `Этаж ${depth}`,
-    claimed: (gold) => `Трофей: +${gold}●`,
+    claimed: (gold) => `Трофей: +${gold} {gold}`,
   }),
   en: Object.freeze({
     title: 'Guardians',
     empty: 'None yet',
     roads: Object.freeze({ deep: 'Down', surface: 'Out' }),
     floor: (depth) => `Floor ${depth}`,
-    claimed: (gold) => `Trophy: +${gold}●`,
+    claimed: (gold) => `Trophy: +${gold} {gold}`,
   }),
 });
 

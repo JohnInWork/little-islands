@@ -307,7 +307,7 @@ test('a landmark choice states its price and its payoff before it is taken', () 
       // Words have to be translated; a summary that is only figures and hearts
       // — «+35% {heal}» — reads the same in both languages and should. Метки
       // значков состоят из латиницы, но словами не являются: их снимаем.
-      const безМеток = (text) => text.replace(/\{(gold|heal)\}/g, '');
+      const безМеток = (text) => text.replace(/\{[a-z]+\}/g, '');
       if (/\p{L}/u.test(безМеток(ru))) assert.notEqual(ru, en, `${id}/${key} was never translated`);
       // Every number the outcome carries has to reach the button. A cost that
       // is not shown is the whole reason the altar felt like a lottery.

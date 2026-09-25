@@ -9,6 +9,7 @@ import { awardHeroExperience } from '../tools/dcss-rpg-progression.js';
 import { createEmptyEquipment, resolveHeroDamage } from '../tools/dcss-rpg-rules.js';
 import { createSkillState } from '../tools/dcss-rpg-skills.js';
 import { createSwordRhythmState } from '../tools/dcss-rpg-swords.js';
+import { feedbackCopy, formatDeltas } from '../tools/dcss-rpg-feedback.js';
 
 const runtimeSource = readFileSync(new URL('../tools/dcss.js', import.meta.url), 'utf8');
 
@@ -148,6 +149,7 @@ function combatRuntime() {
     beginHitStop: () => {},
     showLevelUpCelebration: () => {},
     showLootToast: () => {},
+    feedbackCopy, formatDeltas,
     // Приз финала выбирается по глубине: на восемнадцатом артефакт, на
     // двадцать четвёртом руна своей ветки. Песочнице достаточно, что он есть.
     roadPrize: () => ({ path: 'artifact.png', name: null, scale: 1, offsetY: 0 }),
