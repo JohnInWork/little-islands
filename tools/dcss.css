@@ -1814,7 +1814,8 @@ body {
   height: 50px;
   object-fit: contain;
   image-rendering: pixelated;
-  filter: drop-shadow(3px 3px 0 #020304);
+  /* Материал вещи — тот же, что на полу и в рюкзаке (см. itemPicture). */
+  filter: drop-shadow(3px 3px 0 #020304) var(--material-filter, );
 }
 
 /* Уголок «здесь есть что нажать». */
@@ -4303,7 +4304,8 @@ body {
   height: 104px;
   object-fit: contain;
   image-rendering: pixelated;
-  filter: drop-shadow(4px 4px #030506);
+  /* Карточка вещи тоже в материале: бронзовый шлем не серебрится на ней. */
+  filter: drop-shadow(4px 4px #030506) var(--material-filter, );
 }
 
 .item-detail-portrait i {
@@ -4799,6 +4801,7 @@ body {
   height: 54px;
   object-fit: contain;
   image-rendering: pixelated;
+  filter: var(--material-filter, none);
 }
 
 .merchant-item-copy {
@@ -5150,7 +5153,7 @@ body {
   height: 64px;
   object-fit: contain;
   image-rendering: pixelated;
-  filter: drop-shadow(4px 4px 0 rgb(2 3 4 / 72%));
+  filter: drop-shadow(4px 4px 0 rgb(2 3 4 / 72%)) var(--material-filter, );
 }
 
 .context-action-header h2,
@@ -6829,6 +6832,7 @@ body {
   height: 46px;
   object-fit: contain;
   image-rendering: pixelated;
+  filter: var(--material-filter, none);
 }
 
 .chest-transfer-copy {

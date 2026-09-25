@@ -115,9 +115,9 @@ import {
 } from './dcss-rpg-player.js';
 import {
   equipmentVisualForItem,
-  itemSpriteFor,
   itemSpriteVariants,
 } from './dcss-rpg-equipment-visuals.js';
+import { floorPicture, itemPicture } from './dcss-rpg-item-picture.js';
 import {
   PLAYER_BEARD_OPTIONS,
   PLAYER_BODY_OPTIONS,
@@ -2456,17 +2456,14 @@ function equippedItem(slot) {
  * What an item is made of is shown by recolouring its own sprite, never by a
  * different sprite: the silhouette has to stay readable, or the icon stops
  * telling the player what the thing is.
- */
-/**
- * The sprite this instance is drawn with: its own silhouette out of the family,
- * falling back to the catalogue icon for anything that has only one.
+ *
+ * The sprite and the recolouring both come from `itemPicture` — the one answer
+ * to «what does this very thing look like». Floor, «что рядом», the pickup
+ * toast, backpack, item card and worn slot all draw that answer and nothing
+ * else (Ivan saw one helmet as three different pictures).
  */
 function spriteForItem(item) {
-  return itemSpriteFor(item) ?? item?.icon ?? null;
-}
-
-function materialSpriteFilter(item) {
-  return materialFilter(item?.materialId ?? null);
+  return itemPicture(item)?.path ?? null;
 }
 
 /**
@@ -2475,9 +2472,16 @@ function materialSpriteFilter(item) {
  */
 function paintMaterial(icon, item) {
   if (!icon) return;
-  const filter = materialSpriteFilter(item);
+  const filter = itemPicture(item)?.filter ?? null;
   if (filter) icon.style.setProperty('--material-filter', filter);
   else icon.style.removeProperty('--material-filter');
+}
+
+/** An `<img>` showing one item instance: its sprite and its material, together. */
+function paintItemIcon(icon, item) {
+  if (!icon) return;
+  icon.src = spriteUrl(spriteForItem(item));
+  paintMaterial(icon, item);
 }
 
 function presentedItem(item) {
@@ -2492,8 +2496,10 @@ function presentedItem(item) {
     ?? item.icon
     ?? lootById(item.id)?.icon
     ?? 'item/misc/misc_orb.png';
+  // `floorScale` is the catalogue's own word on how big the thing lies on the
+  // floor; the visual-override editor still has the last say on top of it.
   const visual = runtimeVisual(
-    'loot', presentation.id, 'icon', iconPath, 1, -7,
+    'loot', presentation.id, 'icon', iconPath, presentation.floorScale ?? 1, -7,
   );
   return {
     ...presentation,
@@ -4013,8 +4019,7 @@ function renderItemDetail(item) {
   itemDetailName.textContent = presentation.name;
   itemDetailRarity.textContent = `${presentation.rarity} ${presentation.rarityMarks}`;
   itemDetailSlot.textContent = presentation.slot;
-  itemDetailIcon.src = spriteUrl(spriteForItem(displayItem));
-  paintMaterial(itemDetailIcon, displayItem);
+  paintItemIcon(itemDetailIcon, displayItem);
   itemDetailDescription.textContent = presentation.description;
   itemDetailComparison.hidden = presentation.comparison.length === 0;
   const уходит = selection?.item.uid === item.uid ? replacedItemNames(selection) : [];
@@ -7469,6 +7474,14 @@ function drawGroundBelt(position, rarity, pulse) {
   context.restore();
 }
 
+/**
+ * A gold pile is a whole 32px Dungeon Crawl tile drawn untrimmed, so a handful
+ * of coins stays small and a heap fills the cell. Slightly under a full tile,
+ * low on it: it lies on the floor, it does not stand.
+ */
+const GOLD_PILE_SIZE = 56;
+const GOLD_PILE_OFFSET_Y = -2;
+
 function drawLoot() {
   for (const loot of lootDefinitions) {
     const gridX = Math.floor(loot.x / TILE);
@@ -7513,11 +7526,16 @@ function drawLoot() {
     const isBelt = displayItem.slot === 'belt';
     // Вещь лежит на полу, а не висит над ним: дышит только её свечение.
     if (isBelt) drawGroundBelt(position, rarity, 0);
-    const material = materialSpriteFilter(displayItem);
-    drawSprite(spriteForItem(displayItem), x, y, (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1), {
-      offsetY: displayItem.visualOffsetY ?? -7,
-      ...(material ? { filter: `${VISIBILITY_TUNING.spriteFilter} ${material}` } : {}),
-      trim: true,
+    // The same picture the backpack, the toast and «что рядом» show — see
+    // `itemPicture`. Gold is the one exception: a pile tile chosen by amount.
+    const picture = floorPicture(displayItem);
+    const size = picture.trim
+      ? (isBelt ? 18 : 44) * (displayItem.visualScale ?? 1)
+      : GOLD_PILE_SIZE;
+    drawSprite(picture.path, x, y, size, {
+      offsetY: picture.trim ? displayItem.visualOffsetY ?? -7 : GOLD_PILE_OFFSET_Y,
+      ...(picture.filter ? { filter: `${VISIBILITY_TUNING.spriteFilter} ${picture.filter}` } : {}),
+      trim: picture.trim,
     });
   }
 }
@@ -8361,8 +8379,7 @@ function renderEquippedPreview() {
     if (!item && twoHanded) {
       const held = presentedItem(twoHanded);
       delete button.dataset.rarity;
-      icon.src = spriteUrl(spriteForItem(held));
-      paintMaterial(icon, held);
+      paintItemIcon(icon, held);
       const name = itemPresentation(held, itemDetailLanguage).name;
       button.title = `${slotLabel}: ${name}`;
       button.setAttribute('aria-label', `${slotLabel}: ${labels.bothHands} — ${name}`);
@@ -8383,8 +8400,7 @@ function renderEquippedPreview() {
     const displayItem = presentedItem(item);
     const presentation = itemPresentation(displayItem, itemDetailLanguage);
     button.dataset.rarity = String(displayItem.rarity);
-    icon.src = spriteUrl(spriteForItem(displayItem));
-    paintMaterial(icon, displayItem);
+    paintItemIcon(icon, displayItem);
     button.title = presentation.name;
     button.setAttribute('aria-label', `${slotLabel}: ${presentation.name}`);
     button.onclick = () => {
@@ -8505,8 +8521,7 @@ function renderPack() {
       if (entry.source === 'pack' && markedForSalvage.has(index)) button.classList.add('marked');
 
       const icon = document.createElement('img');
-      icon.src = spriteUrl(spriteForItem(displayItem));
-      paintMaterial(icon, displayItem);
+      paintItemIcon(icon, displayItem);
       icon.alt = '';
       const copy = document.createElement('span');
       const name = document.createElement('strong');
@@ -8611,7 +8626,15 @@ function renderLootToast({ item, value }) {
   const color = rarityGlow[displayItem?.rarity ?? 1] ?? rarityGlow[1];
   lootToast.style.setProperty('--rarity', color);
   lootToast.dataset.informative = String(informative);
-  lootToast.querySelector('img').src = spriteUrl(displayItem?.icon ?? displayItem?.path);
+  const toastIcon = lootToast.querySelector('img');
+  // Gold is counted, not looked at: its toast keeps the interface coin, the
+  // same one as the purse. Every other item shows its own picture — the one on
+  // the floor a moment ago and in the backpack a moment later.
+  if (definition && !definition.gold) paintItemIcon(toastIcon, displayItem);
+  else {
+    toastIcon.src = spriteUrl(displayItem?.icon ?? displayItem?.path);
+    paintMaterial(toastIcon, null);
+  }
   // A refusal must not look like a gift. The full backpack used to be shown on
   // exactly the card a pickup uses — same icon, same name, same rarity, with
   // one small line changed — so the player read «taken» and then found the
@@ -9911,7 +9934,7 @@ function contextModelTarget(entry = contextTarget) {
       kind: 'loot',
       name: карточка.name,
       description: `${карточка.rarity} · ${карточка.slot}`,
-      icon: itemSpriteFor(вещь),
+      icon: spriteForItem(вещь),
       accent: rarityGlow[вещь.rarity ?? 1] ?? rarityGlow[1],
       roomInPack: место,
       fullHint: место ? '' : currentMainMenuModel().labels.inventoryFullShort,
@@ -10340,6 +10363,18 @@ function fillTextWithIcons(node, text) {
   return node;
 }
 
+/**
+ * The item a context target is, as the rest of the UI shows it — or null for a
+ * door, a merchant, a fire. The button and the card recolour it by material
+ * exactly like the floor does, or a gold helmet on the floor is a grey one on
+ * the button.
+ */
+function contextTargetItem(target) {
+  return target?.kind === 'loot' && target.value?.definition
+    ? presentedItem(target.value.definition)
+    : null;
+}
+
 function renderContextActions() {
   if (!contextTarget) return;
   const model = contextActionModel({
@@ -10350,6 +10385,7 @@ function renderContextActions() {
   contextActions.style.setProperty('--context-accent', model.accent);
   contextActionList.style.setProperty('--action-count', String(model.actions.length));
   contextActionIcon.src = spriteUrl(model.icon);
+  paintMaterial(contextActionIcon, contextTargetItem(contextTarget));
   contextActionTitle.textContent = model.name;
   fillTextWithIcons(contextActionDescription, model.description);
   closeContextActionsButton.setAttribute('aria-label', model.closeLabel);
@@ -10451,6 +10487,7 @@ function updateInteractionUi() {
     const icon = document.createElement('img');
     icon.alt = '';
     icon.src = spriteUrl(model.icon);
+    paintMaterial(icon, contextTargetItem(target));
     const mark = document.createElement('b');
     mark.setAttribute('aria-hidden', 'true');
     mark.textContent = '+';
@@ -10631,7 +10668,7 @@ function merchantItemButton({ item, price, disabled = false, sold = false, badge
     `${presentation.name}. ${presentation.primaryEffect.text}. ${price} ${currentMainMenuModel().labels.gold}`,
   );
   const icon = document.createElement('img');
-  icon.src = spriteUrl(displayItem.icon);
+  paintItemIcon(icon, displayItem);
   icon.alt = '';
   const copy = document.createElement('span');
   copy.className = 'merchant-item-copy';
@@ -10823,7 +10860,7 @@ function chestTransferItemButton({ item, direction, disabled = false, onActivate
     `${action}: ${presentation.name}. ${presentation.primaryEffect?.text ?? presentation.rarity}`,
   );
   const icon = document.createElement('img');
-  icon.src = spriteUrl(displayItem.icon);
+  paintItemIcon(icon, displayItem);
   icon.alt = '';
   const copy = document.createElement('span');
   copy.className = 'chest-transfer-copy';
@@ -13369,7 +13406,7 @@ function beginBlinkTargeting(itemUid, effectOverride = null) {
     itemUid,
     range: effect.range,
     returnScreen: 'inventory',
-    icon: presentedItem(item).icon,
+    icon: spriteForItem(presentedItem(item)),
     color: '#81d8dc',
     label: itemDetailLanguage === 'ru' ? 'Выбери клетку' : 'Choose a tile',
     cancelLabel: itemDetailLanguage === 'ru' ? 'Отменить скачок' : 'Cancel blink',
@@ -13422,7 +13459,7 @@ function beginTargetEffectItemTargeting(itemUid) {
     itemUid,
     targetIds: targets.map(({ instanceId }) => instanceId),
     returnScreen: 'inventory',
-    icon: presentedItem(item).icon,
+    icon: spriteForItem(presentedItem(item)),
     color: definition?.color ?? '#63b8ca',
     label: itemDetailLanguage === 'ru' ? 'Выбери врага' : 'Choose an enemy',
     cancelLabel: itemDetailLanguage === 'ru' ? 'Отменить применение' : 'Cancel item use',

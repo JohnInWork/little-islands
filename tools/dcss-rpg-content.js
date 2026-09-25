@@ -2790,6 +2790,9 @@ export const LOOT_CATALOG = Object.freeze([
      */
     id: 'lockpick-set',
     icon: 'licensed/game-icons/lockpicks.png',
+    // Иконка game-icons нарисована во всю клетку, плотно: на полу связка
+    // отмычек выходила крупнее шлема. Иван: «огромные». В рюкзаке — как есть.
+    floorScale: 0.6,
     slot: null,
     kind: 'tool',
     rarity: 0,
@@ -2813,6 +2816,8 @@ export const LOOT_CATALOG = Object.freeze([
      */
     id: 'sapper-kit',
     icon: 'licensed/game-icons/sapper-kit.png',
+    // Та же плотная иконка во всю клетку, что у отмычек, — и та же поправка.
+    floorScale: 0.6,
     slot: null,
     kind: 'tool',
     rarity: 0,
