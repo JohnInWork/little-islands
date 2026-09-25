@@ -34,10 +34,12 @@
  *   step ignores them (`stepHeroToward`, ~l.5515). A find sitting in a
  *   one-cell corridor therefore breaks tap-to-move but not the floor: that is
  *   reported as a warning, not a soft-lock.
- * - Stairs: the arrival cell `dungeon.spawn` is the stair up (`onAscentStair`,
- *   ~l.4600), `dungeon.exit` is the stair down; on floors 18/24 the exit also
+ * - Stairs: the arrival cell `dungeon.spawn` is the stair up (`nearAscentStair`,
+ *   ~l.4670), `dungeon.exit` is the stair down; on floors 18/24 the exit also
  *   carries the artefact / rune (`roadPrize`, ~l.1133). Chapter floors refuse
- *   the stair until the guardian dies (`canLeaveDungeonFloor`).
+ *   the stair until the guardian dies (`stairDownOpen` → `canLeaveDungeonFloor`).
+ *   Stepping on a stair changes nothing: the floor changes only from the
+ *   stair's card, so a stair only has to be reachable, not walked over.
  * - A fall through a chasm lands on a random '.' cell of the floor below that
  *   holds no monster/find/event (`chasmLandingCell`, ~l.4710) — replicated
  *   exactly below, because a landing on an island would strand the hero.

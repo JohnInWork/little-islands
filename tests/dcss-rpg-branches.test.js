@@ -136,9 +136,11 @@ test('a fork asks, and stepping on it never answers for the hero', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   // Two tiles in the game are forks rather than stairs: the city gate, which
   // asks which road, and the last stair of the written road, which asks whether
-  // the artefact ends the run. Both return before the descent.
-  assert.match(runtime, /if \(artifactAvailable\(\)\) return;/);
-  assert.match(runtime, /if \(isCityDepth\(dungeon\.depth\)\) return;\s*\n\s*descendFloor\(\);/);
+  // the artefact ends the run. Neither is a plain descent: the stair-down
+  // button stays shut on both, and the column offers the fork's own card.
+  // (Шаг на клетку больше ничего не решает вовсе — см. floor-memory.)
+  assert.match(runtime, /function stairDownOpen\(\) \{[\s\S]*?if \(isCityDepth\(dungeon\.depth\) \|\| artifactAvailable\(\)\) return false;/);
+  assert.match(runtime, /add\(artifactAvailable\(\) \? 'road-end' : 'stair-down', dungeon\.exit\);/);
   assert.match(runtime, /function nearbyCityGate\(\)[\s\S]*isCityDepth\(dungeon\.depth\)/);
   // Развилка получает и сами ворота: уходя, герой запоминает, какими вышел.
   assert.match(runtime, /'city-gate'\(\{ target, action \}\)[\s\S]*switchRunBranch\(captureRun\(\), branch\)/);

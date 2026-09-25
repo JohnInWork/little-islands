@@ -182,8 +182,9 @@ test('реестр показывает призрака одним действ
   assert.deepEqual(model.actions.map(({ id }) => id), ['speak']);
   assert.equal(model.actions[0].label, copy.action);
   assert.equal(model.actions[0].command, 'ghost-speak');
-  // И спрашивать тут нечего: разговор ничего не отнимает.
-  assert.equal(model.confirm, false);
+  // Разговор ничего не отнимает, но карточку призрак всё равно показывает:
+  // одним касанием теперь только подбирают вещи с пола.
+  assert.equal(model.instant, false);
 });
 
 test('рантайм сажает призрака на кладбище и не ставит там второго, злого', async () => {

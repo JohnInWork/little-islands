@@ -1312,7 +1312,6 @@ let findDefinitions = createFindDefinitions(dungeon);
 let trapDefinitions = trapsFromDungeon(dungeon);
 let detectedTrapIds = new Set(run.floor.detectedTrapIds);
 // Stairs under the hero on arrival must not fire until they step off them.
-let stairsArmed = false;
 /** Raised servants: one per prepared summoning spell, never in the save. */
 let allies = [];
 let hazardInputState = createHazardInputState();
@@ -4660,18 +4659,22 @@ function artifactAvailable() {
   });
 }
 
-/** Is the hero standing on the down stair itself? */
-function onExitStair() {
-  return Math.floor(hero.x / TILE) === dungeon.exit.x
-    && Math.floor(hero.y / TILE) === dungeon.exit.y;
+/**
+ * Стоит ли герой на лестнице вниз или рядом с ней.
+ *
+ * Лестница — такая же вещь на этаже, как дверь: шаг на неё никуда не уводит,
+ * он только ставит её в колонку «что рядом». Спуск — кнопка в карточке.
+ */
+function nearExitStair() {
+  return runStatus === 'playing'
+    && cellStepDistance({ x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) }, dungeon.exit) <= 1;
 }
 
 /** Клетка прибытия — она же лестница наверх; в городе её нет. */
-function onAscentStair() {
+function nearAscentStair() {
   return dungeon.depth > CITY_DEPTH
     && runStatus === 'playing'
-    && Math.floor(hero.x / TILE) === dungeon.spawn.x
-    && Math.floor(hero.y / TILE) === dungeon.spawn.y;
+    && cellStepDistance({ x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) }, dungeon.spawn) <= 1;
 }
 
 function activeBoss() {
@@ -10004,7 +10007,11 @@ function contextModelTarget(entry = contextTarget) {
     return { kind: 'camp-stash' };
   }
   if (entry.kind === 'stair-up') {
-    return { kind: 'stair-up', icon: ascentVisual().path };
+    // С первого этажа — в город, ниже — на этаж выше: карточка говорит правду.
+    return { kind: 'stair-up', icon: ascentVisual().path, toCity: dungeon.depth - 1 <= CITY_DEPTH };
+  }
+  if (entry.kind === 'stair-down') {
+    return { kind: 'stair-down', icon: exitVisual().path, locked: !stairDownOpen() };
   }
   if (entry.kind === 'graveyard-ghost') {
     const copy = graveyardCopy(itemDetailLanguage);
@@ -10243,10 +10250,8 @@ function contextTargetIsAdjacent(entry) {
   if (entry.kind === 'city-gate') return distance <= 1;
   if (entry.kind === 'sanctuary') return distance <= 1 && heroNearSanctuary();
   if (entry.kind === 'portal') return distance <= 1 && Boolean(run.portal);
-  // The stair is a tile the hero stands on, not one they stand beside.
-  if (entry.kind === 'road-end') return distance === 0;
-  // Лестница наверх — клетка под ногами, а не соседняя.
-  if (entry.kind === 'stair-up') return distance === 0;
+  // Лестницы — на клетке или рядом, как дверь: «что рядом», а не «под ногами».
+  if (entry.kind === 'road-end' || entry.kind === 'stair-down' || entry.kind === 'stair-up') return distance <= 1;
   if (entry.kind === 'graveyard-ghost') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'priest') return distance <= 1 && entry.value.dead === 0;
   if (entry.kind === 'recruiter') return distance <= 1 && entry.value.dead === 0;
@@ -10435,17 +10440,14 @@ function updateInteractionUi() {
 }
 
 /**
- * Одно действие — окна нет.
+ * Одним касанием — только подобрать.
  *
- * Иван: «если я нажимаю на дверь и в ней только одна точка взаимодействия —
- * открыть, — то мы не предлагаем окно, оно сразу её открывает. Давай сделаем
- * игру максимально простой». Окно осмысленно там, где есть из чего выбирать;
- * над единственной кнопкой оно было лишним касанием и лишним экраном.
- *
- * Исключение помечено в самом реестре (`confirm`): касанием нельзя ударить
- * живое и нельзя спрыгнуть в яму. Если же единственное действие не удалось —
- * дверь заперта, монет не хватило, — окно всё-таки открывается: там написана
- * причина, а молчать в ответ на нажатие игра не должна.
+ * Раньше любое единственное действие исполнялось от касания, и окно не
+ * появлялось: алтарь лечил, костёр жарил, дверь открывалась. Иван после игры
+ * попросил обратное: сначала карточка — что это, что будет, — потом кнопка.
+ * Без карточки остался один случай, помеченный в реестре `instant`: вещь с
+ * пола. Если её не поднять — рюкзак полон, — карточка всё же открывается:
+ * там написана причина.
  */
 function runLoneAction(nextTarget) {
   let model = null;
@@ -10459,27 +10461,9 @@ function runLoneAction(nextTarget) {
     reportFrameFailure(`interact:${nextTarget.kind}`, error);
     return false;
   }
-  if (model.confirm) return false;
+  if (!model.instant) return false;
   const [only, ...rest] = model.actions;
-  if (rest.length > 0) return false;
-  /*
-   * Одно действие, и оно недоступно.
-   *
-   * Окно в этом случае показывает единственную серую кнопку и подпись под
-   * ней — целый экран ради одной строки «Нужно сырое мясо». Строка и есть
-   * весь ответ, поэтому она говорится всплывающей подписью, а окно не
-   * открывается вовсе. Без подсказки открыть окно всё же придётся: молчание
-   * хуже лишнего экрана.
-   */
-  if (!only?.enabled) {
-    if (!model.terse || !only?.hint) return false;
-    clearMoveControl();
-    hero.path = [];
-    onboardingInteracted = true;
-    playSound('ui-tap');
-    showLootToast({ path: model.icon, rarity: 0 }, only.hint);
-    return true;
-  }
+  if (rest.length > 0 || !only?.enabled) return false;
   const handler = CONTEXT_COMMAND_HANDLERS[only.command];
   if (typeof handler !== 'function') return false;
   const previous = contextTarget;
@@ -11495,8 +11479,11 @@ function nearbyContextTargets() {
   add('camp-stash', nearbyCampProp('camp-stash'));
   add('companion', nearbyCompanion());
   add('city-gate', nearbyCityGate());
-  if (artifactAvailable() && onExitStair()) add('road-end', dungeon.exit);
-  if (onAscentStair()) add('stair-up', dungeon.spawn);
+  if (!isCityDepth(dungeon.depth) && nearExitStair()) {
+    // На конце написанной дороги та же лестница — развилка, а не спуск.
+    add(artifactAvailable() ? 'road-end' : 'stair-down', dungeon.exit);
+  }
+  if (nearAscentStair()) add('stair-up', dungeon.spawn);
   add('jail-door', nearbyJailDoor());
   add('priest', monsters.find((monster) => monster.id === CITY_PRIEST_ID && withinReach(monster)));
   add('tavern-hire', monsters.find((monster) => mercenaryIdForHireMonster(monster.id) && withinReach(monster)));
@@ -11728,6 +11715,13 @@ const CONTEXT_COMMAND_HANDLERS = Object.freeze({
   'stair-up'() {
     closeContextActions();
     climbFloor();
+    return true;
+  },
+  'stair-down'() {
+    closeContextActions();
+    // Кнопку проверили, когда рисовали; команда проверяет ещё раз сама.
+    if (!stairDownOpen()) return false;
+    descendFloor();
     return true;
   },
   'road-end'({ action }) {
@@ -16174,45 +16168,34 @@ function resolveWorldInteractions() {
     if (hero.dead) return;
   }
 
-  const onStair = (cell) => heroCell.x === cell.x && heroCell.y === cell.y;
-  if (hero.dead) return;
-  const cityGate = isCityDepth(dungeon.depth) && dungeon.gates
-    ? Object.entries(dungeon.gates).find(([, gate]) => onStair(gate))?.[0] ?? null
-    : null;
-  if (!onStair(dungeon.exit) && !onStair(dungeon.spawn) && !cityGate) {
-    stairsArmed = true;
-    return;
-  }
-  if (!stairsArmed) return;
-  if (cityGate && runStatus === 'playing' && !run.crime.jailed) {
-    // No question asked. This gate leads one way and it always has.
-    if (run.branch !== cityGate) run = switchRunBranch(captureRun(), cityGate);
-    descendFloor();
-    return;
-  }
   /*
-   * Наверх уводит кнопка, а не шаг.
+   * Шаг по лестнице больше никуда не уводит.
    *
-   * Клетка прибытия и есть лестница наверх, и раньше шаг на неё молча
-   * отправлял в город: игрок, обходя вход, терял этаж без единого вопроса —
-   * я поймала это трижды за один проход, ни разу того не желая. Теперь на
-   * ней открывается обычное взаимодействие «Лестница наверх», и оно помечено
-   * «спрашивать»: одним касанием с этажа не уходят.
+   * Лестница вниз, лестница наверх, ворота города, конец написанной дороги —
+   * всё это вещи на этаже, как дверь или сундук. Шаг на клетку только ставит
+   * их в колонку «что рядом»; этаж меняет кнопка в карточке. Иван: спуск от
+   * шага уводил его ниже, когда он просто шёл мимо за добычей. Заодно ушёл и
+   * флаг «лестница взведена»: на прибытии нечему срабатывать, герой стоит на
+   * лестнице и видит её кнопку.
    */
-  if (!onStair(dungeon.exit)) return;
-  if (!canLeaveDungeonFloor({
+}
+
+/**
+ * Открыта ли лестница вниз прямо сейчас.
+ *
+ * Все прежние замки на месте: пока жив страж этажа, спуска нет; на конце
+ * написанной дороги лестница — развилка с артефактом, а не спуск; в городе
+ * выход — развилка трёх дорог.
+ */
+function stairDownOpen() {
+  if (runStatus !== 'playing' || hero.dead) return false;
+  if (isCityDepth(dungeon.depth) || artifactAvailable()) return false;
+  if (dungeon.depth >= DEEPEST_DEPTH) return false;
+  return canLeaveDungeonFloor({
     depth: dungeon.depth,
     status: runStatus,
     guardianDefeated: objectiveBossDefeated(),
-  })) return;
-  // The end of the written road is a fork too: the panel asks whether the
-  // artefact ends the run or the stair keeps going. Stepping on it must not
-  // answer that for the hero.
-  if (artifactAvailable()) return;
-  // In the city the gate is a fork, not a staircase: the panel asks which road,
-  // and stepping on it must not choose for the hero.
-  if (isCityDepth(dungeon.depth)) return;
-  descendFloor();
+  });
 }
 
 function completeVictory() {
@@ -16698,9 +16681,8 @@ function replaceFloor(nextDepth, arrival = null) {
     { x: Math.floor(hero.x / TILE), y: Math.floor(hero.y / TILE) },
     currentRevealRadius(),
   );
-  // Both stairs are under the hero the moment they arrive; they only work once
-  // the hero has stepped off them.
-  stairsArmed = false;
+  // Герой приходит, стоя на лестнице, и ничего от этого не случается: этаж
+  // меняет только кнопка в карточке.
   allies = [];
   camera.x = hero.x;
   camera.y = hero.y;
@@ -16959,7 +16941,16 @@ function climbFloor() {
   run = retreatRunFloor(captureRun());
   hero.hp = run.hero.hp;
   hero.hunger = run.hero.hunger;
-  replaceFloor(run.depth);
+  /*
+   * Поднявшись, герой выходит у лестницы вниз — той, по которой спускался.
+   *
+   * Правила так и считали (`retreatRunFloor` ставит его на выход этажа), а
+   * переходник их не слушал и ставил на лестницу наверх: подъём на этаж
+   * отбрасывал героя через весь этаж. Пока спуск срабатывал от шага, это
+   * прятало ещё и риск тут же уехать обратно; теперь этаж меняет только
+   * кнопка, и стоять на спуске после подъёма безопасно.
+   */
+  replaceFloor(run.depth, { x: run.hero.x, y: run.hero.y });
   // Come out of the caves and you are standing at the hole you came out of, not
   // at the far side of town. The gate you used is the gate you arrive by.
   if (isCityDepth(run.depth)) {

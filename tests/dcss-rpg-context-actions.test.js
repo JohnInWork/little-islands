@@ -52,50 +52,86 @@ test('ящик отпирают, и список действий ничего �
   assert.ok(умелый.actions.every(Object.isFrozen));
 });
 
-test('окно нужно только там, где есть выбор', () => {
-  // Дверь, лавка, жила, тайник — одно действие: касание его и выполняет.
-  const дверь = contextActionModel({ target: { kind: 'door', open: false }, language: 'ru' });
-  assert.equal(дверь.actions.length, 1);
-  assert.equal(дверь.confirm, false);
+/**
+ * Сначала карточка, потом действие.
+ *
+ * Правило «одно действие — окна нет» Иван после игры попросил вернуть назад:
+ * алтарь, костёр, дверь сначала показывают, что это и что будет. Одним
+ * касанием осталось только подобрать вещь с пола.
+ */
+test('карточка открывается всегда, одним касанием — только подбор', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  const мгновенные = INTERACTION_REGISTRY.filter(({ instant }) => instant === true).map(({ id }) => id);
+  assert.deepEqual(мгновенные, ['ground-loot'], 'без карточки — только вещь с пола');
 
-  // Стражник — исключение по слову Ивана: удар нельзя нанести одним касанием.
-  const стражник = contextActionModel({
-    target: { kind: 'guard', id: 'city-guard', icon: 'mon/guard.png', fine: 0, canPay: false, hint: '' },
-    language: 'ru',
-  });
-  assert.equal(стражник.confirm, true);
+  const вещь = contextActionModel({ target: { kind: 'loot', icon: 'x.png', name: 'Кинжал' }, language: 'ru' });
+  assert.equal(вещь.instant, true);
+  for (const target of [
+    { kind: 'door', open: false },
+    { kind: 'sanctuary', icon: 'x.png', heal: 20, ready: true },
+    { kind: 'campfire', rawMeatCount: 2 },
+    { kind: 'stair-up', icon: 'dngn/gateways/stone_stairs_up.png' },
+    { kind: 'stair-down', icon: 'dngn/gateways/stone_stairs_down.png', locked: false },
+    { kind: 'guard', id: 'city-guard', icon: 'mon/guard.png', fine: 0, canPay: false, hint: '' },
+  ]) {
+    const модель = contextActionModel({ target, language: 'ru' });
+    assert.equal(модель.instant, false, `${target.kind} снова действует без карточки`);
+  }
 
-  // Лестница наверх — тоже: одно действие, но уводит с этажа.
-  const лестница = contextActionModel({
-    target: { kind: 'stair-up', icon: 'dngn/gateways/stone_stairs_up.png' },
-    language: 'ru',
-  });
-  assert.equal(лестница.actions.length, 1);
-  assert.equal(лестница.confirm, true);
+  // Переходник спрашивает ровно эту пометку и не исполняет недоступное.
+  const lone = adapter.slice(adapter.indexOf('function runLoneAction('));
+  const body = lone.slice(0, lone.indexOf('\n}'));
+  assert.match(body, /if \(!model\.instant\) return false;/);
+  assert.match(body, /if \(rest\.length > 0 \|\| !only\?\.enabled\) return false;/);
+  assert.doesNotMatch(body, /showLootToast/, 'отказ снова отвечает строкой вместо карточки');
 });
 
 /**
- * Единственное действие, которое нельзя сделать, — это не выбор.
+ * Лестница вниз — такая же вещь на этаже, как дверь.
  *
- * Костёр без сырого мяса открывал целое окно, чтобы показать одну серую
- * кнопку и строку «Нужно сырое мясо». Строка и есть весь ответ: она
- * говорится всплывающей подписью, а окно остаётся закрытым. Молчать при
- * этом нельзя — без подсказки окно всё же откроется, потому что тишина
- * хуже лишнего экрана.
+ * Шаг на неё уводил ниже сразу. Теперь это карточка с одной кнопкой, и пока
+ * страж этажа жив, кнопка серая и объясняет почему.
  */
-test('недоступное одиночное действие отвечает подсказкой, а не окном', async () => {
-  const { readFile } = await import('node:fs/promises');
-  const adapter = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+test('лестница вниз — карточка с кнопкой, которую держит страж', () => {
+  const открыта = contextActionModel({ target: { kind: 'stair-down', icon: 's.png', locked: false }, language: 'ru' });
+  assert.equal(открыта.interactionId, 'stair-down');
+  assert.equal(открыта.name, 'Лестница вниз');
+  assert.deepEqual(открыта.actions.map(({ id }) => id), ['go-down']);
+  assert.equal(открыта.actions[0].enabled, true);
+  assert.equal(открыта.actions[0].command, 'stair-down');
+  assert.equal(открыта.actions[0].label, 'Спуститься');
+
+  const заперта = contextActionModel({ target: { kind: 'stair-down', icon: 's.png', locked: true }, language: 'en' });
+  assert.equal(заперта.name, 'Stairs down');
+  assert.equal(заперта.actions[0].enabled, false);
+  assert.match(заперта.actions[0].hint, /guardian/);
+
+  // Наверх с первого этажа — в город, ниже — на этаж выше.
+  const вГород = contextActionModel({ target: { kind: 'stair-up', icon: 'u.png', toCity: true }, language: 'ru' });
+  const выше = contextActionModel({ target: { kind: 'stair-up', icon: 'u.png', toCity: false }, language: 'ru' });
+  assert.equal(вГород.actions[0].label, 'В город');
+  assert.equal(выше.actions[0].label, 'Подняться');
+  assert.doesNotMatch(выше.description, /город/);
+});
+
+/**
+ * Единственное действие, которое нельзя сделать, объясняется в карточке.
+ *
+ * Костёр без мяса раньше отвечал всплывающей строкой без окна. Теперь, как и
+ * всё остальное, он показывает карточку: что это, серую кнопку и причину под
+ * ней («Нужно сырое мясо»).
+ */
+test('недоступное одиночное действие объясняется в карточке', () => {
   const пустойКостёр = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 0 }, language: 'ru' });
   assert.equal(пустойКостёр.actions.length, 1, 'без мяса и без варки действие ровно одно');
   assert.equal(пустойКостёр.actions[0].enabled, false);
   assert.ok(пустойКостёр.actions[0].hint.length > 0, 'причина обязана быть сказана');
-  assert.equal(пустойКостёр.confirm, false);
+  assert.equal(пустойКостёр.instant, false);
 
   const сМясом = contextActionModel({ target: { kind: 'campfire', rawMeatCount: 2 }, language: 'ru' });
   assert.equal(сМясом.actions[0].enabled, true);
-
-  assert.equal(пустойКостёр.terse, true, 'костру окно ни к чему');
+  assert.equal(сМясом.instant, false, 'костёр жарит только из карточки');
 
   /*
    * А вот участок под дом на такой же отказ отвечает «не хватает золота» — и
@@ -109,15 +145,8 @@ test('недоступное одиночное действие отвечае�
   });
   assert.equal(участок.actions.length, 1);
   assert.equal(участок.actions[0].enabled, false);
-  assert.equal(участок.terse, false, 'дом обязан объясниться окном');
+  assert.equal(участок.instant, false, 'дом обязан объясниться окном');
   assert.match(участок.description, /400/, 'цена должна быть в описании');
-
-  const помеченные = INTERACTION_REGISTRY.filter(({ terse }) => terse === true).map(({ id }) => id);
-  assert.deepEqual(помеченные, ['campfire'], 'короткий ответ ставится по одному, а не всем подряд');
-
-  // И то же правило в переходнике: подсказка вместо окна — только помеченным.
-  assert.match(adapter, /if \(!model\.terse \|\| !only\?\.hint\) return false;/);
-  assert.match(adapter, /showLootToast\(\{ path: model\.icon, rarity: 0 \}, only\.hint\);/);
 });
 
 test('interaction registry owns target matching and stable command families', () => {
@@ -125,7 +154,7 @@ test('interaction registry owns target matching and stable command families', ()
     'campfire', 'camp-rest', 'camp-stash', 'house-deed', 'house-slot', 'house-rest', 'sanctuary',
     'parley',
     'guard',
-    'city-gate', 'graveyard-ghost', 'stair-up', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'ground-loot', 'floor-event', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
+    'city-gate', 'graveyard-ghost', 'stair-up', 'stair-down', 'road-end', 'priest', 'recruiter', 'tavern-hire', 'jail-door', 'companion', 'wildlife', 'ground-loot', 'floor-event', 'merchant', 'portal', 'branch-gate', 'chasm', 'door', 'trap', 'chest',
     'crystal-vein', 'buried-stash', 'forgotten-grave', 'landmark',
   ]);
   assert.equal(new Set(INTERACTION_REGISTRY.map(({ id }) => id)).size, INTERACTION_REGISTRY.length);
@@ -265,7 +294,7 @@ test('маклер продаёт дом через окно, и в окне н�
     target: { kind: 'house-deed', price: 350, reason: 'ready', hint: '', icon: 'mon/halfling.png' },
     language: 'ru',
   });
-  assert.equal(модель.confirm, true, 'дом уходит от одного касания');
+  assert.equal(модель.instant, false, 'дом уходит от одного касания');
   assert.equal(модель.name, 'Маклер');
   assert.match(модель.description, /350/, 'в окне не названа цена');
   assert.equal(модель.actions.length, 1);
@@ -277,7 +306,7 @@ test('маклер продаёт дом через окно, и в окне н�
     target: { kind: 'house-deed', price: 350, reason: 'gold', hint: 'Не хватает золота', icon: 'mon/halfling.png' },
     language: 'ru',
   });
-  assert.equal(бедный.confirm, true);
+  assert.equal(бедный.instant, false);
   assert.equal(бедный.actions[0].enabled, false);
   assert.equal(бедный.actions[0].hint, 'Не хватает золота');
 });

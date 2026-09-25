@@ -76,15 +76,15 @@ const HINT_COPY = Object.freeze({
     }),
     loot: Object.freeze({
       title: 'Добыча',
-      text: 'Наступи на предмет, чтобы поднять. Рюкзак слева внизу: тап по вещи покажет, что она даёт.',
+      text: 'Вещь с пола поднимает кнопка над рюкзаком. Тап по вещи в рюкзаке покажет, что она даёт.',
     }),
     interact: Object.freeze({
       title: 'Взаимодействие',
-      text: 'Кнопка над рюкзаком берётся за то, что рядом: дверь, сундук, лестница. Одно дело — сразу, без окна.',
+      text: 'Кнопка над рюкзаком — то, что рядом: дверь, сундук, лестница. Карточка скажет, что будет.',
     }),
     exit: Object.freeze({
       title: 'Лестница найдена',
-      text: 'Спуск ведёт ниже, а лестница, на которой ты появился, — обратно наверх. Плитка глубины: карта.',
+      text: 'Спуск — кнопкой над рюкзаком у лестницы. Лестница прихода ведёт наверх. Плитка глубины: карта.',
     }),
     city: Object.freeze({
       title: 'Город',
@@ -105,15 +105,15 @@ const HINT_COPY = Object.freeze({
     }),
     loot: Object.freeze({
       title: 'Loot',
-      text: 'Step onto an item to pick it up. The bag is bottom-left: tap a thing to see what it does.',
+      text: 'The button above the bag picks things up. Tap a thing in the bag to see what it does.',
     }),
     interact: Object.freeze({
       title: 'Interaction',
-      text: 'The button above the bag takes what is near: a door, a chest, a stair. A lone action happens at once.',
+      text: 'The button above the bag takes what is near: door, chest, stair. Its card says what happens.',
     }),
     exit: Object.freeze({
       title: 'Stairs found',
-      text: 'The descent leads down; the stair you arrived on leads back up. The depth tile opens the map.',
+      text: 'Go down with the button above the bag. The stair you arrived on leads up. The depth tile: map.',
     }),
     city: Object.freeze({
       title: 'The city',

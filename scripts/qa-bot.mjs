@@ -390,8 +390,18 @@ async function playRun(browser, runIndex) {
       break;
     }
     if (!clicked && path.length <= 1 && reason === 'exit') {
-      // Стоит на выходе, а спуск не случился: развилка или запертая лестница.
+      // Стоит на выходе. Шаг этаж больше не меняет: спуск — кнопка «что
+      // рядом» и кнопка в карточке. Вглубь, если выбор есть; иначе первая
+      // доступная (в городе — пещеры).
       await page.keyboard.press('KeyE');
+      await page.waitForTimeout(150);
+      const pressed = await page.evaluate(() => {
+        const list = [...document.querySelectorAll('.context-action-button:not(:disabled)')];
+        const pick = list.find((button) => ['go-down', 'descend', 'goDeep'].includes(button.dataset.action)) ?? list[0];
+        pick?.click();
+        return pick?.dataset.action ?? null;
+      });
+      if (!pressed) await page.keyboard.press('Escape');
     }
 
     const cellKey = key(hero.x, hero.y);

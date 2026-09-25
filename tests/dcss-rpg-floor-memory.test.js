@@ -153,19 +153,35 @@ test('a migrated run starts with an empty archive', () => {
   assert.equal(validateRun(migrated), true);
 });
 
-test('the runtime draws the way up and only climbs once the hero steps off it', async () => {
+/**
+ * Этаж меняет кнопка, а не шаг.
+ *
+ * Раньше шаг на лестницу вниз (и на ворота города) сразу уводил с этажа, а
+ * флаг `stairsArmed` не давал утащить героя обратно в момент прибытия. Иван
+ * попросил лестницы как все прочие вещи: шаг ставит их в колонку «что рядом»,
+ * а спуск и подъём — кнопка в карточке. Флаг ушёл вместе с шагом: на прибытии
+ * срабатывать нечему.
+ */
+test('the runtime draws the way up and changes floors only from the card', async () => {
   assert.ok(CONTENT_PATHS.includes(ASCENT_PATH), 'the sprite ships with the build');
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /function climbFloor\(\)[\s\S]*retreatRunFloor\(captureRun\(\)\)/);
-  // In town a third way out joins the two, so the arming check counts three.
-  assert.match(runtime, /if \(!onStair\(dungeon\.exit\) && !onStair\(dungeon\.spawn\) && !cityGate\) \{\s+stairsArmed = true;/);
-  // And each city gate goes one way, without asking which road.
-  assert.match(runtime, /if \(run\.branch !== cityGate\) run = switchRunBranch\(captureRun\(\), cityGate\);/);
+  const step = runtime.slice(runtime.indexOf('function resolveWorldInteractions()'));
+  const stepBody = step.slice(0, step.indexOf('\n}'));
+  for (const move of ['descendFloor(', 'climbFloor(', 'switchRunBranch(', 'enterBranch(']) {
+    assert.ok(!stepBody.includes(move), `a step on a tile calls ${move}`);
+  }
+  assert.ok(!runtime.includes('stairsArmed'), 'the arming flag outlived the step that needed it');
+  // Кнопки: вниз, наверх и развилки — каждая через свою карточку.
+  assert.match(runtime, /'stair-down'\(\) \{\s*closeContextActions\(\);[\s\S]*?if \(!stairDownOpen\(\)\) return false;\s*descendFloor\(\);/);
+  assert.match(runtime, /'stair-up'\(\) \{\s*closeContextActions\(\);\s*climbFloor\(\);/);
+  // Поднявшись, герой выходит у спуска, как и считают правила, а не у подъёма.
+  assert.match(runtime, /function climbFloor\(\)[\s\S]*?replaceFloor\(run\.depth, \{ x: run\.hero\.x, y: run\.hero\.y \}\);/);
+  // Замок стража и развилки на месте.
+  assert.match(runtime, /function stairDownOpen\(\) \{[\s\S]*?canLeaveDungeonFloor\(\{/);
   // Возвращается герой ровно в те ворота, которыми ушёл, а не в ворота своей
   // дороги: уйти можно одними, а дорога при этом выбирается другая.
   assert.match(runtime, /placeHeroAtCell\(run\.cityGate \?\? воротаДороги \?\? dungeon\.exit\);/, 'you come out where you went in');
-  assert.match(runtime, /if \(!stairsArmed\) return;/);
-  assert.match(runtime, /stairsArmed = false;/, 'arriving disarms both stairs');
   assert.match(runtime, /dungeon = hydrateDungeon\(run\);/, 'a floor change loads what the run remembers');
 });
 
