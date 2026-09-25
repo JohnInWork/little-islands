@@ -55,6 +55,19 @@
   --epic: #d0b45e;
 }
 
+/*
+ * Кнопки и поля не наследуют тень и интервал: браузер ставит им свои
+ * `text-shadow: none` и `letter-spacing: normal`. Без этого правила жирным
+ * стал весь текст, кроме кнопок — а меню почти целиком из кнопок.
+ */
+button,
+input,
+select,
+textarea {
+  text-shadow: inherit;
+  letter-spacing: inherit;
+}
+
 /**
  * `hidden` сильнее любого класса.
  *

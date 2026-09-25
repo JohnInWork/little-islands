@@ -135,6 +135,10 @@ test('весь интерфейс набран одним пиксельным �
   assert.ok(html.includes(`href="../${fontFile}"`), 'шрифт не загружается заранее');
   await readFile(new URL(`../public/${fontFile}`, import.meta.url));
   assert.match(css, /font-synthesis: none;/);
+  // Пиксельный жирный: тень наследуется от корня, а кнопкам браузер ставит
+  // свою `text-shadow: none` — без явного правила меню осталось бы тонким.
+  assert.match(css, /--pixel-bold:/);
+  assert.match(css, /button,\s*input,\s*select,\s*textarea \{\s*text-shadow: inherit;\s*letter-spacing: inherit;/);
   const sizes = [...css.matchAll(/font(?:-size)?:[^;]*?(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]));
   assert.ok(sizes.length > 100, 'размеры шрифта не найдены');
   for (const size of sizes) {
