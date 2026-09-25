@@ -114,3 +114,17 @@ test('the runtime pays only once the hire is standing there', async () => {
   assert.doesNotMatch(keeper.slice(0, keeper.indexOf('\n  },')), /hireIntoParty/, 'the keeper still hires');
   assert.match(runtime, /mercenaryModel\(\{/);
 });
+
+/*
+ * Найм в таверне падал на каждом кадре: «packProfile is not defined».
+ * Функцию убрали вместе с «Вожаком стаи» 23.09, а вызов в адаптере остался,
+ * и ни один тест его не трогал. Нашёл бот 26.09.2026.
+ */
+test('предел стаи в найме считается той же функцией, что и в правилах', async () => {
+  const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(runtime, /packProfile\(/);
+  assert.match(
+    runtime,
+    /function currentPartyLimit\(\) \{\s+return companionLimit\(tamingProfile\(currentSkillCapabilities\(\)\)\);/,
+  );
+});

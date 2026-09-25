@@ -407,6 +407,7 @@ import {
   createCompanionParty,
   companionName,
   companionRefusalText,
+  companionLimit,
   companionStats,
   tameCreature,
   tamingProfile,
@@ -16477,7 +16478,7 @@ function liftBindings(uids) {
 
 /** How many may walk with the hero right now: the taming school decides. */
 function currentPartyLimit() {
-  return packProfile(currentSkillCapabilities()).limit;
+  return companionLimit(tamingProfile(currentSkillCapabilities()));
 }
 
 /**
