@@ -566,7 +566,11 @@ function spriteHash(text) {
 export function itemSpriteFor(item) {
   const variants = itemSpriteVariants(item);
   if (variants.length <= 1) return variants[0] ?? item?.icon ?? null;
-  const identity = item?.uid ?? item?.instanceId ?? item?.id ?? '';
+  // A thing picked up off the floor becomes `loot-3-5`, or `loot-3-5#2` when
+  // the backpack already holds a `loot-3-5` from another visit. The suffix is
+  // bookkeeping, not a new thing: without stripping it the helmet on the floor
+  // and the same helmet in the backpack were drawn with different silhouettes.
+  const identity = String(item?.uid ?? item?.instanceId ?? item?.id ?? '').replace(/#\d+$/, '');
   return variants[spriteHash(`${identity}:${item?.id ?? ''}`) % variants.length];
 }
 

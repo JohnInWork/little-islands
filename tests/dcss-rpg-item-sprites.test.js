@@ -55,7 +55,11 @@ test('runtime trims every floor-loot sprite by alpha instead of special-casing i
   assert.match(source, /const isBelt = displayItem\.slot === 'belt'/);
   // Пояс лежит на полу: качание ему не передаётся (см. «ничто неподвижное не парит»).
   assert.match(source, /if \(isBelt\) drawGroundBelt\(position, rarity, 0\)/);
-  assert.match(source, /drawSprite\(spriteForItem\(displayItem\), x, y, \(isBelt \? 18 : 44\)/);
+  // Пол рисует ту же картинку, что и остальной интерфейс (`floorPicture` →
+  // `itemPicture`); отдельно только золото — кучкой по сумме, без обрезки.
+  assert.match(source, /const picture = floorPicture\(displayItem\)/);
+  assert.match(source, /\? \(isBelt \? 18 : 44\) \* \(displayItem\.visualScale \?\? 1\)/);
+  assert.match(source, /drawSprite\(picture\.path, x, y, size, \{/);
   assert.doesNotMatch(source, /displayItem\.id === ['"](?:regeneration-ring|iron-belt)['"]/);
 });
 

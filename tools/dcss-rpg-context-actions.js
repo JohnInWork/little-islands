@@ -1,3 +1,4 @@
+import { CAMP_FIRE_FRAMES } from './dcss-rpg-camp.js';
 import { CHASM_ICON_PATH } from './dcss-rpg-chasm.js';
 import { chestContextPresentation } from './dcss-rpg-chests.js';
 import { isLandmarkFind, landmarkContextPresentation } from './dcss-rpg-finds.js';
@@ -477,7 +478,10 @@ export const INTERACTION_REGISTRY = Object.freeze([
     present: ({ target, copy }) => ({
       name: copy.campfireName,
       description: copy.campfireUse,
-      icon: 'dngn/altars/makhleb_flame1.png',
+      // Готовят на нашем деревянном костре — том же, что горит в лагере, в
+      // городе и на этаже. Столб огня Макхлеба на каменном постаменте — знак
+      // храма, а не кухни, и в карточке костра он смотрелся чужим.
+      icon: CAMP_FIRE_FRAMES[0],
       accent: '#d88447',
       actions: [
         { id: 'cook', enabled: target.rawMeatCount > 0, hint: target.rawMeatCount > 0 ? '' : copy.campfireEmpty },

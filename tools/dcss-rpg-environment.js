@@ -1,6 +1,7 @@
 import { createRng, mixSeed } from './dcss-rpg-core.js';
 import { createCityEnvironment, isCityDepth } from './dcss-rpg-city.js';
 import { TAVERN_PROPS, tavernEntranceCell, tavernLayout } from './dcss-rpg-tavern.js';
+import { CAMP_FIRE_FRAMES } from './dcss-rpg-camp.js';
 
 const numberedPaths = (prefix, values) => values.map((value) => `${prefix}${value}.png`);
 
@@ -31,7 +32,7 @@ const prop = (path, options = {}) =>
  * каменные оставить там, где они будут нормально смотреться, — в храмах».
  * Дрова берём из деревенского пакета, те же, что горят в лагере героя.
  */
-const campfireFrames = numberedPaths('licensed/lpc-village/cut/campfire-', [1, 2, 3, 4, 5]);
+const campfireFrames = CAMP_FIRE_FRAMES;
 
 const campfire = prop(campfireFrames[0], {
   frames: campfireFrames,
@@ -46,7 +47,11 @@ const emberBrazier = prop(flameFrames[0], {
   size: 66,
   screenOffsetY: -10,
   light: { color: '#d88447', radius: 2.35, beam: false, flame: true },
-  interactionId: 'campfire',
+  // Каменный огонь светит, но на нём не готовят. Он и был «костром, на котором
+  // жарят мясо», который Иван нашёл посреди подземелья: «костёр для готовки
+  // должен быть нашим деревянным». Готовка — только у деревянного `campfire`;
+  // если на этаже его нет, ниже его ставят отдельно (cooking site).
+  interactionId: null,
 });
 
 const roomTheme = (values) =>
