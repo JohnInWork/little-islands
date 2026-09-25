@@ -19,6 +19,17 @@
   font-family: var(--font-ui);
   font-weight: 400;
   font-synthesis: none;
+  /*
+   * Пиксельный жирный. У Fusion Pixel нет жирного начертания, а тонкий штрих
+   * Иван попросил сделать толще. Буква рисуется ещё трижды со сдвигом на
+   * пиксель вправо, вниз и по диагонали — штрих вдвое толще в обе стороны и
+   * остаётся чётким. Тень наследуется, и `currentColor` берёт цвет самого
+   * текста; у кого своя тень — те добавляют к ней `--pixel-bold`.
+   * Буквы раздвинуты на тот же пиксель, иначе они слипаются.
+   */
+  --pixel-bold: 1px 0 0 currentColor, 0 1px 0 currentColor, 1px 1px 0 currentColor;
+  text-shadow: var(--pixel-bold);
+  letter-spacing: 1px;
   -webkit-font-smoothing: none;
   font-smooth: never;
   text-rendering: optimizeSpeed;
@@ -277,7 +288,7 @@ body {
   color: #e2dbc5;
   font-size: 36px;
   line-height: 1.04;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
   text-wrap: balance;
 }
@@ -288,8 +299,8 @@ body {
   display: grid;
   gap: 8px;
   text-transform: none;
-  letter-spacing: 0;
-  text-shadow: 0 4px 0 #675c42, 4px 8px 0 #080c0e;
+  letter-spacing: 1px;
+  text-shadow: var(--pixel-bold), 0 4px 0 #675c42, 4px 8px 0 #080c0e;
 }
 
 .game-wordmark img {
@@ -336,7 +347,7 @@ body {
 
 .main-menu-languages button b {
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
 /* Невыбранный язык приглушён целиком — и подпись, и флаг. */
@@ -360,7 +371,7 @@ body {
   margin: 0;
   color: #d9ca89;
   font-size: 12px;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   text-align: center;
 }
 
@@ -381,7 +392,7 @@ body {
   border: 4px solid #e1cd86;
   box-shadow: 0 8px 0 #66572e;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -399,7 +410,7 @@ body {
   flex-basis: 100%;
   color: #3a3218;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-align: center;
   text-transform: none;
 }
@@ -514,7 +525,7 @@ body {
   gap: 12px;
   color: #6f7b79;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -526,7 +537,7 @@ body {
  * собственный: строчные буквы, нормальный интервал, одна строка.
  */
 #app-version {
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: none;
   white-space: nowrap;
 }
@@ -547,7 +558,7 @@ body {
   color: #84908f;
   font-size: 12px;
   line-height: 1.3;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-align: center;
   text-transform: uppercase;
 }
@@ -646,7 +657,7 @@ body {
 .help-header h2 {
   margin: 0;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #d6c79c;
 }
@@ -681,7 +692,7 @@ body {
   border: 3px solid #4f6b58;
   font: inherit;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
@@ -691,7 +702,7 @@ body {
   margin: 0;
   padding: 6px 10px;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   color: #8fa7a0;
 }
 
@@ -705,7 +716,7 @@ body {
 .records-block h3 {
   margin: 0 0 6px;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #8fa7a0;
 }
@@ -1224,7 +1235,7 @@ body {
 
 .portrait span {
   font: 400 24px/1 var(--font-ui);
-  text-shadow: 2px 2px #050708;
+  text-shadow: var(--pixel-bold), 2px 2px #050708;
 }
 
 .vitals {
@@ -1510,7 +1521,7 @@ body {
   place-items: center;
   color: #f0d576;
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   cursor: default;
   border-color: #8d7938;
 }
@@ -1575,7 +1586,7 @@ body {
 /* Пять римских букв в значок на три не влезают: XVIII, XXIII, XXVIII. */
 #floor-map-button[data-long='true'] > span {
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
 }
 
 .open-portal {
@@ -1989,7 +2000,7 @@ body {
 
 .onboarding-hint > strong {
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold);
 }
@@ -2090,7 +2101,7 @@ body {
   border: 4px solid #b59b4c;
   box-shadow: 4px 4px 0 #020405;
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-align: center;
   transform: translateX(-50%);
 }
@@ -2100,7 +2111,7 @@ body {
   z-index: 1;
   color: #f4e5a5;
   font: 400 72px/1 var(--font-ui);
-  text-shadow: 4px 0 #493d1e, -4px 0 #493d1e, 0 4px #493d1e, 0 -4px #493d1e;
+  text-shadow: var(--pixel-bold), 4px 0 #493d1e, -4px 0 #493d1e, 0 4px #493d1e, 0 -4px #493d1e;
 }
 
 .level-up-mark > b {
@@ -2207,7 +2218,7 @@ body {
   color: #95a09d;
   font-size: 12px;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -2367,7 +2378,7 @@ body {
   color: #f1e8d1;
   font-size: 12px;
   font-weight: 400;
-  text-shadow: 2px 2px #050708;
+  text-shadow: var(--pixel-bold), 2px 2px #050708;
   pointer-events: none;
 }
 
@@ -3027,7 +3038,7 @@ body {
   color: #c6b56d;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
 #character-combat-grid {
@@ -3651,7 +3662,7 @@ body {
   margin-left: 8px;
   color: #8d9a99;
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 0;
+  letter-spacing: 1px;
 }
 
 .inventory-body {
@@ -3936,7 +3947,7 @@ body {
   color: var(--rarity);
   font-size: 12px;
   line-height: 1.2;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -4108,7 +4119,7 @@ body {
   margin: 0 0 6px;
   color: #9fb0ac;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -4233,7 +4244,7 @@ body {
   color: var(--bone);
   font-size: 24px;
   line-height: 1.15;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   overflow-wrap: anywhere;
 }
 
@@ -4310,7 +4321,7 @@ body {
   color: #808c8b;
   font-size: 12px;
   line-height: 1;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
 }
 
@@ -4385,7 +4396,7 @@ body {
   border: 4px solid #66806b;
   font: inherit;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -4426,7 +4437,7 @@ body {
 
 .inventory-actions button strong {
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -4493,7 +4504,7 @@ body {
   color: #9ca6a2;
   background: var(--ink);
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   transition: opacity 160ms steps(4, end);
 }
 
@@ -5349,7 +5360,7 @@ body {
   font-size: 48px;
   line-height: 1;
   color: #e6c86a;
-  text-shadow: 0 0 10px #e6c86a55;
+  text-shadow: var(--pixel-bold), 0 0 10px #e6c86a55;
 }
 
 [data-result='victory'] .death-rune,
@@ -5424,7 +5435,7 @@ body {
   color: var(--bone);
   font-size: 12px;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -5539,7 +5550,7 @@ body {
   border-bottom: 4px solid #313d40;
   font-size: 12px;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -5628,7 +5639,7 @@ body {
   color: var(--rarity);
   font-size: 12px;
   line-height: 1.2;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -6014,7 +6025,7 @@ body {
 
   #inventory-title {
     font-size: 12px;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
   }
 
   .inventory-view-switcher {
@@ -6130,7 +6141,7 @@ body {
   bottom: max(10px, env(safe-area-inset-bottom));
   color: #b9b39f54;
   font-size: 12px;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-decoration: none;
 }
 
@@ -6754,7 +6765,7 @@ body {
   border-bottom: 4px solid #303b3e;
   font-size: 12px;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -7393,7 +7404,7 @@ body {
   margin: 0;
   color: var(--bone);
   font: 400 12px/1.2 var(--font-ui);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -7507,7 +7518,7 @@ body {
   margin: 0;
   color: var(--bone);
   font: 400 24px/1.2 var(--font-ui);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   text-align: center;
 }
@@ -7531,7 +7542,7 @@ body {
   margin: 0;
   color: #8d9794;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
@@ -7624,7 +7635,7 @@ body {
 .main-menu-audio output {
   color: #d9ca89;
   font: 400 12px/1 var(--font-ui);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-align: center;
 }
 
@@ -7733,7 +7744,7 @@ body {
 
 .main-menu-conditions b {
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   color: #d8bf68;
   text-transform: uppercase;
 }
@@ -7805,7 +7816,7 @@ body {
 .outfit-basket {
   margin: 0;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   color: #8fa39c;
 }
 
@@ -7817,7 +7828,7 @@ body {
 
 .outfit-wallet-label {
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #8fa39c;
 }
@@ -7838,7 +7849,7 @@ body {
 .outfit-row h3 {
   margin: 0 0 4px;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #d6c79c;
 }
@@ -7917,7 +7928,7 @@ body {
   width: 100%;
   min-height: 52px;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #10161a;
   background: #d6b95f;
@@ -7979,7 +7990,7 @@ body {
 #outfit-detail-kind {
   margin: 3px 0 0;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   color: #8fa39c;
 }
 
@@ -8183,7 +8194,7 @@ body {
   margin: 0;
   color: #d6c79c;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -8236,7 +8247,7 @@ body {
   margin: 0;
   color: #b9a96f;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
 }
 
 .credits-line {
@@ -8561,7 +8572,7 @@ body {
   border: 4px solid #e1cd86;
   box-shadow: 0 6px 0 #66572e;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -8597,7 +8608,7 @@ body {
   border: 4px solid #596668;
   box-shadow: 0 4px 0 #020405;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
@@ -8624,7 +8635,7 @@ body {
 .creation-archetype-stats em {
   font-style: normal;
   font-size: 12px;
-  letter-spacing: 0;
+  letter-spacing: 1px;
 }
 
 .creation-archetype-stats em[data-attribute='strength'] {
@@ -8763,12 +8774,12 @@ body {
   font-size: 72px;
   line-height: 1;
   color: #e6d9a8;
-  text-shadow: 4px 4px 0 #1b1408;
+  text-shadow: var(--pixel-bold), 4px 4px 0 #1b1408;
 }
 
 .floor-arrival span {
   font-size: 12px;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
   color: #b9a96f;
 }
@@ -8803,7 +8814,7 @@ body {
  */
 .restart-run b {
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
@@ -8929,6 +8940,43 @@ body {
   max-width: min(320px, 86vw);
   color: #e6d9a8;
   line-height: 1.6;
-  letter-spacing: 0;
+  letter-spacing: 1px;
   text-align: center;
+}
+
+/*
+ * Жирный пиксельный шрифт шире прежнего — места, где текст стоял впритык,
+ * получают его обратно.
+ *
+ * Подвал меню переносит ссылку целиком, а не разрывает «Отзывы и ошибки»
+ * посередине. Слот заклинания в листе героя ставит иконку над названием:
+ * в трёх колонках рядом с ней оставалось шестьдесят пикселей, и «Огненная
+ * стрела» обрезалась ещё до жирного шрифта.
+ */
+.main-menu-meta {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.main-menu-meta a {
+  white-space: nowrap;
+}
+
+.character-spell-slot {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+  padding-top: 10px;
+}
+
+.character-spell-slot span {
+  justify-items: center;
+}
+
+.character-spell-slot strong,
+.character-spell-slot small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
