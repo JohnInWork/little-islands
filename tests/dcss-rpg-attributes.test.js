@@ -25,7 +25,7 @@ import {
   validateSkillState,
 } from '../tools/dcss-rpg-skills.js';
 import { createRun, validateRun } from '../tools/dcss-rpg-core.js';
-import { deriveHeroStats } from '../tools/dcss-rpg-rules.js';
+import { ATTRIBUTE_ATTACK, WEAPON_ATTRIBUTES, deriveHeroStats, weaponAttributeFor } from '../tools/dcss-rpg-rules.js';
 
 /**
  * «Три характеристики: сила, ловкость, интеллект. На новом уровне очки можно
@@ -233,4 +233,40 @@ test('the sheet shows the three and spends the pool they share', async () => {
     assert.ok(copy[id].name.length > 0 && copy[id].description.length > 0, id);
   }
   assert.notEqual(attributeCopy('en').strength.name, copy.strength.name);
+});
+
+/**
+ * Урон растёт от характеристики оружия, и больше ни от чего скрытого.
+ *
+ * Иван 26.09.2026: «сила увеличивает урон от ближнего боя… ловкость — луки,
+ * пращи, копья, кинжалы… интеллект — посохи… никакой скрытой больше силы».
+ */
+test('the weapon in hand decides which attribute sharpens the blow, and hidden power is gone', () => {
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(WEAPON_ATTRIBUTES).sort()),
+    {
+      axe: 'strength', blunt: 'strength', bow: 'agility', crossbow: 'agility',
+      dagger: 'agility', sling: 'agility', spear: 'agility', staff: 'intelligence',
+      sword: 'strength', whip: 'strength',
+    },
+  );
+  assert.equal(weaponAttributeFor(null), 'strength', 'кулак — это сила');
+  const hero = { power: 1, maxHp: 20, hunger: 3600, meal: null, attributes: createAttributeState() };
+  const weapon = (family) => ({ uid: `w-${family}`, weaponFamily: family, stats: { attack: 4 } });
+  const attackWith = (family, attributes, extra = {}) => deriveHeroStats(
+    { ...hero, ...extra, attributes: createAttributeState(attributes) },
+    { hand1: `w-${family}` },
+    [weapon(family)],
+    {},
+  ).attack;
+
+  const base = attackWith('bow', {});
+  assert.equal(attackWith('bow', { strength: 9 }), base, 'сила не натягивает лук');
+  assert.equal(attackWith('bow', { agility: 5 }), base + Math.floor(2 * ATTRIBUTE_ATTACK));
+  assert.equal(attackWith('sword', { strength: 5 }), base + Math.floor(2 * ATTRIBUTE_ATTACK));
+  assert.equal(attackWith('sword', { agility: 9 }), base, 'ловкость не тяжелит меч');
+  assert.equal(attackWith('staff', { intelligence: 7 }), base + Math.floor(4 * ATTRIBUTE_ATTACK));
+  assert.equal(attackWith('dagger', { agility: 4 }), base + Math.floor(ATTRIBUTE_ATTACK));
+  // Старое поле power в сохранении больше ничего не значит.
+  assert.equal(attackWith('sword', {}, { power: 40 }), attackWith('sword', {}));
 });

@@ -24,7 +24,7 @@
  *   это честно в обе стороны.
  */
 
-import { ATTRIBUTE_BASE, ATTRIBUTE_IDS } from './dcss-rpg-attributes.js';
+import { ATTRIBUTE_BASE, ATTRIBUTE_IDS, createAttributeGifts } from './dcss-rpg-attributes.js';
 import { buildAttributes, buildSkillRanks } from './dcss-rpg-character-creation.js';
 import { SKILL_STATE_VERSION } from './dcss-rpg-skills.js';
 
@@ -91,7 +91,7 @@ export function canRespec({ skills = null, attributes = null, gold = 0, source =
  * трогает. Очки уровня возвращаются все до единого: это и есть то, за что
  * платили.
  */
-export function respecHero({ level = 1, build = null } = {}) {
+export function respecHero({ level = 1, build = null, gifts = null } = {}) {
   if (!Number.isInteger(level) || level < 1) throw new TypeError('Respec needs a hero level');
   const ranks = { ...buildSkillRanks(build) };
   const granted = Object.keys(ranks);
@@ -99,6 +99,8 @@ export function respecHero({ level = 1, build = null } = {}) {
   if (granted.length > 0) skills.granted = granted;
   const база = buildAttributes(build);
   const attributes = { spent: 0 };
-  for (const id of ATTRIBUTE_IDS) attributes[id] = база[id] ?? ATTRIBUTE_BASE;
+  // Подарок кристалла — не вложенное очко: сброс его не возвращает и не отнимает.
+  const подарки = createAttributeGifts(gifts ?? {});
+  for (const id of ATTRIBUTE_IDS) attributes[id] = (база[id] ?? ATTRIBUTE_BASE) + подарки[id];
   return Object.freeze({ skills: Object.freeze(skills), attributes: Object.freeze(attributes) });
 }

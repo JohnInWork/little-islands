@@ -12,14 +12,18 @@ import {
 } from '../tools/dcss-rpg-core.js';
 import {
   CORE_FIND_CATALOG,
+  CRYSTAL_FLOOR_CHANCE_PERCENT,
   FIND_ASSET_PATHS,
   FIND_CATALOG,
   LANDMARK_CATALOG,
   MAX_FINDS_PER_FLOOR,
+  crystalAwakeOnFloor,
   findPresentation,
   resolveFindInteraction,
 } from '../tools/dcss-rpg-finds.js';
 import { CHEST_ASSET_PATHS } from '../tools/dcss-rpg-chests.js';
+import { createAttributeState } from '../tools/dcss-rpg-attributes.js';
+import { respecHero } from '../tools/dcss-rpg-respec.js';
 
 const assetUrl = (path) =>
   new URL(`../public/assets/dcss-preview/${path}`, import.meta.url);
@@ -39,10 +43,14 @@ test('each floor deterministically places one of every first-wave find without o
     const first = generateDungeon({ seed, depth });
     const second = generateDungeon({ seed, depth });
     assert.deepEqual(first.finds, second.finds);
-    const coreIds = first.finds.slice(0, CORE_FIND_CATALOG.length).map(({ id }) => id);
-    assert.deepEqual([...coreIds].sort(), [...CORE_FIND_CATALOG.map(({ id }) => id)].sort());
+    // Кристальная жила спит на большинстве этажей — тогда основных находок две.
+    const coreCatalog = CORE_FIND_CATALOG
+      .map(({ id }) => id)
+      .filter((id) => id !== 'crystal-vein' || crystalAwakeOnFloor(first.seed, depth));
+    const coreIds = first.finds.slice(0, coreCatalog.length).map(({ id }) => id);
+    assert.deepEqual([...coreIds].sort(), [...coreCatalog].sort());
     // Past the core wave come the landmark and the hidden stash, in that order.
-    const extraIds = first.finds.slice(CORE_FIND_CATALOG.length).map(({ id }) => id);
+    const extraIds = first.finds.slice(coreCatalog.length).map(({ id }) => id);
     const landmarkIds = extraIds.filter((id) => LANDMARK_CATALOG.some((entry) => entry.id === id));
     assert.ok(first.finds.length <= MAX_FINDS_PER_FLOOR);
     assert.ok(extraIds.every((id) => LANDMARK_CATALOG.some((entry) => entry.id === id) || id === 'buried-stash'));
@@ -84,6 +92,9 @@ test('each floor deterministically places one of every first-wave find without o
       if (LANDMARK_CATALOG.some((entry) => entry.id === find.id)) {
         assert.equal(find.rewardGold, 0);
         assert.ok(find.outcomes && typeof find.outcomes === 'object');
+      } else if (find.id === 'crystal-vein') {
+        // Кристалл платит очком характеристики, а не золотом.
+        assert.equal(find.rewardGold, 0);
       } else {
         assert.ok(find.rewardGold > 0);
       }
@@ -290,4 +301,60 @@ test('у каждой находки и каждого события своя �
   for (const шкура of [фонтан.path, ...шкуры]) {
     assert.ok(!/sparkling/.test(шкура), `фонтан-выбор надел светлую воду исцеления: ${шкура}`);
   }
+});
+
+/**
+ * Кристалл — очень редкий подарок одного очка характеристики.
+ *
+ * Иван 26.09.2026: «+1 очко характеристики… оно должно быть каким-то
+ * очень-очень редким». Раньше жила стояла почти на каждом этаже и молча
+ * прибавляла скрытую силу.
+ */
+test('кристальная жила редка, а на этаже решает стабильный хэш, а не общий генератор', () => {
+  let floors = 0;
+  let crystals = 0;
+  for (let seed = 1; seed <= 600; seed += 1) {
+    const depth = 1 + (seed % 12);
+    const dungeon = generateDungeon({ seed, depth });
+    floors += 1;
+    const crystal = dungeon.finds.filter(({ id }) => id === 'crystal-vein');
+    assert.ok(crystal.length <= 1);
+    assert.equal(crystal.length === 1, crystalAwakeOnFloor(dungeon.seed, depth), `seed ${seed}`);
+    crystals += crystal.length;
+  }
+  const percent = (crystals / floors) * 100;
+  assert.ok(percent > 1 && percent < CRYSTAL_FLOOR_CHANCE_PERCENT * 2, `кристаллов ${percent.toFixed(1)}%`);
+  assert.equal(crystalAwakeOnFloor(12345, 0), false, 'в городе жилы нет');
+});
+
+test('кристалл поднимает выбранную характеристику на единицу и переживает сброс у жреца', () => {
+  let found = null;
+  for (let seed = 1; seed <= 4000 && !found; seed += 1) {
+    const dungeon = generateDungeon({ seed, depth: 2 });
+    found = dungeon.finds.find(({ id }) => id === 'crystal-vein') ?? null;
+  }
+  assert.ok(found, 'на каком-то этаже жила проснулась');
+  assert.equal(found.rewardGold, 0, 'золота кристалл больше не даёт');
+  const attributes = createAttributeState({ strength: 4, agility: 3, intelligence: 3, spent: 1 });
+  const input = {
+    find: found,
+    resolvedFindIds: [],
+    runStatus: 'playing',
+    hero: { x: found.x + 1, y: found.y, hp: 40, power: 1, attributes },
+    gold: 5,
+  };
+  assert.equal(resolveFindInteraction({ ...input, action: 'extract' }).reason, 'action', 'без выбора не трогается');
+  const result = resolveFindInteraction({ ...input, action: 'crystal-agility' });
+  assert.equal(result.ok, true);
+  assert.equal(result.rewardAttribute, 'agility');
+  assert.equal(result.state.hero.attributes.agility, 4);
+  assert.equal(result.state.hero.attributes.spent, 1, 'подарок не тратит очко уровня');
+  assert.deepEqual(result.state.hero.attributeGifts, { strength: 0, agility: 1, intelligence: 0 });
+  assert.equal(result.state.hero.power, 1, 'скрытая сила не растёт');
+  assert.equal(result.state.gold, 5);
+  // Сброс возвращает вложенные очки, но подарок кристалла остаётся.
+  const respec = respecHero({ level: 2, gifts: result.state.hero.attributeGifts });
+  assert.equal(respec.attributes.agility, 4);
+  assert.equal(respec.attributes.strength, 3);
+  assert.equal(respec.attributes.spent, 0);
 });

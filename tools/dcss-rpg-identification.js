@@ -353,8 +353,8 @@ export function potionOutcome(item) {
   if (effect.type === 'heal' && Number.isInteger(effect.amount) && effect.amount > 0) {
     return Object.freeze({ type: 'heal', amount: effect.amount });
   }
-  if (effect.type === 'power' && Number.isInteger(effect.amount) && effect.amount > 0) {
-    return Object.freeze({ type: 'power', amount: effect.amount });
+  if (effect.type === 'maxHp' && Number.isInteger(effect.amount) && effect.amount > 0) {
+    return Object.freeze({ type: 'maxHp', amount: effect.amount });
   }
   if (effect.type === 'cleanse') {
     return Object.freeze({ type: 'cleanse' });

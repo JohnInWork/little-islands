@@ -42,17 +42,17 @@ export const ATTRIBUTE_COPY = Object.freeze({
     strength: Object.freeze({
       name: 'Сила',
       short: 'СИЛ',
-      description: 'Тяжёлое оружие, щит, ноша и выносливость. Её просят мечи, топоры, копья и кузня.',
+      description: 'Урон мечей, топоров, дробящего, кнутов и кулака, а ещё запас здоровья. Её просят мечи, топоры, копья и кузня.',
     }),
     agility: Object.freeze({
       name: 'Ловкость',
       short: 'ЛОВ',
-      description: 'Точность, скорость и тихий шаг. Её просят кинжалы, лук, замки, ловушки и скрытность.',
+      description: 'Урон кинжалов, копий, луков, арбалетов и пращей, а ещё темп ударов. Её просят кинжалы, лук, замки, ловушки и скрытность.',
     }),
     intelligence: Object.freeze({
       name: 'Интеллект',
       short: 'ИНТ',
-      description: 'Знание и магия. Его просят все школы, алхимия, зачарование и лекарство.',
+      description: 'Урон посохов, сила заклинаний и знание. Его просят все школы, алхимия, зачарование и лекарство.',
     }),
     raise: 'Поднять',
     pointsLeft: 'Очков',
@@ -63,17 +63,17 @@ export const ATTRIBUTE_COPY = Object.freeze({
     strength: Object.freeze({
       name: 'Strength',
       short: 'STR',
-      description: 'Heavy weapons, shields, load and stamina. Swords, axes, spears and the forge ask for it.',
+      description: 'Damage with swords, axes, maces, whips and fists, plus health. Swords, axes, spears and the forge ask for it.',
     }),
     agility: Object.freeze({
       name: 'Agility',
       short: 'AGI',
-      description: 'Aim, speed and a quiet step. Daggers, bows, locks, traps and stealth ask for it.',
+      description: 'Damage with daggers, spears, bows, crossbows and slings, plus attack speed. Daggers, bows, locks, traps and stealth ask for it.',
     }),
     intelligence: Object.freeze({
       name: 'Intelligence',
       short: 'INT',
-      description: 'Knowledge and magic. Every school, the forge and medicine ask for it.',
+      description: 'Damage with staves, spell power and knowledge. Every school, the forge and medicine ask for it.',
     }),
     raise: 'Raise',
     pointsLeft: 'Points',
@@ -206,6 +206,46 @@ export function raiseAttribute({ attributes, points, attribute, runStatus = 'pla
       spent: attributes.spent + 1,
     }),
     points: points - 1,
+  });
+}
+
+/**
+ * Очки характеристик, подаренные миром, а не уровнем.
+ *
+ * Иван 26.09.2026: кристалл — «+1 очко характеристики… очень-очень редкий».
+ * Подарок поднимает характеристику сразу и не входит в `spent`: он не из
+ * уровневого бюджета, и сброс навыков у жреца его не отнимает. Поэтому он
+ * хранится отдельно — иначе сброс вернул бы героя к базе вместе с кристаллом.
+ * Поле необязательное: у старых сохранений подарков просто нет.
+ */
+export function createAttributeGifts(source = {}) {
+  return Object.fromEntries(ATTRIBUTE_IDS.map((id) => {
+    const value = source?.[id];
+    return [id, Number.isInteger(value) ? Math.max(0, Math.min(ATTRIBUTE_MAX, value)) : 0];
+  }));
+}
+
+export function validateAttributeGifts(gifts) {
+  if (!gifts || typeof gifts !== 'object' || Array.isArray(gifts)) return false;
+  if (Object.keys(gifts).sort().join(',') !== 'agility,intelligence,strength') return false;
+  return ATTRIBUTE_IDS.every((id) => (
+    Number.isInteger(gifts[id]) && gifts[id] >= 0 && gifts[id] <= ATTRIBUTE_MAX
+  ));
+}
+
+/** Подарить одно очко: характеристика растёт, `spent` и копилка очков — нет. */
+export function grantAttribute({ attributes, gifts, attribute } = {}) {
+  const refuse = (reason) => Object.freeze({ ok: false, reason, attributes, gifts });
+  if (!validateAttributeState(attributes)) return refuse('invalid-state');
+  if (!ATTRIBUTE_IDS.includes(attribute)) return refuse('unknown-attribute');
+  if (attributes[attribute] >= ATTRIBUTE_MAX) return refuse('at-maximum');
+  const current = createAttributeGifts(gifts);
+  return Object.freeze({
+    ok: true,
+    reason: 'granted',
+    attribute,
+    attributes: createAttributeState({ ...attributes, [attribute]: attributes[attribute] + 1 }),
+    gifts: createAttributeGifts({ ...current, [attribute]: current[attribute] + 1 }),
   });
 }
 

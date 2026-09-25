@@ -128,7 +128,7 @@ test('the salt, the scrolls and the books are complete catalogue items', () => {
   assert.ok(spellById('arcane-splinter').cooldown < spellById('ember-bolt').cooldown, 'the splinter is the cheap shot');
   // Nothing in the catalogue may carry an effect the runtime cannot perform.
   const supported = new Set([
-    'heal', 'food', 'power', 'camp', 'bandage', 'home-travel', 'blink', 'target-effect',
+    'heal', 'food', 'maxHp', 'camp', 'bandage', 'home-travel', 'blink', 'target-effect',
     'cleanse-ritual', 'flame-burst', 'frost-bind', 'insight', 'coat', 'unbind',
   ]);
   for (const item of LOOT_CATALOG) {

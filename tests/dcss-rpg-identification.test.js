@@ -100,7 +100,7 @@ test('Appraisal ranks safely identify only authored potion tiers', () => {
 
 test('all four mystery potion outcomes are bounded and data driven', () => {
   assert.deepEqual(potionOutcome(lootById('mending-potion')), { type: 'heal', amount: 28 });
-  assert.deepEqual(potionOutcome(lootById('mystery-potion')), { type: 'power', amount: 1 });
+  assert.deepEqual(potionOutcome(lootById('mystery-potion')), { type: 'maxHp', amount: 6 });
   assert.deepEqual(potionOutcome(lootById('cleansing-potion')), { type: 'cleanse' });
   assert.deepEqual(
     potionOutcome(lootById('venom-potion')),

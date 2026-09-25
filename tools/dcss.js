@@ -465,6 +465,7 @@ import {
   attributeCopy,
   attributeRefusalText,
   cloneAttributeState,
+  createAttributeGifts,
   createAttributeState,
   raiseAttribute,
 } from './dcss-rpg-attributes.js';
@@ -1360,6 +1361,7 @@ const hero = {
   skills: cloneSkillState(run.hero.skills),
   skillStudy: createBookStudy(run.hero.skillStudy),
   attributes: createAttributeState(run.hero.attributes),
+  attributeGifts: createAttributeGifts(run.hero.attributeGifts),
   spells: createSpellState(run.hero.spells),
   hurt: 0,
   guardFlash: 0,
@@ -2328,6 +2330,7 @@ function captureRun() {
     skills: cloneSkillState(hero.skills),
     skillStudy: createBookStudy(hero.skillStudy),
     attributes: cloneAttributeState(hero.attributes),
+    attributeGifts: createAttributeGifts(hero.attributeGifts),
     spells: createSpellState(hero.spells),
   };
   run.gold = gold;
@@ -3079,7 +3082,7 @@ function eventCardValue(event) {
   if (event.definition.effect === 'heal') {
     return Math.min(event.definition.value, currentHeroStats().maxHp - hero.hp);
   }
-  if (event.definition.effect === 'power') return event.definition.value;
+  if (event.definition.effect === 'maxHp') return event.definition.value;
   return eventGold(event);
 }
 
@@ -3110,10 +3113,10 @@ function triggerFloorEvent(event) {
     if (healed > 0) hero.hp += healed;
     playSound('spell-heal');
     showLootToast({ icon: 'derived/hud/heart.png', rarity: 1 }, `+${healed}`);
-  } else if (effect === 'power') {
-    hero.power += value;
+  } else if (effect === 'maxHp') {
+    raiseHeroMaxHp(value);
     playSound('spell-toggle');
-    showLootToast({ path, rarity: 3 }, `+${value}`);
+    showLootToast({ icon: 'derived/hud/heart.png', rarity: 3 }, consumableReport().maxHp(value));
   } else if (effect === 'damage') {
     if (event.id === 'blade-trap') {
       detectedTrapIds.add(event.instanceId);
@@ -3567,7 +3570,7 @@ function payPriestForForgetting() {
  * вещи сделка не трогает.
  */
 function applyRespec() {
-  const before = respecHero({ level: hero.level, build: run.build ?? null });
+  const before = respecHero({ level: hero.level, build: run.build ?? null, gifts: hero.attributeGifts });
   hero.skills = cloneSkillState(before.skills);
   syncKnownSpells();
   hero.attributes = cloneAttributeState(before.attributes);
@@ -9635,6 +9638,8 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
       hp: hero.hp,
       maxHp: hero.maxHp,
       power: hero.power,
+      attributes: hero.attributes,
+      attributeGifts: hero.attributeGifts,
       effects: createActorEffects(hero.effects),
     },
     gold,
@@ -9666,7 +9671,10 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
   hero.attack = 0;
   const landmarkResult = result.definition?.wave === 'landmark';
   hero.hp = result.state.hero.hp;
-  hero.power = result.state.hero.power;
+  if (result.rewardAttribute) {
+    hero.attributes = createAttributeState(result.state.hero.attributes);
+    hero.attributeGifts = createAttributeGifts(result.state.hero.attributeGifts);
+  }
   if (landmarkResult) {
     // The pure command already capped hp at the effective maximum plus the
     // permanent bonus; only mirror its snapshot back into the runtime hero.
@@ -9776,23 +9784,29 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
   );
   addImpactWave(find.x, find.y, presentation.color, find.id === 'crystal-vein' ? 64 : 50, 1);
   if (damagedLoot) addCombatGlyph(find.x, find.y, result.action === 'attack' ? '⚔' : '✕', '#cf7068', -44);
-  if (result.rewardPower > 0) {
-    addCombatGlyph(hero.x, hero.y, `+${result.rewardPower}`, presentation.color, -62);
+  // Кристалл называет, что именно вырос: «Сила +1», а не безымянное «+1».
+  const attributeGain = result.rewardAttribute
+    ? `${attributeCopy(itemDetailLanguage)[result.rewardAttribute].name} +1`
+    : '';
+  if (attributeGain) {
+    addCombatGlyph(hero.x, hero.y, attributeGain, presentation.color, -62);
+    playSound('spell-toggle');
+    renderCharacterAttributes();
   }
   showLootToast(
-    { path: presentation.path, rarity: find.id === 'forgotten-grave' ? 2 : 1 },
+    { path: presentation.path, rarity: find.id === 'forgotten-grave' ? 2 : find.id === 'crystal-vein' ? 3 : 1 },
     awakened.length > 0
       ? '!'
-      : result.rewardPower > 0
-      ? `+${result.rewardPower} · ${result.rewardGold}●`
+      : attributeGain
+      ? attributeGain
       : damagedLoot
         ? `${result.rewardGold}● −${result.destroyedGold}`
         : result.rewardGold,
   );
   if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
-  const rewardCopy = itemDetailLanguage === 'ru'
+  const rewardCopy = attributeGain || (itemDetailLanguage === 'ru'
     ? `${result.rewardGold} золота получено${result.destroyedGold > 0 ? `, ${result.destroyedGold} уничтожено` : ''}`
-    : `${result.rewardGold} gold recovered${result.destroyedGold > 0 ? `, ${result.destroyedGold} destroyed` : ''}`;
+    : `${result.rewardGold} gold recovered${result.destroyedGold > 0 ? `, ${result.destroyedGold} destroyed` : ''}`);
   findAnnouncement.textContent = resultPresentation?.message
     ? awakened.length > 0
       ? resultPresentation.message
@@ -14301,7 +14315,7 @@ const CONSUMABLE_REPORTS = Object.freeze({
   ru: Object.freeze({
     healed: (amount) => `Исцеление +${amount}`,
     healedFull: 'Уже полное здоровье',
-    power: (amount) => `Урон +${amount}`,
+    maxHp: (amount) => `Здоровье навсегда +${amount}`,
     cleansed: 'Состояния сняты',
     nothingToCleanse: 'Снимать было нечего',
     venom: (damage, seconds) => `Яд: −${damage} и отравление на ${Math.round(seconds)} с`,
@@ -14321,7 +14335,7 @@ const CONSUMABLE_REPORTS = Object.freeze({
   en: Object.freeze({
     healed: (amount) => `Healed +${amount}`,
     healedFull: 'Already at full health',
-    power: (amount) => `Attack +${amount}`,
+    maxHp: (amount) => `Max health +${amount}`,
     cleansed: 'Conditions cleared',
     nothingToCleanse: 'Nothing to clear',
     venom: (damage, seconds) => `Venom: −${damage} and poisoned for ${Math.round(seconds)}s`,
@@ -14337,6 +14351,17 @@ function consumableReport() {
   return CONSUMABLE_REPORTS[itemDetailLanguage === 'en' ? 'en' : 'ru'];
 }
 
+/**
+ * Постоянная прибавка к запасу здоровья: и предел, и сами раны сразу.
+ *
+ * Сюда ушло всё, что раньше молча прибавляло скрытую «силу»: Иван увидел
+ * «+5» и не понял, чего. Здоровье видно на плашке — прибавка читается.
+ */
+function raiseHeroMaxHp(amount) {
+  hero.maxHp += amount;
+  hero.hp = Math.min(currentHeroStats().maxHp, hero.hp + amount);
+}
+
 function applyIdentifiablePotion(item) {
   const outcome = potionOutcome(item);
   if (!outcome) return null;
@@ -14348,11 +14373,11 @@ function applyIdentifiablePotion(item) {
     addImpactWave(hero.x, hero.y - 8, '#7fbd86', 46, 0);
     return healing > 0 ? consumableReport().healed(healing) : consumableReport().healedFull;
   }
-  if (outcome.type === 'power') {
-    hero.power += outcome.amount;
+  if (outcome.type === 'maxHp') {
+    raiseHeroMaxHp(outcome.amount);
     burst(hero.x, hero.y - 8, '#e0c778', 18);
     addImpactWave(hero.x, hero.y - 8, '#e0c778', 54, 1);
-    return consumableReport().power(outcome.amount);
+    return consumableReport().maxHp(outcome.amount);
   }
   if (outcome.type === 'cleanse') {
     const result = clearActorEffects(hero.effects);
@@ -14640,9 +14665,10 @@ function useConsumable(item, index, effectOverride = null) {
   } else if (effect?.type === 'insight') {
     feedback = revealFromScroll(effect);
     playSound('read');
-  } else if (effect?.type === 'power') {
-    hero.power += effect.amount;
-    feedback = `+${effect.amount}`;
+  } else if (effect?.type === 'maxHp') {
+    raiseHeroMaxHp(effect.amount);
+    playSound('spell-heal');
+    feedback = consumableReport().maxHp(effect.amount);
   } else {
     throw new Error(`Unsupported consumable effect: ${item.id}`);
   }
@@ -16997,6 +17023,7 @@ function restartRun(seed = null, build = null) {
   hero.hunger = run.hero.hunger;
   hero.meal = createMealState(run.hero.meal);
   hero.attributes = createAttributeState(run.hero.attributes);
+  hero.attributeGifts = createAttributeGifts(run.hero.attributeGifts);
   hero.spells = createSpellState(run.hero.spells);
   hungerAccumulator = 0;
   hungerAutosaveElapsed = 0;

@@ -41,8 +41,8 @@ test('details describe existing magic and combat mechanics without inventing ina
   assert.match(itemDetails(byId('blink-scroll'), 'en').effects[0].text, /chosen tile/);
   assert.match(itemDetails(byId('tide-wand'), 'ru').effects[0].text, /Мокрый.*10 с.*дальность 6/);
   assert.match(itemDetails(byId('vitality-amulet'), 'ru').effects[0].text, /\+16/);
-  assert.match(itemDetails(byId('mystery-potion'), 'ru').effects[0].text, /сила до конца забега: \+1/i);
-  assert.match(itemDetails(byId('mystery-potion'), 'en').effects[0].text, /run power: \+1/i);
+  assert.match(itemDetails(byId('mystery-potion'), 'ru').effects[0].text, /здоровье навсегда: \+6/i);
+  assert.match(itemDetails(byId('mystery-potion'), 'en').effects[0].text, /max health for good: \+6/i);
   assert.doesNotMatch(itemDetails(byId('golden-boots'), 'ru').effects.map(({ text }) => text).join(' '), /пол[её]т/i);
   assert.match(itemDetails(byId('spider-boots'), 'ru').effects.map(({ text }) => text).join(' '), /\+14% движение/);
   assert.match(itemDetails(byId('black-plate'), 'en').effects.map(({ text }) => text).join(' '), /−12% move speed/);
@@ -96,7 +96,7 @@ test('a consumable says what it did, not how much of it there was', async () => 
   const table = runtime.slice(runtime.indexOf('const CONSUMABLE_REPORTS'));
   const body = table.slice(0, table.indexOf('\nfunction consumableReport'));
   assert.ok(body.length > 0, 'nothing reports anything');
-  for (const key of ['healed', 'healedFull', 'power', 'cleansed', 'nothingToCleanse', 'venom', 'learned']) {
+  for (const key of ['healed', 'healedFull', 'maxHp', 'cleansed', 'nothingToCleanse', 'venom', 'learned']) {
     assert.match(body, new RegExp(`${key}:`), `${key} has no wording`);
   }
   // Both languages, and they are not the same words.

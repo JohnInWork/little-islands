@@ -118,6 +118,7 @@ import {
 } from './dcss-rpg-books.js';
 import {
   createAttributeState,
+  validateAttributeGifts,
   validateAttributeState,
 } from './dcss-rpg-attributes.js';
 import { LEGACY_BUILD_PRESET_ID, createStartingMagic } from './dcss-rpg-build-presets.js';
@@ -2846,6 +2847,8 @@ export function validateRun(snapshot) {
     return false;
   if (!isFiniteInteger(hero.power, 1, 9999)) return false;
   if (!validateAttributeState(hero.attributes)) return false;
+  // Подарки кристалла появились 26.09.2026; у старых сохранений их нет.
+  if (hero.attributeGifts !== undefined && !validateAttributeGifts(hero.attributeGifts)) return false;
   if (!validateHunger(hero.hunger)) return false;
   // A save written before rest existed simply has none, and starts sharp.
   if (hero.rest !== undefined && !validateRest(hero.rest)) return false;

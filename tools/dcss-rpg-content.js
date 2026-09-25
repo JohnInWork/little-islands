@@ -2030,7 +2030,7 @@ export const LOOT_CATALOG = Object.freeze([
     minDepth: 1,
     stack: 1,
     identification: { group: 'potion', tier: 1 },
-    potionEffect: { type: 'power', amount: 1 },
+    potionEffect: { type: 'maxHp', amount: 6 },
   },
   {
     id: 'mending-potion',
@@ -2135,7 +2135,7 @@ export const LOOT_CATALOG = Object.freeze([
     icon: 'item/wand/gem_bone.png',
     slot: null,
     kind: 'wand',
-    useEffect: { type: 'power', amount: 1 },
+    useEffect: { type: 'maxHp', amount: 4 },
     rarity: 2,
     weight: 6,
     minDepth: 2,
@@ -3449,8 +3449,9 @@ export const EVENT_CATALOG = Object.freeze([
   {
     id: 'blood-altar',
     path: 'dngn/altars/makhleb_flame5.png',
-    effect: 'power',
-    value: 2,
+    // Раньше +2 к скрытой «силе»; скрытой силы больше нет — Иван 26.09.2026.
+    effect: 'maxHp',
+    value: 8,
     status: { id: 'burning', duration: 5 },
     weight: 5,
   },

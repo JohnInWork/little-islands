@@ -9,6 +9,9 @@ const ACTION_COPY = Object.freeze({
     close: 'Закрыть',
     disarm: 'Обезвредить',
     extract: 'Извлечь',
+    'crystal-strength': 'Сила +1',
+    'crystal-agility': 'Ловкость +1',
+    'crystal-intelligence': 'Интеллект +1',
     defile: 'Осквернить',
     'use-key': 'Ключ',
     'master-key': 'Отпереть',
@@ -70,6 +73,9 @@ const ACTION_COPY = Object.freeze({
     close: 'Close',
     disarm: 'Disarm',
     extract: 'Extract',
+    'crystal-strength': 'Strength +1',
+    'crystal-agility': 'Agility +1',
+    'crystal-intelligence': 'Intelligence +1',
     defile: 'Defile',
     'use-key': 'Use key',
     'master-key': 'Unlock',
@@ -132,6 +138,9 @@ const GLYPHS = Object.freeze({
   close: '−',
   disarm: '✓',
   extract: '✦',
+  'crystal-strength': '✦',
+  'crystal-agility': '✦',
+  'crystal-intelligence': '✦',
   defile: '!',
   'use-key': '⌑',
   'master-key': '⌘',
@@ -194,7 +203,7 @@ const COPY = Object.freeze({
     doorOpen: 'Открыта.',
     crystalName: 'Живая кристальная жила',
     crystalClosed: '',
-    crystalInspected: 'В камне мерцает кристалл. Даст золото и силу, и ничем не грозит.',
+    crystalInspected: 'Живой кристалл — редкая удача. Он уйдёт в героя и навсегда поднимет одну характеристику на единицу. Выбери какую.',
     stashName: 'Тайник под плитой',
     stashClosed: '',
     stashInspected: 'Плита лежит неровно: под ней пустота. Под ней золото, и она не кусается.',
@@ -219,7 +228,7 @@ const COPY = Object.freeze({
          * смотреть лист персонажа и увидел ту же тройку силы: «в чём прикол,
          * не понимаю». Теперь названо то, что он и правда даёт.
          */
-        line: (value) => `Дар за ожог: +${value} к урону навсегда, и пламя оставит след.`,
+        line: (value) => `Дар за ожог: +${value} к здоровью навсегда, и пламя оставит след.`,
       }),
       sarcophagus: Object.freeze({
         name: 'Вскрытый саркофаг',
@@ -323,7 +332,7 @@ const COPY = Object.freeze({
     doorOpen: 'Open.',
     crystalName: 'Living crystal vein',
     crystalClosed: '',
-    crystalInspected: 'A crystal glimmers within the stone. It yields gold and power, and costs nothing.',
+    crystalInspected: 'A living crystal is rare luck. It sinks into the hero and raises one attribute by one for good. Choose which.',
     stashName: 'Stash under the flagstone',
     stashClosed: '',
     stashInspected: 'The flagstone sits crooked: there is a hollow beneath. Gold under it, and no teeth.',
@@ -341,7 +350,7 @@ const COPY = Object.freeze({
       }),
       'blood-altar': Object.freeze({
         name: 'Altar of blood',
-        line: (value) => `A gift for a burn: +${value} attack for good, and the flame leaves its mark.`,
+        line: (value) => `A gift for a burn: +${value} max health for good, and the flame leaves its mark.`,
       }),
       sarcophagus: Object.freeze({
         name: 'Opened sarcophagus',
@@ -1138,7 +1147,15 @@ export const INTERACTION_REGISTRY = Object.freeze([
       description: copy.crystalInspected,
       icon: 'item/misc/misc_crystal.png',
       accent: '#7fc8d2',
-      actions: [{ id: 'extract' }],
+      /*
+       * Кристалл — редкий подарок одного очка характеристики (Иван 26.09.2026:
+       * «+1 очко характеристики… очень-очень редкий»). Какой — решает игрок.
+       */
+      actions: [
+        { id: 'crystal-strength' },
+        { id: 'crystal-agility' },
+        { id: 'crystal-intelligence' },
+      ],
     }),
   }),
   defineInteraction({

@@ -22,7 +22,6 @@ export function awardHeroExperience({ hero, amount, equipment, items }) {
   while (next.level < MAX_HERO_LEVEL && next.xp >= experienceToNextLevel(next.level)) {
     next.xp -= experienceToNextLevel(next.level);
     next.level += 1;
-    next.power += 1;
     next.maxHp += HERO_LEVEL_HP_GAIN;
     next.hp = Math.min(deriveHeroStats(next, equipment, items).maxHp, next.hp + HERO_LEVEL_HP_GAIN);
   }

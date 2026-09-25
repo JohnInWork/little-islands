@@ -122,7 +122,8 @@ export const BRANCH_EVENTS = Object.freeze([
         id: 'feed',
         roll: (depth, rng) => ({
           costGold: 10 + depth * 3 + rng.int(0, 4),
-          rewardPower: 1,
+          // Была скрытая «сила»; её больше нет — Иван 26.09.2026.
+          rewardMaxHp: 4,
         }),
       },
       {
@@ -146,7 +147,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'Идол ответил герою',
         results: {
           heed: 'Идол снял с героя чужую хворь',
-          feed: 'Подношение принято, рука героя стала твёрже',
+          feed: 'Подношение принято, герой стал крепче',
           topple: 'Идол рухнул, и ствол услышал это до самого низа',
         },
       },
@@ -161,7 +162,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'The idol answered the hero',
         results: {
           heed: 'The idol lifted another’s sickness off the hero',
-          feed: 'The offering was taken and the hero’s hand grew steadier',
+          feed: 'The offering was taken and the hero grew hardier',
           topple: 'The idol went over and the shaft heard it all the way down',
         },
       },
@@ -183,7 +184,6 @@ export const BRANCH_EVENTS = Object.freeze([
         roll: (depth, rng) => ({
           costGold: 26 + depth * 6 + rng.int(0, 6),
           rewardMaxHp: 8 + depth * 2,
-          rewardPower: 1,
         }),
       },
       {
@@ -207,7 +207,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'Истукан ответил герою',
         results: {
           bow: 'Поклон принят, истукан очистил и подлечил героя',
-          tribute: 'Кубок наполнен золотом, герой стал крепче и сильнее',
+          tribute: 'Кубок наполнен золотом, герой стал крепче',
           pry: 'Рука отломана, хранилище подняло тревогу',
         },
       },
@@ -222,7 +222,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'The idol answered the hero',
         results: {
           bow: 'The bow was accepted; the idol cleansed and mended the hero',
-          tribute: 'The cup was filled and the hero grew hardier and stronger',
+          tribute: 'The cup was filled and the hero grew hardier',
           pry: 'The arm came away and the vault raised the alarm',
         },
       },
@@ -308,7 +308,7 @@ export const BRANCH_EVENTS = Object.freeze([
         id: 'swear',
         roll: (depth, rng) => ({
           costGold: 30 + depth * 7 + rng.int(0, 8),
-          rewardPower: 2,
+          rewardMaxHp: 8 + depth * 2,
           status: { id: 'burning', duration: 5 + Math.min(6, depth) },
         }),
       },
@@ -332,7 +332,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'Лик ответил герою',
         results: {
           listen: 'Лик сказал, где лежит золото, — и сказал это вслух',
-          swear: 'Клятва принята, герой горит и бьёт сильнее',
+          swear: 'Клятва принята: герой горит, зато стал крепче',
           defy: 'Дерзость стоила крови, но герой стал живучее',
         },
       },
@@ -347,7 +347,7 @@ export const BRANCH_EVENTS = Object.freeze([
         result: 'The face answered the hero',
         results: {
           listen: 'The face said where the gold lay, and said it aloud',
-          swear: 'The oath was taken; the hero burns and strikes harder',
+          swear: 'The oath was taken; the hero burns, but grew hardier',
           defy: 'Defiance cost blood and left the hero harder to kill',
         },
       },

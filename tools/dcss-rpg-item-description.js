@@ -136,7 +136,7 @@ const COPY = Object.freeze({
     heal: 'Лечение',
     satiety: 'Сытость',
     minutes: 'мин',
-    power: 'Сила до конца забега',
+    maxHp: 'Здоровье навсегда',
     camp: 'Разбивает лагерь',
     bandage: 'Перевязка ран',
     homeTravel: 'Дорога домой и обратно: запоминает этаж и клетку, с которых ушёл',
@@ -191,7 +191,7 @@ const COPY = Object.freeze({
     heal: 'Healing',
     satiety: 'Satiety',
     minutes: 'min',
-    power: 'Run power',
+    maxHp: 'Max health for good',
     camp: 'Pitches a camp',
     bandage: 'Dresses wounds',
     homeTravel: 'The road home and back: it remembers the floor and the tile you left',
@@ -397,9 +397,9 @@ function effectFact(effect, language, source) {
     const text = `${COPY[language].satiety}: +${minutes} ${COPY[language].minutes}${healing}${bonus}`;
     return freezeFact({ id: `${source}:food`, kind: 'use', icon: '◆', text, short: text });
   }
-  if (effect.type === 'power' && Number.isFinite(effect.amount) && effect.amount > 0) {
-    const text = `${COPY[language].power}: +${effect.amount}`;
-    return freezeFact({ id: `${source}:power`, kind: 'use', icon: '⚔', text, short: text });
+  if (effect.type === 'maxHp' && Number.isFinite(effect.amount) && effect.amount > 0) {
+    const text = `${COPY[language].maxHp}: +${effect.amount}`;
+    return freezeFact({ id: `${source}:max-hp`, kind: 'use', icon: '♥', text, short: text });
   }
   if (effect.type === 'camp') {
     const text = COPY[language].camp;

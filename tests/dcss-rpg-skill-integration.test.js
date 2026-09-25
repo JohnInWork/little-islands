@@ -87,7 +87,8 @@ test('experience awards one point per actual level, including multiple levels at
   const result = awardHeroExperience({ hero: run.hero, amount: 60, equipment: run.equipment, items: materialize(run) });
   assert.equal(result.hero.level, 3);
   assert.equal(result.hero.xp, 6);
-  assert.equal(result.hero.power, 3);
+  // Скрытой «силы» больше нет: уровень не прибавляет к удару сам по себе.
+  assert.equal(result.hero.power, original.power);
   assert.equal(result.hero.maxHp, 112);
   assert.equal(result.hero.hp, 62);
   assert.deepEqual(result.hero.skills, createSkillState(3));

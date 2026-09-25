@@ -9,7 +9,7 @@ const COPY = Object.freeze({
     experience: 'Опыт',
     combat: 'Боевой профиль',
     stats: Object.freeze({
-      attack: ['Атака', 'Сила до множителя выбранного оружия.'],
+      attack: ['Атака', 'Оружие, еда, навыки и характеристика оружия: сила для мечей, топоров и дробящего, ловкость для кинжалов, копий, луков и пращей, интеллект для посохов.'],
       defense: ['Защита', 'Каждые 2 очка поглощают примерно 1 урона.'],
       health: ['Здоровье', 'Текущий и максимальный запас жизни.'],
       movement: ['Движение', 'Реальная скорость перемещения по подземелью.'],
@@ -40,7 +40,7 @@ const COPY = Object.freeze({
     experience: 'Experience',
     combat: 'Combat profile',
     stats: Object.freeze({
-      attack: ['Attack', 'Power before the equipped weapon multiplier.'],
+      attack: ['Attack', 'Weapon, food, skills and the weapon’s attribute: strength for swords, axes and maces, agility for daggers, spears, bows and slings, intelligence for staves.'],
       defense: ['Defence', 'Every 2 points absorb roughly 1 damage.'],
       health: ['Health', 'Current and maximum life reserve.'],
       movement: ['Movement', 'Actual movement speed through the dungeon.'],

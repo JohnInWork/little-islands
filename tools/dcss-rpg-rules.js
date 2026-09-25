@@ -176,6 +176,37 @@ const AGILITY_ATTACK_SPEED = 0.025;
  * запаса, заметно на ощупь и незаметно на балансе.
  */
 const STRENGTH_MAX_HP = 2;
+/** Голый удар героя без оружия и без вложенных очков. */
+const BASE_ATTACK = 2;
+/** Полтора урона за очко нужной характеристики сверх базовой тройки. */
+export const ATTRIBUTE_ATTACK = 1.5;
+/**
+ * Какая характеристика двигает урон какого оружия.
+ *
+ * Иван 26.09.2026: «убираем скрытую силу… сила увеличивает урон от ближнего
+ * боя, ловкость — луки, пращи, копья и кинжалы, интеллект — посохи… никакой
+ * скрытой больше силы прибавки». Раньше каждый уровень молча давал +1 к удару
+ * через `hero.power`, и игрок не видел, откуда берётся урон. Теперь атака —
+ * это оружие, еда, навыки и одна характеристика, которую выбрал сам игрок.
+ * Поле `power` в старых сохранениях остаётся, но больше ничего не значит.
+ */
+export const WEAPON_ATTRIBUTES = Object.freeze({
+  sword: 'strength',
+  axe: 'strength',
+  blunt: 'strength',
+  whip: 'strength',
+  dagger: 'agility',
+  spear: 'agility',
+  bow: 'agility',
+  crossbow: 'agility',
+  sling: 'agility',
+  staff: 'intelligence',
+});
+
+/** Характеристика удара того, что в правой руке; кулак — это сила. */
+export function weaponAttributeFor(item) {
+  return WEAPON_ATTRIBUTES[item?.weaponFamily] ?? 'strength';
+}
 
 export function deriveHeroStats(hero, equipment, items, skillOptions) {
   const byUid = itemMap(items);
@@ -215,15 +246,20 @@ export function deriveHeroStats(hero, equipment, items, skillOptions) {
    *
    * Most of an attribute's worth is the skills it unlocks, but a point that
    * changes nothing until some later purchase is a point the player cannot
-   * feel spending. So strength pushes the swing and the hero's own wind, agility
-   * the hands, all gently — one point in four, not one for one — and
-   * intelligence keeps doing what it always did for magic.
+   * feel spending. So the attribute of the weapon in hand pushes the swing
+   * (`WEAPON_ATTRIBUTES`), strength also adds wind, agility quickens the
+   * hands, and intelligence keeps doing what it always did for magic.
    */
   const attributes = hero.attributes ?? {};
   const strength = Math.max(0, (attributes.strength ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE);
   const agility = Math.max(0, (attributes.agility ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE);
+  const weaponAttribute = weaponAttributeFor(mainHand);
+  const weaponPoints = Math.max(
+    0,
+    (attributes[weaponAttribute] ?? ATTRIBUTE_BASELINE) - ATTRIBUTE_BASELINE,
+  );
   const attack = Math.max(1, Math.round(
-    (1 + hero.power + bonus.attack + Math.floor(strength / 4)) * hunger.attack,
+    (BASE_ATTACK + bonus.attack + Math.floor(weaponPoints * ATTRIBUTE_ATTACK)) * hunger.attack,
   ));
   const defense = Math.max(0, Math.round(bonus.defense * hunger.defense));
   return {

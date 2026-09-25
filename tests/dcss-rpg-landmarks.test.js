@@ -118,7 +118,7 @@ test('every landmark rolls only known outcome keys and each one is a real choice
           assert.ok(LANDMARK_OUTCOME_KEYS.includes(key), `${landmark.id}.${id}.${key}`);
         }
         const gain = (outcome.heal ?? 0) + (outcome.healRatio ?? 0) + (outcome.rewardGold ?? 0)
-          + (outcome.rewardPower ?? 0) + (outcome.rewardMaxHp ?? 0) + (outcome.cleanse ? 1 : 0);
+          + (outcome.rewardMaxHp ?? 0) + (outcome.cleanse ? 1 : 0);
         assert.ok(gain > 0, `${landmark.id}.${id} gives something back`);
       }
       const costs = rolled.map(([, outcome]) => (outcome.costGold ?? 0) + (outcome.damage ?? 0));
@@ -129,7 +129,9 @@ test('every landmark rolls only known outcome keys and each one is a real choice
   // Each landmark trades in its own currency.
   const fountain = findById('sunken-fountain');
   const rune = findById('warded-rune');
-  assert.equal(fountain.outcomes.find(({ id }) => id === 'toss').roll(3, { int: () => 0 }).rewardPower, 1);
+  // Скрытой «силы» больше нет: монета в фонтан покупает запас здоровья.
+  assert.equal(fountain.outcomes.find(({ id }) => id === 'toss').roll(3, { int: () => 0 }).rewardMaxHp, 4);
+  assert.ok(!LANDMARK_OUTCOME_KEYS.includes('rewardPower'), 'no landmark may grant hidden power');
   assert.equal(rune.outcomes.every(({ roll }) => (roll(5, { int: () => 0 }).costGold ?? 0) === 0), true, 'the rune never takes gold');
 });
 
@@ -174,7 +176,7 @@ test('этажи берут оба общих ориентира, и фонта�
   );
 });
 
-test('the fountain restores, buys strength and pays for a cold dive', () => {
+test('the fountain restores, buys lasting health and pays for a cold dive', () => {
   const { find } = landmarkFixture('sunken-fountain');
   const { costGold } = find.outcomes.toss;
   const drank = resolve(find, 'drink');
@@ -184,8 +186,8 @@ test('the fountain restores, buys strength and pays for a cold dive', () => {
   assert.equal(drank.state.gold, 100);
 
   const tossed = resolve(find, 'toss');
-  assert.equal(tossed.rewardPower, 1);
-  assert.equal(tossed.state.hero.power, 4);
+  assert.equal(tossed.rewardMaxHp, 4);
+  assert.equal(tossed.state.hero.power, 3, 'hidden power never moves');
   assert.equal(tossed.state.gold, 100 - costGold);
   assert.equal(resolve(find, 'toss', { gold: costGold - 1 }).reason, 'gold-required');
 
@@ -202,7 +204,8 @@ test('the fountain restores, buys strength and pays for a cold dive', () => {
 test('the rune pays in blood and noise, never in gold', () => {
   const { find } = landmarkFixture('warded-rune');
   const deciphered = resolve(find, 'decipher');
-  assert.equal(deciphered.rewardPower, 1);
+  assert.equal(deciphered.rewardMaxHp, 4);
+  assert.equal(deciphered.state.hero.power, 3, 'hidden power never moves');
   assert.ok(deciphered.damage > 0 && deciphered.costGold === 0);
   assert.equal(deciphered.state.gold, 100);
 
@@ -317,7 +320,6 @@ test('a landmark choice states its price and its payoff before it is taken', () 
         ['damage', `\u2212${outcome.damage} {heal}`],
         ['heal', `+${outcome.heal} {heal}`],
         ['rewardMaxHp', `+${outcome.rewardMaxHp} `],
-        ['rewardPower', `+${outcome.rewardPower} `],
       ]) {
         if ((outcome[field] ?? 0) > 0) assert.ok(ru.includes(needle), `${id}/${key}: ${field} is not on the button — «${ru}»`);
       }

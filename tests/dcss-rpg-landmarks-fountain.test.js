@@ -23,6 +23,7 @@ import {
   LANDMARK_OUTCOME_KEYS,
   MAX_FINDS_PER_FLOOR,
   createDungeonFinds,
+  crystalAwakeOnFloor,
   findById,
   findPresentation,
   findResultPresentation,
@@ -153,7 +154,7 @@ test('every floor places at most one landmark in its own quiet room without bloc
       const { drink, toss, dive } = altar.outcomes;
       assert.equal(drink.healRatio, 0.25);
       assert.equal(drink.status.id, 'wet');
-      assert.ok(toss.costGold > 0 && toss.rewardPower === 1);
+      assert.ok(toss.costGold > 0 && toss.rewardMaxHp === 4);
       assert.ok(dive.rewardGold > 0 && dive.damage > 0);
       assert.equal(dive.status.id, 'chilled');
     }
@@ -175,11 +176,14 @@ test('the landmark stream never moves the three core finds', () => {
   const level = { seed: 11, depth: 3, themeId: 'ashen-vault', grid: rows, rooms, exit: { x: 3, y: 3 }, surprises: [] };
   const coreOnly = createDungeonFinds({ level, rng: createRng(5) });
   const withLandmark = createDungeonFinds({ level, rng: createRng(5), landmarkRng: createRng(9) });
-  assert.equal(coreOnly.length, 3);
-  assert.equal(withLandmark.length, 4);
-  assert.deepEqual(withLandmark.slice(0, 3), coreOnly);
-  assert.equal(isLandmarkFind(withLandmark[3]), true);
-  assert.ok(coreOnly.every(({ roomIndex }) => roomIndex !== withLandmark[3].roomIndex));
+  // Три основные находки, но спящая кристальная жила на пол не выходит.
+  const awake = crystalAwakeOnFloor(level.seed, level.depth);
+  assert.equal(coreOnly.length, awake ? 3 : 2);
+  assert.equal(withLandmark.length, coreOnly.length + 1);
+  assert.deepEqual(withLandmark.slice(0, coreOnly.length), coreOnly);
+  const landmark = withLandmark.at(-1);
+  assert.equal(isLandmarkFind(landmark), true);
+  assert.ok(coreOnly.every(({ roomIndex }) => roomIndex !== landmark.roomIndex));
   assert.deepEqual(
     createDungeonFinds({ level, rng: createRng(5), landmarkRng: createRng(9) }),
     withLandmark,
@@ -259,9 +263,9 @@ test('глоток лечит долю настоящего запаса и не
   assert.equal(resolveFindInteraction({ ...input, action: 'defile' }).reason, 'action');
 });
 
-test('брошенная монета стоит золота и покупает твёрдость руки', () => {
+test('брошенная монета стоит золота и покупает запас здоровья', () => {
   const { find } = fountainFixture(19, 5);
-  const { costGold, rewardPower } = find.outcomes.toss;
+  const { costGold, rewardMaxHp } = find.outcomes.toss;
   const input = {
     find,
     resolvedFindIds: [],
@@ -274,9 +278,10 @@ test('брошенная монета стоит золота и покупае�
   const result = resolveFindInteraction(input);
   assert.equal(result.ok, true);
   assert.equal(result.costGold, costGold);
-  assert.equal(result.rewardPower, rewardPower);
+  assert.equal(result.rewardMaxHp, rewardMaxHp);
   assert.equal(result.state.gold, 3);
-  assert.equal(result.state.hero.power, input.hero.power + rewardPower);
+  assert.equal(result.state.hero.maxHp, 100 + rewardMaxHp);
+  assert.equal(result.state.hero.power, input.hero.power, 'скрытая сила не растёт');
   assert.equal(resolveFindInteraction({ ...input, gold: costGold - 1 }).reason, 'gold-required');
   assert.deepEqual(input.resolvedFindIds, []);
 });
@@ -313,7 +318,7 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
   const custom = {
     ...find,
     outcomes: {
-      drink: { rewardPower: 2, noise: 3 },
+      drink: { rewardMaxHp: 2, noise: 3 },
       toss: { costGold: 5, heal: 7 },
       dive: { damage: 1, rewardGold: 1 },
     },
@@ -328,11 +333,12 @@ test('the resolver executes rolled outcome data, so a new landmark is data rathe
     action: 'drink',
   });
   assert.equal(result.ok, true);
-  assert.equal(result.rewardPower, 2);
-  assert.equal(result.state.hero.power, 5);
+  assert.equal(result.rewardMaxHp, 2);
   assert.equal(result.noise, 3);
-  assert.match(landmarkResultSummary(result, 'ru'), /Сила \+2/);
-  assert.match(landmarkResultSummary(result, 'en'), /Power \+2/);
+  assert.match(landmarkResultSummary(result, 'ru'), /Максимум здоровья \+2/);
+  assert.match(landmarkResultSummary(result, 'en'), /Max health \+2/);
+  // Скрытой силы больше нет — такой исход не проходит проверку.
+  assert.equal(isLandmarkFind({ ...custom, outcomes: { ...custom.outcomes, drink: { rewardPower: 1 } } }), false);
 
   assert.equal(isLandmarkFind({ ...find, outcomes: { ...find.outcomes, drink: { bless: true } } }), false);
   assert.equal(isLandmarkFind({ ...find, outcomes: { pray: find.outcomes.pray } }), false);
@@ -421,7 +427,12 @@ test('a resolved altar survives reload inside the v34 find history and old saves
   const hydrated = hydrateDungeon(run);
   assert.equal(hydrated.finds.find(({ instanceId }) => instanceId === find.instanceId).resolved, true);
   const overflow = structuredClone(run);
-  overflow.floor.resolvedFindIds.push('find-1-99');
+  // Спящая жила оставляет этаж на одну находку короче, поэтому переполнение
+  // строится от предела, а не от числа находок этого этажа.
+  overflow.floor.resolvedFindIds = Array.from(
+    { length: MAX_FINDS_PER_FLOOR + 1 },
+    (_, index) => `find-1-${90 + index}`,
+  );
   assert.equal(validateRun(overflow), false, 'more IDs than a floor can hold is rejected');
 
   const legacy = createRun(4242);

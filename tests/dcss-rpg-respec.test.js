@@ -112,7 +112,7 @@ test('Фаннар называет цену и не обижается на о�
 test('адаптер применяет сброс и берёт билд забега, а не пустоту', async () => {
   const runtime = await readFile(new URL('../tools/dcss.js', import.meta.url), 'utf8');
   assert.match(runtime, /if \(result\.respec\) applyRespec\(\);/);
-  assert.match(runtime, /respecHero\(\{ level: hero\.level, build: run\.build \?\? null \}\)/);
+  assert.match(runtime, /respecHero\(\{ level: hero\.level, build: run\.build \?\? null, gifts: hero\.attributeGifts \}\)/);
   // Карточка Фаннара должна знать, сколько вложено, иначе цена будет нулевой.
   assert.match(runtime, /skills: hero\.skills,\s*\n\s*attributes: hero\.attributes,/);
 });

@@ -94,6 +94,7 @@ export const HELP_SECTIONS = Object.freeze([
       title: 'Развитие',
       entries: [
         entry('Уровень', 'Опыт за врагов даёт уровни, а каждый уровень — очко. Его можно вложить в характеристику или в навык.'),
+        entry('Урон', 'Удар растёт от оружия и от его характеристики: сила — мечи, топоры, дробящее; ловкость — кинжалы, копья, луки, пращи; интеллект — посохи. Больше урон ниоткуда не берётся.'),
         entry('Навыки', 'У каждого навыка три ранга. Старшие ранги ждут уровня героя, а некоторые — ещё силы, ловкости или интеллекта.'),
         entry('Магия', `Школа магии — тоже навык: каждый ранг открывает новые заклинания. Держать под рукой можно ${SPELL_SLOT_COUNT}.`),
         entry('Книги', 'Прочитанная книга поднимает навык до конца забега и не тратит очко.'),
@@ -103,6 +104,7 @@ export const HELP_SECTIONS = Object.freeze([
       title: 'Growth',
       entries: [
         entry('Level', 'Experience from enemies brings levels, and every level brings a point. Spend it on an attribute or a skill.'),
+        entry('Damage', 'A hit grows with the weapon and its attribute: strength for swords, axes and maces; agility for daggers, spears, bows and slings; intelligence for staves. Damage comes from nowhere else.'),
         entry('Skills', 'Each skill has three ranks. Higher ranks wait for the hero’s level, and some also for strength, agility or intelligence.'),
         entry('Magic', `A school of magic is a skill too: every rank opens new spells. You can keep ${SPELL_SLOT_COUNT} at hand.`),
         entry('Books', 'A book you read raises a skill for the rest of the run without spending a point.'),

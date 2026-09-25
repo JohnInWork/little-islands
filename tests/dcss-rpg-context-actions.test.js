@@ -24,7 +24,7 @@ test('one bilingual context model exposes object-specific actions', () => {
     target: { kind: 'find', id: 'crystal-vein', rewardGold: 7, rewardPower: 1, riskDamage: 0 },
     language: 'ru',
   });
-  assert.deepEqual(crystal.actions.map(({ id }) => id), ['extract']);
+  assert.deepEqual(crystal.actions.map(({ id }) => id), ['crystal-strength', 'crystal-agility', 'crystal-intelligence']);
 
   const grave = contextActionModel({
     target: { kind: 'find', id: 'forgotten-grave', rewardGold: 12, rewardPower: 0, riskDamage: 9 },

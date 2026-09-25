@@ -13,6 +13,7 @@ import {
   createActorEffects,
 } from './dcss-rpg-effects.js';
 import { BRANCH_EVENTS } from './dcss-rpg-branch-events.js';
+import { grantAttribute } from './dcss-rpg-attributes.js';
 import { cellStepDistance } from './dcss-rpg-geometry.js';
 import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 import { WATER_CELL } from './dcss-rpg-terrain.js';
@@ -35,6 +36,36 @@ const defineFind = (definition) =>
 
 /** Three core finds share one stream; landmarks use a second one. */
 export const CORE_FINDS_PER_FLOOR = 3;
+/**
+ * На скольких этажах из ста кристальная жила не спит.
+ *
+ * Иван 26.09.2026: кристалл даёт очко характеристики, «оно должно быть
+ * каким-то очень-очень редким». Раньше жила стояла почти на каждом этаже:
+ * основных находок три, и она — одна из трёх. Теперь в среднем одна за
+ * весь забег. Решает стабильный хэш этажа, а не общий генератор: порядок
+ * его бросков — контракт, и этажи не должны перестраиваться.
+ */
+export const CRYSTAL_FLOOR_CHANCE_PERCENT = 6;
+/** Три выбора кристалла: какую характеристику поднять на единицу. */
+export const CRYSTAL_ACTIONS = Object.freeze({
+  'crystal-strength': 'strength',
+  'crystal-agility': 'agility',
+  'crystal-intelligence': 'intelligence',
+});
+
+/** Тот же смеситель, что у сида этажа: этаж решает сам, без чужих бросков. */
+function floorHash(seed, salt) {
+  let value = ((seed >>> 0) ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
+  value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+  return (value ^ (value >>> 15)) >>> 0;
+}
+
+/** Проснулась ли жила на этом этаже. Одинаково при каждой загрузке. */
+export function crystalAwakeOnFloor(seed, depth) {
+  if (!Number.isInteger(depth) || depth < 1) return false;
+  return floorHash((Number(seed) || 0) + depth, 0x43525953) % 100 < CRYSTAL_FLOOR_CHANCE_PERCENT;
+}
 export const LANDMARKS_PER_FLOOR = 1;
 export const SECRETS_PER_FLOOR = 1;
 export const MAX_FINDS_PER_FLOOR = CORE_FINDS_PER_FLOOR + LANDMARKS_PER_FLOOR + SECRETS_PER_FLOOR;
@@ -51,7 +82,8 @@ export const LANDMARK_OUTCOME_KEYS = Object.freeze([
   'healRatio',
   'cleanse',
   'rewardGold',
-  'rewardPower',
+  // «rewardPower» здесь больше нет: скрытую силу убрали (Иван 26.09.2026),
+  // и ориентир, который попробует её выдать, не пройдёт проверку.
   'rewardMaxHp',
   'noise',
   'status',
@@ -91,13 +123,13 @@ export const FIND_CATALOG = Object.freeze([
     copy: {
       ru: {
         name: 'Живая кристальная жила',
-        action: 'Извлечь кристалл',
-        result: 'Сила героя выросла',
+        action: 'Коснуться кристалла',
+        result: 'Кристалл ушёл в героя',
       },
       en: {
         name: 'Living crystal vein',
-        action: 'Extract the crystal',
-        result: 'The hero grew stronger',
+        action: 'Touch the crystal',
+        result: 'The crystal sank into the hero',
       },
     },
   }),
@@ -144,7 +176,7 @@ export const FIND_CATALOG = Object.freeze([
     glyph: '\u2248',
     light: Object.freeze({ color: '#5ea9c4', radius: 1.8, beam: false }),
     // Water is the fountain's currency: drinking restores but soaks, a tossed
-    // coin buys lasting strength, and the coins on the bottom lie in the cold.
+    // coin buys lasting health, and the coins on the bottom lie in the cold.
     outcomes: [
       {
         id: 'drink',
@@ -154,7 +186,8 @@ export const FIND_CATALOG = Object.freeze([
         id: 'toss',
         roll: (depth, rng) => ({
           costGold: 8 + depth * 3 + rng.int(0, 3),
-          rewardPower: 1,
+          // Была скрытая «сила»; её больше нет — Иван 26.09.2026.
+          rewardMaxHp: 4,
         }),
       },
       {
@@ -178,7 +211,7 @@ export const FIND_CATALOG = Object.freeze([
         result: 'Фонтан ответил герою',
         results: {
           drink: 'Герой напился и вымок',
-          toss: 'Монета ушла на дно, рука стала твёрже',
+          toss: 'Монета ушла на дно, сердце забилось ровнее',
           dive: 'Монеты добыты, вода выстудила героя',
         },
       },
@@ -193,7 +226,7 @@ export const FIND_CATALOG = Object.freeze([
         result: 'The fountain answered the hero',
         results: {
           drink: 'The hero drank deep and came up soaked',
-          toss: 'The coin sank and the hero grew steadier',
+          toss: 'The coin sank and the heart beat steadier',
           dive: 'The coins were won and the water chilled the hero',
         },
       },
@@ -219,7 +252,7 @@ export const FIND_CATALOG = Object.freeze([
     outcomes: [
       {
         id: 'decipher',
-        roll: (depth, rng) => ({ rewardPower: 1, damage: 3 + depth + rng.int(0, 2) }),
+        roll: (depth, rng) => ({ rewardMaxHp: 4, damage: 3 + depth + rng.int(0, 2) }),
       },
       {
         id: 'attune',
@@ -388,7 +421,9 @@ function roomFindCells(level, room, occupied, avoided) {
 
 function outcomeFor(definition, depth, rng) {
   if (definition.id === 'crystal-vein') {
-    return { rewardGold: 2 + depth + rng.int(0, 2), rewardPower: 1, riskDamage: 0 };
+    // Золота кристалл больше не даёт, но бросок остаётся: порядок RNG — контракт.
+    rng.int(0, 2);
+    return { rewardGold: 0, rewardPower: 0, riskDamage: 0 };
   }
   if (definition.id === 'forgotten-grave') {
     return {
@@ -553,6 +588,9 @@ export function createDungeonFinds({
   const blueprints = shuffle(rng, [...CORE_FIND_CATALOG]);
   const targetCount = Math.min(CORE_FINDS_PER_FLOOR, roomEntries.length);
   const finds = [];
+  // Спящая жила занимает комнату, но на пол не выходит: так остальные
+  // находки, ориентиры и тайники стоят там же, где стояли всегда.
+  const crystalAwake = crystalAwakeOnFloor(level.seed ?? 0, level.depth);
 
   for (const { room, roomIndex } of roomEntries) {
     if (finds.length >= targetCount) break;
@@ -589,7 +627,7 @@ export function createDungeonFinds({
     usedRooms: new Set(finds.map(({ roomIndex }) => roomIndex)),
   });
   return [
-    ...finds,
+    ...finds.filter(({ id }) => id !== 'crystal-vein' || crystalAwake),
     ...landmarks,
     ...placeSecrets({
       level,
@@ -614,15 +652,14 @@ function validLandmarkOutcome(outcome) {
     healRatio = 0,
     cleanse = false,
     rewardGold = 0,
-    rewardPower = 0,
     rewardMaxHp = 0,
     noise = 0,
     status = null,
   } = outcome;
-  if (![costGold, damage, heal, rewardGold, rewardPower, rewardMaxHp, noise].every(Number.isInteger)) {
+  if (![costGold, damage, heal, rewardGold, rewardMaxHp, noise].every(Number.isInteger)) {
     return false;
   }
-  if (![costGold, damage, heal, rewardGold, rewardPower, rewardMaxHp, noise].every(isNonNegativeNumber)) {
+  if (![costGold, damage, heal, rewardGold, rewardMaxHp, noise].every(isNonNegativeNumber)) {
     return false;
   }
   if (!Number.isFinite(healRatio) || healRatio < 0 || healRatio > 1) return false;
@@ -668,13 +705,11 @@ const landmarkAction = (id, enabled = true, hint = '') => Object.freeze({ id, en
 
 const OUTCOME_COPY = Object.freeze({
   ru: Object.freeze({
-    power: 'сила удара',
     limit: 'к пределу здоровья',
     cleanse: 'снимает эффекты',
     noise: 'шум на весь этаж',
   }),
   en: Object.freeze({
-    power: 'attack',
     limit: 'to the health cap',
     cleanse: 'clears effects',
     noise: 'heard across the floor',
@@ -708,7 +743,6 @@ export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = f
   const cost = outcome.costGold ?? 0;
   if (cost > 0 && !onlyGains) parts.push(`\u2212${cost} {gold}`);
   if ((outcome.rewardGold ?? 0) > 0) parts.push(`+${outcome.rewardGold} {gold}`);
-  if ((outcome.rewardPower ?? 0) > 0) parts.push(`+${outcome.rewardPower} ${copy.power}`);
   if ((outcome.rewardMaxHp ?? 0) > 0) parts.push(`+${outcome.rewardMaxHp} ${copy.limit}`);
   // A share of the cap reads as a share; a flat number reads as a number.
   if ((outcome.healRatio ?? 0) > 0) parts.push(`+${Math.round(outcome.healRatio * 100)}% {heal}`);
@@ -726,7 +760,7 @@ export function landmarkOutcomeSummary(outcome, language = 'ru', { onlyGains = f
 /** A free action whose only effect is restoration has no consequence when nothing needs restoring. */
 function outcomeOnlyRestores(outcome) {
   return (outcome.heal ?? 0) + (outcome.healRatio ?? 0) > 0
-    && !(outcome.rewardGold || outcome.rewardPower || outcome.rewardMaxHp)
+    && !(outcome.rewardGold || outcome.rewardMaxHp)
     && (outcome.costGold ?? 0) === 0;
 }
 
@@ -822,7 +856,6 @@ function resolveLandmarkInteraction({
   const heal = Math.max(0, hp - wounded);
   const cleansing = outcome.cleanse ? clearActorEffects(effects) : null;
   const rewardGold = outcome.rewardGold ?? 0;
-  const rewardPower = outcome.rewardPower ?? 0;
   return Object.freeze({
     ok: true,
     definition,
@@ -832,7 +865,6 @@ function resolveLandmarkInteraction({
     costGold,
     rewardGold,
     destroyedGold: 0,
-    rewardPower,
     rewardMaxHp,
     cleansed: Object.freeze(cleansing ? [...cleansing.cleared] : []),
     status: outcome.status ? Object.freeze({ ...outcome.status }) : null,
@@ -843,7 +875,6 @@ function resolveLandmarkInteraction({
         ...hero,
         hp,
         maxHp: baseMaxHp + rewardMaxHp,
-        power: hero.power + rewardPower,
         effects: Object.freeze(cleansing ? cleansing.effects : effects),
       }),
       gold: gold - costGold + rewardGold,
@@ -862,7 +893,6 @@ export function landmarkResultSummary(result, language = 'ru') {
     parts.push(ru ? `максимум здоровья +${result.rewardMaxHp}` : `max health +${result.rewardMaxHp}`);
   }
   if (result.cleansed.length > 0) parts.push(ru ? 'статусы сняты' : 'effects cleared');
-  if (result.rewardPower > 0) parts.push(ru ? `сила +${result.rewardPower}` : `power +${result.rewardPower}`);
   if (result.costGold > 0) parts.push(ru ? `золото −${result.costGold}` : `gold −${result.costGold}`);
   if (result.rewardGold > 0) parts.push(ru ? `золото +${result.rewardGold}` : `gold +${result.rewardGold}`);
   if (result.damage > 0) parts.push(ru ? `урон ${result.damage}` : `damage ${result.damage}`);
@@ -918,7 +948,6 @@ export function resolveFindInteraction({
     !Number.isInteger(hero.x) ||
     !Number.isInteger(hero.y) ||
     !Number.isFinite(hero.hp) ||
-    !Number.isFinite(hero.power) ||
     !Number.isFinite(gold)
   ) return rejected('invalid');
   if (runStatus !== 'playing' || hero.hp <= 0) return rejected('inactive');
@@ -946,13 +975,12 @@ export function resolveFindInteraction({
       actor,
     });
   }
+  if (find.id === 'crystal-vein') return resolveCrystalInteraction({ find, resolvedFindIds, hero, gold, action });
   const defaultActions = {
-    'crystal-vein': 'extract',
     'forgotten-grave': 'defile',
     'buried-stash': 'dig',
   };
   const allowedActions = {
-    'crystal-vein': ['extract'],
     'forgotten-grave': ['defile'],
     'buried-stash': ['dig'],
   };
@@ -969,14 +997,50 @@ export function resolveFindInteraction({
     damage,
     rewardGold,
     destroyedGold: 0,
-    rewardPower: find.rewardPower,
+    rewardPower: 0,
     state: Object.freeze({
       hero: Object.freeze({
         ...hero,
         hp: hero.hp - damage,
-        power: hero.power + find.rewardPower,
       }),
       gold: gold + rewardGold,
+      resolvedFindIds: Object.freeze([...resolvedFindIds, find.instanceId]),
+    }),
+  });
+}
+
+/**
+ * Кристалл: одно очко в характеристику, которую выбрал игрок.
+ *
+ * Очко — подарок, а не уровень: `spent` и копилка очков не растут, сброс у
+ * жреца его не отнимает (см. `grantAttribute`). Без выбора кристалл не
+ * трогается — карточка всегда показывает три кнопки.
+ */
+function resolveCrystalInteraction({ find, resolvedFindIds, hero, gold, action }) {
+  const attribute = CRYSTAL_ACTIONS[action];
+  if (!attribute) return rejected('action');
+  const granted = grantAttribute({
+    attributes: hero.attributes,
+    gifts: hero.attributeGifts,
+    attribute,
+  });
+  if (!granted.ok) return rejected(granted.reason === 'at-maximum' ? 'at-maximum' : 'invalid');
+  return Object.freeze({
+    ok: true,
+    definition: findById('crystal-vein'),
+    action,
+    damage: 0,
+    rewardGold: 0,
+    destroyedGold: 0,
+    rewardPower: 0,
+    rewardAttribute: attribute,
+    state: Object.freeze({
+      hero: Object.freeze({
+        ...hero,
+        attributes: granted.attributes,
+        attributeGifts: granted.gifts,
+      }),
+      gold,
       resolvedFindIds: Object.freeze([...resolvedFindIds, find.instanceId]),
     }),
   });
