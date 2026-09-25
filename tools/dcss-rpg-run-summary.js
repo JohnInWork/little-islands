@@ -24,6 +24,7 @@ export const RUN_END_SOURCE_NAMES = Object.freeze({
   'spell:storm': pair('Собственная молния', 'Own lightning'),
   bat: pair('Летучая мышь', 'Bat'),
   'chest-mimic': pair('Мимик', 'Mimic'),
+  'tomb-mummy': pair('Мумия', 'Mummy'),
   'zombie-rat': pair('Зомби-крыса', 'Zombie rat'),
   gnoll: pair('Гнолл', 'Gnoll'),
   orc: pair('Орк', 'Orc'),

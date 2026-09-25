@@ -16,6 +16,7 @@ import { BRANCH_EVENTS } from './dcss-rpg-branch-events.js';
 import { cellStepDistance } from './dcss-rpg-geometry.js';
 import { dungeonThemeById } from './dcss-rpg-room-plans.js';
 import { WATER_CELL } from './dcss-rpg-terrain.js';
+import { TOMB_MUMMY_NOISE } from './dcss-rpg-tomb.js';
 
 const freezeCopy = (value) => Object.freeze({ ...value });
 
@@ -115,12 +116,14 @@ export const FIND_CATALOG = Object.freeze([
         action: 'Осквернить древнюю гробницу',
         unsafe: 'Слишком опасно при таком здоровье',
         result: 'Проклятие ранило героя, но тайник найден',
+        awakened: 'Из гробницы поднимается мумия!',
       },
       en: {
         name: 'Ancient tomb',
         action: 'Defile the ancient tomb',
         unsafe: 'Too dangerous at this health',
         result: 'The curse wounded the hero, but the cache was found',
+        awakened: 'A mummy rises from the tomb!',
       },
     },
   }),
@@ -962,6 +965,9 @@ export function resolveFindInteraction({
 
   const damage = Math.max(0, Math.min(find.riskDamage, hero.hp - 1));
   const rewardGold = find.rewardGold;
+  // Гробница, под плитой которой лежит мумия (`dcss-rpg-tomb.js`), будит её.
+  // Решено при генерации этажа, поэтому здесь нет ни броска, ни случайности.
+  const awakensMummy = find.id === 'forgotten-grave' && typeof find.mummyMonsterId === 'string';
   return Object.freeze({
     ok: true,
     definition,
@@ -970,6 +976,9 @@ export function resolveFindInteraction({
     rewardGold,
     destroyedGold: 0,
     rewardPower: find.rewardPower,
+    awakensMummy,
+    noise: awakensMummy ? TOMB_MUMMY_NOISE : 0,
+    activatedMonsterIds: Object.freeze(awakensMummy ? [find.mummyMonsterId] : []),
     state: Object.freeze({
       hero: Object.freeze({
         ...hero,
@@ -995,5 +1004,8 @@ export function findResultPresentation(result, find, language = 'ru') {
       summary: landmarkResultSummary(result, language),
     });
   }
-  return Object.freeze({ message: presentation.result, unsafe: presentation.unsafe ?? '' });
+  return Object.freeze({
+    message: result?.awakensMummy && presentation.awakened ? presentation.awakened : presentation.result,
+    unsafe: presentation.unsafe ?? '',
+  });
 }

@@ -9790,12 +9790,20 @@ function interactNearbyFind(preferredFind = null, action = null, { magicKey = fa
         : result.rewardGold,
   );
   if (result.noise > 0) alertNearbyMonsters(find.x, find.y, result.noise);
+  // Плита отъехала, и хозяин гробницы встаёт (`dcss-rpg-tomb.js`).
+  if (result.awakensMummy && awakened.length > 0) {
+    playSound('hit-heavy');
+    beginHitStop(0.08);
+  }
   const rewardCopy = itemDetailLanguage === 'ru'
     ? `${result.rewardGold} золота получено${result.destroyedGold > 0 ? `, ${result.destroyedGold} уничтожено` : ''}`
     : `${result.rewardGold} gold recovered${result.destroyedGold > 0 ? `, ${result.destroyedGold} destroyed` : ''}`;
   findAnnouncement.textContent = resultPresentation?.message
     ? awakened.length > 0
-      ? resultPresentation.message
+      // Золото гробница отдаёт и с мумией, поэтому о нём говорится тоже.
+      ? result.awakensMummy
+        ? `${resultPresentation.message} ${rewardCopy}`
+        : resultPresentation.message
       : `${resultPresentation.message}. ${rewardCopy}`
     : presentation.result;
   updateHud();

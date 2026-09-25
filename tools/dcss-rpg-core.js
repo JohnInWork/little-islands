@@ -130,6 +130,7 @@ import {
 } from './dcss-rpg-chest-containers.js';
 import { branchDifficulty, branchGateFor } from './dcss-rpg-branch-gates.js';
 import { RARE_ENCOUNTER_MIN_DISTANCE, rollRareEncounter } from './dcss-rpg-rare-encounters.js';
+import { tombMummySpawn } from './dcss-rpg-tomb.js';
 import {
   CHASM_CELL,
   carveChasm,
@@ -1425,6 +1426,37 @@ export function generateDungeon({
     });
   })();
 
+  /**
+   * Мумия под плитой гробницы (`dcss-rpg-tomb.js`). Кладётся последней и по
+   * хешу сида, а не из общего потока: ни одна прежняя расстановка этажа от
+   * неё не сдвигается. Спит, пока гробницу не вскрыли (`activationFindId`).
+   */
+  let floorFinds = roomContent.finds;
+  {
+    const taken = new Set([
+      `${spawn.x},${spawn.y}`,
+      `${exit.x},${exit.y}`,
+      ...(sanctuaryCell ? [`${sanctuaryCell.x},${sanctuaryCell.y}`] : []),
+      ...(branchGate ? [`${branchGate.x},${branchGate.y}`] : []),
+      ...roomContent.events.map(({ x, y }) => `${x},${y}`),
+      ...roomContent.finds.map(({ x, y }) => `${x},${y}`),
+      ...roomContent.merchants.map(({ x, y }) => `${x},${y}`),
+      ...floorMonsters.map(({ x, y }) => `${x},${y}`),
+      ...passiveCreatures.map(({ x, y }) => `${x},${y}`),
+      ...loot.map(({ x, y }) => `${x},${y}`),
+      ...doorPlan.doors.map(({ x, y }) => `${x},${y}`),
+    ]);
+    for (const grave of roomContent.finds) {
+      const mummy = tombMummySpawn({ seed, depth, branch, grid, find: grave, taken });
+      if (!mummy) continue;
+      taken.add(`${mummy.x},${mummy.y}`);
+      floorMonsters.push({ ...mummy });
+      floorFinds = floorFinds.map((find) => (
+        find.instanceId === grave.instanceId ? { ...find, mummyMonsterId: mummy.instanceId } : find
+      ));
+    }
+  }
+
   return {
     branchGate,
     rareEncounter,
@@ -1457,7 +1489,7 @@ export function generateDungeon({
     events: roomContent.events,
     monsters: floorMonsters,
     passiveCreatures,
-    finds: roomContent.finds,
+    finds: floorFinds,
     loot,
     roomPlans,
     roomEncounters: roomContent.encounters,
@@ -2488,7 +2520,7 @@ function isFiniteInteger(value, min, max) {
  * save standing on a floor that had one alive.
  */
 const MONSTER_INSTANCE_ID_PATTERN = (depth) => (
-  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+|rare|thief)$`)
+  new RegExp(`^monster-${depth}-(?:\\d+|boss|water-\\d+|chapter-\\d+|inn-\\d+|rare|thief|mummy)$`)
 );
 
 /**

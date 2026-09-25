@@ -506,9 +506,20 @@ export function createMonsterStates(level, tileSize = 64) {
     const threat = monsterThreatAtDepth(definition, level.depth, scaling);
     const bossHpMultiplier = definition.boss ? scaling.boss.hpMultiplier : 1;
     const bossDamageMultiplier = definition.boss ? scaling.boss.damageMultiplier : 1;
+    // Существо с `statFloorDepth` не бывает слабее, чем на этой глубине: так
+    // мумию из гробницы не смягчает вход в подземелье. Темп — по этажу.
+    const statScaling = Number.isInteger(definition.statFloorDepth)
+      && definition.statFloorDepth > (scaling.depth ?? level.depth)
+      ? floorScaling(
+        definition.statFloorDepth,
+        scaling.version,
+        scaling.difficulty,
+        scaling.lootAbundance,
+      )
+      : scaling;
     const maxHp = Math.max(
       1,
-      Math.round(definition.hp * scaling.monsters.hpMultiplier * bossHpMultiplier),
+      Math.round(definition.hp * statScaling.monsters.hpMultiplier * bossHpMultiplier),
     );
     return {
       ...definition,
@@ -530,9 +541,9 @@ export function createMonsterStates(level, tileSize = 64) {
       maxHp,
       damage: Math.max(
         1,
-        Math.round(definition.damage * scaling.monsters.damageMultiplier * bossDamageMultiplier),
+        Math.round(definition.damage * statScaling.monsters.damageMultiplier * bossDamageMultiplier),
       ),
-      xp: Math.max(1, Math.round(definition.xp * scaling.monsters.xpMultiplier)),
+      xp: Math.max(1, Math.round(definition.xp * statScaling.monsters.xpMultiplier)),
       speed: threat.moveSpeed,
       attackRate: threat.attackRate,
       vision: threat.vision,
